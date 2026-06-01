@@ -1,0 +1,70 @@
+---
+description: Project organization and architecture rules for the Vantage Admin app
+alwaysApply: true
+---
+
+# Vantage Admin Project Organization
+
+`vantage-admin` is actively being built as a separate Next.js 16 App Router application for the Vantage Movers owner/admin dashboard. Preserve the current architecture and keep new work organized by ownership boundary.
+
+## Current Architecture
+
+- `app/` owns App Router pages, route groups, route handlers, and the Next 16 `proxy.ts` auth entrypoint.
+- `app/(auth)/` owns owner login pages; `app/(dashboard)/` owns protected dashboard pages and layouts.
+- `app/api/auth/` owns local admin auth route handlers only.
+- `app/api/proxy/[...path]/` owns the authenticated local proxy to `vantage-main-server`; it must never trust browser-supplied `x-api-secret`, `authorization`, or `cookie` headers.
+- `components/ui/` contains shadcn-compatible primitives; `components/layout/` contains shell, login, global search, database scope, and navigation UI.
+- `components/filters/`, `components/data-table/`, and `components/record-detail/` contain reusable dashboard primitives only; model-specific table/page behavior belongs in later page or feature modules.
+- `lib/env/` validates server environment; `lib/db/` owns the admin Mongo connection; `lib/utils.ts` owns shared UI utilities.
+- `lib/api/` owns frontend API types, filter/query-string utilities, URL state helpers, and browser CSV download helpers.
+- `lib/query/` owns TanStack Query provider setup and stable query keys.
+- `lib/constants/` owns frontend domain constants that mirror backend config and current Google Forms dropdowns.
+- `server/auth/`, `server/audit/`, and `server/models/` own server-only auth, audit, and admin collection logic.
+- `server/vantage-api/` owns the server-only Vantage API client, response parsing, proxy URL construction, and typed API errors.
+- `scripts/` owns operational scripts such as seeding the first admin user.
+- `tests/` and colocated `*.test.ts` files cover focused behavior with Node's built-in test runner.
+
+## Backend Admin API Contract
+
+- `vantage-main-server` now exposes admin read/search/export endpoints under `/api/v1/admin/...`; the admin UI should reach them only through local `/api/proxy/...`.
+- Browse endpoints return `{ ok: true, data: { items, page, limit, total, has_next_page } }`; detail endpoints return `{ ok: true, data }`; errors return `{ ok: false, error, issues? }`.
+- CSV export endpoints return `Content-Type: text/csv` and `Content-Disposition: attachment; filename="...csv"`; `lib/api/csv.ts` should handle browser downloads from proxy responses.
+- Implemented backend endpoints for Unit 5 UI work:
+  - `GET /api/v1/admin/form-leads` and `GET /api/v1/admin/form-leads/:id`
+  - `GET /api/v1/admin/call-leads` and `GET /api/v1/admin/call-leads/:id`
+  - `GET /api/v1/admin/booked-leads` and `GET /api/v1/admin/booked-leads/:id`
+  - `GET /api/v1/admin/cancelled-leads` and `GET /api/v1/admin/cancelled-leads/:id`
+  - `GET /api/v1/admin/customers` and `GET /api/v1/admin/customers/:id`
+  - `GET /api/v1/admin/agents` and `GET /api/v1/admin/agents/:id`
+  - `GET /api/v1/admin/search`
+  - `GET /api/v1/admin/exports/form-leads.csv`
+  - `GET /api/v1/admin/exports/call-leads.csv`
+  - `GET /api/v1/admin/exports/booked-leads.csv`
+  - `GET /api/v1/admin/exports/cancelled-leads.csv`
+  - `GET /api/v1/admin/exports/customers.csv`
+  - `GET /api/v1/admin/exports/agents.csv`
+- Common query params match `lib/api/filters.ts`: `database_scope`, `q`, `from`, `to`, `date_field`, model-specific filters, `limit`, `page`, `sort`, and `direction`.
+- `database_scope=production|historical` is valid for browse and detail. `database_scope=combined` is supported for global search and export-style reads; detail routes reject combined scope.
+- Historical records from the backend are read-only. UI code must hide mutation actions in historical scope and must not add delete actions in any scope.
+- Existing write workflows should call the established public v1 write endpoints through the proxy so booking, cancellation, and Google Sheet sync side effects remain owned by `vantage-main-server`.
+
+## Ownership Boundaries
+
+- `vantage-admin` owns admin login, sessions, audit logs, UI, route handlers, TanStack Query state, frontend constants, and the server-only proxy to `vantage-main-server`.
+- `vantage-main-server` owns operational data validation, booking/cancellation business rules, Google Sheet sync, analytics aggregation, CSV exports, and production/historical business database access.
+- Do not read from or write to `vantagemovers` or `vantagemovershistorical` directly from `vantage-admin`; all operational reads, writes, analytics, and exports go through `vantage-main-server`.
+- Never expose `VANTAGE_API_SECRET` to client components, browser requests, or `NEXT_PUBLIC_*` variables.
+- Browser code calls local `/api/proxy/...` routes only; only `server/vantage-api/client.ts` may attach `x-api-secret`.
+
+## Quality Practices
+
+- Keep server-only code out of client components; use route handlers or `server/` modules for secrets, Mongo access, and auth checks.
+- Keep `server/vantage-api/client.ts` marked server-only; put testable pure parsing or URL helpers in adjacent modules when needed.
+- Validate proxy paths so requests stay within `VANTAGE_API_BASE_URL`; never allow absolute or protocol-relative proxy targets.
+- Proxy routes must require a verified admin session and should audit mutating requests and CSV/export requests without letting audit failures mask successful backend responses.
+- Prefer small focused modules over broad utility files, and place code in the folder that owns the behavior.
+- Use Next 16 `proxy.ts`, not `middleware.ts`, for request-boundary auth logic.
+- Keep operational pages server-side filtered, sorted, and paginated when they are implemented.
+- Use `lib/api/filters.ts` for URL-synced filters and pagination conventions; use `lib/query/keys.ts` for cache keys and invalidation targets.
+- Preserve no-delete and historical-read-only rules throughout v1.
+- After substantive changes, run `pnpm lint`, `pnpm typecheck`, and relevant tests.
