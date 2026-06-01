@@ -155,6 +155,13 @@ export async function createBookingFromSource(body: Record<string, unknown>) {
   });
 }
 
+export async function createReferralBooking(body: Record<string, unknown>) {
+  return requestJson<unknown>(proxyUrl("api/v1/referral-bookings"), {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export async function createCancellation(body: Record<string, unknown>) {
   return requestJson<unknown>(proxyUrl("api/v1/cancelled-leads"), {
     method: "POST",

@@ -8,6 +8,7 @@ const navigation = [
   { label: "Form Leads", href: "/form-leads" },
   { label: "Call Leads", href: "/call-leads" },
   { label: "Bookings", href: "/bookings" },
+  { label: "Referral Booking", href: "/bookings/referral/new" },
   { label: "Cancellations", href: "/cancellations" },
   { label: "Customers", href: "/customers" },
   { label: "Agents", href: "/agents" },

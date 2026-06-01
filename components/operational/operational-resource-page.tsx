@@ -315,6 +315,10 @@ function getValue(record: AdminRecord, path: string): unknown {
   }, record);
 }
 
+function isReferralBooking(record: AdminRecord | null | undefined): boolean {
+  return record?.is_referral_booking === true;
+}
+
 function formatDate(value: unknown): string {
   if (!value) {
     return "-";
@@ -348,7 +352,10 @@ function formatPlain(value: unknown): React.ReactNode {
 }
 
 function formatCell(record: AdminRecord, column: ColumnConfig) {
-  const value = getValue(record, column.path);
+  let value = getValue(record, column.path);
+  if ((value === null || value === undefined || value === "") && column.path === "customer.full_name") {
+    value = getValue(record, "customer_name");
+  }
   if (column.format === "date") {
     return formatDate(value);
   }
@@ -523,7 +530,10 @@ function WorkflowActions({
   record: AdminRecord;
 }) {
   const canBook = uiResource === "form-leads" || uiResource === "call-leads";
-  const canCancel = uiResource === "bookings" || uiResource === "form-leads" || uiResource === "call-leads";
+  const canCancel =
+    (uiResource === "bookings" && !isReferralBooking(record)) ||
+    uiResource === "form-leads" ||
+    uiResource === "call-leads";
   if (!canBook && !canCancel) {
     return null;
   }
@@ -583,7 +593,7 @@ function DetailPanel({
   });
   const record = detailQuery.data ?? selected;
   const isProduction = effectiveScope === "production";
-  const editableResource = resource === "agents" ? null : resource;
+  const editableResource = resource === "agents" || isReferralBooking(record) ? null : resource;
 
   return (
     <SidePanel
@@ -687,16 +697,17 @@ function buildColumns(
       key: "__cancel",
       header: "",
       className: "w-px",
-      cell: (item) => (
-        <Link
-          href={`/cancellations/new?${getCancellationQuery(resource, item)}`}
-          onClick={(event) => event.stopPropagation()}
-          className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-input bg-background px-3 text-xs font-semibold hover:bg-muted"
-        >
-          <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
-          Cancel
-        </Link>
-      ),
+      cell: (item) =>
+        isReferralBooking(item) ? null : (
+          <Link
+            href={`/cancellations/new?${getCancellationQuery(resource, item)}`}
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-input bg-background px-3 text-xs font-semibold hover:bg-muted"
+          >
+            <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+            Cancel
+          </Link>
+        ),
     });
   }
 
@@ -757,6 +768,15 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
             >
                 <PlusCircle className="h-4 w-4" aria-hidden="true" />
                 New booking
+            </Link>
+          ) : null}
+          {resource === "bookings" ? (
+            <Link
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+              href="/bookings/referral/new"
+            >
+                <PlusCircle className="h-4 w-4" aria-hidden="true" />
+                New referral booking
             </Link>
           ) : null}
           {resource === "cancellations" ? (
@@ -840,7 +860,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
                 Start booking
             </Link>
           ) : null}
-          {(resource === "bookings" || resource === "form-leads" || resource === "call-leads") ? (
+          {((resource === "bookings" && !isReferralBooking(selected)) || resource === "form-leads" || resource === "call-leads") ? (
             <Link
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
               href={`/cancellations/new?${getCancellationQuery(resource, selected)}`}

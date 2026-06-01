@@ -41,6 +41,7 @@ export const SOURCE_LABELS = [
   "Best Relocation Inbounds",
   "Main Site Forms",
   "Main Site Inbounds",
+  "referral",
 ] as const;
 
 export const SOURCE_LABEL_TO_COMPANY = {
