@@ -13,6 +13,10 @@ import { AGENT_OPTIONS, MERCHANT_OPTIONS, SOURCE_COMPANY_OPTIONS } from "@/lib/c
 import { queryKeys } from "@/lib/query/keys";
 
 type LeadType = "FormLead" | "CallLead";
+type FormMessage = {
+  tone: "success" | "error" | "info";
+  text: string;
+};
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -23,13 +27,17 @@ function asNumber(value: FormDataEntryValue | null): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function getString(formData: FormData, name: string): string {
+  return String(formData.get(name) ?? "").trim();
+}
+
 export function BookingForm() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [leadType, setLeadType] = useState<LeadType>(
     searchParams.get("lead_type") === "CallLead" ? "CallLead" : "FormLead",
   );
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<FormMessage | null>(null);
   const mutation = useMutation({
     mutationFn: createBookingFromSource,
     onSuccess: async () => {
@@ -40,15 +48,20 @@ export function BookingForm() {
         queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.auditLog.all }),
       ]);
-      setMessage("Booking created. The backend handled booking rules and sheet sync side effects.");
+      setMessage({
+        tone: "success",
+        text: "Booking created. The backend handled booking rules and sheet sync side effects.",
+      });
     },
-    onError: (error) => setMessage(error instanceof Error ? error.message : "Booking failed."),
+    onError: (error) =>
+      setMessage({
+        tone: "error",
+        text: error instanceof Error ? `Booking failed: ${error.message}` : "Booking failed. No booking was created.",
+      }),
   });
   const initial = useMemo(
     () => ({
       form_lead_id: searchParams.get("lead_id") ?? "",
-      job_no: searchParams.get("job_hint") ?? "",
-      call_job_no: searchParams.get("call_job_no") ?? "",
       call_phone_number: searchParams.get("call_phone_number") ?? "",
     }),
     [searchParams],
@@ -57,44 +70,89 @@ export function BookingForm() {
   return (
     <form
       className="space-y-5"
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
-        const binder = asNumber(formData.get("binder_amount"));
-        const splitAgent = String(formData.get("split_agent") ?? "").trim();
+        const bookDate = getString(formData, "book_date");
+        const agent = getString(formData, "agent");
+        const merchant = getString(formData, "merchant");
+        const binderAmount = getString(formData, "binder_amount");
+        const depositAmount = getString(formData, "deposit_amount");
+        const binder = asNumber(binderAmount);
+        const deposit = asNumber(depositAmount);
+        const jobNo = getString(formData, leadType === "FormLead" ? "job_no" : "call_job_no");
+        const formLeadId = getString(formData, "form_lead_id");
+        const callPhoneNumber = getString(formData, "call_phone_number");
+        const missingFields = [
+          !bookDate ? "book date" : null,
+          !agent ? "primary agent" : null,
+          !merchant ? "merchant" : null,
+          !binderAmount ? "binder amount" : null,
+          !depositAmount ? "deposit amount" : null,
+          !jobNo ? "job number" : null,
+          leadType === "FormLead" && !formLeadId ? "form lead Mongo ID" : null,
+          leadType === "CallLead" && !callPhoneNumber ? "call lead phone number" : null,
+        ].filter(Boolean);
+
+        if (missingFields.length > 0) {
+          setMessage({
+            tone: "error",
+            text: `Please enter the required ${missingFields.join(", ")} before creating the booking.`,
+          });
+          return;
+        }
+
+        if (!Number.isFinite(Number(binderAmount)) || !Number.isFinite(Number(depositAmount))) {
+          setMessage({
+            tone: "error",
+            text: "Binder and deposit amounts must be valid numbers.",
+          });
+          return;
+        }
+
+        if (binder < 0 || deposit < 0) {
+          setMessage({
+            tone: "error",
+            text: "Binder and deposit amounts cannot be negative.",
+          });
+          return;
+        }
+
+        const splitAgent = getString(formData, "split_agent");
         const base = {
           lead_type: leadType,
-          book_date: String(formData.get("book_date") ?? ""),
-          agent: String(formData.get("agent") ?? ""),
+          book_date: bookDate,
+          agent,
           split_agent: splitAgent || undefined,
           binder_amount: binder,
-          deposit_amount: asNumber(formData.get("deposit_amount")),
-          merchant: String(formData.get("merchant") ?? ""),
-          source_company: String(formData.get("source_company") ?? "") || undefined,
+          deposit_amount: deposit,
+          merchant,
+          source_company: getString(formData, "source_company") || undefined,
         };
         const payload =
           leadType === "FormLead"
             ? {
                 ...base,
-                form_lead_id: String(formData.get("form_lead_id") ?? "").trim(),
-                job_no: String(formData.get("job_no") ?? "").trim(),
+                form_lead_id: formLeadId,
+                job_no: jobNo,
               }
             : {
                 ...base,
-                call_job_no: String(formData.get("call_job_no") ?? "").trim() || undefined,
-                call_phone_number: String(formData.get("call_phone_number") ?? "").trim() || undefined,
+                call_job_no: jobNo,
+                call_phone_number: callPhoneNumber,
               };
 
         setMessage(null);
         mutation.mutate(payload);
       }}
     >
-      {message ? <FeedbackMessage tone={mutation.isError ? "error" : "success"}>{message}</FeedbackMessage> : null}
+      {message ? <FeedbackMessage tone={message.tone}>{message.text}</FeedbackMessage> : null}
 
       <section className="rounded-lg border bg-background p-4">
         <h2 className="text-sm font-semibold">1. Lead Source</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Start from a selected lead or fill this in globally. Form leads use Mongo ID plus job number; call leads use job number or phone.
+          Start from a selected lead or fill this in globally. Selected form leads prefill only the Mongo ID; selected call leads prefill only the phone number. Job number is always entered manually.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <FilterField label="Lead type">
@@ -104,7 +162,10 @@ export function BookingForm() {
                 { value: "FormLead", label: "Form Lead" },
                 { value: "CallLead", label: "Call Lead" },
               ]}
-              onChange={(value) => setLeadType(value === "CallLead" ? "CallLead" : "FormLead")}
+              onChange={(value) => {
+                setLeadType(value === "CallLead" ? "CallLead" : "FormLead");
+                setMessage(null);
+              }}
             />
           </FilterField>
           {leadType === "FormLead" ? (
@@ -113,16 +174,16 @@ export function BookingForm() {
                 <Input name="form_lead_id" defaultValue={initial.form_lead_id} required />
               </FilterField>
               <FilterField label="Job number">
-                <Input name="job_no" defaultValue={initial.job_no} required />
+                <Input name="job_no" required />
               </FilterField>
             </>
           ) : (
             <>
               <FilterField label="Call job number">
-                <Input name="call_job_no" defaultValue={initial.call_job_no} />
+                <Input name="call_job_no" required />
               </FilterField>
               <FilterField label="Call phone number">
-                <Input name="call_phone_number" defaultValue={initial.call_phone_number} />
+                <Input name="call_phone_number" defaultValue={initial.call_phone_number} required />
               </FilterField>
             </>
           )}

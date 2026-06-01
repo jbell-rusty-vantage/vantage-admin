@@ -393,17 +393,10 @@ function getBookingQuery(resource: UiResource, record: AdminRecord) {
   if (resource === "form-leads") {
     params.set("lead_type", "FormLead");
     params.set("lead_id", id);
-    const ref = getValue(record, "ref_no");
-    const refValue = ref ? String(ref).trim() : "";
-    if (refValue && refValue.toLowerCase() !== "not provided") {
-      params.set("job_hint", refValue);
-    }
   }
   if (resource === "call-leads") {
     params.set("lead_type", "CallLead");
-    const job = getValue(record, "job_no");
     const phone = getValue(record, "phone_number");
-    if (job) params.set("call_job_no", String(job));
     if (phone) params.set("call_phone_number", String(phone));
   }
   return params.toString();
