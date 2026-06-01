@@ -12,6 +12,7 @@ const navigation = [
   { label: "Customers", href: "/customers" },
   { label: "Agents", href: "/agents" },
   { label: "Analytics", href: "/analytics" },
+  { label: "Agent Sales Report", href: "/reports/agent-sales" },
   { label: "Audit Log", href: "/audit-log" },
   { label: "Exports", href: "/exports" },
   { label: "Settings", href: "/settings" },

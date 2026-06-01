@@ -16,9 +16,9 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import { TableLoadingState } from "@/components/data-table/table-states";
 import { fetchAnalyticsReport } from "@/lib/api/admin";
 import type { SerializableFilters } from "@/lib/api/filters";
+import { DATABASE_SCOPE_LABELS } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
-
-const PRODUCTION_FILTERS: SerializableFilters = { database_scope: "production" };
+import { useDatabaseScope } from "@/lib/state/database-scope";
 
 function formatMoney(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -86,13 +86,15 @@ function MetricCard({
 }
 
 export function HomeOverview() {
+  const { scope } = useDatabaseScope();
+  const scopeFilters: SerializableFilters = { database_scope: scope };
   const summaryQuery = useQuery({
-    queryKey: queryKeys.dashboard.overview({ report: "summary", ...PRODUCTION_FILTERS }),
-    queryFn: () => fetchAnalyticsReport("summary", PRODUCTION_FILTERS),
+    queryKey: queryKeys.dashboard.overview({ report: "summary", ...scopeFilters }),
+    queryFn: () => fetchAnalyticsReport("summary", scopeFilters),
   });
   const agentQuery = useQuery({
-    queryKey: queryKeys.dashboard.overview({ report: "agent-performance", ...PRODUCTION_FILTERS }),
-    queryFn: () => fetchAnalyticsReport("agent-performance", PRODUCTION_FILTERS),
+    queryKey: queryKeys.dashboard.overview({ report: "agent-performance", ...scopeFilters }),
+    queryFn: () => fetchAnalyticsReport("agent-performance", scopeFilters),
   });
 
   const totals = (summaryQuery.data?.data as { totals?: SummaryTotals } | undefined)?.totals ?? {};
@@ -106,7 +108,8 @@ export function HomeOverview() {
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          Production performance at a glance for Vantage Movers. Start a workflow or jump into operational data.
+          {DATABASE_SCOPE_LABELS[scope]} performance at a glance for Vantage Movers. Switch the database from the
+          header. Start a workflow or jump into operational data.
         </p>
       </div>
 
@@ -180,7 +183,7 @@ export function HomeOverview() {
                 <Trophy className="h-5 w-5 text-amber-500" aria-hidden="true" />
                 Top Sales by Agent
               </CardTitle>
-              <CardDescription>Ranked by total binder amount (production).</CardDescription>
+              <CardDescription>Ranked by total binder amount ({DATABASE_SCOPE_LABELS[scope].toLowerCase()}).</CardDescription>
             </div>
             <Link
               href="/agents"

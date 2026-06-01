@@ -34,6 +34,7 @@ import {
 import { downloadCsvFromProxy } from "@/lib/api/csv";
 import type { SerializableFilters } from "@/lib/api/filters";
 import { useUrlTableState } from "@/lib/api/url-state";
+import { useDatabaseScope } from "@/lib/state/database-scope";
 import type { DatabaseScope, SelectOption, SortDirection, TableQueryParams } from "@/lib/api/types";
 import {
   AGENT_OPTIONS,
@@ -712,10 +713,11 @@ function buildColumns(
 export function OperationalResourcePage({ resource }: { resource: UiResource }) {
   const config = operationalConfigs[resource];
   const adminResource = uiToAdminResource[resource];
+  const { scope } = useDatabaseScope();
   const [selected, setSelected] = useState<AdminRecord | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const { filters, update, setSort, setPage, setLimit, reset } = useUrlTableState({
-    database_scope: "production",
+    database_scope: scope,
     sort: config.defaultSort,
     direction: config.defaultDirection,
     date_field: config.dateField,

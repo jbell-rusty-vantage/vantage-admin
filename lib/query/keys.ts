@@ -57,4 +57,13 @@ export const queryKeys = {
     report: (report: string, filters?: QueryFilters) =>
       [...queryKeys.analytics.all, report, stableFilters(filters)] as const,
   },
+  facets: {
+    all: ["facets"] as const,
+    scope: (scope: DatabaseScope) => [...queryKeys.facets.all, scope] as const,
+  },
+  reports: {
+    all: ["reports"] as const,
+    agentSales: (filters?: QueryFilters) =>
+      [...queryKeys.reports.all, "agent-sales", stableFilters(filters)] as const,
+  },
 };

@@ -34,13 +34,32 @@ export type AnalyticsReport =
   | "cancellation-reasons"
   | "lead-source-performance"
   | "local-vs-long-distance"
-  | "geographic-lanes";
+  | "geographic-lanes"
+  | "pickup-state-performance"
+  | "delivery-state-performance";
 
 export type AnalyticsResponse = {
   report: AnalyticsReport;
   database_scope: DatabaseScope;
   generated_at: string;
   data: Record<string, unknown>;
+};
+
+export type AdminFacets = {
+  agents: string[];
+  source_companies: string[];
+  sources: string[];
+  merchants: string[];
+};
+
+export type AgentSalesReportResponse = {
+  database_scope: DatabaseScope;
+  from: string;
+  to: string;
+  agents: string[];
+  generated_at: string;
+  items: Record<string, unknown>[];
+  totals: Record<string, unknown>;
 };
 
 export const uiToAdminResource: Record<UiResource, AdminResource> = {
@@ -145,6 +164,20 @@ export async function createCancellation(body: Record<string, unknown>) {
 
 export async function fetchGlobalSearch(filters: SerializableFilters): Promise<GlobalSearchResponse> {
   return requestJson<GlobalSearchResponse>(proxyUrl("api/v1/admin/search", filters));
+}
+
+export async function fetchAdminFacets(scope: DatabaseScope): Promise<AdminFacets> {
+  return requestJson<AdminFacets>(proxyUrl("api/v1/admin/facets", { database_scope: scope }));
+}
+
+export async function fetchAgentSalesReport(
+  filters: SerializableFilters,
+): Promise<AgentSalesReportResponse> {
+  return requestJson<AgentSalesReportResponse>(proxyUrl("api/v1/admin/reports/agent-sales", filters));
+}
+
+export function agentSalesReportExportUrl(filters: SerializableFilters): string {
+  return proxyUrl("api/v1/admin/exports/reports/agent-sales.csv", filters);
 }
 
 export async function fetchAnalyticsReport(
