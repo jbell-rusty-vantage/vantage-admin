@@ -65,6 +65,12 @@ export type GlobalSearchRecordType =
   | "call_lead"
   | "booked_lead"
   | "cancelled_lead"
+  | "form-leads"
+  | "call-leads"
+  | "booked-leads"
+  | "cancelled-leads"
+  | "customers"
+  | "agents"
   | "customer"
   | "agent";
 

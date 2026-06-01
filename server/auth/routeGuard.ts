@@ -10,6 +10,7 @@ export const DASHBOARD_PATH_PREFIXES = [
   "/cancellations",
   "/customers",
   "/agents",
+  "/search",
   "/analytics",
   "/audit-log",
   "/exports",

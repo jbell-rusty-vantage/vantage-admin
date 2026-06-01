@@ -1,6 +1,13 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessTokenCookie, getAdminFromAccessToken, getRequestMetadata } from "@/server/auth";
+import {
+  getAccessTokenCookie,
+  getAdminFromAccessToken,
+  getRefreshTokenCookie,
+  getRequestMetadata,
+  refreshAdminSession,
+  setAuthCookies,
+} from "@/server/auth";
 import { writeAuditLog } from "@/server/audit";
 import { requestVantageApi, type VantageApiMethod } from "@/server/vantage-api/client";
 import { VantageApiError } from "@/server/vantage-api/errors";
@@ -17,11 +24,31 @@ async function requireAdmin() {
   const cookieStore = await cookies();
   const accessToken = getAccessTokenCookie(cookieStore);
 
-  if (!accessToken) {
+  if (accessToken) {
+    const admin = await getAdminFromAccessToken(accessToken);
+    if (admin) {
+      return admin;
+    }
+  }
+
+  // The short-lived access token is missing or expired. Transparently
+  // refresh it from the long-lived refresh token so authenticated browser
+  // sessions don't start failing with 401s mid-session. This route is a
+  // Route Handler, so mutating the cookie store writes Set-Cookie on the
+  // response. token_version is not rotated on refresh, so concurrent proxy
+  // requests can each refresh safely without invalidating one another.
+  const refreshToken = getRefreshTokenCookie(cookieStore);
+  if (!refreshToken) {
     return null;
   }
 
-  return getAdminFromAccessToken(accessToken);
+  const refreshed = await refreshAdminSession(refreshToken);
+  if (!refreshed) {
+    return null;
+  }
+
+  setAuthCookies(cookieStore, refreshed.tokens.accessToken, refreshed.tokens.refreshToken);
+  return refreshed.admin;
 }
 
 function buildBackendPath(pathParts: string[] | undefined, request: NextRequest): string {

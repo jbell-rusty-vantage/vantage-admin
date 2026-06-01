@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { Truck } from "lucide-react";
-import { GlobalSearch } from "./global-search";
-import { StatusBadge } from "@/components/data-table/status-badge";
 import { LogoutButton } from "./logout-button";
+import { ScopeAwareHeaderControls } from "./scope-aware-header-controls";
 
 const navigation = [
   { label: "Overview", href: "/" },
@@ -52,8 +51,7 @@ export function DashboardShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex min-h-16 items-center justify-between gap-4 border-b bg-background/95 px-6 py-3 backdrop-blur">
           <div className="flex min-w-0 flex-1 items-center gap-4">
-            <StatusBadge tone="success">Production</StatusBadge>
-            <GlobalSearch />
+            <ScopeAwareHeaderControls />
           </div>
           <div className="flex items-center gap-4">
             <p className="hidden text-sm text-muted-foreground sm:block">{adminEmail}</p>

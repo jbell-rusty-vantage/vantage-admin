@@ -10,13 +10,17 @@ alwaysApply: true
 ## Current Architecture
 
 - `app/` owns App Router pages, route groups, route handlers, and the Next 16 `proxy.ts` auth entrypoint.
-- `app/(auth)/` owns owner login pages; `app/(dashboard)/` owns protected dashboard pages and layouts.
+- `app/(auth)/` owns owner login pages; `app/(dashboard)/` owns protected dashboard pages, layouts, operational tables, workflows, analytics, audit log, exports, search, and settings.
 - `app/api/auth/` owns local admin auth route handlers only.
 - `app/api/proxy/[...path]/` owns the authenticated local proxy to `vantage-main-server`; it must never trust browser-supplied `x-api-secret`, `authorization`, or `cookie` headers.
+- `app/api/audit-log/` owns local admin audit-log reads from the admin auth database. Do not proxy audit-log browsing to `vantage-main-server`.
 - `components/ui/` contains shadcn-compatible primitives; `components/layout/` contains shell, login, global search, database scope, and navigation UI.
-- `components/filters/`, `components/data-table/`, and `components/record-detail/` contain reusable dashboard primitives only; model-specific table/page behavior belongs in later page or feature modules.
+- `components/filters/`, `components/data-table/`, and `components/record-detail/` contain reusable dashboard primitives.
+- `components/operational/` owns the shared operational table/detail/edit page implementation for form leads, call leads, bookings, cancellations, customers, and agents.
+- `components/forms/` owns owner workflow forms such as booking and cancellation creation.
+- `components/analytics/` owns frontend analytics cards, chart/table rendering, and analytics export UI.
 - `lib/env/` validates server environment; `lib/db/` owns the admin Mongo connection; `lib/utils.ts` owns shared UI utilities.
-- `lib/api/` owns frontend API types, filter/query-string utilities, URL state helpers, and browser CSV download helpers.
+- `lib/api/` owns frontend API types, proxy-facing browser clients, filter/query-string utilities, URL state helpers, audit-log client helpers, and browser CSV download helpers.
 - `lib/query/` owns TanStack Query provider setup and stable query keys.
 - `lib/constants/` owns frontend domain constants that mirror backend config and current Google Forms dropdowns.
 - `server/auth/`, `server/audit/`, and `server/models/` own server-only auth, audit, and admin collection logic.
@@ -43,10 +47,48 @@ alwaysApply: true
   - `GET /api/v1/admin/exports/cancelled-leads.csv`
   - `GET /api/v1/admin/exports/customers.csv`
   - `GET /api/v1/admin/exports/agents.csv`
+- Implemented backend analytics endpoints used by the frontend analytics page:
+  - `GET /api/v1/admin/analytics/summary`
+  - `GET /api/v1/admin/analytics/revenue-trend`
+  - `GET /api/v1/admin/analytics/source-company-performance`
+  - `GET /api/v1/admin/analytics/agent-performance`
+  - `GET /api/v1/admin/analytics/booking-cancellation-ratio`
+  - `GET /api/v1/admin/analytics/source-company-funnel`
+  - `GET /api/v1/admin/analytics/cancellation-reasons`
+  - `GET /api/v1/admin/analytics/lead-source-performance`
+  - `GET /api/v1/admin/analytics/local-vs-long-distance`
+  - `GET /api/v1/admin/analytics/geographic-lanes`
+  - `GET /api/v1/admin/exports/analytics/:report.csv`
 - Common query params match `lib/api/filters.ts`: `database_scope`, `q`, `from`, `to`, `date_field`, model-specific filters, `limit`, `page`, `sort`, and `direction`.
 - `database_scope=production|historical` is valid for browse and detail. `database_scope=combined` is supported for global search and export-style reads; detail routes reject combined scope.
 - Historical records from the backend are read-only. UI code must hide mutation actions in historical scope and must not add delete actions in any scope.
 - Existing write workflows should call the established public v1 write endpoints through the proxy so booking, cancellation, and Google Sheet sync side effects remain owned by `vantage-main-server`.
+- Production edit mutations use public PATCH endpoints through the proxy: `/api/v1/form-leads/:id`, `/api/v1/call-leads/:id`, `/api/v1/booked-leads/:id`, `/api/v1/cancelled-leads/:id`, and `/api/v1/customers/:id`.
+- Booking creation uses `POST /api/v1/booked-leads/from-source` through the proxy. Cancellation creation uses `POST /api/v1/cancelled-leads` through the proxy.
+- Agent management is read-only in v1; agents are still browsable/detail-able through admin read endpoints.
+
+## Current Frontend Route Surface
+
+- Operational routes:
+  - `/form-leads`
+  - `/call-leads`
+  - `/bookings`
+  - `/cancellations`
+  - `/customers`
+  - `/agents`
+- Workflow routes:
+  - `/bookings/new`
+  - `/cancellations/new`
+- Support routes:
+  - `/search`
+  - `/analytics`
+  - `/exports`
+  - `/audit-log`
+  - `/settings`
+- `/search` and all dashboard routes must remain protected by `server/auth/routeGuard.ts`.
+- Operational pages share the `components/operational/operational-resource-page.tsx` implementation. Prefer extending that shared configuration before forking model-specific pages.
+- The dashboard header uses scope-aware controls from `components/layout/scope-aware-header-controls.tsx`; operational details must coerce `combined` to an operational scope before fetching detail records.
+- Global search should route users back to operational list pages with filters rather than assuming model-specific detail URLs exist.
 
 ## Ownership Boundaries
 
@@ -55,6 +97,7 @@ alwaysApply: true
 - Do not read from or write to `vantagemovers` or `vantagemovershistorical` directly from `vantage-admin`; all operational reads, writes, analytics, and exports go through `vantage-main-server`.
 - Never expose `VANTAGE_API_SECRET` to client components, browser requests, or `NEXT_PUBLIC_*` variables.
 - Browser code calls local `/api/proxy/...` routes only; only `server/vantage-api/client.ts` may attach `x-api-secret`.
+- Local admin-only reads, such as `/api/audit-log`, may read the admin auth database through `server/models/*` and `lib/db/adminMongo.ts`, but they must not access operational business collections.
 
 ## Quality Practices
 
@@ -66,5 +109,8 @@ alwaysApply: true
 - Use Next 16 `proxy.ts`, not `middleware.ts`, for request-boundary auth logic.
 - Keep operational pages server-side filtered, sorted, and paginated when they are implemented.
 - Use `lib/api/filters.ts` for URL-synced filters and pagination conventions; use `lib/query/keys.ts` for cache keys and invalidation targets.
+- Use `lib/api/admin.ts` for browser calls to admin resources, workflows, analytics, exports, and production edit mutations. Use `lib/api/audit.ts` for audit-log browsing.
+- Use `lib/api/url-state.ts` for URL-synced table/filter state instead of custom page-local query-string logic.
+- Mutations must invalidate the relevant TanStack Query keys for lists, details, search, audit log, and analytics where the changed data can affect them.
 - Preserve no-delete and historical-read-only rules throughout v1.
 - After substantive changes, run `pnpm lint`, `pnpm typecheck`, and relevant tests.
