@@ -45,6 +45,60 @@ export type AnalyticsResponse = {
   data: Record<string, unknown>;
 };
 
+export type OverviewLeadCost = {
+  total: number;
+  by_source_company: Array<{
+    source_company?: string;
+    lead_count?: number;
+    total_lead_cost?: number;
+  }>;
+};
+
+export type OverviewTotals = {
+  total_binder_amount?: number;
+  total_deposit_amount?: number;
+  total_refund_amount?: number;
+  bookings?: number;
+  active_bookings?: number;
+  cancelled_bookings?: number;
+  cancellations?: number;
+  total_leads?: number;
+  form_leads?: number;
+  call_leads?: number;
+  booking_rate?: number;
+  cancellation_rate?: number;
+};
+
+export type OverviewAgentRow = {
+  agent_name?: string;
+  bookings?: number;
+  total_binder_amount?: number;
+  total_deposit_amount?: number;
+};
+
+export type OverviewSourceRow = {
+  source_company?: string;
+  bookings?: number;
+  total_deposit_amount?: number;
+};
+
+export type OverviewReportResponse = {
+  database_scope: DatabaseScope;
+  generated_at: string;
+  all_time: {
+    totals: OverviewTotals;
+    lead_cost: OverviewLeadCost | null;
+    top_agents: OverviewAgentRow[];
+  };
+  last_7_days: {
+    period: { from: string; to: string };
+    totals: OverviewTotals;
+    by_source_company: OverviewSourceRow[];
+    lead_cost: OverviewLeadCost;
+    top_agents: OverviewAgentRow[];
+  } | null;
+};
+
 export type AdminFacets = {
   agents: string[];
   source_companies: string[];
@@ -185,6 +239,12 @@ export async function fetchAgentSalesReport(
 
 export function agentSalesReportExportUrl(filters: SerializableFilters): string {
   return proxyUrl("api/v1/admin/exports/reports/agent-sales.csv", filters);
+}
+
+export async function fetchOverviewReport(scope: DatabaseScope): Promise<OverviewReportResponse> {
+  return requestJson<OverviewReportResponse>(
+    proxyUrl("api/v1/admin/analytics/overview", { database_scope: scope }),
+  );
 }
 
 export async function fetchAnalyticsReport(
