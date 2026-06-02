@@ -17,6 +17,11 @@ test("route guard skips auth, api, and static paths", () => {
   assert.equal(shouldProtectPath("/favicon.ico"), false);
 });
 
+test("route guard skips public legal pages", () => {
+  assert.equal(shouldProtectPath("/privacy-policy"), false);
+  assert.equal(shouldProtectPath("/terms-and-conditions"), false);
+});
+
 test("route guard allows login page even when stale auth cookies exist", () => {
   const request = new NextRequest("http://localhost:3000/login", {
     headers: {
