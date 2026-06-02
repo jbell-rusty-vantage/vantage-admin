@@ -543,7 +543,7 @@ function GeographicCard({
             onClick={() => setView(entry.id)}
             className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
               view === entry.id
-                ? "border-primary bg-primary text-primary-foreground"
+                ? "border-primary bg-primary text-white hover:bg-navy hover:text-white"
                 : "bg-background hover:bg-muted"
             }`}
           >

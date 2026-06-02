@@ -141,7 +141,7 @@ export function AgentSalesReport() {
                   type="button"
                   onClick={() => toggleAgent(agent)}
                   className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                    active ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted"
+                    active ? "border-primary bg-primary text-white hover:bg-navy hover:text-white" : "bg-background hover:bg-muted"
                   }`}
                 >
                   {agent}

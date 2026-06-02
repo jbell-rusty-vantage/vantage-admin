@@ -548,7 +548,7 @@ function WorkflowActions({
       <div className="flex flex-wrap gap-2">
         {canBook ? (
           <Link
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-navy hover:text-white"
             href={`/bookings/new?${getBookingQuery(uiResource, record)}`}
           >
             <PlusCircle className="h-4 w-4" aria-hidden="true" />
@@ -682,7 +682,7 @@ function buildColumns(
         <Link
           href={`/bookings/new?${getBookingQuery(resource, item)}`}
           onClick={(event) => event.stopPropagation()}
-          className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+          className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-primary px-3 text-xs font-semibold text-white hover:bg-navy hover:text-white"
         >
           <PlusCircle className="h-3.5 w-3.5" aria-hidden="true" />
           Book
@@ -763,7 +763,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         <div className="flex flex-wrap gap-2">
           {resource === "bookings" ? (
             <Link
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-navy hover:text-white"
               href="/bookings/new"
             >
                 <PlusCircle className="h-4 w-4" aria-hidden="true" />
@@ -772,7 +772,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
           ) : null}
           {resource === "cancellations" ? (
             <Link
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-navy hover:text-white"
               href="/cancellations/new"
             >
                 <PlusCircle className="h-4 w-4" aria-hidden="true" />
@@ -844,7 +844,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 gap-2 rounded-lg border bg-background p-2 shadow-lg">
           {(resource === "form-leads" || resource === "call-leads") ? (
             <Link
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-navy hover:text-white"
               href={`/bookings/new?${getBookingQuery(resource, selected)}`}
             >
                 <Pencil className="h-4 w-4" aria-hidden="true" />

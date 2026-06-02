@@ -123,8 +123,8 @@ function AgentRankingList({
                 </span>
               </span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+            <div className="h-2 w-full overflow-hidden rounded-full bg-steel-100">
+              <div className="h-full rounded-full bg-trust-blue" style={{ width: `${pct}%` }} />
             </div>
           </li>
         );
@@ -268,8 +268,9 @@ export function HomeOverview() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
-        <p className="mt-2 max-w-2xl text-muted-foreground">
+        <p className="eyebrow">Dashboard</p>
+        <h1 className="text-3xl font-extrabold tracking-tight">Overview</h1>
+        <p className="mt-2 max-w-2xl text-steel">
           {DATABASE_SCOPE_LABELS[scope]} performance at a glance for Vantage Movers. Switch the database from the
           header. Start a workflow or jump into operational data.
         </p>
@@ -278,20 +279,20 @@ export function HomeOverview() {
       <div className="grid gap-4 md:grid-cols-2">
         <Link
           href="/bookings/new"
-          className="group flex items-center justify-between rounded-lg border bg-primary p-5 text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+          className="group flex items-center justify-between rounded-md border border-trust-blue/20 bg-primary p-5 text-white shadow-[0_6px_16px_rgba(20,93,160,0.28)] transition-all hover:-translate-y-0.5 hover:bg-navy hover:text-white hover:shadow-[0_12px_26px_rgba(6,43,85,0.30)]"
         >
           <div className="flex items-center gap-3">
             <PlusCircle className="h-6 w-6" aria-hidden="true" />
             <div>
-              <p className="text-base font-semibold">Create a Booking</p>
-              <p className="text-sm text-primary-foreground/80">Book a form or call lead into a deal.</p>
+              <p className="text-base font-semibold text-white">Create a Booking</p>
+              <p className="text-sm text-white/80">Book a form or call lead into a deal.</p>
             </div>
           </div>
           <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
         </Link>
         <Link
           href="/cancellations/new"
-          className="group flex items-center justify-between rounded-lg border bg-background p-5 shadow-sm transition-colors hover:bg-muted"
+          className="group flex items-center justify-between rounded-md border border-steel-200 bg-white p-5 shadow-sm transition-colors hover:border-steel-200 hover:bg-steel-100"
         >
           <div className="flex items-center gap-3">
             <XCircle className="h-6 w-6 text-destructive" aria-hidden="true" />
@@ -408,7 +409,7 @@ export function HomeOverview() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <Trophy className="h-5 w-5 text-amber-500" aria-hidden="true" />
+                <Trophy className="h-5 w-5 text-gold" aria-hidden="true" />
                 Top Agents (Last 7 Days)
               </CardTitle>
               <CardDescription>Ranked by deposit amount with booking count shown.</CardDescription>
@@ -429,7 +430,7 @@ export function HomeOverview() {
           <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2 text-lg">
-                <Trophy className="h-5 w-5 text-amber-500" aria-hidden="true" />
+                <Trophy className="h-5 w-5 text-gold" aria-hidden="true" />
                 Top Sales by Agent
               </CardTitle>
               <CardDescription>
