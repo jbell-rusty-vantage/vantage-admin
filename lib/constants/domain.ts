@@ -16,6 +16,7 @@ export const SOURCE_COMPANIES = [
   "best_relocation_leads",
   "main_site",
   "not_provided",
+  "referral",
 ] as const;
 
 export type SourceCompany = (typeof SOURCE_COMPANIES)[number];
@@ -27,6 +28,7 @@ export const SOURCE_COMPANY_LABELS = {
   best_relocation_leads: "Best Relocation Leads",
   main_site: "main site",
   not_provided: "not provided",
+  referral: "Referral",
 } as const satisfies Record<SourceCompany, string>;
 
 export const SOURCE_LABELS = [
@@ -146,4 +148,10 @@ export function getSourceCompanyLabel(sourceCompany: SourceCompany): string {
 
 export function getDatabaseScopeLabel(scope: DatabaseScope): string {
   return DATABASE_SCOPE_LABELS[scope];
+}
+
+export const REFERRAL_SOURCE_COMPANY = "referral" as const;
+
+export function isReferralSourceCompany(value: string | null | undefined): boolean {
+  return value === REFERRAL_SOURCE_COMPANY;
 }
