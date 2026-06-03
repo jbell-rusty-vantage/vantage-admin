@@ -8,6 +8,7 @@ export const PUBLIC_LEGAL_PATHS = ["/privacy-policy", "/terms-and-conditions"] a
 export const DASHBOARD_PATH_PREFIXES = [
   "/",
   "/form-leads",
+  "/duplicate-form-leads",
   "/call-leads",
   "/bookings",
   "/cancellations",

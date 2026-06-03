@@ -16,7 +16,14 @@ export type AdminResource =
   | "customers"
   | "agents";
 
-export type UiResource = "form-leads" | "call-leads" | "bookings" | "cancellations" | "customers" | "agents";
+export type UiResource =
+  | "form-leads"
+  | "duplicate-form-leads"
+  | "call-leads"
+  | "bookings"
+  | "cancellations"
+  | "customers"
+  | "agents";
 
 export type AdminRecord = Record<string, unknown> & {
   _id?: string;
@@ -118,6 +125,7 @@ export type AgentSalesReportResponse = {
 
 export const uiToAdminResource: Record<UiResource, AdminResource> = {
   "form-leads": "form-leads",
+  "duplicate-form-leads": "form-leads",
   "call-leads": "call-leads",
   bookings: "booked-leads",
   cancellations: "cancelled-leads",
@@ -136,6 +144,7 @@ export const adminToUiResource: Record<AdminResource, UiResource> = {
 
 export const resourceLabels: Record<UiResource, string> = {
   "form-leads": "Form Leads",
+  "duplicate-form-leads": "Duplicate Form Leads",
   "call-leads": "Call Leads",
   bookings: "Bookings",
   cancellations: "Cancellations",

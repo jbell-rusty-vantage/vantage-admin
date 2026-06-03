@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const navigation = [
   { label: "Overview", href: "/" },
   { label: "Form Leads", href: "/form-leads" },
+  { label: "Duplicate Form Leads", href: "/duplicate-form-leads" },
   { label: "Call Leads", href: "/call-leads" },
   { label: "Bookings", href: "/bookings" },
   { label: "Cancellations", href: "/cancellations" },

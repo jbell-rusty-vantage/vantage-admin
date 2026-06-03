@@ -81,11 +81,53 @@ type ResourceConfig = {
   columns: ColumnConfig[];
   filters: FilterConfig[];
   editFields: EditFieldConfig[];
+  fixedListFilters?: SerializableFilters;
+  readOnly?: boolean;
 };
 
 const yesNoOptions: SelectOption<string>[] = [
   { value: "true", label: "Yes" },
   { value: "false", label: "No" },
+];
+
+const formLeadColumns: ColumnConfig[] = [
+  { key: "timestamp", label: "Created", path: "timestamp", sort: "timestamp", format: "date" },
+  { key: "name", label: "Name", path: "name", sort: "name" },
+  { key: "phone", label: "Phone", path: "phone_number" },
+  { key: "email", label: "Email", path: "email" },
+  { key: "source", label: "Source", path: "source_company", sort: "source_company" },
+  { key: "ref", label: "Ref", path: "ref_no", sort: "ref_no" },
+  { key: "move", label: "Move", path: "move_size" },
+  { key: "booked", label: "Booked", path: "booked", format: "boolean" },
+  { key: "cancelled", label: "Cancelled", path: "cancelled", format: "boolean" },
+];
+
+const formLeadFilters: FilterConfig[] = [
+  { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
+  { key: "name", label: "Name", type: "text" },
+  { key: "email", label: "Email", type: "text" },
+  { key: "phone_number", label: "Phone", type: "text" },
+  { key: "ref_no", label: "Ref number", type: "text" },
+  { key: "booked", label: "Booked", type: "select", options: yesNoOptions },
+  { key: "cancelled", label: "Cancelled", type: "select", options: yesNoOptions },
+  { key: "move_size", label: "Move size", type: "select", options: MOVE_SIZE_OPTIONS },
+];
+
+const formLeadEditFields: EditFieldConfig[] = [
+  { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
+  { key: "name", label: "Name", type: "text" },
+  { key: "timestamp", label: "Created", type: "date" },
+  { key: "pickup_zip", label: "Pickup zip", type: "text" },
+  { key: "destination_zip", label: "Destination zip", type: "text" },
+  { key: "pickup_state", label: "Pickup state", type: "text" },
+  { key: "delivery_state", label: "Delivery state", type: "text" },
+  { key: "move_size", label: "Move size", type: "select", options: MOVE_SIZE_OPTIONS },
+  { key: "move_date", label: "Move date", type: "date" },
+  { key: "ref_no", label: "Ref number", type: "text" },
+  { key: "email", label: "Email", type: "text" },
+  { key: "phone_number", label: "Phone", type: "text" },
+  { key: "quoted", label: "Quoted", type: "text" },
+  { key: "cubic_feet", label: "Cubic feet", type: "number" },
 ];
 
 const operationalConfigs: Record<UiResource, ResourceConfig> = {
@@ -96,43 +138,23 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
     defaultSort: "timestamp",
     defaultDirection: "desc",
     dateField: "timestamp",
-    columns: [
-      { key: "timestamp", label: "Created", path: "timestamp", sort: "timestamp", format: "date" },
-      { key: "name", label: "Name", path: "name", sort: "name" },
-      { key: "phone", label: "Phone", path: "phone_number" },
-      { key: "email", label: "Email", path: "email" },
-      { key: "source", label: "Source", path: "source_company", sort: "source_company" },
-      { key: "ref", label: "Ref", path: "ref_no", sort: "ref_no" },
-      { key: "move", label: "Move", path: "move_size" },
-      { key: "booked", label: "Booked", path: "booked", format: "boolean" },
-      { key: "cancelled", label: "Cancelled", path: "cancelled", format: "boolean" },
-    ],
-    filters: [
-      { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
-      { key: "name", label: "Name", type: "text" },
-      { key: "email", label: "Email", type: "text" },
-      { key: "phone_number", label: "Phone", type: "text" },
-      { key: "ref_no", label: "Ref number", type: "text" },
-      { key: "booked", label: "Booked", type: "select", options: yesNoOptions },
-      { key: "cancelled", label: "Cancelled", type: "select", options: yesNoOptions },
-      { key: "move_size", label: "Move size", type: "select", options: MOVE_SIZE_OPTIONS },
-    ],
-    editFields: [
-      { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
-      { key: "name", label: "Name", type: "text" },
-      { key: "timestamp", label: "Created", type: "date" },
-      { key: "pickup_zip", label: "Pickup zip", type: "text" },
-      { key: "destination_zip", label: "Destination zip", type: "text" },
-      { key: "pickup_state", label: "Pickup state", type: "text" },
-      { key: "delivery_state", label: "Delivery state", type: "text" },
-      { key: "move_size", label: "Move size", type: "select", options: MOVE_SIZE_OPTIONS },
-      { key: "move_date", label: "Move date", type: "date" },
-      { key: "ref_no", label: "Ref number", type: "text" },
-      { key: "email", label: "Email", type: "text" },
-      { key: "phone_number", label: "Phone", type: "text" },
-      { key: "quoted", label: "Quoted", type: "text" },
-      { key: "cubic_feet", label: "Cubic feet", type: "number" },
-    ],
+    fixedListFilters: { duplicate: false },
+    columns: formLeadColumns,
+    filters: formLeadFilters,
+    editFields: formLeadEditFields,
+  },
+  "duplicate-form-leads": {
+    uiResource: "duplicate-form-leads",
+    title: "Duplicate Form Leads",
+    description: "Browse and inspect quarantined duplicate web form submissions.",
+    defaultSort: "timestamp",
+    defaultDirection: "desc",
+    dateField: "timestamp",
+    fixedListFilters: { duplicate: true },
+    readOnly: true,
+    columns: formLeadColumns,
+    filters: formLeadFilters,
+    editFields: [],
   },
   "call-leads": {
     uiResource: "call-leads",
@@ -525,10 +547,15 @@ function EditForm({
 function WorkflowActions({
   uiResource,
   record,
+  readOnly,
 }: {
   uiResource: UiResource;
   record: AdminRecord;
+  readOnly?: boolean;
 }) {
+  if (readOnly) {
+    return null;
+  }
   const canBook = uiResource === "form-leads" || uiResource === "call-leads";
   const canCancel =
     (uiResource === "bookings" && !isReferralBooking(record)) ||
@@ -576,6 +603,7 @@ function DetailPanel({
   selected,
   scope,
   onClose,
+  readOnly,
 }: {
   config: ResourceConfig;
   resource: AdminResource;
@@ -583,6 +611,7 @@ function DetailPanel({
   selected: AdminRecord | null;
   scope: DatabaseScope;
   onClose: () => void;
+  readOnly?: boolean;
 }) {
   const id = selected ? getRecordId(selected) : "";
   const effectiveScope = scope === "combined" ? "production" : scope;
@@ -593,7 +622,8 @@ function DetailPanel({
   });
   const record = detailQuery.data ?? selected;
   const isProduction = effectiveScope === "production";
-  const editableResource = resource === "agents" || isReferralBooking(record) ? null : resource;
+  const editableResource =
+    readOnly || resource === "agents" || isReferralBooking(record) ? null : resource;
 
   return (
     <SidePanel
@@ -627,7 +657,7 @@ function DetailPanel({
               ))}
             </DetailGrid>
           </DetailSection>
-          {isProduction ? <WorkflowActions uiResource={uiResource} record={record} /> : null}
+          {isProduction ? <WorkflowActions uiResource={uiResource} record={record} readOnly={readOnly} /> : null}
           {isProduction && editableResource ? (
             <DetailSection title="Edit Production Record" description="Only safe v1 fields are exposed here.">
               <EditForm
@@ -672,7 +702,10 @@ function buildColumns(
     cell: (item) => formatCell(item, column),
   }));
 
-  const canBook = isProduction && (resource === "form-leads" || resource === "call-leads");
+  const canBook =
+    isProduction &&
+    !config.readOnly &&
+    (resource === "form-leads" || resource === "call-leads");
   if (canBook) {
     columns.unshift({
       key: "__book",
@@ -728,11 +761,13 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
   });
   const effectiveFilters: SerializableFilters = {
     ...filters,
+    ...config.fixedListFilters,
     database_scope: filters.database_scope === "combined" ? "production" : filters.database_scope,
     sort: filters.sort ?? config.defaultSort,
     direction: filters.direction ?? config.defaultDirection,
     date_field: filters.date_field ?? config.dateField,
   };
+  const readOnly = Boolean(config.readOnly) || effectiveFilters.database_scope === "historical";
   const query = useQuery({
     queryKey: queryKeys.lists.resource(adminResource, effectiveFilters),
     queryFn: () => fetchAdminList<AdminRecord>(adminResource, effectiveFilters),
@@ -790,6 +825,11 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
       {effectiveFilters.database_scope === "historical" ? (
         <FeedbackMessage tone="warning">Historical mode is read-only. Edit and workflow actions are hidden.</FeedbackMessage>
       ) : null}
+      {config.readOnly ? (
+        <FeedbackMessage tone="warning">
+          Duplicate form leads are read-only. Booking, cancellation, and edit actions are hidden.
+        </FeedbackMessage>
+      ) : null}
 
       <FilterBar onReset={reset}>
         <FilterField label="Search">
@@ -813,7 +853,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         ))}
       </FilterBar>
 
-      {isProduction && (resource === "form-leads" || resource === "call-leads" || resource === "bookings") ? (
+      {isProduction && !readOnly && (resource === "form-leads" || resource === "call-leads" || resource === "bookings") ? (
         <div className="rounded-lg border bg-background p-3 text-sm">
           {resource === "bookings"
             ? "Select a booking row to inspect it, or use the row detail to start a cancellation."
@@ -840,7 +880,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         </>
       ) : null}
 
-      {selected && isProduction ? (
+      {selected && isProduction && !readOnly ? (
         <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 gap-2 rounded-lg border bg-background p-2 shadow-lg">
           {(resource === "form-leads" || resource === "call-leads") ? (
             <Link
@@ -871,6 +911,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         selected={selected}
         scope={effectiveFilters.database_scope as DatabaseScope}
         onClose={() => setSelected(null)}
+        readOnly={readOnly}
       />
     </div>
   );
