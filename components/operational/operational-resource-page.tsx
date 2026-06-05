@@ -93,6 +93,8 @@ const yesNoOptions: SelectOption<string>[] = [
 const formLeadColumns: ColumnConfig[] = [
   { key: "timestamp", label: "Created", path: "timestamp", sort: "timestamp", format: "date" },
   { key: "name", label: "Name", path: "name", sort: "name" },
+  { key: "first_name", label: "First", path: "first_name" },
+  { key: "last_name", label: "Last", path: "last_name" },
   { key: "phone", label: "Phone", path: "phone_number" },
   { key: "email", label: "Email", path: "email" },
   { key: "source", label: "Source", path: "source_company", sort: "source_company" },
@@ -116,6 +118,8 @@ const formLeadFilters: FilterConfig[] = [
 const formLeadEditFields: EditFieldConfig[] = [
   { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
   { key: "name", label: "Name", type: "text" },
+  { key: "first_name", label: "First name", type: "text" },
+  { key: "last_name", label: "Last name", type: "text" },
   { key: "timestamp", label: "Created", type: "date" },
   { key: "pickup_zip", label: "Pickup zip", type: "text" },
   { key: "destination_zip", label: "Destination zip", type: "text" },
@@ -166,6 +170,8 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
     columns: [
       { key: "timestamp", label: "Created", path: "timestamp", sort: "timestamp", format: "date" },
       { key: "name", label: "Name", path: "name", sort: "name" },
+      { key: "first_name", label: "First", path: "first_name" },
+      { key: "last_name", label: "Last", path: "last_name" },
       { key: "phone", label: "Phone", path: "phone_number" },
       { key: "email", label: "Email", path: "email" },
       { key: "job", label: "Job", path: "job_no", sort: "job_no" },
@@ -189,6 +195,8 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
       { key: "timestamp", label: "Created", type: "date" },
       { key: "job_no", label: "Job number", type: "text" },
       { key: "name", label: "Name", type: "text" },
+      { key: "first_name", label: "First name", type: "text" },
+      { key: "last_name", label: "Last name", type: "text" },
       { key: "email", label: "Email", type: "text" },
       { key: "phone_number", label: "Phone", type: "text" },
       { key: "duration", label: "Duration", type: "text" },
