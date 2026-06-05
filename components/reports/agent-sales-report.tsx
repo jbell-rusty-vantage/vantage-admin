@@ -16,9 +16,9 @@ import {
   fetchAgentSalesReport,
   type AgentSalesReportResponse,
 } from "@/lib/api/admin";
+import { useCatalogOptions } from "@/lib/api/use-catalog-options";
 import { downloadCsvFromProxy } from "@/lib/api/csv";
 import type { SerializableFilters } from "@/lib/api/filters";
-import { AGENTS } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
 
 type AppliedFilters = {
@@ -73,6 +73,7 @@ export function AgentSalesReport() {
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [applied, setApplied] = useState<AppliedFilters | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const catalog = useCatalogOptions();
 
   const appliedFilters = useMemo(() => (applied ? toFilters(applied) : null), [applied]);
 
@@ -133,7 +134,8 @@ export function AgentSalesReport() {
         </FilterField>
         <FilterField label="Agents">
           <div className="flex flex-wrap gap-1.5">
-            {AGENTS.map((agent) => {
+            {catalog.agentOptions.map((option) => {
+              const agent = option.value;
               const active = selectedAgents.includes(agent);
               return (
                 <button
@@ -149,6 +151,7 @@ export function AgentSalesReport() {
               );
             })}
           </div>
+          {catalog.isLoading ? <p className="mt-2 text-xs text-muted-foreground">Loading active agents...</p> : null}
         </FilterField>
         <FilterField label="&nbsp;">
           <div className="flex gap-2">

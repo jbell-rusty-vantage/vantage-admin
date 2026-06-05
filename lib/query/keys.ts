@@ -61,6 +61,11 @@ export const queryKeys = {
     all: ["facets"] as const,
     scope: (scope: DatabaseScope) => [...queryKeys.facets.all, scope] as const,
   },
+  catalog: {
+    all: ["catalog"] as const,
+    kind: (kind: string, includeInactive = false) =>
+      [...queryKeys.catalog.all, kind, includeInactive ? "all" : "active"] as const,
+  },
   reports: {
     all: ["reports"] as const,
     agentSales: (filters?: QueryFilters) =>

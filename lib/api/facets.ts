@@ -2,13 +2,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
-  AGENT_OPTIONS,
-  MERCHANT_OPTIONS,
   SOURCE_COMPANY_OPTIONS,
   SOURCE_LABEL_OPTIONS,
 } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
 import { fetchAdminFacets } from "./admin";
+import { useCatalogOptions } from "./use-catalog-options";
 import type { DatabaseScope, SelectOption } from "./types";
 
 function toOptions(values: string[] | undefined): SelectOption[] {
@@ -27,6 +26,7 @@ export type FacetOptions = {
 // combined scopes resolve their filter options from the live facets endpoint.
 export function useFacetOptions(scope: DatabaseScope): FacetOptions {
   const isProduction = scope === "production";
+  const catalog = useCatalogOptions();
   const query = useQuery({
     queryKey: queryKeys.facets.scope(scope),
     queryFn: () => fetchAdminFacets(scope),
@@ -36,11 +36,11 @@ export function useFacetOptions(scope: DatabaseScope): FacetOptions {
 
   if (isProduction) {
     return {
-      agentOptions: AGENT_OPTIONS,
-      merchantOptions: MERCHANT_OPTIONS,
+      agentOptions: catalog.agentOptions,
+      merchantOptions: catalog.merchantOptions,
       sourceCompanyOptions: SOURCE_COMPANY_OPTIONS,
       sourceOptions: SOURCE_LABEL_OPTIONS,
-      isLoading: false,
+      isLoading: catalog.isLoading,
     };
   }
 

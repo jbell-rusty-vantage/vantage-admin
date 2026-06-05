@@ -9,11 +9,10 @@ import { Input } from "@/components/ui/input";
 import { FilterField } from "@/components/filters/filter-field";
 import { SelectFilter } from "@/components/filters/select-filter";
 import { createBookingFromSource, createReferralBooking } from "@/lib/api/admin";
+import { useCatalogOptions } from "@/lib/api/use-catalog-options";
 import {
-  AGENT_OPTIONS,
   isReferralSourceCompany,
   LOCAL_TYPE_OPTIONS,
-  MERCHANT_OPTIONS,
   REFERRAL_SOURCE_COMPANY,
   SOURCE_COMPANY_OPTIONS,
 } from "@/lib/constants/domain";
@@ -57,6 +56,7 @@ export function BookingForm() {
   );
   const [sourceCompany, setSourceCompany] = useState("");
   const [message, setMessage] = useState<FormMessage | null>(null);
+  const catalog = useCatalogOptions();
   const referralMode = isReferralMode(leadType, sourceCompany);
   const mutation = useMutation({
     mutationFn: ({ payload, referralMode: mode }: { payload: Record<string, unknown>; referralMode: boolean }) =>
@@ -286,7 +286,7 @@ export function BookingForm() {
           <FilterField label="Primary agent">
             <select name="agent" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" defaultValue="">
               <option value="">Choose agent</option>
-              {AGENT_OPTIONS.map((option) => (
+              {catalog.agentOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -296,7 +296,7 @@ export function BookingForm() {
           <FilterField label="Split agent">
             <select name="split_agent" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
               <option value="">No split</option>
-              {AGENT_OPTIONS.map((option) => (
+              {catalog.agentOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -312,13 +312,18 @@ export function BookingForm() {
           <FilterField label="Merchant">
             <select name="merchant" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
               <option value="">Choose merchant</option>
-              {MERCHANT_OPTIONS.map((option) => (
+              {catalog.merchantOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
             </select>
           </FilterField>
+          {catalog.isLoading ? (
+            <p className="text-sm text-muted-foreground sm:col-span-2">
+              Loading active agents and merchants...
+            </p>
+          ) : null}
           {referralMode ? (
             <FilterField label="Local type">
               <select name="local" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">

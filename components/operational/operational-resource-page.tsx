@@ -32,15 +32,14 @@ import {
   type UiResource,
 } from "@/lib/api/admin";
 import { downloadCsvFromProxy } from "@/lib/api/csv";
+import { useFacetOptions } from "@/lib/api/facets";
 import type { SerializableFilters } from "@/lib/api/filters";
 import { useUrlTableState } from "@/lib/api/url-state";
 import { useDatabaseScope } from "@/lib/state/database-scope";
 import type { DatabaseScope, SelectOption, SortDirection, TableQueryParams } from "@/lib/api/types";
 import {
-  AGENT_OPTIONS,
   CANCELLATION_REASON_OPTIONS,
   LOCAL_TYPE_OPTIONS,
-  MERCHANT_OPTIONS,
   MOVE_SIZE_OPTIONS,
   SOURCE_COMPANY_OPTIONS,
   SOURCE_LABEL_OPTIONS,
@@ -231,11 +230,11 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
     filters: [
       { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
       { key: "source", label: "Source label", type: "select", options: SOURCE_LABEL_OPTIONS },
-      { key: "agent", label: "Agent", type: "select", options: AGENT_OPTIONS },
+      { key: "agent", label: "Agent", type: "select" },
       { key: "customer_name", label: "Customer name", type: "text" },
       { key: "customer_phone", label: "Customer phone", type: "text" },
       { key: "job_no", label: "Job number", type: "text" },
-      { key: "merchant", label: "Merchant", type: "select", options: MERCHANT_OPTIONS },
+      { key: "merchant", label: "Merchant", type: "select" },
       { key: "cancelled", label: "Cancelled", type: "select", options: yesNoOptions },
     ],
     editFields: [
@@ -243,7 +242,7 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
       { key: "job_no", label: "Job number", type: "text" },
       { key: "total_binder_amount", label: "Total binder amount", type: "number" },
       { key: "deposit_amount", label: "Deposit amount", type: "number" },
-      { key: "merchant", label: "Merchant", type: "select", options: MERCHANT_OPTIONS },
+      { key: "merchant", label: "Merchant", type: "select" },
       { key: "source", label: "Source label", type: "select", options: SOURCE_LABEL_OPTIONS },
       { key: "local", label: "Local type", type: "select", options: LOCAL_TYPE_OPTIONS },
     ],
@@ -268,11 +267,11 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
     filters: [
       { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
       { key: "source", label: "Source label", type: "select", options: SOURCE_LABEL_OPTIONS },
-      { key: "agent", label: "Agent", type: "select", options: AGENT_OPTIONS },
+      { key: "agent", label: "Agent", type: "select" },
       { key: "customer_name", label: "Customer name", type: "text" },
       { key: "customer_phone", label: "Customer phone", type: "text" },
       { key: "job_no", label: "Job number", type: "text" },
-      { key: "merchant", label: "Merchant", type: "select", options: MERCHANT_OPTIONS },
+      { key: "merchant", label: "Merchant", type: "select" },
       { key: "reason", label: "Reason", type: "select", options: CANCELLATION_REASON_OPTIONS },
     ],
     editFields: [
@@ -422,6 +421,26 @@ function buildUpdatePayload(formData: FormData, fields: EditFieldConfig[]) {
     }
   }
   return payload;
+}
+
+function withFacetOptions(config: ResourceConfig, options: {
+  agentOptions: readonly SelectOption[];
+  merchantOptions: readonly SelectOption[];
+}): ResourceConfig {
+  const applyOptions = <TField extends FilterConfig | EditFieldConfig>(field: TField): TField => {
+    if (field.key === "agent") {
+      return { ...field, options: options.agentOptions } as TField;
+    }
+    if (field.key === "merchant") {
+      return { ...field, options: options.merchantOptions } as TField;
+    }
+    return field;
+  };
+  return {
+    ...config,
+    filters: config.filters.map(applyOptions),
+    editFields: config.editFields.map(applyOptions),
+  };
 }
 
 function getBookingQuery(resource: UiResource, record: AdminRecord) {
@@ -756,9 +775,14 @@ function buildColumns(
 }
 
 export function OperationalResourcePage({ resource }: { resource: UiResource }) {
-  const config = operationalConfigs[resource];
+  const baseConfig = operationalConfigs[resource];
   const adminResource = uiToAdminResource[resource];
   const { scope } = useDatabaseScope();
+  const facetOptions = useFacetOptions(scope);
+  const config = useMemo(
+    () => withFacetOptions(baseConfig, facetOptions),
+    [baseConfig, facetOptions],
+  );
   const [selected, setSelected] = useState<AdminRecord | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const { filters, update, setSort, setPage, setLimit, reset } = useUrlTableState({

@@ -65,30 +65,6 @@ export const SOURCE_LABEL_TO_COMPANY = {
   "BestRelocation Inbounds": "best_relocation_leads",
 } as const satisfies Record<string, SourceCompany>;
 
-export const AGENTS = [
-  "Austin",
-  "Brian",
-  "Dylan",
-  "Jacob",
-  "Josh",
-  "Jason",
-  "Mike",
-  "Patrick",
-  "Sil",
-  "Roys",
-  "House",
-] as const;
-
-export const MERCHANTS = [
-  "Elavon",
-  "Maverick",
-  "Cardpointe",
-  "EMS",
-  "Paper Check",
-  "Seamless",
-  "Wire Transfer ACH",
-] as const;
-
 export const CANCELLATION_REASONS = [
   "customer_cancelled",
   "price_too_high",
@@ -128,8 +104,6 @@ export const OPERATIONAL_DATABASE_SCOPE_OPTIONS = toSelectOptions(
 );
 export const SOURCE_COMPANY_OPTIONS = toSelectOptions(SOURCE_COMPANIES, SOURCE_COMPANY_LABELS);
 export const SOURCE_LABEL_OPTIONS = toSelectOptions(SOURCE_LABELS);
-export const AGENT_OPTIONS = toSelectOptions(AGENTS);
-export const MERCHANT_OPTIONS = toSelectOptions(MERCHANTS);
 export const CANCELLATION_REASON_OPTIONS = toSelectOptions(CANCELLATION_REASONS);
 export const LOCAL_TYPE_OPTIONS = toSelectOptions(LOCAL_TYPES, {
   local: "Local",
