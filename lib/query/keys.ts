@@ -27,8 +27,8 @@ export const queryKeys = {
   },
   details: {
     all: ["details"] as const,
-    resource: (resource: string, id: string, scope: DatabaseScope = "production") =>
-      [...queryKeys.details.all, resource, id, scope] as const,
+    resource: (resource: string, id: string, scope: DatabaseScope = "production", filters?: QueryFilters) =>
+      [...queryKeys.details.all, resource, id, scope, stableFilters(filters)] as const,
   },
   search: {
     all: ["search"] as const,

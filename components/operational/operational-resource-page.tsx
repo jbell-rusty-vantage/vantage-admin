@@ -425,6 +425,7 @@ function buildUpdatePayload(formData: FormData, fields: EditFieldConfig[]) {
 function withFacetOptions(config: ResourceConfig, options: {
   agentOptions: readonly SelectOption[];
   merchantOptions: readonly SelectOption[];
+  sourceCompanyOptions: readonly SelectOption[];
 }): ResourceConfig {
   const applyOptions = <TField extends FilterConfig | EditFieldConfig>(field: TField): TField => {
     if (field.key === "agent") {
@@ -631,6 +632,7 @@ function DetailPanel({
   uiResource,
   selected,
   scope,
+  filters,
   onClose,
   readOnly,
 }: {
@@ -639,14 +641,15 @@ function DetailPanel({
   uiResource: UiResource;
   selected: AdminRecord | null;
   scope: DatabaseScope;
+  filters: SerializableFilters;
   onClose: () => void;
   readOnly?: boolean;
 }) {
   const id = selected ? getRecordId(selected) : "";
   const effectiveScope = scope === "combined" ? "production" : scope;
   const detailQuery = useQuery({
-    queryKey: queryKeys.details.resource(resource, id, effectiveScope),
-    queryFn: () => fetchAdminDetail<AdminRecord>(resource, id, effectiveScope),
+    queryKey: queryKeys.details.resource(resource, id, effectiveScope, filters),
+    queryFn: () => fetchAdminDetail<AdminRecord>(resource, id, effectiveScope, filters),
     enabled: Boolean(id),
   });
   const record = detailQuery.data ?? selected;
@@ -944,6 +947,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         uiResource={resource}
         selected={selected}
         scope={effectiveFilters.database_scope as DatabaseScope}
+        filters={effectiveFilters}
         onClose={() => setSelected(null)}
         readOnly={readOnly}
       />

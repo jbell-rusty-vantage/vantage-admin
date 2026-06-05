@@ -191,10 +191,12 @@ export async function fetchAdminDetail<TRecord extends AdminRecord>(
   resource: AdminResource,
   id: string,
   scope: DatabaseScope,
+  filters?: SerializableFilters,
 ): Promise<TRecord> {
   const detailScope = scope === "combined" ? "production" : scope;
   return requestJson<TRecord>(
     proxyUrl(`api/v1/admin/${resource}/${encodeURIComponent(id)}`, {
+      ...filters,
       database_scope: detailScope,
     }),
   );
