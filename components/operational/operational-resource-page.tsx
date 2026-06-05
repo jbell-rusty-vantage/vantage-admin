@@ -228,8 +228,7 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
       { key: "cancelled", label: "Cancelled", path: "cancelled", format: "boolean" },
     ],
     filters: [
-      { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
-      { key: "source", label: "Source label", type: "select", options: SOURCE_LABEL_OPTIONS },
+      { key: "source", label: "Source", type: "select", options: SOURCE_COMPANY_OPTIONS },
       { key: "agent", label: "Agent", type: "select" },
       { key: "customer_name", label: "Customer name", type: "text" },
       { key: "customer_phone", label: "Customer phone", type: "text" },
@@ -433,6 +432,9 @@ function withFacetOptions(config: ResourceConfig, options: {
     }
     if (field.key === "merchant") {
       return { ...field, options: options.merchantOptions } as TField;
+    }
+    if (field.key === "source" && field.label === "Source") {
+      return { ...field, options: options.sourceCompanyOptions } as TField;
     }
     return field;
   };
