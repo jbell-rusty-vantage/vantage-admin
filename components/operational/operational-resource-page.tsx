@@ -38,7 +38,11 @@ import { useUrlTableState } from "@/lib/api/url-state";
 import { useDatabaseScope } from "@/lib/state/database-scope";
 import type { DatabaseScope, SelectOption, SortDirection, TableQueryParams } from "@/lib/api/types";
 import {
+  CALL_LEAD_SOURCE_LABEL_OPTIONS,
   CANCELLATION_REASON_OPTIONS,
+  FORM_LEAD_SOURCE_LABEL_OPTIONS,
+  getCallLeadSourceLabel,
+  getFormLeadSourceLabel,
   LOCAL_TYPE_OPTIONS,
   MOVE_SIZE_OPTIONS,
   SOURCE_COMPANY_OPTIONS,
@@ -115,7 +119,12 @@ const formLeadFilters: FilterConfig[] = [
 ];
 
 const formLeadEditFields: EditFieldConfig[] = [
-  { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
+  {
+    key: "source_company",
+    label: "Source company",
+    type: "select",
+    options: FORM_LEAD_SOURCE_LABEL_OPTIONS,
+  },
   { key: "name", label: "Name", type: "text" },
   { key: "first_name", label: "First name", type: "text" },
   { key: "last_name", label: "Last name", type: "text" },
@@ -190,7 +199,12 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
       { key: "local", label: "Local type", type: "select", options: LOCAL_TYPE_OPTIONS },
     ],
     editFields: [
-      { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
+      {
+        key: "source_company",
+        label: "Source company",
+        type: "select",
+        options: CALL_LEAD_SOURCE_LABEL_OPTIONS,
+      },
       { key: "timestamp", label: "Created", type: "date" },
       { key: "job_no", label: "Job number", type: "text" },
       { key: "name", label: "Name", type: "text" },
@@ -403,6 +417,28 @@ function toInputValue(value: unknown, type: FieldType): string {
   return String(value);
 }
 
+function resolveEditFieldValue(
+  record: AdminRecord,
+  field: EditFieldConfig,
+  uiResource: UiResource,
+): string {
+  if (field.key === "source_company") {
+    const storedSourceCompany = getValue(record, "source_company");
+    if (uiResource === "form-leads" || uiResource === "duplicate-form-leads") {
+      return getFormLeadSourceLabel(
+        storedSourceCompany == null ? undefined : String(storedSourceCompany),
+        getValue(record, "local") == null ? undefined : String(getValue(record, "local")),
+      );
+    }
+    if (uiResource === "call-leads") {
+      return getCallLeadSourceLabel(
+        storedSourceCompany == null ? undefined : String(storedSourceCompany),
+      );
+    }
+  }
+  return toInputValue(getValue(record, field.key), field.type);
+}
+
 function buildUpdatePayload(formData: FormData, fields: EditFieldConfig[]) {
   const payload: Record<string, unknown> = {};
   for (const field of fields) {
@@ -491,11 +527,13 @@ function EditForm({
   config,
   record,
   resource,
+  uiResource,
   onSaved,
 }: {
   config: ResourceConfig;
   record: AdminRecord;
   resource: Exclude<AdminResource, "agents">;
+  uiResource: UiResource;
   onSaved: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -537,7 +575,7 @@ function EditForm({
       {message ? <FeedbackMessage tone={mutation.isError ? "error" : "success"}>{message}</FeedbackMessage> : null}
       <div className="grid gap-3 sm:grid-cols-2">
         {config.editFields.map((field) => {
-          const value = toInputValue(getValue(record, field.key), field.type);
+          const value = resolveEditFieldValue(record, field, uiResource);
           return (
             <FilterField key={field.key} label={field.label}>
               {field.type === "select" && field.options ? (
@@ -696,6 +734,7 @@ function DetailPanel({
                 config={config}
                 record={record}
                 resource={editableResource}
+                uiResource={uiResource}
                 onSaved={() => detailQuery.refetch()}
               />
             </DetailSection>

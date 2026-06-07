@@ -31,20 +31,37 @@ export const SOURCE_COMPANY_LABELS = {
   referral: "Referral",
 } as const satisfies Record<SourceCompany, string>;
 
-export const SOURCE_LABELS = [
+/** Granot CRM `label` values for web form leads (maps to `source_company` on save). */
+export const FORM_LEAD_SOURCE_LABELS = [
+  "Main Site Forms",
   "TBM Forms",
-  "10best Inbounds",
   "TBM Prime Forms",
-  "TBM Prime Inbounds",
   "Top10 Forms",
-  "Top10 Inbounds",
   "Best Relocation Forms",
   "Best Relocation Locals",
-  "Best Relocation Inbounds",
-  "Main Site Forms",
-  "Main Site Inbounds",
-  "referral",
 ] as const;
+
+export type FormLeadSourceLabel = (typeof FORM_LEAD_SOURCE_LABELS)[number];
+
+/** Granot CRM `label` values for inbound call leads (maps to `source_company` on save). */
+export const CALL_LEAD_SOURCE_LABELS = [
+  "Main Site Inbounds",
+  "10best Inbounds",
+  "TBM Prime Inbounds",
+  "Top10 Inbounds",
+  "Best Relocation Inbounds",
+] as const;
+
+export type CallLeadSourceLabel = (typeof CALL_LEAD_SOURCE_LABELS)[number];
+
+export const CRM_SOURCE_LABELS = [
+  ...FORM_LEAD_SOURCE_LABELS,
+  ...CALL_LEAD_SOURCE_LABELS,
+] as const;
+
+export type CrmSourceLabel = (typeof CRM_SOURCE_LABELS)[number];
+
+export const SOURCE_LABELS = [...CRM_SOURCE_LABELS, "referral"] as const;
 
 export const SOURCE_LABEL_TO_COMPANY = {
   "Main Site Forms": "main_site",
@@ -56,7 +73,9 @@ export const SOURCE_LABEL_TO_COMPANY = {
   "TBM Prime Inbounds": "tbm_prime_leads",
   "Top10 Forms": "top10_leads",
   "Top10 Inbounds": "top10_leads",
-  "10best Inbounds": "top10_leads",
+  "10 Best Inbounds": "tbm_leads",
+  "10Best Inbounds": "tbm_leads",
+  "10best Inbounds": "tbm_leads",
   "Best Relocation Forms": "best_relocation_leads",
   "Best Relocation Locals": "best_relocation_leads",
   "Best Relocation Inbounds": "best_relocation_leads",
@@ -103,6 +122,8 @@ export const OPERATIONAL_DATABASE_SCOPE_OPTIONS = toSelectOptions(
   DATABASE_SCOPE_LABELS,
 );
 export const SOURCE_COMPANY_OPTIONS = toSelectOptions(SOURCE_COMPANIES, SOURCE_COMPANY_LABELS);
+export const FORM_LEAD_SOURCE_LABEL_OPTIONS = toSelectOptions(FORM_LEAD_SOURCE_LABELS);
+export const CALL_LEAD_SOURCE_LABEL_OPTIONS = toSelectOptions(CALL_LEAD_SOURCE_LABELS);
 export const SOURCE_LABEL_OPTIONS = toSelectOptions(SOURCE_LABELS);
 export const CANCELLATION_REASON_OPTIONS = toSelectOptions(CANCELLATION_REASONS);
 export const LOCAL_TYPE_OPTIONS = toSelectOptions(LOCAL_TYPES, {
@@ -118,6 +139,72 @@ export const SHEET_SYNC_STATUS_OPTIONS = toSelectOptions(SHEET_SYNC_STATUSES, {
 
 export function getSourceCompanyLabel(sourceCompany: SourceCompany): string {
   return SOURCE_COMPANY_LABELS[sourceCompany];
+}
+
+function resolveStoredSourceCompany(value?: string | null): SourceCompany | undefined {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized) {
+    return "not_provided";
+  }
+
+  for (const [label, sourceCompany] of Object.entries(SOURCE_LABEL_TO_COMPANY)) {
+    if (label.toLowerCase() === normalized) {
+      return sourceCompany;
+    }
+  }
+
+  if ((SOURCE_COMPANIES as readonly string[]).includes(normalized)) {
+    return normalized as SourceCompany;
+  }
+
+  for (const [slug, label] of Object.entries(SOURCE_COMPANY_LABELS)) {
+    if (label.toLowerCase() === normalized) {
+      return slug as SourceCompany;
+    }
+  }
+
+  return undefined;
+}
+
+/** Sheet/CRM label shown for a stored form lead `source_company` slug. */
+export function getFormLeadSourceLabel(
+  sourceCompany?: string | null,
+  local?: string | null,
+): FormLeadSourceLabel {
+  const company = resolveStoredSourceCompany(sourceCompany) ?? "not_provided";
+  switch (company) {
+    case "tbm_leads":
+      return "TBM Forms";
+    case "tbm_prime_leads":
+      return "TBM Prime Forms";
+    case "top10_leads":
+      return "Top10 Forms";
+    case "best_relocation_leads":
+      return local === "local" ? "Best Relocation Locals" : "Best Relocation Forms";
+    case "main_site":
+    case "not_provided":
+    default:
+      return "Main Site Forms";
+  }
+}
+
+/** Sheet/CRM label shown for a stored call lead `source_company` slug. */
+export function getCallLeadSourceLabel(sourceCompany?: string | null): CallLeadSourceLabel {
+  const company = resolveStoredSourceCompany(sourceCompany) ?? "not_provided";
+  switch (company) {
+    case "tbm_leads":
+      return "10best Inbounds";
+    case "tbm_prime_leads":
+      return "TBM Prime Inbounds";
+    case "top10_leads":
+      return "Top10 Inbounds";
+    case "best_relocation_leads":
+      return "Best Relocation Inbounds";
+    case "main_site":
+    case "not_provided":
+    default:
+      return "Main Site Inbounds";
+  }
 }
 
 export function getDatabaseScopeLabel(scope: DatabaseScope): string {
