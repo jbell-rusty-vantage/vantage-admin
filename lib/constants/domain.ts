@@ -94,6 +94,22 @@ export const CANCELLATION_REASONS = [
   "other",
 ] as const;
 
+export const FORM_LEAD_BAD_LEAD_REASONS = [
+  "disconnected_number",
+  "bad_phone_email_name",
+  "auto_only",
+  "international_move",
+] as const;
+
+export type FormLeadBadLeadReason = (typeof FORM_LEAD_BAD_LEAD_REASONS)[number];
+
+export const FORM_LEAD_BAD_LEAD_LABELS = {
+  disconnected_number: "D/C number",
+  bad_phone_email_name: "Bad Phone-Email-Name",
+  auto_only: "Auto Only",
+  international_move: "International Move",
+} as const satisfies Record<FormLeadBadLeadReason, string>;
+
 export const LOCAL_TYPES = ["local", "long_distance"] as const;
 export const LEAD_MODELS = ["FormLead", "CallLead"] as const;
 export const MOVE_SIZES = [
@@ -126,6 +142,10 @@ export const FORM_LEAD_SOURCE_LABEL_OPTIONS = toSelectOptions(FORM_LEAD_SOURCE_L
 export const CALL_LEAD_SOURCE_LABEL_OPTIONS = toSelectOptions(CALL_LEAD_SOURCE_LABELS);
 export const SOURCE_LABEL_OPTIONS = toSelectOptions(SOURCE_LABELS);
 export const CANCELLATION_REASON_OPTIONS = toSelectOptions(CANCELLATION_REASONS);
+export const FORM_LEAD_BAD_LEAD_REASON_OPTIONS = toSelectOptions(
+  FORM_LEAD_BAD_LEAD_REASONS,
+  FORM_LEAD_BAD_LEAD_LABELS,
+);
 export const LOCAL_TYPE_OPTIONS = toSelectOptions(LOCAL_TYPES, {
   local: "Local",
   long_distance: "Long Distance",

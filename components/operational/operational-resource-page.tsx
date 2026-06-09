@@ -26,6 +26,7 @@ import {
   getRecordId,
   resourceLabels,
   uiToAdminResource,
+  updateFormLeadBadLead,
   updateProductionRecord,
   type AdminRecord,
   type AdminResource,
@@ -40,6 +41,9 @@ import type { DatabaseScope, SelectOption, SortDirection, TableQueryParams } fro
 import {
   CALL_LEAD_SOURCE_LABEL_OPTIONS,
   CANCELLATION_REASON_OPTIONS,
+  FORM_LEAD_BAD_LEAD_LABELS,
+  FORM_LEAD_BAD_LEAD_REASON_OPTIONS,
+  type FormLeadBadLeadReason,
   FORM_LEAD_SOURCE_LABEL_OPTIONS,
   getCallLeadSourceLabel,
   getFormLeadSourceLabel,
@@ -103,6 +107,7 @@ const formLeadColumns: ColumnConfig[] = [
   { key: "source", label: "Source", path: "source_company", sort: "source_company" },
   { key: "ref", label: "Ref", path: "ref_no", sort: "ref_no" },
   { key: "move", label: "Move", path: "move_size" },
+  { key: "bad_lead", label: "Bad Lead", path: "bad_lead" },
   { key: "booked", label: "Booked", path: "booked", format: "boolean" },
   { key: "cancelled", label: "Cancelled", path: "cancelled", format: "boolean" },
 ];
@@ -361,6 +366,31 @@ function isReferralBooking(record: AdminRecord | null | undefined): boolean {
   return record?.is_referral_booking === true;
 }
 
+function isFormLeadBadLeadReason(value: unknown): value is FormLeadBadLeadReason {
+  return (
+    typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(FORM_LEAD_BAD_LEAD_LABELS, value)
+  );
+}
+
+function formatBadLead(value: unknown): string {
+  return isFormLeadBadLeadReason(value) ? FORM_LEAD_BAD_LEAD_LABELS[value] : "";
+}
+
+function canMarkFormLeadBad(record: AdminRecord): boolean {
+  return !record.duplicate && !record.booked && !record.cancelled;
+}
+
+async function invalidateOperationalMutations(queryClient: ReturnType<typeof useQueryClient>) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.lists.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.details.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.search.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.auditLog.all }),
+  ]);
+}
+
 function formatDate(value: unknown): string {
   if (!value) {
     return "-";
@@ -397,6 +427,9 @@ function formatCell(record: AdminRecord, column: ColumnConfig) {
   let value = getValue(record, column.path);
   if ((value === null || value === undefined || value === "") && column.path === "customer.full_name") {
     value = getValue(record, "customer_name");
+  }
+  if (column.path === "bad_lead") {
+    return formatBadLead(value) || "-";
   }
   if (column.format === "date") {
     return formatDate(value);
@@ -542,13 +575,7 @@ function EditForm({
     mutationFn: (payload: Record<string, unknown>) =>
       updateProductionRecord<AdminRecord>(resource, getRecordId(record), payload),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.lists.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.details.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.search.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.auditLog.all }),
-      ]);
+      await invalidateOperationalMutations(queryClient);
       setMessage("Saved. The table and detail caches were refreshed.");
       onSaved();
     },
@@ -612,14 +639,101 @@ function EditForm({
   );
 }
 
+function MarkBadLeadControl({
+  record,
+  compact = false,
+  onSaved,
+}: {
+  record: AdminRecord;
+  compact?: boolean;
+  onSaved?: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const currentBadLead = isFormLeadBadLeadReason(record.bad_lead) ? record.bad_lead : "";
+  const [selectedReason, setSelectedReason] = useState(currentBadLead);
+  const [message, setMessage] = useState<string | null>(null);
+  const eligible = canMarkFormLeadBad(record);
+  const mutation = useMutation({
+    mutationFn: (badLead: string | null) =>
+      updateFormLeadBadLead<AdminRecord>(getRecordId(record), badLead),
+    onSuccess: async () => {
+      await invalidateOperationalMutations(queryClient);
+      setMessage("Bad Lead status updated.");
+      onSaved?.();
+    },
+    onError: (error) =>
+      setMessage(error instanceof Error ? error.message : "Bad Lead update failed."),
+  });
+
+  if (!eligible) {
+    return compact ? null : (
+      <FeedbackMessage tone="warning">
+        Bad Lead can only be changed for non-booked, non-cancelled form leads.
+      </FeedbackMessage>
+    );
+  }
+
+  const canSubmit = selectedReason !== currentBadLead;
+  const isMarkedBad = Boolean(currentBadLead);
+
+  return (
+    <div className={compact ? "flex min-w-[230px] items-center gap-2" : "space-y-3"}>
+      {message && !compact ? (
+        <FeedbackMessage tone={mutation.isError ? "error" : "success"}>{message}</FeedbackMessage>
+      ) : null}
+      <div className={compact ? "flex items-center gap-2" : "flex flex-wrap items-end gap-2"}>
+        <label className={compact ? "flex items-center" : "grid gap-1 text-sm font-medium"}>
+          <span className={compact ? "sr-only" : undefined}>
+            {!compact ? "Bad Lead Reason" : "Bad Lead"}
+          </span>
+          <select
+            value={selectedReason}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => setSelectedReason(event.target.value)}
+            className={
+              compact
+                ? "h-8 w-36 rounded-md border border-input bg-background px-2 text-xs"
+                : "flex h-10 min-w-60 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            }
+          >
+            <option value="">{isMarkedBad ? "Clear Bad Lead" : "Choose reason"}</option>
+            {FORM_LEAD_BAD_LEAD_REASON_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Button
+          type="button"
+          variant={selectedReason ? "destructive" : "outline"}
+          disabled={mutation.isPending || !canSubmit}
+          onClick={(event) => {
+            event.stopPropagation();
+            mutation.mutate(selectedReason || null);
+          }}
+          className={compact ? "h-8 px-3 text-xs" : undefined}
+        >
+          {mutation.isPending ? "Saving..." : selectedReason ? "Mark Bad" : isMarkedBad ? "Clear Bad" : "Mark Bad"}
+        </Button>
+      </div>
+      {compact && isMarkedBad ? (
+        <span className="text-xs text-muted-foreground">{formatBadLead(currentBadLead)}</span>
+      ) : null}
+    </div>
+  );
+}
+
 function WorkflowActions({
   uiResource,
   record,
   readOnly,
+  onSaved,
 }: {
   uiResource: UiResource;
   record: AdminRecord;
   readOnly?: boolean;
+  onSaved?: () => void;
 }) {
   if (readOnly) {
     return null;
@@ -640,24 +754,31 @@ function WorkflowActions({
         : "Book this lead (job number and phone prefilled) or start a cancellation.";
   return (
     <DetailSection title="Workflow Actions" description={description}>
-      <div className="flex flex-wrap gap-2">
-        {canBook ? (
-          <Link
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-navy hover:text-white"
-            href={`/bookings/new?${getBookingQuery(uiResource, record)}`}
-          >
-            <PlusCircle className="h-4 w-4" aria-hidden="true" />
-            Book this lead
-          </Link>
-        ) : null}
-        {canCancel ? (
-          <Link
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
-            href={`/cancellations/new?${getCancellationQuery(uiResource, record)}`}
-          >
-            <XCircle className="h-4 w-4" aria-hidden="true" />
-            {uiResource === "bookings" ? "Cancel this booking" : "Start cancellation"}
-          </Link>
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {canBook ? (
+            <Link
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-navy hover:text-white"
+              href={`/bookings/new?${getBookingQuery(uiResource, record)}`}
+            >
+              <PlusCircle className="h-4 w-4" aria-hidden="true" />
+              Book this lead
+            </Link>
+          ) : null}
+          {canCancel ? (
+            <Link
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+              href={`/cancellations/new?${getCancellationQuery(uiResource, record)}`}
+            >
+              <XCircle className="h-4 w-4" aria-hidden="true" />
+              {uiResource === "bookings" ? "Cancel this booking" : "Start cancellation"}
+            </Link>
+          ) : null}
+        </div>
+        {uiResource === "form-leads" ? (
+          <div className="rounded-md border bg-muted/30 p-3">
+            <MarkBadLeadControl record={record} onSaved={onSaved} />
+          </div>
         ) : null}
       </div>
     </DetailSection>
@@ -727,7 +848,14 @@ function DetailPanel({
               ))}
             </DetailGrid>
           </DetailSection>
-          {isProduction ? <WorkflowActions uiResource={uiResource} record={record} readOnly={readOnly} /> : null}
+          {isProduction ? (
+            <WorkflowActions
+              uiResource={uiResource}
+              record={record}
+              readOnly={readOnly}
+              onSaved={() => detailQuery.refetch()}
+            />
+          ) : null}
           {isProduction && editableResource ? (
             <DetailSection title="Edit Production Record" description="Only safe v1 fields are exposed here.">
               <EditForm
@@ -791,6 +919,19 @@ function buildColumns(
           <PlusCircle className="h-3.5 w-3.5" aria-hidden="true" />
           Book
         </Link>
+      ),
+    });
+  }
+
+  if (isProduction && !config.readOnly && resource === "form-leads") {
+    columns.unshift({
+      key: "__mark_bad",
+      header: "Bad",
+      className: "w-px",
+      cell: (item) => (
+        <div onClick={(event) => event.stopPropagation()}>
+          <MarkBadLeadControl record={item} compact />
+        </div>
       ),
     });
   }

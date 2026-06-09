@@ -213,6 +213,15 @@ export async function updateProductionRecord<TRecord extends AdminRecord>(
   });
 }
 
+export async function updateFormLeadBadLead<TRecord extends AdminRecord>(
+  id: string,
+  badLead: string | null,
+): Promise<TRecord> {
+  return updateProductionRecord<TRecord>("form-leads", id, {
+    bad_lead: badLead,
+  });
+}
+
 export async function createBookingFromSource(body: Record<string, unknown>) {
   return requestJson<unknown>(proxyUrl("api/v1/booked-leads/from-source"), {
     method: "POST",
