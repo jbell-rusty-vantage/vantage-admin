@@ -1,7 +1,15 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { DashboardNav } from "./dashboard-nav";
 import { LogoutButton } from "./logout-button";
 import { ScopeAwareHeaderControls } from "./scope-aware-header-controls";
+
+const sidebarStorageKey = "vantage-admin-sidebar-collapsed";
 
 export function DashboardShell({
   adminEmail,
@@ -10,17 +18,55 @@ export function DashboardShell({
   adminEmail: string;
   children: React.ReactNode;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setCollapsed(window.localStorage.getItem(sidebarStorageKey) === "true");
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem(sidebarStorageKey, String(next));
+      return next;
+    });
+  }
+
   return (
     <div className="flex min-h-screen bg-cool-white">
-      <aside className="hidden w-64 flex-col border-r border-steel-200 bg-white px-4 py-6 shadow-sm lg:flex">
-        <div className="mb-8 px-2">
-          <BrandLogo />
+      <aside
+        className={cn(
+          "hidden flex-col border-r border-steel-200 bg-white px-4 py-6 shadow-sm transition-[width] duration-200 lg:flex",
+          collapsed ? "w-20" : "w-64",
+        )}
+      >
+        <div className={cn("mb-6 flex items-center gap-2", collapsed ? "justify-center px-0" : "justify-between px-2")}>
+          <div className={collapsed ? "hidden" : undefined}>
+            <BrandLogo />
+          </div>
+          <Button
+            variant="ghost"
+            className="h-9 w-9 px-0"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </Button>
         </div>
-        <DashboardNav />
+        <DashboardNav collapsed={collapsed} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex min-h-16 items-center justify-between gap-4 border-b border-steel-200 bg-white/95 px-6 py-3 shadow-sm backdrop-blur">
           <div className="flex min-w-0 flex-1 items-center gap-4">
+            <Button
+              variant="ghost"
+              className="h-9 w-9 shrink-0 px-0 lg:hidden"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open navigation"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
             <ScopeAwareHeaderControls />
           </div>
           <div className="flex items-center gap-4">
@@ -30,6 +76,25 @@ export function DashboardShell({
         </header>
         <main className="flex-1 p-6">{children}</main>
       </div>
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            aria-label="Close navigation"
+            className="absolute inset-0 bg-background/70 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="absolute left-0 top-0 flex h-full w-72 flex-col border-r bg-white p-5 shadow-xl">
+            <div className="mb-6 flex items-start justify-between gap-3">
+              <BrandLogo />
+              <Button variant="ghost" className="h-9 w-9 px-0" onClick={() => setMobileOpen(false)} aria-label="Close">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <DashboardNav onNavigate={() => setMobileOpen(false)} />
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }

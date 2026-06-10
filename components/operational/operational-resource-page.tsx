@@ -1,16 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Pencil, PlusCircle, XCircle } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowUp, ChevronDown, Download, Funnel, PanelLeftClose, PanelLeftOpen, Pencil, PlusCircle, X, XCircle } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/data-table/table-shell";
-import { PaginationControls } from "@/components/data-table/pagination-controls";
 import { SortableHeader } from "@/components/data-table/sortable-header";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { TableEmptyState, TableErrorState, TableLoadingState } from "@/components/data-table/table-states";
 import { DateRangeFilter } from "@/components/filters/date-range-filter";
-import { FilterBar } from "@/components/filters/filter-bar";
 import { FilterField } from "@/components/filters/filter-field";
 import { SelectFilter } from "@/components/filters/select-filter";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,7 @@ import {
 import { downloadCsvFromProxy } from "@/lib/api/csv";
 import { useFacetOptions } from "@/lib/api/facets";
 import type { SerializableFilters } from "@/lib/api/filters";
-import { useUrlTableState } from "@/lib/api/url-state";
+import { useUrlTableState, type UrlStateUpdate } from "@/lib/api/url-state";
 import { useDatabaseScope } from "@/lib/state/database-scope";
 import type { DatabaseScope, SelectOption, SortDirection, TableQueryParams } from "@/lib/api/types";
 import {
@@ -53,8 +52,11 @@ import {
   SOURCE_LABEL_OPTIONS,
 } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
+import { cn } from "@/lib/utils";
 
 type FieldType = "text" | "date" | "number" | "textarea" | "select" | "boolean";
+
+const filtersSidebarStorageKey = "vantage-admin-operational-filters-collapsed";
 
 type ColumnConfig = {
   key: string;
@@ -556,6 +558,234 @@ function FilterInput({
   return <Input value={value} onChange={(event) => onChange(event.target.value)} />;
 }
 
+function getFilterDisplayValue(filter: FilterConfig, value: unknown): string {
+  if (value === undefined || value === null || value === "") {
+    return "";
+  }
+  const stringValue = String(value);
+  return filter.options?.find((option) => option.value === stringValue)?.label ?? stringValue;
+}
+
+function getActiveFilterChips(config: ResourceConfig, filters: TableQueryParams) {
+  const filterMap = new Map(config.filters.map((filter) => [filter.key, filter]));
+  const chips: Array<{ key: string; label: string; value: string; clear: UrlStateUpdate }> = [];
+
+  if (filters.q) {
+    chips.push({ key: "q", label: "Search", value: String(filters.q), clear: { q: null } });
+  }
+  if (filters.from || filters.to) {
+    chips.push({
+      key: "date",
+      label: "Date",
+      value: `${filters.from ?? "Any"} to ${filters.to ?? "Any"}`,
+      clear: { from: null, to: null },
+    });
+  }
+
+  for (const filter of config.filters) {
+    const value = filters[filter.key];
+    const displayValue = getFilterDisplayValue(filter, value);
+    if (displayValue) {
+      chips.push({
+        key: filter.key,
+        label: filter.label,
+        value: displayValue,
+        clear: { [filter.key]: null },
+      });
+    }
+  }
+
+  return chips.filter((chip) => filterMap.has(chip.key) || chip.key === "q" || chip.key === "date");
+}
+
+function FilterFields({
+  config,
+  filters,
+  update,
+}: {
+  config: ResourceConfig;
+  filters: TableQueryParams;
+  update: (next: UrlStateUpdate) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <FilterField label="Search">
+        <Input value={String(filters.q ?? "")} onChange={(event) => update({ q: event.target.value })} />
+      </FilterField>
+      <FilterField label="Date range">
+        <DateRangeFilter
+          from={typeof filters.from === "string" ? filters.from : undefined}
+          to={typeof filters.to === "string" ? filters.to : undefined}
+          onChange={(range) => update(range)}
+        />
+      </FilterField>
+      {config.filters.map((filter) => (
+        <FilterField key={filter.key} label={filter.label}>
+          <FilterInput
+            filter={filter}
+            value={String(filters[filter.key] ?? "")}
+            onChange={(value) => update({ [filter.key]: value })}
+          />
+        </FilterField>
+      ))}
+    </div>
+  );
+}
+
+function ActiveFilterChips({
+  config,
+  filters,
+  update,
+  reset,
+}: {
+  config: ResourceConfig;
+  filters: TableQueryParams;
+  update: (next: UrlStateUpdate) => void;
+  reset: () => void;
+}) {
+  const chips = getActiveFilterChips(config, filters);
+  if (chips.length === 0) {
+    return <p className="text-sm text-muted-foreground">No filters applied.</p>;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {chips.map((chip) => (
+        <button
+          key={chip.key}
+          type="button"
+          className="inline-flex items-center gap-1 rounded-full border bg-white px-3 py-1 text-xs font-semibold text-navy shadow-sm hover:bg-steel-100"
+          onClick={() => update(chip.clear)}
+        >
+          <span>{chip.label}: {chip.value}</span>
+          <X className="h-3 w-3" aria-hidden="true" />
+        </button>
+      ))}
+      <Button variant="ghost" className="h-8 px-2 text-xs" onClick={reset}>
+        Reset all
+      </Button>
+    </div>
+  );
+}
+
+function OperationalFilterPanel({
+  config,
+  filters,
+  update,
+  reset,
+  collapsed,
+  onToggleCollapsed,
+}: {
+  config: ResourceConfig;
+  filters: TableQueryParams;
+  update: (next: UrlStateUpdate) => void;
+  reset: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const activeCount = getActiveFilterChips(config, filters).length;
+
+  return (
+    <>
+      <div className="sticky top-20 z-20 rounded-lg border bg-background/95 p-3 shadow-sm backdrop-blur xl:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button variant="outline" className="gap-2" onClick={() => setMobileOpen(true)}>
+            <Funnel className="h-4 w-4" aria-hidden="true" />
+            Filters{activeCount ? ` (${activeCount})` : ""}
+          </Button>
+          <Button variant="ghost" onClick={reset}>
+            Reset
+          </Button>
+        </div>
+        <div className="mt-3">
+          <ActiveFilterChips config={config} filters={filters} update={update} reset={reset} />
+        </div>
+      </div>
+
+      <aside className="hidden xl:block">
+        {collapsed ? (
+          <div className="sticky top-24 flex flex-col items-center gap-3 rounded-lg border bg-background p-2 shadow-sm">
+            <Button
+              variant="ghost"
+              className="h-9 w-9 px-0"
+              onClick={onToggleCollapsed}
+              aria-label="Expand filters"
+              title="Expand filters"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </Button>
+            <div className="flex flex-col items-center gap-2 py-2 text-muted-foreground">
+              <Funnel className="h-4 w-4" aria-hidden="true" />
+              {activeCount ? (
+                <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-white">
+                  {activeCount}
+                </span>
+              ) : null}
+              <span className="sr-only">Filters collapsed</span>
+            </div>
+          </div>
+        ) : (
+          <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-lg border bg-background p-4 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold">Filters</h2>
+                <p className="text-xs text-muted-foreground">Always available while scrolling.</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" className="h-8 px-2 text-xs" onClick={reset}>
+                  Reset
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="h-8 w-8 px-0"
+                  onClick={onToggleCollapsed}
+                  aria-label="Collapse filters"
+                  title="Collapse filters"
+                >
+                  <PanelLeftClose className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <FilterFields config={config} filters={filters} update={update} />
+          </div>
+        )}
+      </aside>
+
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-50 xl:hidden">
+          <button
+            type="button"
+            aria-label="Close filters"
+            className="absolute inset-0 bg-background/70 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l bg-background shadow-xl">
+            <header className="flex items-start justify-between gap-4 border-b p-5">
+              <div>
+                <h2 className="text-lg font-semibold">Filters</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Refine this operational view.</p>
+              </div>
+              <Button variant="ghost" className="h-9 w-9 px-0" onClick={() => setMobileOpen(false)} aria-label="Close">
+                <X className="h-4 w-4" />
+              </Button>
+            </header>
+            <div className="flex-1 overflow-y-auto p-5">
+              <FilterFields config={config} filters={filters} update={update} />
+            </div>
+            <footer className="flex items-center justify-between gap-3 border-t p-5">
+              <Button variant="outline" onClick={reset}>
+                Reset filters
+              </Button>
+              <Button onClick={() => setMobileOpen(false)}>Show results</Button>
+            </footer>
+          </aside>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 function EditForm({
   config,
   record,
@@ -652,6 +882,10 @@ function MarkBadLeadControl({
   const currentBadLead = isFormLeadBadLeadReason(record.bad_lead) ? record.bad_lead : "";
   const [selectedReason, setSelectedReason] = useState(currentBadLead);
   const [message, setMessage] = useState<string | null>(null);
+  const [compactOpen, setCompactOpen] = useState(false);
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const [popoverPosition, setPopoverPosition] = useState({ left: 0, top: 0 });
   const eligible = canMarkFormLeadBad(record);
   const mutation = useMutation({
     mutationFn: (badLead: string | null) =>
@@ -665,6 +899,72 @@ function MarkBadLeadControl({
       setMessage(error instanceof Error ? error.message : "Bad Lead update failed."),
   });
 
+  const canSubmit = selectedReason !== currentBadLead;
+  const isMarkedBad = Boolean(currentBadLead);
+  const updatePopoverPosition = useCallback(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) {
+      return;
+    }
+
+    const margin = 12;
+    const gap = 8;
+    const width = 288;
+    const anchorRect = anchor.getBoundingClientRect();
+    const popoverHeight = popoverRef.current?.offsetHeight ?? 260;
+    const left = Math.min(
+      Math.max(anchorRect.left, margin),
+      Math.max(margin, window.innerWidth - width - margin),
+    );
+    const belowTop = anchorRect.bottom + gap;
+    const top =
+      belowTop + popoverHeight + margin > window.innerHeight && anchorRect.top > popoverHeight + margin
+        ? anchorRect.top - popoverHeight - gap
+        : belowTop;
+
+    setPopoverPosition({ left, top: Math.max(margin, top) });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!compactOpen) {
+      return;
+    }
+
+    updatePopoverPosition();
+  }, [compactOpen, updatePopoverPosition, selectedReason, message]);
+
+  useEffect(() => {
+    if (!compactOpen) {
+      return;
+    }
+
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+      if (anchorRef.current?.contains(target) || popoverRef.current?.contains(target)) {
+        return;
+      }
+      setCompactOpen(false);
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setCompactOpen(false);
+      }
+    }
+
+    window.addEventListener("resize", updatePopoverPosition);
+    window.addEventListener("scroll", updatePopoverPosition, true);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("resize", updatePopoverPosition);
+      window.removeEventListener("scroll", updatePopoverPosition, true);
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [compactOpen, updatePopoverPosition]);
+
   if (!eligible) {
     return compact ? null : (
       <FeedbackMessage tone="warning">
@@ -673,8 +973,85 @@ function MarkBadLeadControl({
     );
   }
 
-  const canSubmit = selectedReason !== currentBadLead;
-  const isMarkedBad = Boolean(currentBadLead);
+  if (compact) {
+    const compactPopover =
+      compactOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={popoverRef}
+              className="fixed z-50 w-72 rounded-lg border bg-background p-3 shadow-xl"
+              style={{ left: popoverPosition.left, top: popoverPosition.top }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-navy">Bad Lead Reason</p>
+                  <p className="text-xs text-muted-foreground">Applies to this form lead only.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-7 w-7 px-0"
+                  onClick={() => setCompactOpen(false)}
+                  aria-label="Close bad lead menu"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <select
+                value={selectedReason}
+                onChange={(event) => setSelectedReason(event.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">{isMarkedBad ? "Clear Bad Lead" : "Choose reason"}</option>
+                {FORM_LEAD_BAD_LEAD_REASON_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {message ? (
+                <p className="mt-2 text-xs text-muted-foreground">{message}</p>
+              ) : null}
+              <div className="mt-3 flex justify-end gap-2">
+                <Button type="button" variant="outline" className="h-8 px-3 text-xs" onClick={() => setCompactOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant={selectedReason ? "destructive" : "outline"}
+                  disabled={mutation.isPending || !canSubmit}
+                  className="h-8 px-3 text-xs"
+                  onClick={() => {
+                    mutation.mutate(selectedReason || null, {
+                      onSuccess: () => setCompactOpen(false),
+                    });
+                  }}
+                >
+                  {mutation.isPending ? "Saving..." : selectedReason ? "Mark Bad" : isMarkedBad ? "Clear Bad" : "Save"}
+                </Button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null;
+
+    return (
+      <div ref={anchorRef} onClick={(event) => event.stopPropagation()}>
+        <Button
+          type="button"
+          variant={isMarkedBad ? "destructive" : "outline"}
+          className="h-8 min-w-24 gap-1 px-2 text-xs"
+          onClick={() => setCompactOpen((current) => !current)}
+          aria-expanded={compactOpen}
+        >
+          <span className="max-w-28 truncate">{isMarkedBad ? formatBadLead(currentBadLead) : "Bad Lead"}</span>
+          <ChevronDown className="h-3 w-3" aria-hidden="true" />
+        </Button>
+        {compactPopover}
+      </div>
+    );
+  }
 
   return (
     <div className={compact ? "flex min-w-[230px] items-center gap-2" : "space-y-3"}>
@@ -878,6 +1255,52 @@ function DetailPanel({
   );
 }
 
+const hiddenTableColumnsByResource: Partial<Record<UiResource, Set<string>>> = {
+  "form-leads": new Set(["first_name", "last_name", "email"]),
+  "duplicate-form-leads": new Set(["first_name", "last_name", "email"]),
+  "call-leads": new Set(["first_name", "last_name", "email"]),
+};
+
+const truncateTableColumns = new Set([
+  "name",
+  "customer",
+  "phone",
+  "email",
+  "source",
+  "merchant",
+  "reason",
+  "by",
+]);
+
+function getTableColumnClassName(column: ColumnConfig): string | undefined {
+  switch (column.key) {
+    case "timestamp":
+    case "book_date":
+    case "cancel_date":
+    case "activity":
+      return "min-w-28";
+    case "name":
+    case "customer":
+      return "min-w-44";
+    case "phone":
+      return "min-w-32";
+    case "source":
+    case "merchant":
+    case "move":
+    case "reason":
+      return "min-w-40";
+    case "ref":
+    case "job":
+      return "min-w-36";
+    case "binder":
+    case "deposit":
+    case "refund":
+      return "min-w-28";
+    default:
+      return undefined;
+  }
+}
+
 function buildColumns(
   config: ResourceConfig,
   filters: TableQueryParams,
@@ -885,21 +1308,26 @@ function buildColumns(
   resource: UiResource,
   isProduction: boolean,
 ): DataTableColumn<AdminRecord>[] {
-  const columns: DataTableColumn<AdminRecord>[] = config.columns.map((column) => ({
-    key: column.key,
-    header: column.sort ? (
-      <SortableHeader
-        field={column.sort}
-        label={column.label}
-        activeSort={filters.sort}
-        direction={filters.direction}
-        onSort={setSort}
-      />
-    ) : (
-      column.label
-    ),
-    cell: (item) => formatCell(item, column),
-  }));
+  const hiddenColumns = hiddenTableColumnsByResource[resource];
+  const columns: DataTableColumn<AdminRecord>[] = config.columns
+    .filter((column) => !hiddenColumns?.has(column.key))
+    .map((column) => ({
+      key: column.key,
+      header: column.sort ? (
+        <SortableHeader
+          field={column.sort}
+          label={column.label}
+          activeSort={filters.sort}
+          direction={filters.direction}
+          onSort={setSort}
+        />
+      ) : (
+        column.label
+      ),
+      cell: (item) => formatCell(item, column),
+      truncate: truncateTableColumns.has(column.key),
+      className: getTableColumnClassName(column),
+    }));
 
   const canBook =
     isProduction &&
@@ -928,6 +1356,7 @@ function buildColumns(
       key: "__mark_bad",
       header: "Bad",
       className: "w-px",
+      sticky: "left",
       cell: (item) => (
         <div onClick={(event) => event.stopPropagation()}>
           <MarkBadLeadControl record={item} compact />
@@ -959,6 +1388,60 @@ function buildColumns(
   return columns;
 }
 
+function InfiniteTableFooter({
+  shown,
+  total,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
+}: {
+  shown: number;
+  total?: number;
+  hasNextPage?: boolean;
+  isFetchingNextPage: boolean;
+  onLoadMore: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border bg-background p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-muted-foreground">
+        Showing {shown}
+        {typeof total === "number" ? ` of ${total}` : null}
+      </div>
+      <Button variant="outline" disabled={!hasNextPage || isFetchingNextPage} onClick={onLoadMore}>
+        {isFetchingNextPage ? "Loading..." : hasNextPage ? "Load more" : "All rows loaded"}
+      </Button>
+    </div>
+  );
+}
+
+function BackToTopButton() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    function onScroll() {
+      setVisible(window.scrollY > 600);
+    }
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <Button
+      className="fixed bottom-5 right-5 z-40 gap-2 shadow-lg"
+      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+    >
+      <ArrowUp className="h-4 w-4" aria-hidden="true" />
+      Back to top
+    </Button>
+  );
+}
+
 export function OperationalResourcePage({ resource }: { resource: UiResource }) {
   const baseConfig = operationalConfigs[resource];
   const adminResource = uiToAdminResource[resource];
@@ -970,7 +1453,9 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
   );
   const [selected, setSelected] = useState<AdminRecord | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
-  const { filters, update, setSort, setPage, setLimit, reset } = useUrlTableState({
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const { filters, update, setSort, reset } = useUrlTableState({
     database_scope: scope,
     sort: config.defaultSort,
     direction: config.defaultDirection,
@@ -984,16 +1469,62 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
     direction: filters.direction ?? config.defaultDirection,
     date_field: filters.date_field ?? config.dateField,
   };
+  const listFilters: SerializableFilters = {
+    ...effectiveFilters,
+    page: 1,
+  };
   const readOnly = Boolean(config.readOnly) || effectiveFilters.database_scope === "historical";
-  const query = useQuery({
-    queryKey: queryKeys.lists.resource(adminResource, effectiveFilters),
-    queryFn: () => fetchAdminList<AdminRecord>(adminResource, effectiveFilters),
+  const query = useInfiniteQuery({
+    queryKey: queryKeys.lists.resource(adminResource, listFilters),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      fetchAdminList<AdminRecord>(adminResource, {
+        ...listFilters,
+        page: Number(pageParam),
+      }),
+    getNextPageParam: (lastPage) => (
+      lastPage.has_next_page ? lastPage.page + 1 : undefined
+    ),
   });
+  const pages = query.data?.pages ?? [];
+  const items = pages.flatMap((page) => page.items);
+  const lastPage = pages[pages.length - 1];
   const isProduction = effectiveFilters.database_scope === "production";
   const columns = useMemo(
     () => buildColumns(config, filters, setSort, resource, isProduction),
     [config, filters, setSort, resource, isProduction],
   );
+
+  function toggleFiltersCollapsed() {
+    setFiltersCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem(filtersSidebarStorageKey, String(next));
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    setFiltersCollapsed(window.localStorage.getItem(filtersSidebarStorageKey) === "true");
+  }, []);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !query.hasNextPage) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting && query.hasNextPage && !query.isFetchingNextPage) {
+          query.fetchNextPage();
+        }
+      },
+      { rootMargin: "400px" },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [query]);
 
   async function onExport() {
     setExportMessage(null);
@@ -1048,54 +1579,62 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         </FeedbackMessage>
       ) : null}
 
-      <FilterBar onReset={reset}>
-        <FilterField label="Search">
-          <Input value={String(filters.q ?? "")} onChange={(event) => update({ q: event.target.value })} />
-        </FilterField>
-        <FilterField label="Date range">
-          <DateRangeFilter
-            from={typeof filters.from === "string" ? filters.from : undefined}
-            to={typeof filters.to === "string" ? filters.to : undefined}
-            onChange={(range) => update(range)}
-          />
-        </FilterField>
-        {config.filters.map((filter) => (
-          <FilterField key={filter.key} label={filter.label}>
-            <FilterInput
-              filter={filter}
-              value={String(filters[filter.key] ?? "")}
-              onChange={(value) => update({ [filter.key]: value })}
-            />
-          </FilterField>
-        ))}
-      </FilterBar>
+      <div
+        className={cn(
+          "grid gap-5 transition-[grid-template-columns] duration-200",
+          filtersCollapsed ? "xl:grid-cols-[4rem_minmax(0,1fr)]" : "xl:grid-cols-[18rem_minmax(0,1fr)]",
+        )}
+      >
+        <OperationalFilterPanel
+          config={config}
+          filters={filters}
+          update={update}
+          reset={reset}
+          collapsed={filtersCollapsed}
+          onToggleCollapsed={toggleFiltersCollapsed}
+        />
 
-      {isProduction && !readOnly && (resource === "form-leads" || resource === "call-leads" || resource === "bookings") ? (
-        <div className="rounded-lg border bg-background p-3 text-sm">
-          {resource === "bookings"
-            ? "Select a booking row to inspect it, or use the row detail to start a cancellation."
-            : "Select a lead row to inspect it, then start a booking with identifiers prefilled."}
+        <div className="min-w-0 space-y-4">
+          <div className="hidden rounded-lg border bg-background p-3 xl:block">
+            <ActiveFilterChips config={config} filters={filters} update={update} reset={reset} />
+          </div>
+
+          {isProduction && !readOnly && (resource === "form-leads" || resource === "call-leads" || resource === "bookings") ? (
+            <div className="rounded-lg border bg-background p-3 text-sm">
+              {resource === "bookings"
+                ? "Select a booking row to inspect it, or use the row detail to start a cancellation."
+                : "Select a lead row to inspect it, then start a booking with identifiers prefilled."}
+            </div>
+          ) : null}
+
+          {query.isLoading ? <TableLoadingState /> : null}
+          {query.isError ? (
+            <TableErrorState error={query.error instanceof Error ? query.error.message : undefined} onRetry={() => query.refetch()} />
+          ) : null}
+          {query.data && items.length === 0 ? <TableEmptyState /> : null}
+          {items.length > 0 ? (
+            <>
+              <DataTable
+                items={items}
+                columns={columns}
+                getRowKey={getRecordId}
+                onRowClick={setSelected}
+                stickyHeader
+                compact
+                horizontalControls
+              />
+              <div ref={loadMoreRef} aria-hidden="true" />
+              <InfiniteTableFooter
+                shown={items.length}
+                total={lastPage?.total}
+                hasNextPage={query.hasNextPage}
+                isFetchingNextPage={query.isFetchingNextPage}
+                onLoadMore={() => query.fetchNextPage()}
+              />
+            </>
+          ) : null}
         </div>
-      ) : null}
-
-      {query.isLoading ? <TableLoadingState /> : null}
-      {query.isError ? (
-        <TableErrorState error={query.error instanceof Error ? query.error.message : undefined} onRetry={() => query.refetch()} />
-      ) : null}
-      {query.data && query.data.items.length === 0 ? <TableEmptyState /> : null}
-      {query.data && query.data.items.length > 0 ? (
-        <>
-          <DataTable items={query.data.items} columns={columns} getRowKey={getRecordId} onRowClick={setSelected} />
-          <PaginationControls
-            page={filters.page}
-            limit={filters.limit}
-            total={query.data.total}
-            hasNextPage={query.data.has_next_page}
-            onPageChange={setPage}
-            onLimitChange={setLimit}
-          />
-        </>
-      ) : null}
+      </div>
 
       {selected && isProduction && !readOnly ? (
         <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 gap-2 rounded-lg border bg-background p-2 shadow-lg">
@@ -1131,6 +1670,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         onClose={() => setSelected(null)}
         readOnly={readOnly}
       />
+      <BackToTopButton />
     </div>
   );
 }
