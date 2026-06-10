@@ -36,6 +36,7 @@ import { useFacetOptions } from "@/lib/api/facets";
 import type { SerializableFilters } from "@/lib/api/filters";
 import { useUrlTableState, type UrlStateUpdate } from "@/lib/api/url-state";
 import { useDatabaseScope } from "@/lib/state/database-scope";
+import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-local-storage-boolean";
 import type { DatabaseScope, SelectOption, SortDirection, TableQueryParams } from "@/lib/api/types";
 import {
   CALL_LEAD_SOURCE_LABEL_OPTIONS,
@@ -1454,7 +1455,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
   const [selected, setSelected] = useState<AdminRecord | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const filtersCollapsed = useLocalStorageBoolean(filtersSidebarStorageKey);
   const { filters, update, setSort, reset } = useUrlTableState({
     database_scope: scope,
     sort: config.defaultSort,
@@ -1496,16 +1497,8 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
   );
 
   function toggleFiltersCollapsed() {
-    setFiltersCollapsed((current) => {
-      const next = !current;
-      window.localStorage.setItem(filtersSidebarStorageKey, String(next));
-      return next;
-    });
+    setLocalStorageBoolean(filtersSidebarStorageKey, !filtersCollapsed);
   }
-
-  useEffect(() => {
-    setFiltersCollapsed(window.localStorage.getItem(filtersSidebarStorageKey) === "true");
-  }, []);
 
   useEffect(() => {
     const node = loadMoreRef.current;

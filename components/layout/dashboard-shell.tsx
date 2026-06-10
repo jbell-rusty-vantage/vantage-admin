@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
+import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-local-storage-boolean";
 import { cn } from "@/lib/utils";
 import { DashboardNav } from "./dashboard-nav";
 import { LogoutButton } from "./logout-button";
@@ -18,19 +19,11 @@ export function DashboardShell({
   adminEmail: string;
   children: React.ReactNode;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const collapsed = useLocalStorageBoolean(sidebarStorageKey);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    setCollapsed(window.localStorage.getItem(sidebarStorageKey) === "true");
-  }, []);
-
   function toggleCollapsed() {
-    setCollapsed((current) => {
-      const next = !current;
-      window.localStorage.setItem(sidebarStorageKey, String(next));
-      return next;
-    });
+    setLocalStorageBoolean(sidebarStorageKey, !collapsed);
   }
 
   return (
