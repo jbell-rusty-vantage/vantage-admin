@@ -71,4 +71,35 @@ export const queryKeys = {
     agentSales: (filters?: QueryFilters) =>
       [...queryKeys.reports.all, "agent-sales", stableFilters(filters)] as const,
   },
+  observability: {
+    all: ["observability"] as const,
+    overview: (filters?: QueryFilters) =>
+      [...queryKeys.observability.all, "overview", stableFilters(filters)] as const,
+    facets: (filters?: QueryFilters) =>
+      [...queryKeys.observability.all, "facets", stableFilters(filters)] as const,
+    events: (filters?: QueryFilters) =>
+      [...queryKeys.observability.all, "events", stableFilters(filters)] as const,
+    eventDetail: (id: string) =>
+      [...queryKeys.observability.all, "events", "detail", id] as const,
+    incidents: (filters?: QueryFilters) =>
+      [...queryKeys.observability.all, "incidents", stableFilters(filters)] as const,
+    incidentDetail: (id: string) =>
+      [...queryKeys.observability.all, "incidents", "detail", id] as const,
+    notifications: (filters?: QueryFilters) =>
+      [...queryKeys.observability.all, "notifications", stableFilters(filters)] as const,
+    reports: (filters?: QueryFilters) =>
+      [...queryKeys.observability.all, "reports", stableFilters(filters)] as const,
+    reportRun: (id: string) =>
+      [...queryKeys.observability.all, "reports", "run", id] as const,
+    sheetSync: {
+      all: ["observability", "sheet-sync"] as const,
+      health: () => [...queryKeys.observability.sheetSync.all, "health"] as const,
+      jobs: (filters?: QueryFilters) =>
+        [...queryKeys.observability.sheetSync.all, "jobs", stableFilters(filters)] as const,
+      runs: (filters?: QueryFilters) =>
+        [...queryKeys.observability.sheetSync.all, "runs", stableFilters(filters)] as const,
+      runDetail: (id: string) =>
+        [...queryKeys.observability.sheetSync.all, "runs", "detail", id] as const,
+    },
+  },
 };

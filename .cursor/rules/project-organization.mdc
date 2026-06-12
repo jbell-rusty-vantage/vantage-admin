@@ -19,6 +19,7 @@ alwaysApply: true
 - `components/operational/` owns the shared operational table/detail/edit page implementation for form leads, call leads, bookings, cancellations, customers, and agents.
 - `components/forms/` owns owner workflow forms such as booking and cancellation creation.
 - `components/analytics/` owns frontend analytics cards, chart/table rendering, and analytics export UI.
+- `components/observational/` owns the Observational dashboard: URL-driven tab shell (`?tab=overview|events|incidents|reports|notifications|sheet-sync`), overview cards/charts, events/incidents/notifications tables with detail side panels, the deterministic report builder/result viewer, the sheet-sync health surface, severity/status badges, and pure helpers in `entity-link.ts`.
 - `lib/env/` validates server environment; `lib/db/` owns the admin Mongo connection; `lib/utils.ts` owns shared UI utilities.
 - `lib/api/` owns frontend API types, proxy-facing browser clients, filter/query-string utilities, URL state helpers, audit-log client helpers, and browser CSV download helpers.
 - `lib/query/` owns TanStack Query provider setup and stable query keys.
@@ -59,6 +60,15 @@ alwaysApply: true
   - `GET /api/v1/admin/analytics/local-vs-long-distance`
   - `GET /api/v1/admin/analytics/geographic-lanes`
   - `GET /api/v1/admin/exports/analytics/:report.csv`
+- Implemented backend observability endpoints used by the `/observational` page (all via the proxy):
+  - `GET /api/v1/admin/observability/overview` and `GET /api/v1/admin/observability/facets` (filter dropdown values)
+  - `GET /api/v1/admin/observability/events` and `GET /api/v1/admin/observability/events/:id`
+  - `GET /api/v1/admin/observability/incidents`, `GET /api/v1/admin/observability/incidents/:id`, and `PATCH /api/v1/admin/observability/incidents/:id/status`
+  - `GET /api/v1/admin/observability/notifications`
+  - `GET /api/v1/admin/observability/reports`, `GET /api/v1/admin/observability/reports/:id`, and `POST /api/v1/admin/observability/reports/run`
+  - `GET /api/v1/admin/exports/observability/events.csv`, `/incidents.csv`, and `/reports/:id.csv`
+  - `GET /api/v1/admin/sheet-sync/health|jobs|runs|runs/:id` and `POST /api/v1/admin/sheet-sync/retry`
+- Observability lead identity filters (`lead_name`, `lead_phone`, `lead_email`) are partial-match server-side; event `q` is full-text, incident `q` is a regex OR. Incident status transitions are enforced server-side (open -> acknowledged/resolved/ignored; acknowledged -> resolved/ignored; resolved/ignored/auto_resolved -> open).
 - Common query params match `lib/api/filters.ts`: `database_scope`, `q`, `from`, `to`, `date_field`, model-specific filters, `limit`, `page`, `sort`, and `direction`.
 - `database_scope=production|historical` is valid for browse and detail. `database_scope=combined` is supported for global search and export-style reads; detail routes reject combined scope.
 - Historical records from the backend are read-only. UI code must hide mutation actions in historical scope and must not add delete actions in any scope.
@@ -82,6 +92,7 @@ alwaysApply: true
 - Support routes:
   - `/search`
   - `/analytics`
+  - `/observational` (tabbed via `?tab=`; selected records open via `?record=`)
   - `/exports`
   - `/audit-log`
   - `/settings`
@@ -109,7 +120,7 @@ alwaysApply: true
 - Use Next 16 `proxy.ts`, not `middleware.ts`, for request-boundary auth logic.
 - Keep operational pages server-side filtered, sorted, and paginated when they are implemented.
 - Use `lib/api/filters.ts` for URL-synced filters and pagination conventions; use `lib/query/keys.ts` for cache keys and invalidation targets.
-- Use `lib/api/admin.ts` for browser calls to admin resources, workflows, analytics, exports, and production edit mutations. Use `lib/api/audit.ts` for audit-log browsing.
+- Use `lib/api/admin.ts` for browser calls to admin resources, workflows, analytics, observability, sheet-sync, exports, and production edit mutations. Use `lib/api/audit.ts` for audit-log browsing. Observability cache keys live under `queryKeys.observability` (including `queryKeys.observability.sheetSync`); incident status mutations invalidate the `observability` root.
 - Use `lib/api/url-state.ts` for URL-synced table/filter state instead of custom page-local query-string logic.
 - Mutations must invalidate the relevant TanStack Query keys for lists, details, search, audit log, and analytics where the changed data can affect them.
 - Preserve no-delete and historical-read-only rules throughout v1.

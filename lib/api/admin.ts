@@ -281,3 +281,400 @@ export function adminExportUrl(resource: AdminResource, filters: SerializableFil
 export function analyticsExportUrl(report: AnalyticsReport, filters: SerializableFilters): string {
   return proxyUrl(`api/v1/admin/exports/analytics/${report}.csv`, filters);
 }
+
+// ---------------------------------------------------------------------------
+// Observability (Observational tab)
+// ---------------------------------------------------------------------------
+
+export type ObservabilityLevel = "debug" | "info" | "warn" | "error" | "critical";
+
+export type IncidentStatus =
+  | "open"
+  | "acknowledged"
+  | "resolved"
+  | "ignored"
+  | "auto_resolved";
+
+export type IncidentSeverity = "warn" | "error" | "critical";
+
+export type OperationalReportKey =
+  | "daily-owner-operational-summary"
+  | "workflow-failure-summary"
+  | "source-company-issue-summary"
+  | "sheet-sync-health-summary"
+  | "ringcentral-health-summary"
+  | "notification-delivery-summary"
+  | "http-error-summary";
+
+export type OperationalEvent = {
+  _id: string;
+  occurred_at: string;
+  received_at?: string;
+  level: ObservabilityLevel;
+  event_key: string;
+  category: string;
+  workflow: string;
+  summary: string;
+  details?: Record<string, unknown> | null;
+  trace?: Record<string, unknown> | null;
+  fingerprint?: string;
+  dedupe_key?: string | null;
+  environment?: string;
+  service?: string;
+  request_id?: string | null;
+  route?: string | null;
+  method?: string | null;
+  status_code?: number | null;
+  duration_ms?: number | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  lead_name?: string | null;
+  lead_phone?: string | null;
+  lead_email?: string | null;
+  source_company?: string | null;
+  job_no?: string | null;
+  run_id?: string | null;
+  incident_id?: string | null;
+  notification_candidate?: boolean;
+  reportable?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type OperationalIncident = {
+  _id: string;
+  status: IncidentStatus;
+  severity: IncidentSeverity;
+  fingerprint?: string;
+  dedupe_key?: string;
+  event_key: string;
+  category: string;
+  workflow: string;
+  title: string;
+  summary?: string;
+  environment?: string;
+  service?: string;
+  source_company?: string | null;
+  route?: string | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  lead_name?: string | null;
+  lead_phone?: string | null;
+  lead_email?: string | null;
+  run_id?: string | null;
+  first_seen_at?: string;
+  last_seen_at?: string;
+  resolved_at?: string | null;
+  acknowledged_at?: string | null;
+  acknowledged_by?: string | null;
+  ignored_at?: string | null;
+  ignored_by?: string | null;
+  count?: number;
+  last_details?: Record<string, unknown> | null;
+  owner_visible?: boolean;
+  notification_state?: {
+    immediate_sent_at?: string | null;
+    digest_sent_at?: string | null;
+    next_notify_at?: string | null;
+    suppressed_count?: number;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type NotificationDelivery = {
+  _id: string;
+  channel?: string;
+  provider?: string;
+  purpose: string;
+  status: string;
+  recipient_type: string;
+  to?: string[];
+  from?: string;
+  reply_to?: string | null;
+  subject?: string;
+  body_text_preview?: string;
+  event_id?: string | null;
+  incident_id?: string | null;
+  report_run_id?: string | null;
+  dedupe_key?: string | null;
+  provider_message_id?: string | null;
+  provider_response?: Record<string, unknown> | null;
+  error_message?: string | null;
+  attempt_count?: number;
+  next_attempt_at?: string | null;
+  sent_at?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type OperationalReportRun = {
+  _id: string;
+  report_key: string;
+  report_version: number;
+  status: "running" | "completed" | "failed";
+  requested_by?: string;
+  database_scope?: string;
+  period?: {
+    from: string;
+    to: string;
+    timezone: string;
+    granularity?: string;
+  };
+  filters?: Record<string, unknown>;
+  input_watermark?: {
+    events_max_occurred_at?: string | null;
+    events_count?: number;
+    incidents_count?: number;
+  };
+  result?: Record<string, unknown>;
+  result_hash?: string;
+  error_message?: string | null;
+  started_at?: string;
+  finished_at?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ObservabilityCountRow = { key: string; count: number };
+
+export type ObservabilityOverviewResponse = {
+  generated_at: string;
+  period: { from: string; to: string; timezone: string };
+  health: {
+    overall_status: "healthy" | "degraded" | "critical";
+    open_critical: number;
+    open_error: number;
+    open_warn: number;
+  };
+  event_counts_by_level: ObservabilityCountRow[];
+  event_counts_by_category: ObservabilityCountRow[];
+  event_counts_by_workflow: ObservabilityCountRow[];
+  top_open_incidents: OperationalIncident[];
+  recent_critical_events: OperationalEvent[];
+  sheet_sync: Record<string, unknown> | null;
+  ringcentral: { open_incidents: number };
+  notifications: {
+    sent_today: number;
+    failed_today: number;
+    suppressed_today: number;
+  };
+};
+
+export type ObservabilityFacetsResponse = {
+  period: { from: string; to: string };
+  workflows: string[];
+  event_keys: string[];
+  source_companies: string[];
+  entity_types: string[];
+  routes: string[];
+  levels: ObservabilityLevel[];
+  categories: string[];
+  incident_statuses: IncidentStatus[];
+  incident_severities: IncidentSeverity[];
+  notification_statuses: string[];
+  notification_purposes: string[];
+  notification_recipient_types: string[];
+  report_keys: OperationalReportKey[];
+  report_run_statuses: string[];
+};
+
+export type OperationalEventDetailResponse = {
+  event: OperationalEvent;
+  incident: OperationalIncident | null;
+};
+
+export type OperationalIncidentDetailResponse = {
+  incident: OperationalIncident;
+  events: OperationalEvent[];
+  notifications: NotificationDelivery[];
+  suggested_action: string;
+};
+
+export type ObservabilityIncidentStatusBody = {
+  status: IncidentStatus;
+  actor?: string;
+  note?: string;
+};
+
+export type ObservabilityReportRunBody = {
+  report_key: OperationalReportKey | string;
+  from: string;
+  to: string;
+  timezone?: string;
+  category?: string;
+  workflow?: string;
+  source_company?: string;
+  level?: ObservabilityLevel;
+  include_resolved?: boolean;
+  requested_by?: string;
+};
+
+export async function fetchObservabilityOverview(
+  filters: SerializableFilters,
+): Promise<ObservabilityOverviewResponse> {
+  return requestJson<ObservabilityOverviewResponse>(
+    proxyUrl("api/v1/admin/observability/overview", filters),
+  );
+}
+
+export async function fetchObservabilityFacets(
+  filters: SerializableFilters = {},
+): Promise<ObservabilityFacetsResponse> {
+  return requestJson<ObservabilityFacetsResponse>(
+    proxyUrl("api/v1/admin/observability/facets", filters),
+  );
+}
+
+export async function fetchOperationalEvents(
+  filters: SerializableFilters,
+): Promise<PaginatedResult<OperationalEvent>> {
+  return requestJson<PaginatedResult<OperationalEvent>>(
+    proxyUrl("api/v1/admin/observability/events", filters),
+  );
+}
+
+export async function fetchOperationalEventDetail(
+  id: string,
+): Promise<OperationalEventDetailResponse> {
+  return requestJson<OperationalEventDetailResponse>(
+    proxyUrl(`api/v1/admin/observability/events/${encodeURIComponent(id)}`),
+  );
+}
+
+export async function fetchOperationalIncidents(
+  filters: SerializableFilters,
+): Promise<PaginatedResult<OperationalIncident>> {
+  return requestJson<PaginatedResult<OperationalIncident>>(
+    proxyUrl("api/v1/admin/observability/incidents", filters),
+  );
+}
+
+export async function fetchOperationalIncidentDetail(
+  id: string,
+): Promise<OperationalIncidentDetailResponse> {
+  return requestJson<OperationalIncidentDetailResponse>(
+    proxyUrl(`api/v1/admin/observability/incidents/${encodeURIComponent(id)}`),
+  );
+}
+
+export async function updateOperationalIncidentStatus(
+  id: string,
+  body: ObservabilityIncidentStatusBody,
+): Promise<OperationalIncident> {
+  return requestJson<OperationalIncident>(
+    proxyUrl(`api/v1/admin/observability/incidents/${encodeURIComponent(id)}/status`),
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function fetchNotificationDeliveries(
+  filters: SerializableFilters,
+): Promise<PaginatedResult<NotificationDelivery>> {
+  return requestJson<PaginatedResult<NotificationDelivery>>(
+    proxyUrl("api/v1/admin/observability/notifications", filters),
+  );
+}
+
+export async function fetchOperationalReports(
+  filters: SerializableFilters,
+): Promise<PaginatedResult<OperationalReportRun>> {
+  return requestJson<PaginatedResult<OperationalReportRun>>(
+    proxyUrl("api/v1/admin/observability/reports", filters),
+  );
+}
+
+export async function fetchOperationalReportRun(id: string): Promise<OperationalReportRun> {
+  return requestJson<OperationalReportRun>(
+    proxyUrl(`api/v1/admin/observability/reports/${encodeURIComponent(id)}`),
+  );
+}
+
+export async function runOperationalReport(
+  body: ObservabilityReportRunBody,
+): Promise<OperationalReportRun> {
+  return requestJson<OperationalReportRun>(proxyUrl("api/v1/admin/observability/reports/run"), {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function observabilityEventsExportUrl(filters: SerializableFilters): string {
+  return proxyUrl("api/v1/admin/exports/observability/events.csv", filters);
+}
+
+export function observabilityIncidentsExportUrl(filters: SerializableFilters): string {
+  return proxyUrl("api/v1/admin/exports/observability/incidents.csv", filters);
+}
+
+export function observabilityReportExportUrl(reportRunId: string): string {
+  return proxyUrl(
+    `api/v1/admin/exports/observability/reports/${encodeURIComponent(reportRunId)}.csv`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sheet sync admin (surfaced in the Observational Sheet Sync tab)
+// ---------------------------------------------------------------------------
+
+export type SheetSyncHealth = Record<string, unknown>;
+
+export type SheetSyncJob = Record<string, unknown> & {
+  _id: string;
+  status: string;
+  resource?: string;
+  operation?: string;
+  entity_id?: string;
+  attempts?: number;
+  last_error?: string | null;
+};
+
+export type SheetSyncRun = Record<string, unknown> & {
+  _id: string;
+  status: string;
+  trigger?: string;
+  started_at?: string;
+  finished_at?: string | null;
+  claimed_job_count?: number;
+  synced_job_count?: number;
+  failed_job_count?: number;
+  deferred_job_count?: number;
+};
+
+export async function fetchSheetSyncHealth(): Promise<SheetSyncHealth> {
+  return requestJson<SheetSyncHealth>(proxyUrl("api/v1/admin/sheet-sync/health"));
+}
+
+export async function fetchSheetSyncJobs(
+  filters: SerializableFilters,
+): Promise<PaginatedResult<SheetSyncJob>> {
+  return requestJson<PaginatedResult<SheetSyncJob>>(
+    proxyUrl("api/v1/admin/sheet-sync/jobs", filters),
+  );
+}
+
+export async function fetchSheetSyncRuns(
+  filters: SerializableFilters,
+): Promise<PaginatedResult<SheetSyncRun>> {
+  return requestJson<PaginatedResult<SheetSyncRun>>(
+    proxyUrl("api/v1/admin/sheet-sync/runs", filters),
+  );
+}
+
+export async function fetchSheetSyncRunDetail(id: string): Promise<Record<string, unknown>> {
+  return requestJson<Record<string, unknown>>(
+    proxyUrl(`api/v1/admin/sheet-sync/runs/${encodeURIComponent(id)}`),
+  );
+}
+
+export async function retrySheetSyncJobs(
+  body: Record<string, unknown> = {},
+): Promise<Record<string, unknown>> {
+  return requestJson<Record<string, unknown>>(proxyUrl("api/v1/admin/sheet-sync/retry"), {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}

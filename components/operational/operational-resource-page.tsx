@@ -81,6 +81,11 @@ type EditFieldConfig = {
   options?: readonly SelectOption<string>[];
 };
 
+type DateSortConfig = {
+  field: string;
+  label: string;
+};
+
 type ResourceConfig = {
   uiResource: UiResource;
   title: string;
@@ -88,6 +93,7 @@ type ResourceConfig = {
   defaultSort: string;
   defaultDirection: SortDirection;
   dateField: string;
+  dateSort?: DateSortConfig;
   columns: ColumnConfig[];
   filters: FilterConfig[];
   editFields: EditFieldConfig[];
@@ -158,6 +164,7 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
     defaultSort: "timestamp",
     defaultDirection: "desc",
     dateField: "timestamp",
+    dateSort: { field: "timestamp", label: "Timestamp" },
     fixedListFilters: { duplicate: false },
     columns: formLeadColumns,
     filters: formLeadFilters,
@@ -170,6 +177,7 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
     defaultSort: "timestamp",
     defaultDirection: "desc",
     dateField: "timestamp",
+    dateSort: { field: "timestamp", label: "Timestamp" },
     fixedListFilters: { duplicate: true },
     readOnly: true,
     columns: formLeadColumns,
@@ -183,6 +191,7 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
     defaultSort: "timestamp",
     defaultDirection: "desc",
     dateField: "timestamp",
+    dateSort: { field: "timestamp", label: "Timestamp" },
     columns: [
       { key: "timestamp", label: "Created", path: "timestamp", sort: "timestamp", format: "date" },
       { key: "name", label: "Name", path: "name", sort: "name" },
@@ -238,6 +247,7 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
     defaultSort: "book_date",
     defaultDirection: "desc",
     dateField: "book_date",
+    dateSort: { field: "book_date", label: "Book Date" },
     columns: [
       { key: "book_date", label: "Book Date", path: "book_date", sort: "book_date", format: "date" },
       { key: "job", label: "Job", path: "job_no", sort: "job_no" },
@@ -275,6 +285,7 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
     defaultSort: "cancel_date",
     defaultDirection: "desc",
     dateField: "cancel_date",
+    dateSort: { field: "book_date", label: "Book Date" },
     columns: [
       { key: "cancel_date", label: "Cancelled", path: "cancel_date", sort: "cancel_date", format: "date" },
       { key: "job", label: "Job", path: "job_no", sort: "job_no" },
@@ -603,16 +614,23 @@ function FilterFields({
   config,
   filters,
   update,
+  setSort,
 }: {
   config: ResourceConfig;
   filters: TableQueryParams;
   update: (next: UrlStateUpdate) => void;
+  setSort: (field: string, direction: SortDirection) => void;
 }) {
   return (
     <div className="space-y-4">
       <FilterField label="Search">
         <Input value={String(filters.q ?? "")} onChange={(event) => update({ q: event.target.value })} />
       </FilterField>
+      {config.dateSort ? (
+        <FilterField label="Date sorting">
+          <DateSortSelect config={config.dateSort} filters={filters} setSort={setSort} />
+        </FilterField>
+      ) : null}
       <FilterField label="Date range">
         <DateRangeFilter
           from={typeof filters.from === "string" ? filters.from : undefined}
@@ -630,6 +648,31 @@ function FilterFields({
         </FilterField>
       ))}
     </div>
+  );
+}
+
+function DateSortSelect({
+  config,
+  filters,
+  setSort,
+}: {
+  config: DateSortConfig;
+  filters: TableQueryParams;
+  setSort: (field: string, direction: SortDirection) => void;
+}) {
+  const value = filters.sort === config.field && filters.direction === "asc" ? "asc" : "desc";
+  const options: SelectOption<SortDirection>[] = [
+    { value: "desc", label: `${config.label}: Newest first` },
+    { value: "asc", label: `${config.label}: Oldest first` },
+  ];
+
+  return (
+    <SelectFilter<SortDirection>
+      value={value}
+      options={options}
+      placeholder="Choose date sorting"
+      onChange={(direction) => setSort(config.field, direction || "desc")}
+    />
   );
 }
 
@@ -673,6 +716,7 @@ function OperationalFilterPanel({
   config,
   filters,
   update,
+  setSort,
   reset,
   collapsed,
   onToggleCollapsed,
@@ -680,6 +724,7 @@ function OperationalFilterPanel({
   config: ResourceConfig;
   filters: TableQueryParams;
   update: (next: UrlStateUpdate) => void;
+  setSort: (field: string, direction: SortDirection) => void;
   reset: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
@@ -748,7 +793,7 @@ function OperationalFilterPanel({
                 </Button>
               </div>
             </div>
-            <FilterFields config={config} filters={filters} update={update} />
+            <FilterFields config={config} filters={filters} update={update} setSort={setSort} />
           </div>
         )}
       </aside>
@@ -772,7 +817,7 @@ function OperationalFilterPanel({
               </Button>
             </header>
             <div className="flex-1 overflow-y-auto p-5">
-              <FilterFields config={config} filters={filters} update={update} />
+              <FilterFields config={config} filters={filters} update={update} setSort={setSort} />
             </div>
             <footer className="flex items-center justify-between gap-3 border-t p-5">
               <Button variant="outline" onClick={reset}>
@@ -1582,6 +1627,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
           config={config}
           filters={filters}
           update={update}
+          setSort={setSort}
           reset={reset}
           collapsed={filtersCollapsed}
           onToggleCollapsed={toggleFiltersCollapsed}

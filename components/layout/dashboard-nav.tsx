@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Activity,
   BarChart3,
   BookOpenCheck,
   Boxes,
@@ -37,6 +38,7 @@ const navigation: NavItem[] = [
   { label: "Agents", href: "/agents", icon: ShieldCheck },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Agent Sales Report", href: "/reports/agent-sales", icon: SearchCheck },
+  { label: "Observational", href: "/observational", icon: Activity },
   { label: "Audit Log", href: "/audit-log", icon: Boxes },
   { label: "Exports", href: "/exports", icon: Download },
   { label: "Settings", href: "/settings", icon: Settings },
