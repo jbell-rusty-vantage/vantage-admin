@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +26,8 @@ import { SelectFilter } from "@/components/filters/select-filter";
 import {
   fetchOperationalIncidents,
   observabilityIncidentsExportUrl,
+  deleteObservabilityRecords,
+  updateOperationalIncidentStatuses,
   type OperationalIncident,
 } from "@/lib/api/admin";
 import { downloadCsvFromProxy } from "@/lib/api/csv";
@@ -29,8 +36,13 @@ import { useUrlTableState } from "@/lib/api/url-state";
 import { queryKeys } from "@/lib/query/keys";
 import { humanizeKey, pickApiFilters } from "./entity-link";
 import { ObservationalIncidentDetail } from "./observational-incident-detail";
+import {
+  confirmDeleteRecords,
+  formatDeleteResult,
+  SelectionCheckbox,
+} from "./observational-delete-controls";
 import { IncidentStatusBadge, SeverityBadge } from "./severity-badge";
-import { toSelectOptions, useObservabilityFacets } from "./shared";
+import { FacetsErrorNotice, toSelectOptions, useObservabilityFacets } from "./shared";
 
 const INCIDENT_FILTER_KEYS = [
   "from",
@@ -56,9 +68,14 @@ const OWNER_VISIBLE_OPTIONS: SelectOption[] = [
 ];
 
 export function ObservationalIncidentsTable() {
+  const queryClient = useQueryClient();
   const { filters, update, setPage, setLimit, reset } = useUrlTableState({ limit: 50 });
   const facets = useObservabilityFacets();
   const [exportError, setExportError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ tone: "success" | "error"; message: string } | null>(
+    null,
+  );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const apiFilters = useMemo(() => {
     const picked = pickApiFilters(filters, INCIDENT_FILTER_KEYS);
@@ -77,6 +94,55 @@ export function ObservationalIncidentsTable() {
   });
 
   const selectedId = typeof filters.record === "string" ? filters.record : undefined;
+  const currentPageIds = useMemo(() => incidentsQuery.data?.items.map((incident) => incident._id) ?? [], [
+    incidentsQuery.data,
+  ]);
+  const selectedCount = selectedIds.size;
+  const allCurrentPageSelected =
+    currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.has(id));
+
+  const resolveMutation = useMutation({
+    mutationFn: () =>
+      updateOperationalIncidentStatuses({
+        ids: [...selectedIds],
+        status: "resolved",
+      }),
+    onSuccess: async (result) => {
+      setSelectedIds(new Set());
+      setFeedback({
+        tone: result.skipped.length > 0 ? "error" : "success",
+        message:
+          result.skipped.length > 0
+            ? `Resolved ${result.updated} incident(s); skipped ${result.skipped.length}.`
+            : `Resolved ${result.updated} incident(s).`,
+      });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.observability.all });
+    },
+    onError: (error) => {
+      setFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Bulk resolve failed.",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (ids: string[]) => deleteObservabilityRecords("incidents", ids),
+    onSuccess: async (result) => {
+      setSelectedIds(new Set());
+      setFeedback({
+        tone: result.skipped.length > 0 ? "error" : "success",
+        message: formatDeleteResult(result),
+      });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.observability.all });
+    },
+    onError: (error) => {
+      setFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Delete failed.",
+      });
+    },
+  });
 
   function textValue(key: string): string {
     const value = filters[key];
@@ -98,10 +164,45 @@ export function ObservationalIncidentsTable() {
     }
   }
 
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleCurrentPage(checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const id of currentPageIds) {
+        if (checked) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
+      }
+      return next;
+    });
+  }
+
+  function deleteSelected() {
+    const ids = [...selectedIds];
+    if (ids.length === 0 || !confirmDeleteRecords("incident", ids.length)) {
+      return;
+    }
+    deleteMutation.mutate(ids);
+  }
+
   const data = incidentsQuery.data;
 
   return (
     <div className="space-y-4">
+      {facets.isError ? <FacetsErrorNotice error={facets.error} /> : null}
       <FilterBar onReset={reset}>
         <FilterField label="Search" className="md:col-span-2">
           <Input
@@ -120,42 +221,42 @@ export function ObservationalIncidentsTable() {
         <FilterField label="Status">
           <SelectFilter
             value={textValue("status")}
-            options={toSelectOptions(facets.data?.incident_statuses, { humanize: true })}
+            options={toSelectOptions(facets.values.incident_statuses, { humanize: true })}
             onChange={(value) => update({ status: value })}
           />
         </FilterField>
         <FilterField label="Severity">
           <SelectFilter
             value={textValue("severity")}
-            options={toSelectOptions(facets.data?.incident_severities)}
+            options={toSelectOptions(facets.values.incident_severities)}
             onChange={(value) => update({ severity: value })}
           />
         </FilterField>
         <FilterField label="Category">
           <SelectFilter
             value={textValue("category")}
-            options={toSelectOptions(facets.data?.categories, { humanize: true })}
+            options={toSelectOptions(facets.values.categories, { humanize: true })}
             onChange={(value) => update({ category: value })}
           />
         </FilterField>
         <FilterField label="Workflow">
           <SelectFilter
             value={textValue("workflow")}
-            options={toSelectOptions(facets.data?.workflows, { humanize: true })}
+            options={toSelectOptions(facets.values.workflows, { humanize: true })}
             onChange={(value) => update({ workflow: value })}
           />
         </FilterField>
         <FilterField label="Event key">
           <SelectFilter
             value={textValue("event_key")}
-            options={toSelectOptions(facets.data?.event_keys)}
+            options={toSelectOptions(facets.values.event_keys)}
             onChange={(value) => update({ event_key: value })}
           />
         </FilterField>
         <FilterField label="Source company">
           <SelectFilter
             value={textValue("source_company")}
-            options={toSelectOptions(facets.data?.source_companies)}
+            options={toSelectOptions(facets.values.source_companies)}
             onChange={(value) => update({ source_company: value })}
           />
         </FilterField>
@@ -192,15 +293,34 @@ export function ObservationalIncidentsTable() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {typeof data?.total === "number" ? `${data.total} incidents match these filters.` : null}
+          {typeof data?.total === "number"
+            ? `${data.total} incidents match these filters.${selectedCount > 0 ? ` ${selectedCount} selected.` : ""}`
+            : null}
         </p>
-        <Button variant="outline" onClick={exportCsv}>
-          <Download className="mr-2 h-4 w-4" />
-          Export CSV
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => resolveMutation.mutate()}
+            disabled={selectedCount === 0 || resolveMutation.isPending || deleteMutation.isPending}
+          >
+            Resolve selected
+          </Button>
+          <Button
+            variant="outline"
+            onClick={deleteSelected}
+            disabled={selectedCount === 0 || resolveMutation.isPending || deleteMutation.isPending}
+          >
+            Delete selected
+          </Button>
+          <Button variant="outline" onClick={exportCsv}>
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {exportError ? <FeedbackMessage tone="error">{exportError}</FeedbackMessage> : null}
+      {feedback ? <FeedbackMessage tone={feedback.tone}>{feedback.message}</FeedbackMessage> : null}
 
       {incidentsQuery.isPending ? (
         <TableLoadingState label="Loading incidents..." />
@@ -221,6 +341,23 @@ export function ObservationalIncidentsTable() {
             stickyHeader
             horizontalControls
             columns={[
+              {
+                key: "select",
+                header: (
+                  <SelectionCheckbox
+                    label="Select all incidents on this page"
+                    checked={allCurrentPageSelected}
+                    onChange={toggleCurrentPage}
+                  />
+                ),
+                cell: (incident) => (
+                  <SelectionCheckbox
+                    label={`Select incident ${incident.title}`}
+                    checked={selectedIds.has(incident._id)}
+                    onChange={(checked) => toggleSelected(incident._id, checked)}
+                  />
+                ),
+              },
               {
                 key: "last_seen_at",
                 header: "Last Seen",
@@ -291,6 +428,10 @@ export function ObservationalIncidentsTable() {
       <ObservationalIncidentDetail
         incidentId={selectedId}
         onClose={() => update({ record: null }, { resetPage: false })}
+        onDeleted={async () => {
+          update({ record: null }, { resetPage: false });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.observability.all });
+        }}
       />
     </div>
   );

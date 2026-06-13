@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +26,7 @@ import { SelectFilter } from "@/components/filters/select-filter";
 import {
   fetchOperationalEvents,
   observabilityEventsExportUrl,
+  deleteObservabilityRecords,
   type OperationalEvent,
 } from "@/lib/api/admin";
 import { downloadCsvFromProxy } from "@/lib/api/csv";
@@ -29,8 +35,13 @@ import { useUrlTableState } from "@/lib/api/url-state";
 import { queryKeys } from "@/lib/query/keys";
 import { humanizeKey, pickApiFilters } from "./entity-link";
 import { ObservationalEventDetail } from "./observational-event-detail";
+import {
+  confirmDeleteRecords,
+  formatDeleteResult,
+  SelectionCheckbox,
+} from "./observational-delete-controls";
 import { LevelBadge } from "./severity-badge";
-import { toSelectOptions, useObservabilityFacets } from "./shared";
+import { FacetsErrorNotice, toSelectOptions, useObservabilityFacets } from "./shared";
 
 const EVENT_FILTER_KEYS = [
   "from",
@@ -58,9 +69,14 @@ const REPORTABLE_OPTIONS: SelectOption[] = [
 ];
 
 export function ObservationalEventsTable() {
+  const queryClient = useQueryClient();
   const { filters, update, setPage, setLimit, reset } = useUrlTableState({ limit: 50 });
   const facets = useObservabilityFacets();
   const [exportError, setExportError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ tone: "success" | "error"; message: string } | null>(
+    null,
+  );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const apiFilters = useMemo(() => {
     const picked = pickApiFilters(filters, EVENT_FILTER_KEYS);
@@ -79,6 +95,30 @@ export function ObservationalEventsTable() {
   });
 
   const selectedId = typeof filters.record === "string" ? filters.record : undefined;
+  const currentPageIds = useMemo(() => eventsQuery.data?.items.map((event) => event._id) ?? [], [
+    eventsQuery.data,
+  ]);
+  const selectedCount = selectedIds.size;
+  const allCurrentPageSelected =
+    currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.has(id));
+
+  const deleteMutation = useMutation({
+    mutationFn: (ids: string[]) => deleteObservabilityRecords("events", ids),
+    onSuccess: async (result) => {
+      setSelectedIds(new Set());
+      setFeedback({
+        tone: result.skipped.length > 0 ? "error" : "success",
+        message: formatDeleteResult(result),
+      });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.observability.all });
+    },
+    onError: (error) => {
+      setFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Delete failed.",
+      });
+    },
+  });
 
   function textValue(key: string): string {
     const value = filters[key];
@@ -91,6 +131,40 @@ export function ObservationalEventsTable() {
 
   function closeDetail() {
     update({ record: null }, { resetPage: false });
+  }
+
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleCurrentPage(checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const id of currentPageIds) {
+        if (checked) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
+      }
+      return next;
+    });
+  }
+
+  function deleteSelected() {
+    const ids = [...selectedIds];
+    if (ids.length === 0 || !confirmDeleteRecords("event", ids.length)) {
+      return;
+    }
+    deleteMutation.mutate(ids);
   }
 
   /** Pivot filters from the detail panel: apply and return to the table. */
@@ -117,6 +191,7 @@ export function ObservationalEventsTable() {
 
   return (
     <div className="space-y-4">
+      {facets.isError ? <FacetsErrorNotice error={facets.error} /> : null}
       <FilterBar onReset={reset}>
         <FilterField label="Search" className="md:col-span-2">
           <Input
@@ -135,35 +210,35 @@ export function ObservationalEventsTable() {
         <FilterField label="Level">
           <SelectFilter
             value={textValue("level")}
-            options={toSelectOptions(facets.data?.levels)}
+            options={toSelectOptions(facets.values.levels)}
             onChange={(value) => update({ level: value })}
           />
         </FilterField>
         <FilterField label="Category">
           <SelectFilter
             value={textValue("category")}
-            options={toSelectOptions(facets.data?.categories, { humanize: true })}
+            options={toSelectOptions(facets.values.categories, { humanize: true })}
             onChange={(value) => update({ category: value })}
           />
         </FilterField>
         <FilterField label="Workflow">
           <SelectFilter
             value={textValue("workflow")}
-            options={toSelectOptions(facets.data?.workflows, { humanize: true })}
+            options={toSelectOptions(facets.values.workflows, { humanize: true })}
             onChange={(value) => update({ workflow: value })}
           />
         </FilterField>
         <FilterField label="Event key">
           <SelectFilter
             value={textValue("event_key")}
-            options={toSelectOptions(facets.data?.event_keys)}
+            options={toSelectOptions(facets.values.event_keys)}
             onChange={(value) => update({ event_key: value })}
           />
         </FilterField>
         <FilterField label="Source company">
           <SelectFilter
             value={textValue("source_company")}
-            options={toSelectOptions(facets.data?.source_companies)}
+            options={toSelectOptions(facets.values.source_companies)}
             onChange={(value) => update({ source_company: value })}
           />
         </FilterField>
@@ -191,7 +266,7 @@ export function ObservationalEventsTable() {
         <FilterField label="Entity type">
           <SelectFilter
             value={textValue("entity_type")}
-            options={toSelectOptions(facets.data?.entity_types, { humanize: true })}
+            options={toSelectOptions(facets.values.entity_types, { humanize: true })}
             onChange={(value) => update({ entity_type: value })}
           />
         </FilterField>
@@ -204,7 +279,7 @@ export function ObservationalEventsTable() {
         <FilterField label="Route">
           <SelectFilter
             value={textValue("route")}
-            options={toSelectOptions(facets.data?.routes)}
+            options={toSelectOptions(facets.values.routes)}
             onChange={(value) => update({ route: value })}
           />
         </FilterField>
@@ -232,15 +307,27 @@ export function ObservationalEventsTable() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {typeof data?.total === "number" ? `${data.total} events match these filters.` : null}
+          {typeof data?.total === "number"
+            ? `${data.total} events match these filters.${selectedCount > 0 ? ` ${selectedCount} selected.` : ""}`
+            : null}
         </p>
-        <Button variant="outline" onClick={exportCsv}>
-          <Download className="mr-2 h-4 w-4" />
-          Export CSV
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={deleteSelected}
+            disabled={selectedCount === 0 || deleteMutation.isPending}
+          >
+            Delete selected
+          </Button>
+          <Button variant="outline" onClick={exportCsv}>
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {exportError ? <FeedbackMessage tone="error">{exportError}</FeedbackMessage> : null}
+      {feedback ? <FeedbackMessage tone={feedback.tone}>{feedback.message}</FeedbackMessage> : null}
 
       {eventsQuery.isPending ? (
         <TableLoadingState label="Loading operational events..." />
@@ -261,6 +348,23 @@ export function ObservationalEventsTable() {
             stickyHeader
             horizontalControls
             columns={[
+              {
+                key: "select",
+                header: (
+                  <SelectionCheckbox
+                    label="Select all events on this page"
+                    checked={allCurrentPageSelected}
+                    onChange={toggleCurrentPage}
+                  />
+                ),
+                cell: (event) => (
+                  <SelectionCheckbox
+                    label={`Select event ${event.event_key}`}
+                    checked={selectedIds.has(event._id)}
+                    onChange={(checked) => toggleSelected(event._id, checked)}
+                  />
+                ),
+              },
               {
                 key: "occurred_at",
                 header: "Occurred",
@@ -319,6 +423,10 @@ export function ObservationalEventsTable() {
         eventId={selectedId}
         onClose={closeDetail}
         onApplyFilter={applyPivotFilter}
+        onDeleted={async () => {
+          closeDetail();
+          await queryClient.invalidateQueries({ queryKey: queryKeys.observability.all });
+        }}
       />
     </div>
   );

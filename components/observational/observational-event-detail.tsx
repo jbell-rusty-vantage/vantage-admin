@@ -1,31 +1,41 @@
 "use client";
 
 import Link from "next/link";
+import { useMutation } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { SidePanel } from "@/components/ui/side-panel";
 import { DetailGrid, DetailItem, DetailSection } from "@/components/record-detail/detail-section";
 import { TableErrorState, TableLoadingState } from "@/components/data-table/table-states";
 import { formatDateTime } from "@/components/data-table/formatters";
-import { fetchOperationalEventDetail } from "@/lib/api/admin";
+import { deleteObservabilityRecord, fetchOperationalEventDetail } from "@/lib/api/admin";
 import { queryKeys } from "@/lib/query/keys";
 import { entityHref, formatDurationMs, humanizeKey } from "./entity-link";
 import { IncidentStatusBadge, LevelBadge, SeverityBadge } from "./severity-badge";
+import { confirmDeleteRecords } from "./observational-delete-controls";
 import { JsonBlock } from "./shared";
 
 export function ObservationalEventDetail({
   eventId,
   onClose,
   onApplyFilter,
+  onDeleted,
 }: {
   eventId?: string;
   onClose: () => void;
   onApplyFilter: (next: Record<string, string>) => void;
+  onDeleted?: () => void | Promise<void>;
 }) {
   const detailQuery = useQuery({
     queryKey: queryKeys.observability.eventDetail(eventId ?? ""),
     queryFn: () => fetchOperationalEventDetail(eventId ?? ""),
     enabled: Boolean(eventId),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteObservabilityRecord("events", eventId ?? ""),
+    onSuccess: async () => {
+      await onDeleted?.();
+    },
   });
 
   if (!eventId) {
@@ -82,6 +92,18 @@ export function ObservationalEventDetail({
               {event.reportable === false ? (
                 <span className="text-xs text-muted-foreground">Internal (not reportable)</span>
               ) : null}
+              <Button
+                variant="outline"
+                className="ml-auto h-8 px-3 text-xs"
+                disabled={deleteMutation.isPending}
+                onClick={() => {
+                  if (confirmDeleteRecords("event", 1)) {
+                    deleteMutation.mutate();
+                  }
+                }}
+              >
+                Delete
+              </Button>
             </div>
             <p className="text-sm">{event.summary}</p>
             <DetailGrid>

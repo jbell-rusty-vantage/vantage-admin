@@ -145,6 +145,9 @@ export function ObservationalOverview() {
 
   const data = query.data;
   const sheetSync = (data.sheet_sync ?? {}) as Record<string, unknown>;
+  const sheetPending = typeof sheetSync.pending === "number" ? sheetSync.pending : null;
+  const sheetProcessing = typeof sheetSync.processing === "number" ? sheetSync.processing : 0;
+  const sheetFailed = typeof sheetSync.failed === "number" ? sheetSync.failed : 0;
   const eventsToday = data.event_counts_by_level.reduce((sum, row) => sum + row.count, 0);
 
   async function exportTodayEvents() {
@@ -225,12 +228,13 @@ export function ObservationalOverview() {
           href="/observational?tab=notifications&status=failed"
         />
         <MetricCard
-          label="Sheet sync backlog"
+          label="Sheet sync active jobs"
           value={
-            typeof sheetSync.pending === "number"
-              ? `${sheetSync.pending} pending / ${String(sheetSync.failed ?? 0)} failed`
+            sheetPending !== null
+              ? `${sheetPending} pending / ${sheetProcessing} processing / ${sheetFailed} failed`
               : "-"
           }
+          valueClassName={sheetFailed > 0 ? "text-destructive" : sheetProcessing > 0 ? "text-amber-700" : undefined}
           href="/observational?tab=sheet-sync"
         />
       </div>

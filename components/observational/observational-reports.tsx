@@ -19,6 +19,7 @@ import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { SelectFilter } from "@/components/filters/select-filter";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import {
+  deleteObservabilityRecords,
   fetchOperationalReports,
   runOperationalReport,
   type OperationalReportRun,
@@ -27,8 +28,13 @@ import { getDatePresetRange } from "@/lib/api/filters";
 import { useUrlTableState } from "@/lib/api/url-state";
 import { queryKeys } from "@/lib/query/keys";
 import { exclusiveEndDate, humanizeKey, pickApiFilters } from "./entity-link";
+import {
+  confirmDeleteRecords,
+  formatDeleteResult,
+  SelectionCheckbox,
+} from "./observational-delete-controls";
 import { ObservationalReportResult } from "./observational-report-result";
-import { toSelectOptions, useObservabilityFacets } from "./shared";
+import { FacetsErrorNotice, toSelectOptions, useObservabilityFacets } from "./shared";
 
 function reportRunStatusTone(status: string): "success" | "destructive" | "warning" {
   if (status === "completed") return "success";
@@ -41,6 +47,10 @@ export function ObservationalReports() {
   const facets = useObservabilityFacets();
   const { filters, update, setPage, setLimit } = useUrlTableState({ limit: 25 });
   const [runError, setRunError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ tone: "success" | "error"; message: string } | null>(
+    null,
+  );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   // Builder state lives in the URL so a report configuration is shareable.
   const defaultRange = useMemo(() => getDatePresetRange("last_7_days"), []);
@@ -77,6 +87,12 @@ export function ObservationalReports() {
     queryFn: () => fetchOperationalReports(runsApiFilters),
     placeholderData: keepPreviousData,
   });
+  const currentPageIds = useMemo(() => runsQuery.data?.items.map((run) => run._id) ?? [], [
+    runsQuery.data,
+  ]);
+  const selectedCount = selectedIds.size;
+  const allCurrentPageSelected =
+    currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.has(id));
 
   const runMutation = useMutation({
     mutationFn: () =>
@@ -98,11 +114,33 @@ export function ObservationalReports() {
       }),
     onSuccess: async (run) => {
       setRunError(null);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.observability.all });
+      // The POST response already contains the full run (including result),
+      // so seed the detail cache: the result panel opens instantly and does
+      // not depend on a follow-up GET round trip.
+      queryClient.setQueryData(queryKeys.observability.reportRun(run._id), run);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.observability.reports() });
       update({ record: run._id }, { resetPage: false });
     },
     onError: (error) => {
       setRunError(error instanceof Error ? error.message : "Report run failed.");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (ids: string[]) => deleteObservabilityRecords("report-runs", ids),
+    onSuccess: async (result) => {
+      setSelectedIds(new Set());
+      setFeedback({
+        tone: result.skipped.length > 0 ? "error" : "success",
+        message: formatDeleteResult(result),
+      });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.observability.all });
+    },
+    onError: (error) => {
+      setFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Delete failed.",
+      });
     },
   });
 
@@ -111,10 +149,45 @@ export function ObservationalReports() {
     return typeof value === "string" ? value : "";
   }
 
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleCurrentPage(checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const id of currentPageIds) {
+        if (checked) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
+      }
+      return next;
+    });
+  }
+
+  function deleteSelected() {
+    const ids = [...selectedIds];
+    if (ids.length === 0 || !confirmDeleteRecords("report run", ids.length)) {
+      return;
+    }
+    deleteMutation.mutate(ids);
+  }
+
   const data = runsQuery.data;
 
   return (
     <div className="space-y-4">
+      {facets.isError ? <FacetsErrorNotice error={facets.error} /> : null}
       <div className="rounded-lg border bg-background p-4">
         <h3 className="mb-1 text-sm font-semibold">Report builder</h3>
         <p className="mb-4 text-sm text-muted-foreground">
@@ -125,7 +198,7 @@ export function ObservationalReports() {
           <FilterField label="Report">
             <SelectFilter
               value={reportKey}
-              options={toSelectOptions(facets.data?.report_keys, { humanize: true })}
+              options={toSelectOptions(facets.values.report_keys, { humanize: true })}
               placeholder="Choose a report"
               onChange={(value) => update({ report_key: value }, { resetPage: false })}
             />
@@ -142,28 +215,28 @@ export function ObservationalReports() {
           <FilterField label="Level">
             <SelectFilter
               value={textValue("level")}
-              options={toSelectOptions(facets.data?.levels)}
+              options={toSelectOptions(facets.values.levels)}
               onChange={(value) => update({ level: value }, { resetPage: false })}
             />
           </FilterField>
           <FilterField label="Category">
             <SelectFilter
               value={textValue("category")}
-              options={toSelectOptions(facets.data?.categories, { humanize: true })}
+              options={toSelectOptions(facets.values.categories, { humanize: true })}
               onChange={(value) => update({ category: value }, { resetPage: false })}
             />
           </FilterField>
           <FilterField label="Workflow">
             <SelectFilter
               value={textValue("workflow")}
-              options={toSelectOptions(facets.data?.workflows, { humanize: true })}
+              options={toSelectOptions(facets.values.workflows, { humanize: true })}
               onChange={(value) => update({ workflow: value }, { resetPage: false })}
             />
           </FilterField>
           <FilterField label="Source company">
             <SelectFilter
               value={textValue("source_company")}
-              options={toSelectOptions(facets.data?.source_companies)}
+              options={toSelectOptions(facets.values.source_companies)}
               onChange={(value) => update({ source_company: value }, { resetPage: false })}
             />
           </FilterField>
@@ -193,18 +266,35 @@ export function ObservationalReports() {
         <FilterField label="History: report">
           <SelectFilter
             value={textValue("report_key")}
-            options={toSelectOptions(facets.data?.report_keys, { humanize: true })}
+            options={toSelectOptions(facets.values.report_keys, { humanize: true })}
             onChange={(value) => update({ report_key: value })}
           />
         </FilterField>
         <FilterField label="History: status">
           <SelectFilter
             value={textValue("run_status")}
-            options={toSelectOptions(facets.data?.report_run_statuses, { humanize: true })}
+            options={toSelectOptions(facets.values.report_run_statuses, { humanize: true })}
             onChange={(value) => update({ run_status: value })}
           />
         </FilterField>
       </FilterBar>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {typeof data?.total === "number"
+            ? `${data.total} report runs match these filters.${selectedCount > 0 ? ` ${selectedCount} selected.` : ""}`
+            : null}
+        </p>
+        <Button
+          variant="outline"
+          onClick={deleteSelected}
+          disabled={selectedCount === 0 || deleteMutation.isPending}
+        >
+          Delete selected
+        </Button>
+      </div>
+
+      {feedback ? <FeedbackMessage tone={feedback.tone}>{feedback.message}</FeedbackMessage> : null}
 
       {runsQuery.isPending ? (
         <TableLoadingState label="Loading report runs..." />
@@ -223,6 +313,23 @@ export function ObservationalReports() {
             getRowKey={(run) => run._id}
             onRowClick={(run) => update({ record: run._id }, { resetPage: false })}
             columns={[
+              {
+                key: "select",
+                header: (
+                  <SelectionCheckbox
+                    label="Select all report runs on this page"
+                    checked={allCurrentPageSelected}
+                    onChange={toggleCurrentPage}
+                  />
+                ),
+                cell: (run) => (
+                  <SelectionCheckbox
+                    label={`Select report run ${run.report_key}`}
+                    checked={selectedIds.has(run._id)}
+                    onChange={(checked) => toggleSelected(run._id, checked)}
+                  />
+                ),
+              },
               {
                 key: "started_at",
                 header: "Started",
@@ -275,6 +382,10 @@ export function ObservationalReports() {
       <ObservationalReportResult
         runId={selectedRunId}
         onClose={() => update({ record: null }, { resetPage: false })}
+        onDeleted={async () => {
+          update({ record: null }, { resetPage: false });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.observability.all });
+        }}
       />
     </div>
   );

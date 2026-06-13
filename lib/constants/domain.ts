@@ -59,6 +59,76 @@ export const CRM_SOURCE_LABELS = [
   ...CALL_LEAD_SOURCE_LABELS,
 ] as const;
 
+// ---------------------------------------------------------------------------
+// Observability enums (mirror api/config/domain/observability.ts in
+// vantage-main-server). Used as built-in dropdown options so the
+// Observational filters keep working even when the facets endpoint is
+// unavailable; dynamic values (workflows, event keys, etc.) still come from
+// the facets endpoint.
+// ---------------------------------------------------------------------------
+
+export const OBSERVABILITY_LEVELS = ["debug", "info", "warn", "error", "critical"] as const;
+
+export const OPERATIONAL_EVENT_CATEGORIES = [
+  "http",
+  "mongo",
+  "crm",
+  "google_sheets",
+  "sheet_sync",
+  "ringcentral",
+  "queue",
+  "cron",
+  "lead",
+  "booking",
+  "cancellation",
+  "customer",
+  "auth",
+  "zip_state",
+  "notification",
+  "report",
+  "admin",
+] as const;
+
+export const INCIDENT_STATUSES = [
+  "open",
+  "acknowledged",
+  "resolved",
+  "ignored",
+  "auto_resolved",
+] as const;
+
+export const INCIDENT_SEVERITIES = ["warn", "error", "critical"] as const;
+
+export const NOTIFICATION_STATUSES = [
+  "queued",
+  "sending",
+  "sent",
+  "failed",
+  "suppressed",
+  "cancelled",
+] as const;
+
+export const NOTIFICATION_PURPOSES = [
+  "immediate_alert",
+  "daily_digest",
+  "weekly_report",
+  "test",
+] as const;
+
+export const NOTIFICATION_RECIPIENT_TYPES = ["owner", "developer", "internal"] as const;
+
+export const OPERATIONAL_REPORT_KEYS = [
+  "daily-owner-operational-summary",
+  "workflow-failure-summary",
+  "source-company-issue-summary",
+  "sheet-sync-health-summary",
+  "ringcentral-health-summary",
+  "notification-delivery-summary",
+  "http-error-summary",
+] as const;
+
+export const REPORT_RUN_STATUSES = ["running", "completed", "failed"] as const;
+
 export type CrmSourceLabel = (typeof CRM_SOURCE_LABELS)[number];
 
 export const SOURCE_LABELS = [...CRM_SOURCE_LABELS, "referral"] as const;

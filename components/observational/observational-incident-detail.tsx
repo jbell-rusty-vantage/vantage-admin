@@ -11,6 +11,7 @@ import { TableErrorState, TableLoadingState } from "@/components/data-table/tabl
 import { DataTable } from "@/components/data-table/table-shell";
 import { formatDateTime } from "@/components/data-table/formatters";
 import {
+  deleteObservabilityRecord,
   fetchOperationalIncidentDetail,
   updateOperationalIncidentStatus,
   type IncidentStatus,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/api/admin";
 import { queryKeys } from "@/lib/query/keys";
 import { entityHref, humanizeKey } from "./entity-link";
+import { confirmDeleteRecords } from "./observational-delete-controls";
 import {
   IncidentStatusBadge,
   LevelBadge,
@@ -46,9 +48,11 @@ const STATUS_ACTIONS: Record<IncidentStatus, Array<{ to: IncidentStatus; label: 
 export function ObservationalIncidentDetail({
   incidentId,
   onClose,
+  onDeleted,
 }: {
   incidentId?: string;
   onClose: () => void;
+  onDeleted?: () => void | Promise<void>;
 }) {
   const queryClient = useQueryClient();
   const [note, setNote] = useState("");
@@ -79,6 +83,19 @@ export function ObservationalIncidentDetail({
       setFeedback({
         tone: "error",
         message: error instanceof Error ? error.message : "Status update failed.",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteObservabilityRecord("incidents", incidentId ?? ""),
+    onSuccess: async () => {
+      await onDeleted?.();
+    },
+    onError: (error) => {
+      setFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Delete failed.",
       });
     },
   });
@@ -120,6 +137,18 @@ export function ObservationalIncidentDetail({
               <span className="text-xs text-muted-foreground">
                 Seen {incident.count ?? 1} time{(incident.count ?? 1) === 1 ? "" : "s"}
               </span>
+              <Button
+                variant="outline"
+                className="ml-auto h-8 px-3 text-xs"
+                disabled={deleteMutation.isPending}
+                onClick={() => {
+                  if (confirmDeleteRecords("incident", 1)) {
+                    deleteMutation.mutate();
+                  }
+                }}
+              >
+                Delete
+              </Button>
             </div>
             {incident.summary ? <p className="mb-3 text-sm">{incident.summary}</p> : null}
             <DetailGrid>

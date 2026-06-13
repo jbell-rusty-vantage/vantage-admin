@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
@@ -11,10 +11,15 @@ import { TableErrorState, TableLoadingState } from "@/components/data-table/tabl
 import { DataTable } from "@/components/data-table/table-shell";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { formatDateTime } from "@/components/data-table/formatters";
-import { fetchOperationalReportRun, observabilityReportExportUrl } from "@/lib/api/admin";
+import {
+  deleteObservabilityRecord,
+  fetchOperationalReportRun,
+  observabilityReportExportUrl,
+} from "@/lib/api/admin";
 import { downloadCsvFromProxy } from "@/lib/api/csv";
 import { queryKeys } from "@/lib/query/keys";
 import { humanizeKey } from "./entity-link";
+import { confirmDeleteRecords } from "./observational-delete-controls";
 import { JsonBlock } from "./shared";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -65,15 +70,26 @@ function formatCell(value: unknown): string {
 export function ObservationalReportResult({
   runId,
   onClose,
+  onDeleted,
 }: {
   runId?: string;
   onClose: () => void;
+  onDeleted?: () => void | Promise<void>;
 }) {
   const [exportError, setExportError] = useState<string | null>(null);
   const runQuery = useQuery({
     queryKey: queryKeys.observability.reportRun(runId ?? ""),
     queryFn: () => fetchOperationalReportRun(runId ?? ""),
     enabled: Boolean(runId),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteObservabilityRecord("report-runs", runId ?? ""),
+    onSuccess: async () => {
+      await onDeleted?.();
+    },
+    onError: (error) => {
+      setExportError(error instanceof Error ? error.message : "Delete failed.");
+    },
   });
 
   if (!runId) {
@@ -107,15 +123,19 @@ export function ObservationalReportResult({
       open
       onClose={onClose}
     >
-      {runQuery.isPending ? (
-        <TableLoadingState label="Loading report run..." />
-      ) : runQuery.isError ? (
+      {/* Render data first: a freshly-run report is seeded into the cache,
+          and a failed background refetch must not hide an already-loaded
+          result. */}
+      {run ? null : runQuery.isError ? (
         <TableErrorState
           title="Unable to load this report run."
           error={runQuery.error instanceof Error ? runQuery.error.message : undefined}
           onRetry={() => runQuery.refetch()}
         />
-      ) : run ? (
+      ) : (
+        <TableLoadingState label="Loading report run..." />
+      )}
+      {run ? (
         <div className="space-y-4">
           <DetailSection title="Run metadata">
             <div className="mb-3 flex items-center gap-2">
@@ -138,6 +158,18 @@ export function ObservationalReportResult({
               >
                 <Download className="mr-2 h-3.5 w-3.5" />
                 Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 px-3 text-xs"
+                disabled={deleteMutation.isPending}
+                onClick={() => {
+                  if (confirmDeleteRecords("report run", 1)) {
+                    deleteMutation.mutate();
+                  }
+                }}
+              >
+                Delete
               </Button>
             </div>
             {exportError ? (

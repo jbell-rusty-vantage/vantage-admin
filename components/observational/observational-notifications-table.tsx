@@ -2,8 +2,15 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { FeedbackMessage } from "@/components/ui/feedback";
 import { SidePanel } from "@/components/ui/side-panel";
 import { DataTable } from "@/components/data-table/table-shell";
 import {
@@ -18,12 +25,22 @@ import { FilterField } from "@/components/filters/filter-field";
 import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { SelectFilter } from "@/components/filters/select-filter";
 import { DetailGrid, DetailItem, DetailSection } from "@/components/record-detail/detail-section";
-import { fetchNotificationDeliveries, type NotificationDelivery } from "@/lib/api/admin";
+import {
+  deleteObservabilityRecord,
+  deleteObservabilityRecords,
+  fetchNotificationDeliveries,
+  type NotificationDelivery,
+} from "@/lib/api/admin";
 import { useUrlTableState } from "@/lib/api/url-state";
 import { queryKeys } from "@/lib/query/keys";
 import { humanizeKey, pickApiFilters } from "./entity-link";
+import {
+  confirmDeleteRecords,
+  formatDeleteResult,
+  SelectionCheckbox,
+} from "./observational-delete-controls";
 import { NotificationStatusBadge } from "./severity-badge";
-import { JsonBlock, toSelectOptions, useObservabilityFacets } from "./shared";
+import { FacetsErrorNotice, JsonBlock, toSelectOptions, useObservabilityFacets } from "./shared";
 
 const NOTIFICATION_FILTER_KEYS = [
   "from",
@@ -38,9 +55,14 @@ const NOTIFICATION_FILTER_KEYS = [
 ] as const;
 
 export function ObservationalNotificationsTable() {
+  const queryClient = useQueryClient();
   const { filters, update, setPage, setLimit, reset } = useUrlTableState({ limit: 50 });
   const facets = useObservabilityFacets();
   const [selected, setSelected] = useState<NotificationDelivery | null>(null);
+  const [feedback, setFeedback] = useState<{ tone: "success" | "error"; message: string } | null>(
+    null,
+  );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const apiFilters = useMemo(
     () => ({
@@ -63,9 +85,81 @@ export function ObservationalNotificationsTable() {
   }
 
   const data = deliveriesQuery.data;
+  const currentPageIds = useMemo(() => data?.items.map((delivery) => delivery._id) ?? [], [data]);
+  const selectedCount = selectedIds.size;
+  const allCurrentPageSelected =
+    currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.has(id));
+
+  const batchDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => deleteObservabilityRecords("notifications", ids),
+    onSuccess: async (result) => {
+      setSelectedIds(new Set());
+      setFeedback({
+        tone: result.skipped.length > 0 ? "error" : "success",
+        message: formatDeleteResult(result),
+      });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.observability.all });
+    },
+    onError: (error) => {
+      setFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Delete failed.",
+      });
+    },
+  });
+
+  const singleDeleteMutation = useMutation({
+    mutationFn: (id: string) => deleteObservabilityRecord("notifications", id),
+    onSuccess: async (result) => {
+      setSelected(null);
+      setFeedback({ tone: "success", message: formatDeleteResult(result) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.observability.all });
+    },
+    onError: (error) => {
+      setFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Delete failed.",
+      });
+    },
+  });
+
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleCurrentPage(checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const id of currentPageIds) {
+        if (checked) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
+      }
+      return next;
+    });
+  }
+
+  function deleteSelected() {
+    const ids = [...selectedIds];
+    if (ids.length === 0 || !confirmDeleteRecords("notification", ids.length)) {
+      return;
+    }
+    batchDeleteMutation.mutate(ids);
+  }
 
   return (
     <div className="space-y-4">
+      {facets.isError ? <FacetsErrorNotice error={facets.error} /> : null}
       <FilterBar onReset={reset}>
         <FilterField label="Search subject" className="md:col-span-2">
           <Input
@@ -83,21 +177,21 @@ export function ObservationalNotificationsTable() {
         <FilterField label="Status">
           <SelectFilter
             value={textValue("status")}
-            options={toSelectOptions(facets.data?.notification_statuses)}
+            options={toSelectOptions(facets.values.notification_statuses)}
             onChange={(value) => update({ status: value })}
           />
         </FilterField>
         <FilterField label="Purpose">
           <SelectFilter
             value={textValue("purpose")}
-            options={toSelectOptions(facets.data?.notification_purposes, { humanize: true })}
+            options={toSelectOptions(facets.values.notification_purposes, { humanize: true })}
             onChange={(value) => update({ purpose: value })}
           />
         </FilterField>
         <FilterField label="Recipient type">
           <SelectFilter
             value={textValue("recipient_type")}
-            options={toSelectOptions(facets.data?.notification_recipient_types, { humanize: true })}
+            options={toSelectOptions(facets.values.notification_recipient_types, { humanize: true })}
             onChange={(value) => update({ recipient_type: value })}
           />
         </FilterField>
@@ -108,6 +202,23 @@ export function ObservationalNotificationsTable() {
           />
         </FilterField>
       </FilterBar>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {typeof data?.total === "number"
+            ? `${data.total} notifications match these filters.${selectedCount > 0 ? ` ${selectedCount} selected.` : ""}`
+            : null}
+        </p>
+        <Button
+          variant="outline"
+          onClick={deleteSelected}
+          disabled={selectedCount === 0 || batchDeleteMutation.isPending}
+        >
+          Delete selected
+        </Button>
+      </div>
+
+      {feedback ? <FeedbackMessage tone={feedback.tone}>{feedback.message}</FeedbackMessage> : null}
 
       {deliveriesQuery.isPending ? (
         <TableLoadingState label="Loading notification deliveries..." />
@@ -127,6 +238,23 @@ export function ObservationalNotificationsTable() {
             onRowClick={(delivery) => setSelected(delivery)}
             stickyHeader
             columns={[
+              {
+                key: "select",
+                header: (
+                  <SelectionCheckbox
+                    label="Select all notifications on this page"
+                    checked={allCurrentPageSelected}
+                    onChange={toggleCurrentPage}
+                  />
+                ),
+                cell: (delivery) => (
+                  <SelectionCheckbox
+                    label={`Select notification ${delivery.subject ?? delivery._id}`}
+                    checked={selectedIds.has(delivery._id)}
+                    onChange={(checked) => toggleSelected(delivery._id, checked)}
+                  />
+                ),
+              },
               {
                 key: "createdAt",
                 header: "Created",
@@ -192,8 +320,20 @@ export function ObservationalNotificationsTable() {
         >
           <div className="space-y-4">
             <DetailSection title="Delivery">
-              <div className="mb-3">
+              <div className="mb-3 flex items-center gap-2">
                 <NotificationStatusBadge status={selected.status} />
+                <Button
+                  variant="outline"
+                  className="ml-auto h-8 px-3 text-xs"
+                  disabled={singleDeleteMutation.isPending}
+                  onClick={() => {
+                    if (confirmDeleteRecords("notification", 1)) {
+                      singleDeleteMutation.mutate(selected._id);
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
               </div>
               <DetailGrid>
                 <DetailItem label="Created" value={formatDateTime(selected.createdAt)} />

@@ -157,6 +157,15 @@ function proxyUrl(path: string, filters?: SerializableFilters): string {
   return `/api/proxy/${normalized}${filters ? filtersToQueryString(filters) : ""}`;
 }
 
+/** HTML error pages (e.g. a 404 from a stale deployment) are not user-facing messages. */
+function cleanErrorMessage(message: string | undefined, status: number, statusText: string): string {
+  const trimmed = message?.trim() ?? "";
+  if (!trimmed || trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) {
+    return `Request failed (${status}${statusText ? ` ${statusText}` : ""}).`;
+  }
+  return trimmed;
+}
+
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -166,10 +175,17 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
       ...init?.headers,
     },
   });
-  const payload = (await response.json()) as ApiResponse<T>;
 
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.ok ? response.statusText : payload.error);
+  let payload: ApiResponse<T> | undefined;
+  try {
+    payload = (await response.json()) as ApiResponse<T>;
+  } catch {
+    payload = undefined;
+  }
+
+  if (!response.ok || !payload || !payload.ok) {
+    const rawMessage = payload && !payload.ok ? payload.error : response.statusText;
+    throw new Error(cleanErrorMessage(rawMessage, response.status, response.statusText));
   }
 
   return payload.data;
@@ -305,6 +321,12 @@ export type OperationalReportKey =
   | "ringcentral-health-summary"
   | "notification-delivery-summary"
   | "http-error-summary";
+
+export type ObservabilityDeleteCollection =
+  | "events"
+  | "incidents"
+  | "notifications"
+  | "report-runs";
 
 export type OperationalEvent = {
   _id: string;
@@ -497,6 +519,25 @@ export type ObservabilityIncidentStatusBody = {
   note?: string;
 };
 
+export type ObservabilityIncidentBatchStatusBody = ObservabilityIncidentStatusBody & {
+  ids: string[];
+};
+
+export type ObservabilityIncidentBatchStatusResponse = {
+  matched: number;
+  updated: number;
+  updated_ids: string[];
+  skipped: Array<{ id: string; reason: string }>;
+};
+
+export type ObservabilityDeleteResponse = {
+  collection: ObservabilityDeleteCollection;
+  matched: number;
+  deleted: number;
+  deleted_ids: string[];
+  skipped: Array<{ id: string; reason: string }>;
+};
+
 export type ObservabilityReportRunBody = {
   report_key: OperationalReportKey | string;
   from: string;
@@ -567,6 +608,41 @@ export async function updateOperationalIncidentStatus(
     {
       method: "PATCH",
       body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function updateOperationalIncidentStatuses(
+  body: ObservabilityIncidentBatchStatusBody,
+): Promise<ObservabilityIncidentBatchStatusResponse> {
+  return requestJson<ObservabilityIncidentBatchStatusResponse>(
+    proxyUrl("api/v1/admin/observability/incidents/status"),
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function deleteObservabilityRecord(
+  collection: ObservabilityDeleteCollection,
+  id: string,
+): Promise<ObservabilityDeleteResponse> {
+  return requestJson<ObservabilityDeleteResponse>(
+    proxyUrl(`api/v1/admin/observability/${collection}/${encodeURIComponent(id)}`),
+    { method: "DELETE" },
+  );
+}
+
+export async function deleteObservabilityRecords(
+  collection: ObservabilityDeleteCollection,
+  ids: string[],
+): Promise<ObservabilityDeleteResponse> {
+  return requestJson<ObservabilityDeleteResponse>(
+    proxyUrl(`api/v1/admin/observability/${collection}/delete`),
+    {
+      method: "POST",
+      body: JSON.stringify({ ids }),
     },
   );
 }
