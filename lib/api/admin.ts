@@ -255,6 +255,13 @@ export async function createReferralBooking(body: Record<string, unknown>) {
   });
 }
 
+export async function createLeadlessBooking(body: Record<string, unknown>) {
+  return requestJson<unknown>(proxyUrl("api/v1/leadless-bookings"), {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export async function createCancellation(body: Record<string, unknown>) {
   return requestJson<unknown>(proxyUrl("api/v1/cancelled-leads"), {
     method: "POST",

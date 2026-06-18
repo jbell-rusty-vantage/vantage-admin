@@ -287,6 +287,7 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
       { key: "customer_phone", label: "Customer phone", type: "text" },
       { key: "job_no", label: "Job number", type: "text" },
       { key: "merchant", label: "Merchant", type: "select" },
+      { key: "leadless", label: "Leadless", type: "select", options: yesNoOptions },
       { key: "cancelled", label: "Cancelled", type: "select", options: yesNoOptions },
     ],
     editFields: [

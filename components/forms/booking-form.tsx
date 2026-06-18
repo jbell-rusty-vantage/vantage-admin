@@ -8,7 +8,7 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { FilterField } from "@/components/filters/filter-field";
 import { SelectFilter } from "@/components/filters/select-filter";
-import { createBookingFromSource, createReferralBooking } from "@/lib/api/admin";
+import { createBookingFromSource, createLeadlessBooking, createReferralBooking } from "@/lib/api/admin";
 import { useCatalogOptions } from "@/lib/api/use-catalog-options";
 import {
   isReferralSourceCompany,
@@ -18,7 +18,8 @@ import {
 } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
 
-type LeadType = "FormLead" | "CallLead" | "Referral";
+type LeadType = "FormLead" | "CallLead" | "Referral" | "Leadless";
+type BookingMode = "source" | "referral" | "leadless";
 type FormMessage = {
   tone: "success" | "error" | "info";
   text: string;
@@ -41,9 +42,22 @@ function isReferralMode(leadType: LeadType, sourceCompany: string): boolean {
   return leadType === "Referral" || isReferralSourceCompany(sourceCompany);
 }
 
-async function submitBooking(payload: Record<string, unknown>, referralMode: boolean) {
-  if (referralMode) {
+function getBookingMode(leadType: LeadType, sourceCompany: string): BookingMode {
+  if (leadType === "Leadless") {
+    return "leadless";
+  }
+  if (isReferralMode(leadType, sourceCompany)) {
+    return "referral";
+  }
+  return "source";
+}
+
+async function submitBooking(payload: Record<string, unknown>, mode: BookingMode) {
+  if (mode === "referral") {
     return createReferralBooking(payload);
+  }
+  if (mode === "leadless") {
+    return createLeadlessBooking(payload);
   }
   return createBookingFromSource(payload);
 }
@@ -57,9 +71,11 @@ export function BookingForm() {
   const [sourceCompany, setSourceCompany] = useState("");
   const [message, setMessage] = useState<FormMessage | null>(null);
   const catalog = useCatalogOptions();
-  const referralMode = isReferralMode(leadType, sourceCompany);
+  const bookingMode = getBookingMode(leadType, sourceCompany);
+  const referralMode = bookingMode === "referral";
+  const leadlessMode = bookingMode === "leadless";
   const mutation = useMutation({
-    mutationFn: ({ payload, referralMode: mode }: { payload: Record<string, unknown>; referralMode: boolean }) =>
+    mutationFn: ({ payload, bookingMode: mode }: { payload: Record<string, unknown>; bookingMode: BookingMode }) =>
       submitBooking(payload, mode),
     onSuccess: async (_data, variables) => {
       await Promise.all([
@@ -71,9 +87,12 @@ export function BookingForm() {
       ]);
       setMessage({
         tone: "success",
-        text: variables.referralMode
-          ? "Referral booking created. The backend will sync it to the Master Booked Sheet."
-          : "Booking created. The backend handled booking rules and sheet sync side effects.",
+        text:
+          variables.bookingMode === "referral"
+            ? "Referral booking created. The backend will sync it to the Master Booked Sheet."
+            : variables.bookingMode === "leadless"
+              ? "Leadless booking created. The backend will sync it to the Master Booked Sheet."
+              : "Booking created. The backend handled booking rules and sheet sync side effects.",
       });
     },
     onError: (error) =>
@@ -91,7 +110,14 @@ export function BookingForm() {
   );
 
   function handleLeadTypeChange(value: string) {
-    const nextLeadType = value === "CallLead" ? "CallLead" : value === "Referral" ? "Referral" : "FormLead";
+    const nextLeadType =
+      value === "CallLead"
+        ? "CallLead"
+        : value === "Referral"
+          ? "Referral"
+          : value === "Leadless"
+            ? "Leadless"
+            : "FormLead";
     setLeadType(nextLeadType);
     if (nextLeadType === "Referral") {
       setSourceCompany(REFERRAL_SOURCE_COMPANY);
@@ -129,7 +155,11 @@ export function BookingForm() {
         const customerPhone = getString(formData, "customer_phone");
         const formLeadId = getString(formData, "form_lead_id");
         const callPhoneNumber = getString(formData, "call_phone_number");
-        const jobNo = referralMode
+        const sourceCompanyOverride = getString(formData, "source_company");
+        const submissionMode = getBookingMode(leadType, sourceCompanyOverride);
+        const isReferralSubmission = submissionMode === "referral";
+        const isLeadlessSubmission = submissionMode === "leadless";
+        const jobNo = isReferralSubmission || isLeadlessSubmission
           ? getString(formData, "job_no")
           : getString(formData, leadType === "FormLead" ? "job_no" : "call_job_no");
         const missingFields = [
@@ -139,9 +169,10 @@ export function BookingForm() {
           !binderAmount ? "binder amount" : null,
           !depositAmount ? "deposit amount" : null,
           !jobNo ? "job number" : null,
-          referralMode && !customerName ? "customer name" : null,
-          !referralMode && leadType === "FormLead" && !formLeadId ? "form lead Mongo ID" : null,
-          !referralMode && leadType === "CallLead" && !callPhoneNumber ? "call lead phone number" : null,
+          isReferralSubmission && !customerName ? "customer name" : null,
+          isLeadlessSubmission && !sourceCompanyOverride ? "source company" : null,
+          submissionMode === "source" && leadType === "FormLead" && !formLeadId ? "form lead Mongo ID" : null,
+          submissionMode === "source" && leadType === "CallLead" && !callPhoneNumber ? "call lead phone number" : null,
         ].filter(Boolean);
 
         if (missingFields.length > 0) {
@@ -178,7 +209,7 @@ export function BookingForm() {
         };
 
         let payload: Record<string, unknown>;
-        if (referralMode) {
+        if (isReferralSubmission) {
           const local = getString(formData, "local");
           payload = {
             ...sharedBookingFields,
@@ -188,8 +219,18 @@ export function BookingForm() {
             total_binder_amount: binder,
             local: local || undefined,
           };
+        } else if (isLeadlessSubmission) {
+          const local = getString(formData, "local");
+          payload = {
+            ...sharedBookingFields,
+            job_no: jobNo,
+            source_company: sourceCompanyOverride,
+            customer_name: customerName || undefined,
+            customer_phone: customerPhone || undefined,
+            total_binder_amount: binder,
+            local: local || undefined,
+          };
         } else {
-          const sourceCompanyOverride = getString(formData, "source_company");
           const base = {
             lead_type: leadType,
             ...sharedBookingFields,
@@ -213,7 +254,7 @@ export function BookingForm() {
         }
 
         setMessage(null);
-        mutation.mutate({ payload, referralMode });
+        mutation.mutate({ payload, bookingMode: submissionMode });
       }}
     >
       {message ? <FeedbackMessage tone={message.tone}>{message.text}</FeedbackMessage> : null}
@@ -221,8 +262,8 @@ export function BookingForm() {
       <section className="rounded-lg border bg-background p-4">
         <h2 className="text-sm font-semibold">1. Lead Source</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Book from a form lead, call lead, or referral. Selecting Referral in either Lead type or Source company
-          switches to leadless referral booking mode.
+          Book from a form lead, call lead, referral, or leadless booking. Leadless bookings do not require a Mongo
+          lead id and are created as standalone booked rows.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <FilterField label="Lead type">
@@ -232,6 +273,7 @@ export function BookingForm() {
                 { value: "FormLead", label: "Form Lead" },
                 { value: "CallLead", label: "Call Lead" },
                 { value: "Referral", label: "Referral" },
+                { value: "Leadless", label: "Leadless" },
               ]}
               onChange={handleLeadTypeChange}
             />
@@ -240,10 +282,11 @@ export function BookingForm() {
             <select
               name="source_company"
               value={sourceCompany}
+              required={leadlessMode}
               onChange={(event) => handleSourceCompanyChange(event.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="">No override</option>
+              <option value="">{leadlessMode ? "Choose source company" : "No override"}</option>
               {SOURCE_COMPANY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -251,7 +294,7 @@ export function BookingForm() {
               ))}
             </select>
           </FilterField>
-          {referralMode ? (
+          {referralMode || leadlessMode ? (
             <FilterField label="Job number">
               <Input name="job_no" required />
             </FilterField>
@@ -324,7 +367,7 @@ export function BookingForm() {
               Loading active agents and merchants...
             </p>
           ) : null}
-          {referralMode ? (
+          {referralMode || leadlessMode ? (
             <FilterField label="Local type">
               <select name="local" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                 <option value="">Leave blank</option>
@@ -344,6 +387,8 @@ export function BookingForm() {
         <p className="mt-1 text-sm text-muted-foreground">
           {referralMode
             ? "Customer name is required for referral bookings. Phone is optional and used for customer upsert when provided."
+            : leadlessMode
+              ? "Optional customer contact for the standalone booking. When a customer name is provided, the backend upserts and links the customer record."
             : "Optional customer contact overrides. When a customer name is provided, the backend upserts and links the customer record."}
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -358,17 +403,22 @@ export function BookingForm() {
 
       <section className="rounded-lg border bg-muted/40 p-4 text-sm">
         Review before submitting: the booking will be created through `vantage-main-server`, preserving existing
-        validation and Google Sheets sync. Referral bookings write to the Master Booked Sheet without a linked lead.
+        validation and Google Sheets sync. Referral and leadless bookings write to the Master Booked Sheet without a
+        linked lead.
       </section>
 
       <Button type="submit" disabled={mutation.isPending}>
         {mutation.isPending
           ? referralMode
             ? "Creating referral booking..."
-            : "Creating booking..."
+            : leadlessMode
+              ? "Creating leadless booking..."
+              : "Creating booking..."
           : referralMode
             ? "Create referral booking"
-            : "Create booking"}
+            : leadlessMode
+              ? "Create leadless booking"
+              : "Create booking"}
       </Button>
     </form>
   );
