@@ -20,6 +20,7 @@ export type UiResource =
   | "form-leads"
   | "duplicate-form-leads"
   | "call-leads"
+  | "duplicate-call-leads"
   | "bookings"
   | "cancellations"
   | "customers"
@@ -127,6 +128,7 @@ export const uiToAdminResource: Record<UiResource, AdminResource> = {
   "form-leads": "form-leads",
   "duplicate-form-leads": "form-leads",
   "call-leads": "call-leads",
+  "duplicate-call-leads": "call-leads",
   bookings: "booked-leads",
   cancellations: "cancelled-leads",
   customers: "customers",
@@ -146,6 +148,7 @@ export const resourceLabels: Record<UiResource, string> = {
   "form-leads": "Form Leads",
   "duplicate-form-leads": "Duplicate Form Leads",
   "call-leads": "Call Leads",
+  "duplicate-call-leads": "Duplicate Call Leads",
   bookings: "Bookings",
   cancellations: "Cancellations",
   customers: "Customers",

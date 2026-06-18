@@ -14,8 +14,8 @@ function requiredSeedEnv(name: string): string {
 
 async function main(): Promise<void> {
   const env = getServerEnv();
-  const email = normalizeEmail(requiredSeedEnv("ADMIN_SEED_EMAIL"));
-  const password = requiredSeedEnv("ADMIN_SEED_PASSWORD");
+  const email = normalizeEmail(requiredSeedEnv("MANAGER_SEED_EMAIL"));
+  const password = requiredSeedEnv("MANAGER_SEED_PASSWORD");
 
   await connectAdminMongo();
   await AdminUser.createIndexes();
@@ -31,7 +31,9 @@ async function main(): Promise<void> {
     existingAdmin.token_version += 1;
     existingAdmin.password_changed_at = now;
     await existingAdmin.save();
-    console.log(`Updated admin user "${email}" in "${env.ADMIN_AUTH_DB_NAME}".`);
+    console.log(
+      `Updated admin user "${email}" in "${env.ADMIN_AUTH_DB_NAME}".`,
+    );
     return;
   }
 

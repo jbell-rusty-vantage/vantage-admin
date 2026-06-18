@@ -10,6 +10,7 @@ export const DASHBOARD_PATH_PREFIXES = [
   "/form-leads",
   "/duplicate-form-leads",
   "/call-leads",
+  "/duplicate-call-leads",
   "/bookings",
   "/cancellations",
   "/customers",

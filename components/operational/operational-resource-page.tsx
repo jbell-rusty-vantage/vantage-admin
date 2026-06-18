@@ -156,6 +156,56 @@ const formLeadEditFields: EditFieldConfig[] = [
   { key: "cubic_feet", label: "Cubic feet", type: "number" },
 ];
 
+const callLeadColumns: ColumnConfig[] = [
+  { key: "timestamp", label: "Created", path: "timestamp", sort: "timestamp", format: "date" },
+  { key: "name", label: "Name", path: "name", sort: "name" },
+  { key: "first_name", label: "First", path: "first_name" },
+  { key: "last_name", label: "Last", path: "last_name" },
+  { key: "phone", label: "Phone", path: "phone_number" },
+  { key: "email", label: "Email", path: "email" },
+  { key: "job", label: "Job", path: "job_no", sort: "job_no" },
+  { key: "source", label: "Source", path: "source_company", sort: "source_company" },
+  { key: "local", label: "Local", path: "local" },
+  { key: "booked", label: "Booked", path: "booked", format: "boolean" },
+  { key: "cancelled", label: "Cancelled", path: "cancelled", format: "boolean" },
+];
+
+const callLeadFilters: FilterConfig[] = [
+  { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
+  { key: "name", label: "Name", type: "text" },
+  { key: "email", label: "Email", type: "text" },
+  { key: "phone_number", label: "Phone", type: "text" },
+  { key: "job_no", label: "Job number", type: "text" },
+  { key: "booked", label: "Booked", type: "select", options: yesNoOptions },
+  { key: "cancelled", label: "Cancelled", type: "select", options: yesNoOptions },
+  { key: "local", label: "Local type", type: "select", options: LOCAL_TYPE_OPTIONS },
+];
+
+const callLeadEditFields: EditFieldConfig[] = [
+  {
+    key: "source_company",
+    label: "Source company",
+    type: "select",
+    options: CALL_LEAD_SOURCE_LABEL_OPTIONS,
+  },
+  { key: "timestamp", label: "Created", type: "date" },
+  { key: "job_no", label: "Job number", type: "text" },
+  { key: "name", label: "Name", type: "text" },
+  { key: "first_name", label: "First name", type: "text" },
+  { key: "last_name", label: "Last name", type: "text" },
+  { key: "email", label: "Email", type: "text" },
+  { key: "phone_number", label: "Phone", type: "text" },
+  { key: "duration", label: "Duration", type: "text" },
+  { key: "start_time", label: "Start time", type: "text" },
+  { key: "end_time", label: "End time", type: "text" },
+  { key: "local", label: "Local type", type: "select", options: LOCAL_TYPE_OPTIONS },
+  { key: "pickup_zip", label: "Pickup zip", type: "text" },
+  { key: "delivery_zip", label: "Delivery zip", type: "text" },
+  { key: "pickup_state", label: "Pickup state", type: "text" },
+  { key: "delivery_state", label: "Delivery state", type: "text" },
+  { key: "cubic_feet", label: "Cubic feet", type: "number" },
+];
+
 const operationalConfigs: Record<UiResource, ResourceConfig> = {
   "form-leads": {
     uiResource: "form-leads",
@@ -192,53 +242,24 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
     defaultDirection: "desc",
     dateField: "timestamp",
     dateSort: { field: "timestamp", label: "Timestamp" },
-    columns: [
-      { key: "timestamp", label: "Created", path: "timestamp", sort: "timestamp", format: "date" },
-      { key: "name", label: "Name", path: "name", sort: "name" },
-      { key: "first_name", label: "First", path: "first_name" },
-      { key: "last_name", label: "Last", path: "last_name" },
-      { key: "phone", label: "Phone", path: "phone_number" },
-      { key: "email", label: "Email", path: "email" },
-      { key: "job", label: "Job", path: "job_no", sort: "job_no" },
-      { key: "source", label: "Source", path: "source_company", sort: "source_company" },
-      { key: "local", label: "Local", path: "local" },
-      { key: "booked", label: "Booked", path: "booked", format: "boolean" },
-      { key: "cancelled", label: "Cancelled", path: "cancelled", format: "boolean" },
-    ],
-    filters: [
-      { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
-      { key: "name", label: "Name", type: "text" },
-      { key: "email", label: "Email", type: "text" },
-      { key: "phone_number", label: "Phone", type: "text" },
-      { key: "job_no", label: "Job number", type: "text" },
-      { key: "booked", label: "Booked", type: "select", options: yesNoOptions },
-      { key: "cancelled", label: "Cancelled", type: "select", options: yesNoOptions },
-      { key: "local", label: "Local type", type: "select", options: LOCAL_TYPE_OPTIONS },
-    ],
-    editFields: [
-      {
-        key: "source_company",
-        label: "Source company",
-        type: "select",
-        options: CALL_LEAD_SOURCE_LABEL_OPTIONS,
-      },
-      { key: "timestamp", label: "Created", type: "date" },
-      { key: "job_no", label: "Job number", type: "text" },
-      { key: "name", label: "Name", type: "text" },
-      { key: "first_name", label: "First name", type: "text" },
-      { key: "last_name", label: "Last name", type: "text" },
-      { key: "email", label: "Email", type: "text" },
-      { key: "phone_number", label: "Phone", type: "text" },
-      { key: "duration", label: "Duration", type: "text" },
-      { key: "start_time", label: "Start time", type: "text" },
-      { key: "end_time", label: "End time", type: "text" },
-      { key: "local", label: "Local type", type: "select", options: LOCAL_TYPE_OPTIONS },
-      { key: "pickup_zip", label: "Pickup zip", type: "text" },
-      { key: "delivery_zip", label: "Delivery zip", type: "text" },
-      { key: "pickup_state", label: "Pickup state", type: "text" },
-      { key: "delivery_state", label: "Delivery state", type: "text" },
-      { key: "cubic_feet", label: "Cubic feet", type: "number" },
-    ],
+    fixedListFilters: { duplicate: false },
+    columns: callLeadColumns,
+    filters: callLeadFilters,
+    editFields: callLeadEditFields,
+  },
+  "duplicate-call-leads": {
+    uiResource: "duplicate-call-leads",
+    title: "Duplicate Call Leads",
+    description: "Browse and inspect quarantined duplicate inbound call leads.",
+    defaultSort: "timestamp",
+    defaultDirection: "desc",
+    dateField: "timestamp",
+    dateSort: { field: "timestamp", label: "Timestamp" },
+    fixedListFilters: { duplicate: true },
+    readOnly: true,
+    columns: callLeadColumns,
+    filters: callLeadFilters,
+    editFields: [],
   },
   bookings: {
     uiResource: "bookings",
@@ -477,7 +498,7 @@ function resolveEditFieldValue(
         getValue(record, "local") == null ? undefined : String(getValue(record, "local")),
       );
     }
-    if (uiResource === "call-leads") {
+    if (uiResource === "call-leads" || uiResource === "duplicate-call-leads") {
       return getCallLeadSourceLabel(
         storedSourceCompany == null ? undefined : String(storedSourceCompany),
       );
@@ -1305,6 +1326,7 @@ const hiddenTableColumnsByResource: Partial<Record<UiResource, Set<string>>> = {
   "form-leads": new Set(["first_name", "last_name", "email"]),
   "duplicate-form-leads": new Set(["first_name", "last_name", "email"]),
   "call-leads": new Set(["first_name", "last_name", "email"]),
+  "duplicate-call-leads": new Set(["first_name", "last_name", "email"]),
 };
 
 const truncateTableColumns = new Set([

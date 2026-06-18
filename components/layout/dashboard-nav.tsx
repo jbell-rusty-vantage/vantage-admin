@@ -32,6 +32,7 @@ const navigation: NavItem[] = [
   { label: "Form Leads", href: "/form-leads", icon: FileText },
   { label: "Duplicate Form Leads", href: "/duplicate-form-leads", icon: FileClock },
   { label: "Call Leads", href: "/call-leads", icon: Phone },
+  { label: "Duplicate Call Leads", href: "/duplicate-call-leads", icon: FileClock },
   { label: "Bookings", href: "/bookings", icon: BookOpenCheck },
   { label: "Cancellations", href: "/cancellations", icon: ClipboardX },
   { label: "Customers", href: "/customers", icon: Users },
