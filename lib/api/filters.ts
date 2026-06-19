@@ -1,3 +1,4 @@
+import { floridaCalendarToday } from "@/lib/floridaTime";
 import type { DatabaseScope, SortDirection, TableQueryParams } from "./types";
 
 export const DEFAULT_PAGE = 1;
@@ -34,9 +35,6 @@ function formatDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-function startOfDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-}
 
 function addDays(date: Date, days: number): Date {
   const next = new Date(date);
@@ -45,7 +43,7 @@ function addDays(date: Date, days: number): Date {
 }
 
 export function getDatePresetRange(preset: DatePreset, now = new Date()): DateRange {
-  const today = startOfDay(now);
+  const today = floridaCalendarToday(now);
 
   switch (preset) {
     case "today":

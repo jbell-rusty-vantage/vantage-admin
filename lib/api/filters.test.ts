@@ -49,7 +49,7 @@ test("withLegacyPagination converts page to skip", () => {
   });
 });
 
-test("getDatePresetRange calculates stable UTC date ranges", () => {
+test("getDatePresetRange calculates stable Florida calendar date ranges", () => {
   const now = new Date("2026-05-31T12:00:00.000Z");
 
   assert.deepEqual(getDatePresetRange("last_7_days", now), {

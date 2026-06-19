@@ -16,6 +16,7 @@ import {
   REFERRAL_SOURCE_COMPANY,
   SOURCE_COMPANY_OPTIONS,
 } from "@/lib/constants/domain";
+import { floridaCalendarDateInputValue } from "@/lib/floridaTime";
 import { queryKeys } from "@/lib/query/keys";
 
 type LeadType = "FormLead" | "CallLead" | "Referral" | "Leadless";
@@ -26,7 +27,7 @@ type FormMessage = {
 };
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return floridaCalendarDateInputValue();
 }
 
 function asNumber(value: FormDataEntryValue | null): number {

@@ -10,10 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { FilterField } from "@/components/filters/filter-field";
 import { createCancellation } from "@/lib/api/admin";
 import { CANCELLATION_REASON_OPTIONS } from "@/lib/constants/domain";
+import { floridaCalendarDateInputValue } from "@/lib/floridaTime";
 import { queryKeys } from "@/lib/query/keys";
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return floridaCalendarDateInputValue();
 }
 
 export function CancellationForm() {

@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, ChevronDown, Download, Funnel, PanelLeftClose, PanelLeftOpen, Pencil, PlusCircle, X, XCircle } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/data-table/table-shell";
+import { formatDate as formatCalendarDate } from "@/components/data-table/formatters";
 import { SortableHeader } from "@/components/data-table/sortable-header";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { TableEmptyState, TableErrorState, TableLoadingState } from "@/components/data-table/table-states";
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { SidePanel } from "@/components/ui/side-panel";
+import { floridaCalendarDateInputValue } from "@/lib/floridaTime";
 import { Textarea } from "@/components/ui/textarea";
 import { DetailGrid, DetailItem, DetailSection } from "@/components/record-detail/detail-section";
 import {
@@ -431,8 +433,8 @@ function formatDate(value: unknown): string {
   if (!value) {
     return "-";
   }
-  const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
+  const formatted = formatCalendarDate(String(value));
+  return formatted === "-" ? String(value) : formatted;
 }
 
 function formatMoney(value: unknown): string {
@@ -481,7 +483,7 @@ function toInputValue(value: unknown, type: FieldType): string {
     return "";
   }
   if (type === "date") {
-    return String(value).slice(0, 10);
+    return floridaCalendarDateInputValue(String(value));
   }
   return String(value);
 }
