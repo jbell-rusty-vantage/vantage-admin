@@ -132,9 +132,16 @@ export function ObservationalSheetSync() {
   const retryMutation = useMutation({
     mutationFn: () => retrySheetSyncJobs({}),
     onSuccess: async (result) => {
+      const requeued = typeof result.requeued === "number" ? result.requeued : 0;
+      const drainStarted = result.drain_started === true;
       setFeedback({
         tone: "success",
-        message: `Retry queued: ${JSON.stringify(result)}`,
+        message:
+          requeued > 0
+            ? `Retry started for ${requeued} job${requeued === 1 ? "" : "s"}; admin drain ${
+                drainStarted ? "started" : "not started"
+              }.`
+            : "No failed sheet sync jobs matched the retry request.",
       });
       await queryClient.invalidateQueries({ queryKey: queryKeys.observability.sheetSync.all });
     },
