@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, parseDatabaseScope, parseTableQueryParams } from "./filters";
 import type { DatabaseScope, SortDirection, TableQueryParams } from "./types";
 
@@ -24,42 +24,57 @@ export function useUrlTableState(defaults: Partial<TableQueryParams> = {}) {
     } as TableQueryParams;
   }, [defaults, searchParams]);
 
-  function update(next: UrlStateUpdate, options: { resetPage?: boolean } = { resetPage: true }) {
-    const params = new URLSearchParams(searchParams.toString());
+  const update = useCallback(
+    (next: UrlStateUpdate, options: { resetPage?: boolean } = { resetPage: true }) => {
+      const params = new URLSearchParams(searchParams.toString());
 
-    if (options.resetPage) {
-      params.set("page", "1");
-    }
-
-    for (const [key, value] of Object.entries(next)) {
-      if (value === undefined || value === null || value === "") {
-        params.delete(key);
-      } else {
-        params.set(key, String(value));
+      if (options.resetPage) {
+        params.set("page", "1");
       }
-    }
 
-    const query = params.toString();
-    router.push(query ? `${pathname}?${query}` : pathname);
-  }
+      for (const [key, value] of Object.entries(next)) {
+        if (value === undefined || value === null || value === "") {
+          params.delete(key);
+        } else {
+          params.set(key, String(value));
+        }
+      }
 
-  function setSort(field: string, direction: SortDirection) {
-    update({ sort: field, direction }, { resetPage: true });
-  }
+      const query = params.toString();
+      router.push(query ? `${pathname}?${query}` : pathname);
+    },
+    [pathname, router, searchParams],
+  );
 
-  function setPage(page: number) {
-    update({ page }, { resetPage: false });
-  }
+  const setSort = useCallback(
+    (field: string, direction: SortDirection) => {
+      update({ sort: field, direction }, { resetPage: true });
+    },
+    [update],
+  );
 
-  function setLimit(limit: number) {
-    update({ limit, page: 1 }, { resetPage: false });
-  }
+  const setPage = useCallback(
+    (page: number) => {
+      update({ page }, { resetPage: false });
+    },
+    [update],
+  );
 
-  function setScope(scope: DatabaseScope) {
-    update({ database_scope: scope, page: 1 }, { resetPage: false });
-  }
+  const setLimit = useCallback(
+    (limit: number) => {
+      update({ limit, page: 1 }, { resetPage: false });
+    },
+    [update],
+  );
 
-  function reset() {
+  const setScope = useCallback(
+    (scope: DatabaseScope) => {
+      update({ database_scope: scope, page: 1 }, { resetPage: false });
+    },
+    [update],
+  );
+
+  const reset = useCallback(() => {
     const params = new URLSearchParams();
     const scope = searchParams.get("database_scope") ?? defaults.database_scope;
     if (scope) {
@@ -67,7 +82,7 @@ export function useUrlTableState(defaults: Partial<TableQueryParams> = {}) {
     }
     const query = params.toString();
     router.push(query ? `${pathname}?${query}` : pathname);
-  }
+  }, [defaults.database_scope, pathname, router, searchParams]);
 
   return {
     filters,

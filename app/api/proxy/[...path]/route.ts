@@ -8,6 +8,7 @@ import {
   refreshAdminSession,
   setAuthCookies,
 } from "@/server/auth";
+import { canProxyVantagePath } from "@/server/auth/authorization";
 import { writeAuditLog } from "@/server/audit";
 import { requestVantageApi, type VantageApiMethod } from "@/server/vantage-api/client";
 import { VantageApiError } from "@/server/vantage-api/errors";
@@ -182,6 +183,10 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
     backendPath = buildBackendPath(pathParts, request);
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid proxy path." }, { status: 400 });
+  }
+
+  if (!canProxyVantagePath({ role: admin.role, method, path: backendPath })) {
+    return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 
   const shouldAudit = MUTATING_METHODS.has(method) || isExportRequest(method, backendPath);

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { TableEmptyState, TableErrorState, TableLoadingState } from "@/components/data-table/table-states";
+import { MIN_SEARCH_QUERY_LENGTH, getCommittedSearchQuery } from "@/components/filters/debounced-search-input";
 import { Button } from "@/components/ui/button";
 import { fetchGlobalSearch } from "@/lib/api/admin";
 import { parseDatabaseScope } from "@/lib/api/filters";
@@ -76,11 +77,13 @@ function workflowActions(recordType: string, item: GlobalSearchResultItem) {
 export default function SearchPage() {
   const searchParams = useSearchParams();
   const q = searchParams.get("q") ?? "";
+  const committedQuery = getCommittedSearchQuery(q);
+  const canSearch = committedQuery !== null && committedQuery !== "";
   const scope = parseDatabaseScope(searchParams.get("database_scope"));
   const query = useQuery({
-    queryKey: queryKeys.search.global(q, scope),
-    queryFn: () => fetchGlobalSearch({ q, database_scope: scope, limit: 10 }),
-    enabled: q.trim().length > 0,
+    queryKey: queryKeys.search.global(committedQuery ?? "", scope),
+    queryFn: () => fetchGlobalSearch({ q: committedQuery ?? "", database_scope: scope, limit: 10 }),
+    enabled: canSearch,
   });
 
   return (
@@ -88,12 +91,15 @@ export default function SearchPage() {
       <div>
         <h1 className="text-2xl font-semibold">Search Results</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Searching for <span className="font-medium text-foreground">{q || "nothing yet"}</span> in {scope}.
+          Searching for <span className="font-medium text-foreground">{committedQuery || q || "nothing yet"}</span> in {scope}.
         </p>
       </div>
 
       {!q ? <TableEmptyState label="Enter a search query in the top bar." /> : null}
-      {query.isLoading ? <TableLoadingState label="Searching..." /> : null}
+      {committedQuery === null ? (
+        <TableEmptyState label={`Enter at least ${MIN_SEARCH_QUERY_LENGTH} characters to search.`} />
+      ) : null}
+      {canSearch && query.isLoading ? <TableLoadingState label="Searching..." /> : null}
       {query.isError ? (
         <TableErrorState error={query.error instanceof Error ? query.error.message : undefined} onRetry={() => query.refetch()} />
       ) : null}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
 import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-local-storage-boolean";
@@ -11,16 +12,25 @@ import { LogoutButton } from "./logout-button";
 import { ScopeAwareHeaderControls } from "./scope-aware-header-controls";
 
 const sidebarStorageKey = "vantage-admin-sidebar-collapsed";
+const ownerOnlyPagePrefixes = ["/audit-log", "/settings"] as const;
 
 export function DashboardShell({
   adminEmail,
+  adminRole,
   children,
 }: {
   adminEmail: string;
+  adminRole: "owner" | "admin";
   children: React.ReactNode;
 }) {
   const collapsed = useLocalStorageBoolean(sidebarStorageKey);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  const pageAllowed =
+    adminRole === "owner" ||
+    !ownerOnlyPagePrefixes.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    );
 
   function toggleCollapsed() {
     setLocalStorageBoolean(sidebarStorageKey, !collapsed);
@@ -47,7 +57,7 @@ export function DashboardShell({
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
         </div>
-        <DashboardNav collapsed={collapsed} />
+        <DashboardNav adminRole={adminRole} collapsed={collapsed} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex min-h-16 items-center justify-between gap-4 border-b border-steel-200 bg-white/95 px-6 py-3 shadow-sm backdrop-blur">
@@ -63,11 +73,24 @@ export function DashboardShell({
             <ScopeAwareHeaderControls />
           </div>
           <div className="flex items-center gap-4">
-            <p className="hidden text-sm font-medium text-steel sm:block">{adminEmail}</p>
+            <p className="hidden text-sm font-medium text-steel sm:block">
+              {adminEmail} ({adminRole})
+            </p>
             <LogoutButton />
           </div>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-6">
+          {pageAllowed ? (
+            children
+          ) : (
+            <div className="rounded-lg border border-steel-200 bg-white p-6 shadow-sm">
+              <h1 className="text-xl font-semibold text-navy">Not allowed</h1>
+              <p className="mt-2 text-sm text-steel">
+                Your admin role does not have access to this page.
+              </p>
+            </div>
+          )}
+        </main>
       </div>
       {mobileOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden">
@@ -84,7 +107,7 @@ export function DashboardShell({
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <DashboardNav onNavigate={() => setMobileOpen(false)} />
+            <DashboardNav adminRole={adminRole} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       ) : null}

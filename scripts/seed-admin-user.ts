@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { connectAdminMongo } from "@/lib/db/adminMongo";
 import { getServerEnv } from "@/lib/env/server";
 import { hashPassword, normalizeEmail } from "@/server/auth";
-import { AdminUser } from "@/server/models";
+import { ADMIN_ROLES, AdminUser, type AdminRole } from "@/server/models";
 
 function requiredSeedEnv(name: string): string {
   const value = process.env[name]?.trim();
@@ -12,10 +12,19 @@ function requiredSeedEnv(name: string): string {
   return value;
 }
 
+function readSeedRole(): AdminRole {
+  const role = process.env.NEW_SEED_ROLE?.trim() || "owner";
+  if (!ADMIN_ROLES.includes(role as AdminRole)) {
+    throw new Error(`NEW_SEED_ROLE must be one of: ${ADMIN_ROLES.join(", ")}`);
+  }
+  return role as AdminRole;
+}
+
 async function main(): Promise<void> {
   const env = getServerEnv();
-  const email = normalizeEmail(requiredSeedEnv("MANAGER_SEED_EMAIL"));
-  const password = requiredSeedEnv("MANAGER_SEED_PASSWORD");
+  const email = normalizeEmail(requiredSeedEnv("NEW_SEED_EMAIL"));
+  const password = requiredSeedEnv("NEW_SEED_PASSWORD");
+  const role = readSeedRole();
 
   await connectAdminMongo();
   await AdminUser.createIndexes();
@@ -26,13 +35,13 @@ async function main(): Promise<void> {
 
   if (existingAdmin) {
     existingAdmin.password_hash = passwordHash;
-    existingAdmin.role = "owner";
+    existingAdmin.role = role;
     existingAdmin.active = true;
     existingAdmin.token_version += 1;
     existingAdmin.password_changed_at = now;
     await existingAdmin.save();
     console.log(
-      `Updated admin user "${email}" in "${env.ADMIN_AUTH_DB_NAME}".`,
+      `Updated admin user "${email}" with role "${role}" in "${env.ADMIN_AUTH_DB_NAME}".`,
     );
     return;
   }
@@ -40,7 +49,7 @@ async function main(): Promise<void> {
   await AdminUser.create({
     email,
     password_hash: passwordHash,
-    role: "owner",
+    role,
     active: true,
     token_version: 0,
     created_at: now,
@@ -48,7 +57,9 @@ async function main(): Promise<void> {
     password_changed_at: now,
   });
 
-  console.log(`Created admin user "${email}" in "${env.ADMIN_AUTH_DB_NAME}".`);
+  console.log(
+    `Created admin user "${email}" with role "${role}" in "${env.ADMIN_AUTH_DB_NAME}".`,
+  );
 }
 
 main()

@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, ChevronDown, Download, Funnel, PanelLeftClose, PanelLeftOpen, Pencil, PlusCircle, X, XCircle } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/data-table/table-shell";
 import { formatDate as formatCalendarDate } from "@/components/data-table/formatters";
 import { SortableHeader } from "@/components/data-table/sortable-header";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { TableEmptyState, TableErrorState, TableLoadingState } from "@/components/data-table/table-states";
+import { DebouncedSearchInput, getCommittedSearchQuery } from "@/components/filters/debounced-search-input";
 import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { FilterField } from "@/components/filters/filter-field";
 import { SelectFilter } from "@/components/filters/select-filter";
@@ -648,7 +649,11 @@ function FilterFields({
   return (
     <div className="space-y-4">
       <FilterField label="Search">
-        <Input value={String(filters.q ?? "")} onChange={(event) => update({ q: event.target.value })} />
+        <DebouncedSearchInput
+          value={String(filters.q ?? "")}
+          onCommit={(next) => update({ q: next || null })}
+          placeholder="Name, phone, email, or ID…"
+        />
       </FilterField>
       {config.dateSort ? (
         <FilterField label="Date sorting">
@@ -1522,19 +1527,34 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
     () => withFacetOptions(baseConfig, facetOptions),
     [baseConfig, facetOptions],
   );
+  const urlDefaults = useMemo(
+    () => ({
+      database_scope: scope,
+      sort: config.defaultSort,
+      direction: config.defaultDirection,
+      date_field: config.dateField,
+    }),
+    [config.dateField, config.defaultDirection, config.defaultSort, scope],
+  );
   const [selected, setSelected] = useState<AdminRecord | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const filtersCollapsed = useLocalStorageBoolean(filtersSidebarStorageKey);
-  const { filters, update, setSort, reset } = useUrlTableState({
-    database_scope: scope,
-    sort: config.defaultSort,
-    direction: config.defaultDirection,
-    date_field: config.dateField,
-  });
+  const { filters, update, setSort, reset } = useUrlTableState(urlDefaults);
+  const committedSearchQuery =
+    typeof filters.q === "string" ? getCommittedSearchQuery(filters.q) : "";
+  const hasInvalidSearchQuery = committedSearchQuery === null;
+
+  useEffect(() => {
+    if (hasInvalidSearchQuery) {
+      update({ q: null });
+    }
+  }, [hasInvalidSearchQuery, update]);
+
   const effectiveFilters: SerializableFilters = {
     ...filters,
     ...config.fixedListFilters,
+    q: hasInvalidSearchQuery ? undefined : committedSearchQuery || undefined,
     database_scope: filters.database_scope === "combined" ? "production" : filters.database_scope,
     sort: filters.sort ?? config.defaultSort,
     direction: filters.direction ?? config.defaultDirection,
@@ -1556,6 +1576,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
     getNextPageParam: (lastPage) => (
       lastPage.has_next_page ? lastPage.page + 1 : undefined
     ),
+    placeholderData: keepPreviousData,
   });
   const pages = query.data?.pages ?? [];
   const items = pages.flatMap((page) => page.items);

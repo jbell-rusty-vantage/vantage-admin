@@ -25,6 +25,7 @@ type NavItem = {
   label: string;
   href: string;
   icon: LucideIcon;
+  ownerOnly?: boolean;
 };
 
 const navigation: NavItem[] = [
@@ -40,9 +41,9 @@ const navigation: NavItem[] = [
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Agent Sales Report", href: "/reports/agent-sales", icon: SearchCheck },
   { label: "Observational", href: "/observational", icon: Activity },
-  { label: "Audit Log", href: "/audit-log", icon: Boxes },
+  { label: "Audit Log", href: "/audit-log", icon: Boxes, ownerOnly: true },
   { label: "Exports", href: "/exports", icon: Download },
-  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Settings", href: "/settings", icon: Settings, ownerOnly: true },
 ];
 
 function isActivePath(pathname: string, href: string): boolean {
@@ -54,9 +55,11 @@ function isActivePath(pathname: string, href: string): boolean {
 }
 
 export function DashboardNav({
+  adminRole,
   collapsed = false,
   onNavigate,
 }: {
+  adminRole: "owner" | "admin";
   collapsed?: boolean;
   onNavigate?: () => void;
 }) {
@@ -64,7 +67,7 @@ export function DashboardNav({
 
   return (
     <nav className="space-y-1">
-      {navigation.map((item) => {
+      {navigation.filter((item) => adminRole === "owner" || !item.ownerOnly).map((item) => {
         const active = isActivePath(pathname, item.href);
         const Icon = item.icon;
 

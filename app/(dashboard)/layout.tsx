@@ -27,7 +27,9 @@ export default async function DashboardLayout({
     <QueryProvider>
       <Suspense fallback={null}>
         <DatabaseScopeProvider>
-          <DashboardShell adminEmail={admin.email}>{children}</DashboardShell>
+          <DashboardShell adminEmail={admin.email} adminRole={admin.role}>
+            {children}
+          </DashboardShell>
         </DatabaseScopeProvider>
       </Suspense>
     </QueryProvider>
