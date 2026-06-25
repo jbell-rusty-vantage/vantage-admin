@@ -222,7 +222,7 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
     }
 
     if (vantageResponse.kind === "empty") {
-      return NextResponse.json({ ok: true, data: null }, { status: vantageResponse.status });
+      return new NextResponse(null, { status: vantageResponse.status });
     }
 
     return NextResponse.json(
