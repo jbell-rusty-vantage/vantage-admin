@@ -194,6 +194,31 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return payload.data;
 }
 
+async function requestEmpty(url: string, init?: RequestInit): Promise<void> {
+  const response = await fetch(url, {
+    ...init,
+    credentials: "include",
+    headers: {
+      ...(init?.body ? { "content-type": "application/json" } : {}),
+      ...init?.headers,
+    },
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  let payload: ApiResponse<unknown> | undefined;
+  try {
+    payload = (await response.json()) as ApiResponse<unknown>;
+  } catch {
+    payload = undefined;
+  }
+
+  const rawMessage = payload && !payload.ok ? payload.error : response.statusText;
+  throw new Error(cleanErrorMessage(rawMessage, response.status, response.statusText));
+}
+
 export function getRecordId(record: AdminRecord): string {
   const value = record._id ?? record.id;
   return typeof value === "string" ? value : "";
@@ -266,6 +291,21 @@ export async function createCancellation(body: Record<string, unknown>) {
   return requestJson<unknown>(proxyUrl("api/v1/cancelled-leads"), {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export async function deleteBookedLead(id: string, options: { cascade?: boolean } = {}): Promise<void> {
+  return requestEmpty(
+    proxyUrl(`api/v1/booked-leads/${encodeURIComponent(id)}`, {
+      ...(options.cascade ? { cascade: "true" } : {}),
+    }),
+    { method: "DELETE" },
+  );
+}
+
+export async function deleteCancelledLead(id: string): Promise<void> {
+  return requestEmpty(proxyUrl(`api/v1/cancelled-leads/${encodeURIComponent(id)}`), {
+    method: "DELETE",
   });
 }
 

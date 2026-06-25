@@ -59,6 +59,25 @@ test("admin cannot proxy destructive observability requests", () => {
   );
 });
 
+test("admin cannot delete operational bookings or cancellations", () => {
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "DELETE",
+      path: "api/v1/booked-leads/507f1f77bcf86cd799439011",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "DELETE",
+      path: "api/v1/cancelled-leads/507f1f77bcf86cd799439011",
+    }),
+    false,
+  );
+});
+
 test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/settings"), false);
   assert.equal(canAccessDashboardPath("admin", "/audit-log"), false);

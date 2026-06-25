@@ -7,6 +7,7 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
 import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-local-storage-boolean";
 import { cn } from "@/lib/utils";
+import { DashboardRoleProvider } from "./dashboard-role-context";
 import { DashboardNav } from "./dashboard-nav";
 import { LogoutButton } from "./logout-button";
 import { ScopeAwareHeaderControls } from "./scope-aware-header-controls";
@@ -37,7 +38,8 @@ export function DashboardShell({
   }
 
   return (
-    <div className="flex min-h-screen bg-cool-white">
+    <DashboardRoleProvider role={adminRole}>
+      <div className="flex min-h-screen bg-cool-white">
       <aside
         className={cn(
           "hidden flex-col border-r border-steel-200 bg-white px-4 py-6 shadow-sm transition-[width] duration-200 lg:flex",
@@ -111,6 +113,7 @@ export function DashboardShell({
           </aside>
         </div>
       ) : null}
-    </div>
+      </div>
+    </DashboardRoleProvider>
   );
 }

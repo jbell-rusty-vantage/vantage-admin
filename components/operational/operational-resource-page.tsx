@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, ChevronDown, Download, Funnel, PanelLeftClose, PanelLeftOpen, Pencil, PlusCircle, X, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowUp, ChevronDown, Download, Funnel, PanelLeftClose, PanelLeftOpen, Pencil, PlusCircle, Trash2, X, XCircle } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/data-table/table-shell";
 import { formatDate as formatCalendarDate } from "@/components/data-table/formatters";
 import { SortableHeader } from "@/components/data-table/sortable-header";
@@ -18,11 +18,14 @@ import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { SidePanel } from "@/components/ui/side-panel";
+import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import { floridaCalendarDateInputValue } from "@/lib/floridaTime";
 import { Textarea } from "@/components/ui/textarea";
 import { DetailGrid, DetailItem, DetailSection } from "@/components/record-detail/detail-section";
 import {
   adminExportUrl,
+  deleteBookedLead,
+  deleteCancelledLead,
   fetchAdminDetail,
   fetchAdminList,
   getRecordId,
@@ -102,6 +105,18 @@ type ResourceConfig = {
   editFields: EditFieldConfig[];
   fixedListFilters?: SerializableFilters;
   readOnly?: boolean;
+};
+
+type DeleteTarget = {
+  resource: Extract<UiResource, "bookings" | "cancellations">;
+  record: AdminRecord;
+};
+
+type DeleteDialogCopy = {
+  title: string;
+  description: string;
+  bullets: string[];
+  confirmLabel: string;
 };
 
 const yesNoOptions: SelectOption<string>[] = [
@@ -403,6 +418,75 @@ function getValue(record: AdminRecord, path: string): unknown {
 
 function isReferralBooking(record: AdminRecord | null | undefined): boolean {
   return record?.is_referral_booking === true;
+}
+
+function isDeleteResource(resource: UiResource): resource is DeleteTarget["resource"] {
+  return resource === "bookings" || resource === "cancellations";
+}
+
+function hasAttachedCancellation(record: AdminRecord): boolean {
+  return Boolean(getValue(record, "cancelled"));
+}
+
+function recordContextLabel(record: AdminRecord): string {
+  const parts: string[] = [];
+  const jobNo = getValue(record, "job_no");
+  const customer =
+    getValue(record, "customer.full_name") ??
+    getValue(record, "customer_name") ??
+    getValue(record, "name");
+  if (jobNo) {
+    parts.push(`Job ${String(jobNo)}`);
+  }
+  if (customer) {
+    parts.push(String(customer));
+  }
+  return parts.join(" - ");
+}
+
+function buildDeleteDialogCopy(target: DeleteTarget): DeleteDialogCopy {
+  const context = recordContextLabel(target.record);
+  if (target.resource === "cancellations") {
+    return {
+      title: context ? `Delete cancellation for ${context}?` : "Delete this cancellation?",
+      description:
+        "This will permanently delete this cancellation and remove its row from Master Booked > Cancelled Deals.",
+      bullets: [
+        "The booking, lead, and customer will not be deleted.",
+        "Master Leads and the booked row will be updated so the cancellation flag is cleared.",
+        "This cannot be undone from the dashboard.",
+      ],
+      confirmLabel: "Delete cancellation",
+    };
+  }
+
+  if (hasAttachedCancellation(target.record)) {
+    return {
+      title: context ? `Delete booking and cancellation for ${context}?` : "Delete this booking and cancellation?",
+      description:
+        "This booking has an attached cancellation. This will permanently delete the booking and the attached cancellation.",
+      bullets: [
+        "The booking row will be removed from Master Booked > Booked Deals.",
+        "The cancellation row will be removed from Master Booked > Cancelled Deals.",
+        "The lead and customer will not be deleted.",
+        "Master Leads will be updated so booking and cancellation columns are cleared.",
+        "This cannot be undone from the dashboard.",
+      ],
+      confirmLabel: "Delete booking and cancellation",
+    };
+  }
+
+  return {
+    title: context ? `Delete booking for ${context}?` : "Delete this booking?",
+    description:
+      "This will permanently delete this booking and remove its row from Master Booked > Booked Deals.",
+    bullets: [
+      "The lead and customer will not be deleted.",
+      "Master Leads will be updated so the booking columns are cleared.",
+      "This cannot be undone from the dashboard.",
+    ],
+    confirmLabel: "Delete booking",
+  };
 }
 
 function isFormLeadBadLeadReason(value: unknown): value is FormLeadBadLeadReason {
@@ -1237,6 +1321,74 @@ function WorkflowActions({
   );
 }
 
+function DeleteConfirmationDialog({
+  target,
+  pending,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  target: DeleteTarget | null;
+  pending: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!target) {
+    return null;
+  }
+
+  const copy = buildDeleteDialogCopy(target);
+  return (
+    <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+      <button
+        type="button"
+        aria-label="Cancel deletion"
+        className="absolute inset-0 bg-background/75 backdrop-blur-sm"
+        onClick={pending ? undefined : onCancel}
+      />
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-dialog-title"
+        className="relative w-full max-w-lg rounded-xl border border-destructive/30 bg-background p-5 shadow-2xl"
+      >
+        <div className="flex items-start gap-3">
+          <div className="rounded-full bg-destructive/10 p-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 id="delete-dialog-title" className="text-lg font-semibold text-navy">
+              {copy.title}
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">{copy.description}</p>
+          </div>
+        </div>
+
+        <ul className="mt-4 space-y-2 rounded-lg border bg-muted/30 p-3 text-sm">
+          {copy.bullets.map((bullet) => (
+            <li key={bullet} className="flex gap-2">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" aria-hidden="true" />
+              <span>{bullet}</span>
+            </li>
+          ))}
+        </ul>
+
+        {error ? <FeedbackMessage tone="error" className="mt-4">{error}</FeedbackMessage> : null}
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={onCancel} disabled={pending}>
+            Keep record
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} disabled={pending}>
+            {pending ? "Deleting..." : copy.confirmLabel}
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function DetailPanel({
   config,
   resource,
@@ -1246,6 +1398,8 @@ function DetailPanel({
   filters,
   onClose,
   readOnly,
+  canDelete,
+  onRequestDelete,
 }: {
   config: ResourceConfig;
   resource: AdminResource;
@@ -1255,6 +1409,8 @@ function DetailPanel({
   filters: SerializableFilters;
   onClose: () => void;
   readOnly?: boolean;
+  canDelete: boolean;
+  onRequestDelete: (target: DeleteTarget) => void;
 }) {
   const id = selected ? getRecordId(selected) : "";
   const effectiveScope = scope === "combined" ? "production" : scope;
@@ -1317,6 +1473,25 @@ function DetailPanel({
                 uiResource={uiResource}
                 onSaved={() => detailQuery.refetch()}
               />
+            </DetailSection>
+          ) : null}
+          {isProduction && canDelete && isDeleteResource(uiResource) ? (
+            <DetailSection
+              title="Delete Record"
+              description="Owner-only destructive action. Leads and customers are preserved."
+            >
+              <Button
+                variant="destructive"
+                className="gap-2"
+                onClick={() => onRequestDelete({ resource: uiResource, record })}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                {uiResource === "bookings" && hasAttachedCancellation(record)
+                  ? "Delete booking and cancellation"
+                  : uiResource === "bookings"
+                    ? "Delete booking"
+                    : "Delete cancellation"}
+              </Button>
             </DetailSection>
           ) : null}
           <DetailSection title="Raw Identifiers">
@@ -1383,6 +1558,10 @@ function buildColumns(
   setSort: (field: string, direction: SortDirection) => void,
   resource: UiResource,
   isProduction: boolean,
+  options: {
+    canDelete: boolean;
+    onRequestDelete: (target: DeleteTarget) => void;
+  },
 ): DataTableColumn<AdminRecord>[] {
   const hiddenColumns = hiddenTableColumnsByResource[resource];
   const columns: DataTableColumn<AdminRecord>[] = config.columns
@@ -1461,6 +1640,28 @@ function buildColumns(
     });
   }
 
+  if (options.canDelete && isProduction && isDeleteResource(resource)) {
+    columns.unshift({
+      key: "__delete",
+      header: "",
+      className: "w-px",
+      cell: (item) => (
+        <Button
+          variant="destructive"
+          className="h-8 gap-1 px-3 text-xs"
+          onClick={(event) => {
+            event.stopPropagation();
+            options.onRequestDelete({ resource, record: item });
+          }}
+          aria-label={`Delete ${resource === "bookings" ? "booking" : "cancellation"}`}
+        >
+          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+          Delete
+        </Button>
+      ),
+    });
+  }
+
   return columns;
 }
 
@@ -1521,6 +1722,8 @@ function BackToTopButton() {
 export function OperationalResourcePage({ resource }: { resource: UiResource }) {
   const baseConfig = operationalConfigs[resource];
   const adminResource = uiToAdminResource[resource];
+  const dashboardRole = useDashboardRole();
+  const queryClient = useQueryClient();
   const { scope } = useDatabaseScope();
   const facetOptions = useFacetOptions(scope);
   const config = useMemo(
@@ -1538,6 +1741,9 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
   );
   const [selected, setSelected] = useState<AdminRecord | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const filtersCollapsed = useLocalStorageBoolean(filtersSidebarStorageKey);
   const { filters, update, setSort, reset } = useUrlTableState(urlDefaults);
@@ -1582,9 +1788,46 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
   const items = pages.flatMap((page) => page.items);
   const lastPage = pages[pages.length - 1];
   const isProduction = effectiveFilters.database_scope === "production";
+  const canDelete = dashboardRole === "owner" && isProduction && !readOnly && isDeleteResource(resource);
+  const requestDelete = useCallback((target: DeleteTarget) => {
+    setDeleteError(null);
+    setDeleteTarget(target);
+  }, []);
+  const deleteMutation = useMutation({
+    mutationFn: async (target: DeleteTarget) => {
+      const id = getRecordId(target.record);
+      if (target.resource === "bookings") {
+        await deleteBookedLead(id, { cascade: hasAttachedCancellation(target.record) });
+        return target;
+      }
+      await deleteCancelledLead(id);
+      return target;
+    },
+    onSuccess: async (target) => {
+      await invalidateOperationalMutations(queryClient);
+      const deletedId = getRecordId(target.record);
+      setSelected((current) => (current && getRecordId(current) === deletedId ? null : current));
+      setDeleteTarget(null);
+      setDeleteError(null);
+      setDeleteMessage(
+        target.resource === "bookings"
+          ? hasAttachedCancellation(target.record)
+            ? "Booking and attached cancellation deleted. Sheets will be updated by the sync workflow."
+            : "Booking deleted. Sheets will be updated by the sync workflow."
+          : "Cancellation deleted. Sheets will be updated by the sync workflow.",
+      );
+    },
+    onError: (error) => {
+      setDeleteError(error instanceof Error ? error.message : "Delete failed.");
+    },
+  });
   const columns = useMemo(
-    () => buildColumns(config, filters, setSort, resource, isProduction),
-    [config, filters, setSort, resource, isProduction],
+    () =>
+      buildColumns(config, filters, setSort, resource, isProduction, {
+        canDelete,
+        onRequestDelete: requestDelete,
+      }),
+    [config, filters, setSort, resource, isProduction, canDelete, requestDelete],
   );
 
   function toggleFiltersCollapsed() {
@@ -1654,6 +1897,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
       </div>
 
       {exportMessage ? <FeedbackMessage>{exportMessage}</FeedbackMessage> : null}
+      {deleteMessage ? <FeedbackMessage tone="success">{deleteMessage}</FeedbackMessage> : null}
       {effectiveFilters.database_scope === "historical" ? (
         <FeedbackMessage tone="warning">Historical mode is read-only. Edit and workflow actions are hidden.</FeedbackMessage>
       ) : null}
@@ -1754,6 +1998,24 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         filters={effectiveFilters}
         onClose={() => setSelected(null)}
         readOnly={readOnly}
+        canDelete={canDelete}
+        onRequestDelete={requestDelete}
+      />
+      <DeleteConfirmationDialog
+        target={deleteTarget}
+        pending={deleteMutation.isPending}
+        error={deleteError}
+        onCancel={() => {
+          if (!deleteMutation.isPending) {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }
+        }}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteMutation.mutate(deleteTarget);
+          }
+        }}
       />
       <BackToTopButton />
     </div>
