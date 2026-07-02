@@ -76,6 +76,9 @@ alwaysApply: true
 - Production edit mutations use public PATCH endpoints through the proxy: `/api/v1/form-leads/:id`, `/api/v1/call-leads/:id`, `/api/v1/booked-leads/:id`, `/api/v1/cancelled-leads/:id`, and `/api/v1/customers/:id`.
 - Booking creation uses `POST /api/v1/booked-leads/from-source` through the proxy. Cancellation creation uses `POST /api/v1/cancelled-leads` through the proxy.
 - Agent management is read-only in v1; agents are still browsable/detail-able through admin read endpoints.
+- Implemented backend CPL (cost-per-lead) rate management endpoints used by the `/settings` page's `CplRateManager`:
+  - `GET /api/v1/admin/cpl-rates` -- returns all 13 granular rate slots (e.g. `"Best Relocation Forms"`, `"Best Relocation Inbounds"`), self-seeding defaults on first read.
+  - `PATCH /api/v1/admin/cpl-rates/:label` -- updates one slot's `cpl` and immediately backfills the `cpl` field on every matching, non-duplicate production `FormLead`/`CallLead` so analytics reflect the new rate right away; returns `{ rate, leads_updated }`.
 
 ## Current Frontend Route Surface
 

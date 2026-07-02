@@ -66,6 +66,9 @@ export const queryKeys = {
     kind: (kind: string, includeInactive = false) =>
       [...queryKeys.catalog.all, kind, includeInactive ? "all" : "active"] as const,
   },
+  cplRates: {
+    all: ["cpl-rates"] as const,
+  },
   reports: {
     all: ["reports"] as const,
     agentSales: (filters?: QueryFilters) =>

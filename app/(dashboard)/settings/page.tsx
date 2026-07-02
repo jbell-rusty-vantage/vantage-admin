@@ -1,4 +1,5 @@
 import { CatalogManager } from "@/components/settings/catalog-manager";
+import { CplRateManager } from "@/components/settings/cpl-rate-manager";
 
 export default function SettingsPage() {
   return (
@@ -8,6 +9,7 @@ export default function SettingsPage() {
         Manage the active Agent and Merchant catalogs used by booking dropdowns and production filters.
       </p>
       <CatalogManager />
+      <CplRateManager />
     </div>
   );
 }
