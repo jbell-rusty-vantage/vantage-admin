@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { FilterField } from "@/components/filters/filter-field";
@@ -40,7 +40,7 @@ function CatalogSection({ kind }: { kind: CatalogKind }) {
     queryFn: () => fetchManageCatalogItems(kind),
   });
   const createMutation = useMutation({
-    mutationFn: (body: { name: string; active: boolean; granot_crm_username?: string }) =>
+    mutationFn: (body: { name: string; active: boolean; role?: string; granot_crm_username?: string }) =>
       createCatalogItem(kind, body),
     onSuccess: async () => {
       await invalidateCatalog(queryClient);
@@ -171,6 +171,12 @@ function CatalogRow({
     (kind === "agents" && role.trim() !== (item.role ?? "agent")) ||
     (kind === "agents" && normalizedGranotCrmUsername !== savedGranotCrmUsername);
 
+  useEffect(() => {
+    setName(item.name);
+    setRole(item.role ?? "agent");
+    setGranotCrmUsername(item.granot_crm_username ?? "");
+  }, [item.name, item.role, item.granot_crm_username]);
+
   return (
     <div className="space-y-3 rounded-md border bg-background p-3">
       <FilterField label="Name" className="min-w-0">
@@ -203,7 +209,7 @@ function CatalogRow({
               onSave({
                 name: name.trim(),
                 role: role.trim(),
-                ...(kind === "agents" && normalizedGranotCrmUsername
+                ...(kind === "agents"
                   ? { granot_crm_username: normalizedGranotCrmUsername }
                   : {}),
               })
@@ -223,8 +229,8 @@ function CatalogRow({
       </div>
       <p className="text-xs text-muted-foreground">
         Created from {item.created_from || "unknown"} · {item.normalized_name}
-        {kind === "agents" && item.granot_crm_username
-          ? ` · CRM ${item.granot_crm_username}`
+        {kind === "agents"
+          ? ` · Saved CRM username: ${savedGranotCrmUsername || "not set"}`
           : ""}
       </p>
     </div>
