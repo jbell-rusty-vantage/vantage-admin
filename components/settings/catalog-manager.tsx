@@ -40,7 +40,8 @@ function CatalogSection({ kind }: { kind: CatalogKind }) {
     queryFn: () => fetchManageCatalogItems(kind),
   });
   const createMutation = useMutation({
-    mutationFn: (body: { name: string; active: boolean }) => createCatalogItem(kind, body),
+    mutationFn: (body: { name: string; active: boolean; granot_crm_username?: string }) =>
+      createCatalogItem(kind, body),
     onSuccess: async () => {
       await invalidateCatalog(queryClient);
       setMessage(`${label.singular} created.`);
@@ -53,6 +54,7 @@ function CatalogSection({ kind }: { kind: CatalogKind }) {
         name: body.name,
         active: body.active,
         role: kind === "agents" ? body.role : undefined,
+        granot_crm_username: kind === "agents" ? body.granot_crm_username : undefined,
       }),
     onSuccess: async () => {
       await invalidateCatalog(queryClient);
@@ -72,24 +74,44 @@ function CatalogSection({ kind }: { kind: CatalogKind }) {
       <CardContent className="space-y-4">
         {message ? <FeedbackMessage tone={message.includes("failed") ? "error" : "success"}>{message}</FeedbackMessage> : null}
         <form
-          className="grid gap-3 sm:grid-cols-[1fr_auto_auto]"
+          className={`grid gap-3 ${kind === "agents" ? "sm:grid-cols-2 xl:grid-cols-[1fr_1fr_auto_auto]" : "sm:grid-cols-[1fr_auto_auto]"}`}
           onSubmit={(event) => {
             event.preventDefault();
             const form = event.currentTarget;
             const formData = new FormData(form);
             const name = String(formData.get("name") ?? "").trim();
             const active = formData.get("active") === "true";
+            const granotCrmUsername =
+              kind === "agents"
+                ? String(formData.get("granot_crm_username") ?? "")
+                    .trim()
+                    .toUpperCase()
+                : "";
             if (!name) {
               setMessage(`${label.singular} name is required.`);
               return;
             }
-            createMutation.mutate({ name, active });
+            createMutation.mutate({
+              name,
+              active,
+              ...(granotCrmUsername ? { granot_crm_username: granotCrmUsername } : {}),
+            });
             form.reset();
           }}
         >
           <FilterField label={`${label.singular} name`}>
             <Input name="name" placeholder={`New ${label.singular.toLowerCase()}`} />
           </FilterField>
+          {kind === "agents" ? (
+            <FilterField label="Granot CRM username">
+              <Input
+                name="granot_crm_username"
+                placeholder="e.g. MIKEM"
+                className="uppercase"
+                autoComplete="off"
+              />
+            </FilterField>
+          ) : null}
           <FilterField label="Initial status">
             <select
               name="active"
@@ -141,26 +163,51 @@ function CatalogRow({
 }) {
   const [name, setName] = useState(item.name);
   const [role, setRole] = useState(item.role ?? "agent");
-  const changed = name.trim() !== item.name || (kind === "agents" && role.trim() !== (item.role ?? "agent"));
+  const [granotCrmUsername, setGranotCrmUsername] = useState(item.granot_crm_username ?? "");
+  const normalizedGranotCrmUsername = granotCrmUsername.trim().toUpperCase();
+  const savedGranotCrmUsername = item.granot_crm_username ?? "";
+  const changed =
+    name.trim() !== item.name ||
+    (kind === "agents" && role.trim() !== (item.role ?? "agent")) ||
+    (kind === "agents" && normalizedGranotCrmUsername !== savedGranotCrmUsername);
 
   return (
-    <div className="rounded-md border bg-background p-3">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-        <FilterField label="Name" className="flex-1">
-          <Input value={name} onChange={(event) => setName(event.target.value)} />
-        </FilterField>
+    <div className="space-y-3 rounded-md border bg-background p-3">
+      <FilterField label="Name" className="min-w-0">
+        <Input value={name} onChange={(event) => setName(event.target.value)} />
+      </FilterField>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         {kind === "agents" ? (
-          <FilterField label="Role">
+          <FilterField label="Role" className="w-full sm:w-40 sm:shrink-0">
             <Input value={role} onChange={(event) => setRole(event.target.value)} />
           </FilterField>
         ) : null}
-        <div className="flex flex-wrap items-center gap-2 pb-0.5">
+        {kind === "agents" ? (
+          <FilterField label="Granot CRM username" className="w-full sm:w-44 sm:shrink-0">
+            <Input
+              value={granotCrmUsername}
+              onChange={(event) => setGranotCrmUsername(event.target.value.toUpperCase())}
+              placeholder="e.g. MIKEM"
+              className="uppercase"
+              autoComplete="off"
+            />
+          </FilterField>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2 sm:pb-0.5">
           <StatusBadge tone={item.active ? "success" : "muted"}>
             {item.active ? "Active" : "Inactive"}
           </StatusBadge>
           <Button
             variant="outline"
-            onClick={() => onSave({ name: name.trim(), role: role.trim() })}
+            onClick={() =>
+              onSave({
+                name: name.trim(),
+                role: role.trim(),
+                ...(kind === "agents" && normalizedGranotCrmUsername
+                  ? { granot_crm_username: normalizedGranotCrmUsername }
+                  : {}),
+              })
+            }
             disabled={!changed || isPending}
           >
             Save
@@ -174,8 +221,11 @@ function CatalogRow({
           </Button>
         </div>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Created from {item.created_from || "unknown"} · {item.normalized_name}
+        {kind === "agents" && item.granot_crm_username
+          ? ` · CRM ${item.granot_crm_username}`
+          : ""}
       </p>
     </div>
   );

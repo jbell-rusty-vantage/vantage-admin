@@ -12,6 +12,7 @@ export type CatalogItem = {
   active: boolean;
   created_from: string;
   role?: string;
+  granot_crm_username?: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -20,6 +21,7 @@ export type CatalogPayload = {
   name: string;
   active?: boolean;
   role?: string;
+  granot_crm_username?: string;
 };
 
 type CatalogListResponse = {
