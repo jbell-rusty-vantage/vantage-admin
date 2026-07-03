@@ -92,3 +92,14 @@ export async function updateCatalogItem(
 export function toCatalogOptions(items: CatalogItem[] | undefined): SelectOption[] {
   return (items ?? []).map((item) => ({ value: item.name, label: item.name }));
 }
+
+/** Agent picker options keyed by Mongo `_id` (includes inactive agents when requested). */
+export function toAgentIdSelectOptions(items: CatalogItem[] | undefined): SelectOption[] {
+  return (items ?? [])
+    .slice()
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((item) => ({
+      value: item.id,
+      label: item.active ? item.name : `${item.name} (inactive)`,
+    }));
+}

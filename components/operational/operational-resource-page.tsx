@@ -152,6 +152,11 @@ const formLeadFilters: FilterConfig[] = [
 
 const formLeadEditFields: EditFieldConfig[] = [
   {
+    key: "receiver_agent",
+    label: "Sales Rep",
+    type: "select",
+  },
+  {
     key: "source_company",
     label: "Source company",
     type: "select",
@@ -200,6 +205,11 @@ const callLeadFilters: FilterConfig[] = [
 ];
 
 const callLeadEditFields: EditFieldConfig[] = [
+  {
+    key: "receiver_agent",
+    label: "Sales Rep",
+    type: "select",
+  },
   {
     key: "source_company",
     label: "Source company",
@@ -573,11 +583,44 @@ function toInputValue(value: unknown, type: FieldType): string {
   return String(value);
 }
 
+function isLeadResource(resource: UiResource): boolean {
+  return (
+    resource === "form-leads" ||
+    resource === "duplicate-form-leads" ||
+    resource === "call-leads" ||
+    resource === "duplicate-call-leads"
+  );
+}
+
+function resolveReceiverAgentId(record: AdminRecord): string {
+  const value = getValue(record, "receiver_agent");
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+  if (value && typeof value === "object" && "_id" in value) {
+    const id = (value as { _id?: unknown })._id;
+    return typeof id === "string" ? id : id != null ? String(id) : "";
+  }
+  return "";
+}
+
+function formatSalesRep(record: AdminRecord): string {
+  const snapshot = getValue(record, "receiver_agent_name_snapshot");
+  if (typeof snapshot === "string" && snapshot.trim()) {
+    return snapshot.trim();
+  }
+  const agentId = resolveReceiverAgentId(record);
+  return agentId ? "Assigned (name unavailable)" : "Not assigned";
+}
+
 function resolveEditFieldValue(
   record: AdminRecord,
   field: EditFieldConfig,
   uiResource: UiResource,
 ): string {
+  if (field.key === "receiver_agent") {
+    return resolveReceiverAgentId(record);
+  }
   if (field.key === "source_company") {
     const storedSourceCompany = getValue(record, "source_company");
     if (uiResource === "form-leads" || uiResource === "duplicate-form-leads") {
@@ -602,6 +645,11 @@ function buildUpdatePayload(formData: FormData, fields: EditFieldConfig[]) {
     if (!raw) {
       continue;
     }
+    if (field.key === "receiver_agent") {
+      payload.receiver_agent = raw;
+      payload.receiver_agent_source = "manual";
+      continue;
+    }
     if (field.type === "number") {
       const number = Number(raw);
       if (Number.isFinite(number)) {
@@ -616,12 +664,16 @@ function buildUpdatePayload(formData: FormData, fields: EditFieldConfig[]) {
 
 function withFacetOptions(config: ResourceConfig, options: {
   agentOptions: readonly SelectOption[];
+  agentIdOptions: readonly SelectOption[];
   merchantOptions: readonly SelectOption[];
   sourceCompanyOptions: readonly SelectOption[];
 }): ResourceConfig {
   const applyOptions = <TField extends FilterConfig | EditFieldConfig>(field: TField): TField => {
     if (field.key === "agent") {
       return { ...field, options: options.agentOptions } as TField;
+    }
+    if (field.key === "receiver_agent") {
+      return { ...field, options: options.agentIdOptions } as TField;
     }
     if (field.key === "merchant") {
       return { ...field, options: options.merchantOptions } as TField;
@@ -1445,6 +1497,9 @@ function DetailPanel({
               {config.columns.map((column) => (
                 <DetailItem key={column.key} label={column.label} value={formatCell(record, column)} />
               ))}
+              {isLeadResource(uiResource) ? (
+                <DetailItem label="Sales Rep" value={formatSalesRep(record)} />
+              ) : null}
               <DetailItem label="Database scope" value={record.database_scope ?? effectiveScope} />
               <DetailItem label="Mongo ID" value={id} />
             </DetailGrid>

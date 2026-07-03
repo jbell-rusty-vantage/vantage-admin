@@ -16,6 +16,7 @@ function toOptions(values: string[] | undefined): SelectOption[] {
 
 export type FacetOptions = {
   agentOptions: readonly SelectOption[];
+  agentIdOptions: readonly SelectOption[];
   merchantOptions: readonly SelectOption[];
   sourceCompanyOptions: readonly SelectOption[];
   sourceOptions: readonly SelectOption[];
@@ -37,6 +38,7 @@ export function useFacetOptions(scope: DatabaseScope): FacetOptions {
   if (isProduction) {
     return {
       agentOptions: catalog.agentOptions,
+      agentIdOptions: catalog.agentIdOptions,
       merchantOptions: catalog.merchantOptions,
       sourceCompanyOptions: SOURCE_COMPANY_OPTIONS,
       sourceOptions: SOURCE_LABEL_OPTIONS,
@@ -47,9 +49,10 @@ export function useFacetOptions(scope: DatabaseScope): FacetOptions {
   const facets = query.data;
   return {
     agentOptions: toOptions(facets?.agents),
+    agentIdOptions: catalog.agentIdOptions,
     merchantOptions: toOptions(facets?.merchants),
     sourceCompanyOptions: toOptions(facets?.source_companies),
     sourceOptions: toOptions(facets?.sources),
-    isLoading: query.isLoading,
+    isLoading: query.isLoading || catalog.isLoading,
   };
 }
