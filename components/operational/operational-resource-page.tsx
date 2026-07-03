@@ -141,6 +141,7 @@ const formLeadColumns: ColumnConfig[] = [
 
 const formLeadFilters: FilterConfig[] = [
   { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
+  { key: "receiver_agent", label: "Receiver agent", type: "select" },
   { key: "name", label: "Name", type: "text" },
   { key: "email", label: "Email", type: "text" },
   { key: "phone_number", label: "Phone", type: "text" },
@@ -195,6 +196,7 @@ const callLeadColumns: ColumnConfig[] = [
 
 const callLeadFilters: FilterConfig[] = [
   { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
+  { key: "receiver_agent", label: "Receiver agent", type: "select" },
   { key: "name", label: "Name", type: "text" },
   { key: "email", label: "Email", type: "text" },
   { key: "phone_number", label: "Phone", type: "text" },
@@ -667,6 +669,7 @@ function withFacetOptions(config: ResourceConfig, options: {
   agentIdOptions: readonly SelectOption[];
   merchantOptions: readonly SelectOption[];
   sourceCompanyOptions: readonly SelectOption[];
+  scope: DatabaseScope;
 }): ResourceConfig {
   const applyOptions = <TField extends FilterConfig | EditFieldConfig>(field: TField): TField => {
     if (field.key === "agent") {
@@ -685,7 +688,9 @@ function withFacetOptions(config: ResourceConfig, options: {
   };
   return {
     ...config,
-    filters: config.filters.map(applyOptions),
+    filters: config.filters
+      .filter((field) => !(options.scope === "historical" && field.key === "receiver_agent"))
+      .map(applyOptions),
     editFields: config.editFields.map(applyOptions),
   };
 }
@@ -1782,8 +1787,8 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
   const { scope } = useDatabaseScope();
   const facetOptions = useFacetOptions(scope);
   const config = useMemo(
-    () => withFacetOptions(baseConfig, facetOptions),
-    [baseConfig, facetOptions],
+    () => withFacetOptions(baseConfig, { ...facetOptions, scope }),
+    [baseConfig, facetOptions, scope],
   );
   const urlDefaults = useMemo(
     () => ({
@@ -1811,6 +1816,12 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
       update({ q: null });
     }
   }, [hasInvalidSearchQuery, update]);
+
+  useEffect(() => {
+    if (scope === "historical" && filters.receiver_agent) {
+      update({ receiver_agent: null });
+    }
+  }, [filters.receiver_agent, scope, update]);
 
   const effectiveFilters: SerializableFilters = {
     ...filters,

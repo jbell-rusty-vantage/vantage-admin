@@ -44,7 +44,10 @@ export type AnalyticsReport =
   | "local-vs-long-distance"
   | "geographic-lanes"
   | "pickup-state-performance"
-  | "delivery-state-performance";
+  | "delivery-state-performance"
+  | "receiver-agent-performance"
+  | "receiver-agent-trend"
+  | "receiver-agent-source-breakdown";
 
 export type AnalyticsResponse = {
   report: AnalyticsReport;
