@@ -113,6 +113,7 @@ export type OverviewReportResponse = {
 export type AdminFacets = {
   agents: string[];
   source_companies: string[];
+  source_granularities?: string[];
   sources: string[];
   merchants: string[];
 };

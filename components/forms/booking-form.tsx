@@ -2,13 +2,17 @@
 
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { FilterField } from "@/components/filters/filter-field";
 import { SelectFilter } from "@/components/filters/select-filter";
 import { createBookingFromSource, createLeadlessBooking, createReferralBooking } from "@/lib/api/admin";
+import {
+  fetchLeadSourceCompanies,
+  toLeadSourceCompanyOptions,
+} from "@/lib/api/sourceCompanies";
 import { useCatalogOptions } from "@/lib/api/use-catalog-options";
 import {
   isReferralSourceCompany,
@@ -75,6 +79,19 @@ export function BookingForm() {
   const bookingMode = getBookingMode(leadType, sourceCompany);
   const referralMode = bookingMode === "referral";
   const leadlessMode = bookingMode === "leadless";
+  const sourceCompaniesQuery = useQuery({
+    queryKey: queryKeys.sourceCompanies.list(false),
+    queryFn: () => fetchLeadSourceCompanies(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const sourceCompanyOptions = useMemo(
+    () =>
+      withReferralSourceOption(
+        toLeadSourceCompanyOptions(sourceCompaniesQuery.data),
+        SOURCE_COMPANY_OPTIONS,
+      ),
+    [sourceCompaniesQuery.data],
+  );
   const mutation = useMutation({
     mutationFn: ({ payload, bookingMode: mode }: { payload: Record<string, unknown>; bookingMode: BookingMode }) =>
       submitBooking(payload, mode),
@@ -288,7 +305,7 @@ export function BookingForm() {
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="">{leadlessMode ? "Choose source company" : "No override"}</option>
-              {SOURCE_COMPANY_OPTIONS.map((option) => (
+              {sourceCompanyOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -423,4 +440,18 @@ export function BookingForm() {
       </Button>
     </form>
   );
+}
+
+function withReferralSourceOption<TOption extends { value: string; label: string }>(
+  preferred: TOption[],
+  fallback: readonly TOption[],
+): readonly TOption[] {
+  const options = preferred.length > 0 ? [...preferred] : [...fallback];
+  const referralOption = SOURCE_COMPANY_OPTIONS.find((option) =>
+    isReferralSourceCompany(option.value),
+  );
+  if (referralOption && !options.some((option) => isReferralSourceCompany(option.value))) {
+    options.push(referralOption as TOption);
+  }
+  return options;
 }

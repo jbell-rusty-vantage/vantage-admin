@@ -11,7 +11,7 @@ import { getSourceCompanyLabel, type SourceCompany } from "@/lib/constants/domai
 import { fetchCplRates, updateCplRate as updateCplRateRequest, type CplRate } from "@/lib/api/cplRates";
 import { queryKeys } from "@/lib/query/keys";
 
-export function CplRateManager() {
+export function CplRateManager({ compatibilityMode = false }: { compatibilityMode?: boolean }) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
   const query = useQuery({
@@ -35,8 +35,9 @@ export function CplRateManager() {
       <CardHeader>
         <CardTitle>CPL Rates</CardTitle>
         <CardDescription>
-          Set the cost-per-lead for each source and lead type. Saving a rate immediately recalculates
-          the analytics dashboard for every matching existing lead.
+          {compatibilityMode
+            ? "Legacy compatibility rates for seeded source labels. Manage new source-company CPL on the Source Company tab."
+            : "Set the cost-per-lead for each source and lead type. Saving a rate immediately recalculates the analytics dashboard for every matching existing lead."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

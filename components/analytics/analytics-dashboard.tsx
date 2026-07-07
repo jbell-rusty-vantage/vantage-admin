@@ -52,7 +52,16 @@ const LEAD_TYPE_OPTIONS: SelectOption[] = [
 
 type AnalyticsView = "visualization" | "table";
 type AnalyticsTabId = "overview" | "sales" | "lead-sources" | "receiver-agents" | "geography" | "cancellations";
-type FilterControl = "source_company" | "agent" | "receiver_agent" | "merchant" | "source" | "local" | "lead_type" | "granularity";
+type FilterControl =
+  | "source_company"
+  | "source_granularity_key"
+  | "agent"
+  | "receiver_agent"
+  | "merchant"
+  | "source"
+  | "local"
+  | "lead_type"
+  | "granularity";
 
 type ReportConfig = {
   id: AnalyticsReport;
@@ -76,7 +85,7 @@ const TAB_CONFIGS: TabConfig[] = [
     label: "Overview",
     description: "Executive summary across leads, bookings, revenue, cancellations, cost, and receiver attribution.",
     primaryReport: "summary",
-    filters: ["source_company"],
+    filters: ["source_company", "source_granularity_key"],
     reports: [
       { id: "summary", label: "Executive Summary", description: "Top-level business totals for the selected period.", kind: "bar" },
       { id: "source-company-performance", label: "Deposit Mix", description: "Deposit amount by source company.", kind: "pie" },
@@ -88,7 +97,7 @@ const TAB_CONFIGS: TabConfig[] = [
     label: "Sales",
     description: "Revenue, closing performance, and booking/cancellation outcomes.",
     primaryReport: "revenue-trend",
-    filters: ["source_company", "agent", "merchant", "source", "granularity"],
+    filters: ["source_company", "source_granularity_key", "agent", "merchant", "source", "granularity"],
     reports: [
       { id: "revenue-trend", label: "Revenue Trend", description: "Binder and deposit movement over time.", kind: "area" },
       { id: "agent-performance", label: "Agent Sales Performance", description: "Sales allocation performance, not receiver attribution.", kind: "bar" },
@@ -100,7 +109,7 @@ const TAB_CONFIGS: TabConfig[] = [
     label: "Lead Sources",
     description: "Source-company funnel, CPL efficiency, and lead source quality.",
     primaryReport: "source-company-performance",
-    filters: ["source_company", "lead_type", "local"],
+    filters: ["source_company", "source_granularity_key", "lead_type", "local"],
     reports: [
       { id: "source-company-performance", label: "Source Company Performance", description: "Bookings and revenue by source company.", kind: "bar" },
       { id: "source-company-funnel", label: "Source Company Funnel", description: "Lead volume and booking reconciliation by source.", kind: "bar" },
@@ -112,7 +121,7 @@ const TAB_CONFIGS: TabConfig[] = [
     label: "Receiver Agents",
     description: "Received-lead workload, lead cost, and downstream booking/cancellation outcomes.",
     primaryReport: "receiver-agent-performance",
-    filters: ["source_company", "receiver_agent", "lead_type", "granularity"],
+    filters: ["source_company", "source_granularity_key", "receiver_agent", "lead_type", "granularity"],
     reports: [
       { id: "receiver-agent-performance", label: "Performance", description: "Received, billable, booked, cancelled, and cost metrics by receiver agent.", kind: "bar" },
       { id: "receiver-agent-trend", label: "Trend", description: "Received lead volume over time by receiver agent.", kind: "area" },
@@ -124,7 +133,7 @@ const TAB_CONFIGS: TabConfig[] = [
     label: "Geography",
     description: "Pickup, delivery, lane, and local-vs-long-distance performance.",
     primaryReport: "pickup-state-performance",
-    filters: ["source_company", "lead_type", "local"],
+    filters: ["source_company", "source_granularity_key", "lead_type", "local"],
     reports: [
       { id: "pickup-state-performance", label: "Pickup State", description: "Lead and booking performance by pickup state.", kind: "bar" },
       { id: "delivery-state-performance", label: "Delivery State", description: "Lead and booking performance by delivery state.", kind: "bar" },
@@ -137,7 +146,7 @@ const TAB_CONFIGS: TabConfig[] = [
     label: "Cancellations",
     description: "Cancellation reasons, cancellation rate, and refund impact.",
     primaryReport: "cancellation-reasons",
-    filters: ["source_company", "merchant", "source"],
+    filters: ["source_company", "source_granularity_key", "merchant", "source"],
     reports: [
       { id: "cancellation-reasons", label: "Cancellation Reasons", description: "Refund and cancellation impact by reason.", kind: "bar" },
       { id: "booking-cancellation-ratio", label: "Booking And Cancellation Ratio", description: "Booked, cancelled, and active booked leads.", kind: "bar" },
@@ -145,7 +154,7 @@ const TAB_CONFIGS: TabConfig[] = [
   },
 ];
 
-const TAB_SPECIFIC_FILTERS = ["agent", "receiver_agent", "merchant", "source", "local", "lead_type", "granularity", "report"] as const;
+const TAB_SPECIFIC_FILTERS = ["source_granularity_key", "agent", "receiver_agent", "merchant", "source", "local", "lead_type", "granularity", "report"] as const;
 
 function defaultDateRange() {
   const to = new Date();
@@ -303,7 +312,7 @@ function buildFilters(filters: Record<string, unknown>, scope: DatabaseScope, ta
     from: str(filters.from),
     to: str(filters.to),
   };
-  for (const key of ["source_company", "agent", "receiver_agent", "merchant", "source", "local", "lead_type", "granularity"] as const) {
+  for (const key of ["source_company", "source_granularity_key", "agent", "receiver_agent", "merchant", "source", "local", "lead_type", "granularity"] as const) {
     if (supported.has(key) && typeof filters[key] === "string" && filters[key] !== "") {
       next[key] = filters[key];
     }
@@ -551,6 +560,11 @@ function AnalyticsFilterPanel({
       {has("source_company") ? (
         <FilterField label="Source company">
           <SelectFilter value={str(filters.source_company) ?? ""} options={facetOptions.sourceCompanyOptions} placeholder="All sources" onChange={(value) => update({ source_company: value })} />
+        </FilterField>
+      ) : null}
+      {has("source_granularity_key") && facetOptions.sourceGranularityOptions.length > 0 ? (
+        <FilterField label="Source granularity">
+          <SelectFilter value={str(filters.source_granularity_key) ?? ""} options={facetOptions.sourceGranularityOptions} placeholder="All granularities" onChange={(value) => update({ source_granularity_key: value })} />
         </FilterField>
       ) : null}
       {has("lead_type") ? (

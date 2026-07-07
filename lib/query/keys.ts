@@ -69,6 +69,11 @@ export const queryKeys = {
   cplRates: {
     all: ["cpl-rates"] as const,
   },
+  sourceCompanies: {
+    all: ["source-companies"] as const,
+    list: (includeInactive = false) =>
+      [...queryKeys.sourceCompanies.all, includeInactive ? "all" : "active"] as const,
+  },
   reports: {
     all: ["reports"] as const,
     agentSales: (filters?: QueryFilters) =>

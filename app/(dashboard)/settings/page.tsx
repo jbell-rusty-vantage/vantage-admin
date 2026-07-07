@@ -1,15 +1,14 @@
-import { CatalogManager } from "@/components/settings/catalog-manager";
-import { CplRateManager } from "@/components/settings/cpl-rate-manager";
+import { SettingsTabs } from "@/components/settings/settings-tabs";
 
 export default function SettingsPage() {
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-semibold">Settings</h1>
       <p className="text-sm text-muted-foreground">
-        Manage the active Agent and Merchant catalogs used by booking dropdowns and production filters.
+        Manage lead source companies, CPL rates, and the active Agent and Merchant catalogs used by
+        booking dropdowns and production filters.
       </p>
-      <CatalogManager />
-      <CplRateManager />
+      <SettingsTabs />
     </div>
   );
 }

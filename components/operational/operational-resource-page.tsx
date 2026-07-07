@@ -141,6 +141,7 @@ const formLeadColumns: ColumnConfig[] = [
 
 const formLeadFilters: FilterConfig[] = [
   { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
+  { key: "source_granularity_key", label: "Source granularity", type: "select" },
   { key: "receiver_agent", label: "Receiver agent", type: "select" },
   { key: "name", label: "Name", type: "text" },
   { key: "email", label: "Email", type: "text" },
@@ -196,6 +197,7 @@ const callLeadColumns: ColumnConfig[] = [
 
 const callLeadFilters: FilterConfig[] = [
   { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
+  { key: "source_granularity_key", label: "Source granularity", type: "select" },
   { key: "receiver_agent", label: "Receiver agent", type: "select" },
   { key: "name", label: "Name", type: "text" },
   { key: "email", label: "Email", type: "text" },
@@ -558,6 +560,20 @@ function formatPlain(value: unknown): React.ReactNode {
   return String(value);
 }
 
+function formatSourceDisplay(record: AdminRecord, fallback: unknown): string {
+  return (
+    stringValue(getValue(record, "crm_source_label_snapshot")) ??
+    stringValue(getValue(record, "source_granularity_label_snapshot")) ??
+    stringValue(getValue(record, "source_company_label_snapshot")) ??
+    stringValue(fallback) ??
+    "-"
+  );
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 function formatCell(record: AdminRecord, column: ColumnConfig) {
   let value = getValue(record, column.path);
   if ((value === null || value === undefined || value === "") && column.path === "customer.full_name") {
@@ -565,6 +581,9 @@ function formatCell(record: AdminRecord, column: ColumnConfig) {
   }
   if (column.path === "bad_lead") {
     return formatBadLead(value) || "-";
+  }
+  if (column.key === "source" && isLeadRecordWithSourceMetadata(record)) {
+    return formatSourceDisplay(record, value);
   }
   if (column.format === "date") {
     return formatDate(value);
@@ -593,6 +612,26 @@ function isLeadResource(resource: UiResource): boolean {
     resource === "duplicate-call-leads"
   );
 }
+
+function isLeadRecordWithSourceMetadata(record: AdminRecord): boolean {
+  return Boolean(
+    getValue(record, "lead_source_company") ||
+      getValue(record, "source_granularity_id") ||
+      getValue(record, "source_granularity_key") ||
+      getValue(record, "source_company_label_snapshot") ||
+      getValue(record, "source_granularity_label_snapshot") ||
+      getValue(record, "crm_source_label_snapshot"),
+  );
+}
+
+const sourceMetadataFields = [
+  "lead_source_company",
+  "source_granularity_id",
+  "source_granularity_key",
+  "source_company_label_snapshot",
+  "source_granularity_label_snapshot",
+  "crm_source_label_snapshot",
+];
 
 function resolveReceiverAgentId(record: AdminRecord): string {
   const value = getValue(record, "receiver_agent");
@@ -624,6 +663,18 @@ function resolveEditFieldValue(
     return resolveReceiverAgentId(record);
   }
   if (field.key === "source_company") {
+    const crmSourceSnapshot = getValue(record, "crm_source_label_snapshot");
+    if (typeof crmSourceSnapshot === "string" && crmSourceSnapshot.trim()) {
+      return crmSourceSnapshot;
+    }
+    const granularitySnapshot = getValue(record, "source_granularity_label_snapshot");
+    if (typeof granularitySnapshot === "string" && granularitySnapshot.trim()) {
+      return granularitySnapshot;
+    }
+    const companySnapshot = getValue(record, "source_company_label_snapshot");
+    if (typeof companySnapshot === "string" && companySnapshot.trim()) {
+      return companySnapshot;
+    }
     const storedSourceCompany = getValue(record, "source_company");
     if (uiResource === "form-leads" || uiResource === "duplicate-form-leads") {
       return getFormLeadSourceLabel(
@@ -669,6 +720,10 @@ function withFacetOptions(config: ResourceConfig, options: {
   agentIdOptions: readonly SelectOption[];
   merchantOptions: readonly SelectOption[];
   sourceCompanyOptions: readonly SelectOption[];
+  sourceOptions: readonly SelectOption[];
+  formSourceOptions: readonly SelectOption[];
+  callSourceOptions: readonly SelectOption[];
+  sourceGranularityOptions: readonly SelectOption[];
   scope: DatabaseScope;
 }): ResourceConfig {
   const applyOptions = <TField extends FilterConfig | EditFieldConfig>(field: TField): TField => {
@@ -681,8 +736,25 @@ function withFacetOptions(config: ResourceConfig, options: {
     if (field.key === "merchant") {
       return { ...field, options: options.merchantOptions } as TField;
     }
+    if (field.key === "source_company") {
+      if (hasOption(field, "tbm_leads")) {
+        return { ...field, options: withOptionFallback(options.sourceCompanyOptions, field.options) } as TField;
+      }
+      if (hasOption(field, "Main Site Forms")) {
+        return { ...field, options: withOptionFallback(options.formSourceOptions, field.options) } as TField;
+      }
+      if (hasOption(field, "Main Site Inbounds")) {
+        return { ...field, options: withOptionFallback(options.callSourceOptions, field.options) } as TField;
+      }
+    }
+    if (field.key === "source_granularity_key") {
+      return { ...field, options: withOptionFallback(options.sourceGranularityOptions, field.options) } as TField;
+    }
     if (field.key === "source" && field.label === "Source") {
-      return { ...field, options: options.sourceCompanyOptions } as TField;
+      return { ...field, options: withOptionFallback(options.sourceCompanyOptions, field.options) } as TField;
+    }
+    if (field.key === "source" && field.label === "Source label") {
+      return { ...field, options: withOptionFallback(options.sourceOptions, field.options) } as TField;
     }
     return field;
   };
@@ -693,6 +765,23 @@ function withFacetOptions(config: ResourceConfig, options: {
       .map(applyOptions),
     editFields: config.editFields.map(applyOptions),
   };
+}
+
+function hasOption(
+  field: FilterConfig | EditFieldConfig,
+  value: string,
+): boolean {
+  return field.options?.some((option) => option.value === value) ?? false;
+}
+
+function withOptionFallback(
+  preferred: readonly SelectOption[],
+  fallback: readonly SelectOption[] | undefined,
+): readonly SelectOption[] {
+  if (preferred.length > 0) {
+    return preferred;
+  }
+  return fallback ?? [];
 }
 
 function getBookingQuery(resource: UiResource, record: AdminRecord) {
@@ -1509,6 +1598,19 @@ function DetailPanel({
               <DetailItem label="Mongo ID" value={id} />
             </DetailGrid>
           </DetailSection>
+          {isLeadResource(uiResource) && isLeadRecordWithSourceMetadata(record) ? (
+            <DetailSection title="Source Metadata" description="Catalog relation and source label snapshots.">
+              <DetailGrid>
+                {sourceMetadataFields.map((key) => (
+                  <DetailItem
+                    key={key}
+                    label={key.replaceAll("_", " ")}
+                    value={formatPlain(getValue(record, key))}
+                  />
+                ))}
+              </DetailGrid>
+            </DetailSection>
+          ) : null}
           <DetailSection title="Linked Context" description="Populated values from the backend detail endpoint.">
             <DetailGrid>
               {["customer", "booked", "cancelled", "lead_ref", "booked_lead", "related_bookings", "related_cancellations", "recent_bookings"].map((key) => (
