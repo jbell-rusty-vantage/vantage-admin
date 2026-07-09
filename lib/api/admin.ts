@@ -128,6 +128,30 @@ export type AgentSalesReportResponse = {
   totals: Record<string, unknown>;
 };
 
+export type AdminTestimonial = {
+  id: string;
+  source: string;
+  source_company?: string;
+  reviewer_name: string;
+  review_date: string;
+  rating: number;
+  review_text: string;
+  business_response: {
+    responded_at: string;
+    text: string;
+  } | null;
+  published: boolean;
+  featured: boolean;
+  customer: {
+    id: string;
+    full_name: string;
+    phone_number: string;
+    email: string;
+  } | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export const uiToAdminResource: Record<UiResource, AdminResource> = {
   "form-leads": "form-leads",
   "duplicate-form-leads": "form-leads",
@@ -319,6 +343,30 @@ export async function fetchGlobalSearch(filters: SerializableFilters): Promise<G
 
 export async function fetchAdminFacets(scope: DatabaseScope): Promise<AdminFacets> {
   return requestJson<AdminFacets>(proxyUrl("api/v1/admin/facets", { database_scope: scope }));
+}
+
+export async function fetchAdminTestimonials(
+  filters: SerializableFilters,
+): Promise<PaginatedResult<AdminTestimonial>> {
+  return requestJson<PaginatedResult<AdminTestimonial>>(
+    proxyUrl("api/v1/admin/testimonials", filters),
+  );
+}
+
+export async function fetchAdminTestimonialReviewerNames(): Promise<string[]> {
+  return requestJson<string[]>(proxyUrl("api/v1/admin/testimonials/reviewer-names"));
+}
+
+export async function fetchCustomerTestimonials(
+  customerId: string,
+): Promise<PaginatedResult<AdminTestimonial>> {
+  return fetchAdminTestimonials({
+    customer: customerId,
+    sort: "review_date",
+    direction: "desc",
+    limit: 10,
+    page: 1,
+  });
 }
 
 export async function fetchAgentSalesReport(

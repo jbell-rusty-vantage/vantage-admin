@@ -74,6 +74,18 @@ export const queryKeys = {
     list: (includeInactive = false) =>
       [...queryKeys.sourceCompanies.all, includeInactive ? "all" : "active"] as const,
   },
+  carriers: {
+    all: ["moving-carriers"] as const,
+    list: (includeInactive = false) =>
+      [...queryKeys.carriers.all, includeInactive ? "all" : "active"] as const,
+  },
+  testimonials: {
+    all: ["testimonials"] as const,
+    list: (filters?: QueryFilters) =>
+      [...queryKeys.testimonials.all, "list", stableFilters(filters)] as const,
+    reviewerNames: () => [...queryKeys.testimonials.all, "reviewer-names"] as const,
+    customer: (customerId: string) => [...queryKeys.testimonials.all, "customer", customerId] as const,
+  },
   reports: {
     all: ["reports"] as const,
     agentSales: (filters?: QueryFilters) =>

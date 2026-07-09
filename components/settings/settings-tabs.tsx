@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { CarrierManager } from "@/components/settings/carrier-manager";
 import { CatalogManager } from "@/components/settings/catalog-manager";
 import { CplRateManager } from "@/components/settings/cpl-rate-manager";
 import { SourceCompanyManager } from "@/components/settings/source-company-manager";
@@ -16,6 +17,11 @@ const tabs = [
     id: "catalog",
     label: "Catalog",
     description: "Agents and merchants used by booking workflows and owner filters.",
+  },
+  {
+    id: "moving-carriers",
+    label: "Moving Carriers",
+    description: "Carrier DOT/MC collection, manual edits, and CSV imports for the main site table.",
   },
   {
     id: "cpl-rate",
@@ -50,6 +56,7 @@ export function SettingsTabs() {
       <p className="text-sm text-muted-foreground">{active.description}</p>
       {activeTab === "source-company" ? <SourceCompanyManager /> : null}
       {activeTab === "catalog" ? <CatalogManager /> : null}
+      {activeTab === "moving-carriers" ? <CarrierManager /> : null}
       {activeTab === "cpl-rate" ? <CplRateManager compatibilityMode /> : null}
     </div>
   );

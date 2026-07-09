@@ -26,6 +26,7 @@ import {
   adminExportUrl,
   deleteBookedLead,
   deleteCancelledLead,
+  fetchCustomerTestimonials,
   fetchAdminDetail,
   fetchAdminList,
   getRecordId,
@@ -33,6 +34,7 @@ import {
   uiToAdminResource,
   updateFormLeadBadLead,
   updateProductionRecord,
+  type AdminTestimonial,
   type AdminRecord,
   type AdminResource,
   type UiResource,
@@ -558,6 +560,28 @@ function formatPlain(value: unknown): React.ReactNode {
     return "Linked";
   }
   return String(value);
+}
+
+function relationCount(record: AdminRecord, relationPath: string, countPath: string): number {
+  const relation = getValue(record, relationPath);
+  if (Array.isArray(relation)) {
+    return relation.length;
+  }
+  const aggregateValue = getValue(record, `aggregates.${countPath}`) ?? getValue(record, countPath);
+  const count = typeof aggregateValue === "number" ? aggregateValue : Number(aggregateValue);
+  return Number.isFinite(count) ? count : 0;
+}
+
+function formatLinkedCount(count: number): React.ReactNode {
+  return count > 0 ? (
+    <StatusBadge tone="success">Linked ({count})</StatusBadge>
+  ) : (
+    <StatusBadge tone="muted">None</StatusBadge>
+  );
+}
+
+function customerName(record: AdminRecord): string {
+  return stringValue(getValue(record, "full_name")) ?? stringValue(getValue(record, "name")) ?? "";
 }
 
 function formatSourceDisplay(record: AdminRecord, fallback: unknown): string {
@@ -1535,6 +1559,76 @@ function DeleteConfirmationDialog({
   );
 }
 
+function CustomerTestimonialsSection({
+  customerId,
+  customerName,
+}: {
+  customerId: string;
+  customerName: string;
+}) {
+  const query = useQuery({
+    queryKey: queryKeys.testimonials.customer(customerId),
+    queryFn: () => fetchCustomerTestimonials(customerId),
+    enabled: Boolean(customerId),
+  });
+  const items = query.data?.items ?? [];
+  const searchHref = customerName
+    ? `/testimonials?q=${encodeURIComponent(customerName)}`
+    : "/testimonials";
+
+  return (
+    <DetailSection
+      title="Testimonials"
+      description="Only testimonials explicitly linked to this customer are shown here."
+    >
+      {query.isLoading ? <TableLoadingState label="Loading linked testimonials..." /> : null}
+      {query.isError ? (
+        <TableErrorState
+          error={query.error instanceof Error ? query.error.message : undefined}
+          onRetry={() => query.refetch()}
+        />
+      ) : null}
+      {query.data && items.length === 0 ? (
+        <div className="space-y-3 rounded-md border bg-muted/30 p-3 text-sm">
+          <p className="text-muted-foreground">
+            No testimonials are linked to this customer record.
+          </p>
+          <Link className="font-medium text-navy underline-offset-4 hover:underline" href={searchHref}>
+            Search testimonials for this customer name
+          </Link>
+        </div>
+      ) : null}
+      {items.length > 0 ? (
+        <div className="space-y-3">
+          {items.map((item) => (
+            <CustomerTestimonialCard key={item.id} item={item} />
+          ))}
+          <Link
+            className="inline-flex text-sm font-medium text-navy underline-offset-4 hover:underline"
+            href={`/testimonials?customer=${encodeURIComponent(customerId)}`}
+          >
+            View all linked testimonials
+          </Link>
+        </div>
+      ) : null}
+    </DetailSection>
+  );
+}
+
+function CustomerTestimonialCard({ item }: { item: AdminTestimonial }) {
+  return (
+    <div className="rounded-md border bg-background p-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="font-medium">{item.reviewer_name}</div>
+        <div className="text-xs text-muted-foreground">
+          {formatDate(item.review_date)} - {item.rating} star{item.rating === 1 ? "" : "s"}
+        </div>
+      </div>
+      <p className="mt-2 line-clamp-4 text-muted-foreground">{item.review_text}</p>
+    </div>
+  );
+}
+
 function DetailPanel({
   config,
   resource,
@@ -1613,11 +1707,27 @@ function DetailPanel({
           ) : null}
           <DetailSection title="Linked Context" description="Populated values from the backend detail endpoint.">
             <DetailGrid>
-              {["customer", "booked", "cancelled", "lead_ref", "booked_lead", "related_bookings", "related_cancellations", "recent_bookings"].map((key) => (
-                <DetailItem key={key} label={key.replaceAll("_", " ")} value={formatPlain(getValue(record, key))} />
-              ))}
+              {uiResource === "customers" ? (
+                <>
+                  <DetailItem
+                    label="Bookings"
+                    value={formatLinkedCount(relationCount(record, "related_bookings", "booking_count"))}
+                  />
+                  <DetailItem
+                    label="Cancellations"
+                    value={formatLinkedCount(relationCount(record, "related_cancellations", "cancellation_count"))}
+                  />
+                </>
+              ) : (
+                ["customer", "booked", "cancelled", "lead_ref", "booked_lead", "related_bookings", "related_cancellations", "recent_bookings"].map((key) => (
+                  <DetailItem key={key} label={key.replaceAll("_", " ")} value={formatPlain(getValue(record, key))} />
+                ))
+              )}
             </DetailGrid>
           </DetailSection>
+          {uiResource === "customers" ? (
+            <CustomerTestimonialsSection customerId={id} customerName={customerName(record)} />
+          ) : null}
           {isProduction ? (
             <WorkflowActions
               uiResource={uiResource}
