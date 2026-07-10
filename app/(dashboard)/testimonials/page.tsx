@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, RotateCcw } from "lucide-react";
+import { formatDate } from "@/components/data-table/formatters";
 import { DataTable, type DataTableColumn } from "@/components/data-table/table-shell";
 import { TableEmptyState, TableErrorState, TableLoadingState } from "@/components/data-table/table-states";
 import { DebouncedSearchInput, getCommittedSearchQuery } from "@/components/filters/debounced-search-input";
 import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { SelectFilter } from "@/components/filters/select-filter";
 import { StatusBadge } from "@/components/data-table/status-badge";
+import { TestimonialDetailPanel } from "@/components/testimonials/testimonial-detail-panel";
 import { Button } from "@/components/ui/button";
 import {
   fetchAdminTestimonialReviewerNames,
@@ -29,6 +32,7 @@ const ratingOptions: SelectOption[] = [
 ];
 
 export default function TestimonialsPage() {
+  const [selectedTestimonial, setSelectedTestimonial] = useState<AdminTestimonial | null>(null);
   const { filters, update, setPage, reset } = useUrlTableState({
     page: 1,
     limit: 50,
@@ -78,7 +82,7 @@ export default function TestimonialsPage() {
       <div>
         <h1 className="text-2xl font-semibold">Testimonials</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Search BBB testimonials by reviewer, stars, and review date without changing the public main-site feed.
+          Search BBB testimonials by reviewer, stars, and review date without changing the public main-site feed. Click a row to read the full review.
         </p>
       </div>
 
@@ -176,6 +180,7 @@ export default function TestimonialsPage() {
             items={items}
             columns={columns}
             getRowKey={(item) => item.id}
+            onRowClick={setSelectedTestimonial}
             stickyHeader
             compact
             horizontalControls
@@ -205,6 +210,11 @@ export default function TestimonialsPage() {
           </div>
         </>
       ) : null}
+
+      <TestimonialDetailPanel
+        testimonial={selectedTestimonial}
+        onClose={() => setSelectedTestimonial(null)}
+      />
     </div>
   );
 }
@@ -243,7 +253,11 @@ const columns: DataTableColumn<AdminTestimonial>[] = [
     header: "Customer",
     cell: (item) =>
       item.customer?.id ? (
-        <Link className="font-medium text-navy underline-offset-4 hover:underline" href={`/customers?record=${item.customer.id}`}>
+        <Link
+          className="font-medium text-navy underline-offset-4 hover:underline"
+          href={`/customers?record=${item.customer.id}`}
+          onClick={(event) => event.stopPropagation()}
+        >
           {item.customer.full_name || "Linked customer"}
         </Link>
       ) : (
@@ -261,18 +275,3 @@ const columns: DataTableColumn<AdminTestimonial>[] = [
     cell: (item) => <StatusBadge tone={item.featured ? "success" : "muted"}>{item.featured ? "Yes" : "No"}</StatusBadge>,
   },
 ];
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) {
-    return "-";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(date);
-}
