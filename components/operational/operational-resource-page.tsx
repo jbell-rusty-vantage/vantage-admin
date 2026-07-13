@@ -134,6 +134,8 @@ const formLeadColumns: ColumnConfig[] = [
   { key: "phone", label: "Phone", path: "phone_number" },
   { key: "email", label: "Email", path: "email" },
   { key: "source", label: "Source", path: "source_company", sort: "source_company" },
+  { key: "pickup_city", label: "Pickup City", path: "pickup_city" },
+  { key: "delivery_city", label: "Delivery City", path: "delivery_city" },
   { key: "ref", label: "Ref", path: "ref_no", sort: "ref_no" },
   { key: "move", label: "Move", path: "move_size" },
   { key: "bad_lead", label: "Bad Lead", path: "bad_lead" },
@@ -170,7 +172,9 @@ const formLeadEditFields: EditFieldConfig[] = [
   { key: "first_name", label: "First name", type: "text" },
   { key: "last_name", label: "Last name", type: "text" },
   { key: "timestamp", label: "Created", type: "date" },
+  { key: "pickup_city", label: "Pickup city", type: "text" },
   { key: "pickup_zip", label: "Pickup zip", type: "text" },
+  { key: "delivery_city", label: "Delivery city", type: "text" },
   { key: "destination_zip", label: "Destination zip", type: "text" },
   { key: "pickup_state", label: "Pickup state", type: "text" },
   { key: "delivery_state", label: "Delivery state", type: "text" },
@@ -192,6 +196,8 @@ const callLeadColumns: ColumnConfig[] = [
   { key: "email", label: "Email", path: "email" },
   { key: "job", label: "Job", path: "job_no", sort: "job_no" },
   { key: "source", label: "Source", path: "source_company", sort: "source_company" },
+  { key: "pickup_city", label: "Pickup City", path: "pickup_city" },
+  { key: "delivery_city", label: "Delivery City", path: "delivery_city" },
   { key: "local", label: "Local", path: "local" },
   { key: "booked", label: "Booked", path: "booked", format: "boolean" },
   { key: "cancelled", label: "Cancelled", path: "cancelled", format: "boolean" },
@@ -233,7 +239,9 @@ const callLeadEditFields: EditFieldConfig[] = [
   { key: "start_time", label: "Start time", type: "text" },
   { key: "end_time", label: "End time", type: "text" },
   { key: "local", label: "Local type", type: "select", options: LOCAL_TYPE_OPTIONS },
+  { key: "pickup_city", label: "Pickup city", type: "text" },
   { key: "pickup_zip", label: "Pickup zip", type: "text" },
+  { key: "delivery_city", label: "Delivery city", type: "text" },
   { key: "delivery_zip", label: "Delivery zip", type: "text" },
   { key: "pickup_state", label: "Pickup state", type: "text" },
   { key: "delivery_state", label: "Delivery state", type: "text" },
@@ -562,14 +570,26 @@ function formatPlain(value: unknown): React.ReactNode {
   return String(value);
 }
 
-function relationCount(record: AdminRecord, relationPath: string, countPath: string): number {
+function optionalRelationCount(
+  record: AdminRecord,
+  relationPath: string,
+  countPath: string,
+): number | undefined {
+  const aggregateValue = getValue(record, `aggregates.${countPath}`) ?? getValue(record, countPath);
+  const count = typeof aggregateValue === "number" ? aggregateValue : Number(aggregateValue);
+  if (Number.isFinite(count)) {
+    return count;
+  }
+
   const relation = getValue(record, relationPath);
   if (Array.isArray(relation)) {
     return relation.length;
   }
-  const aggregateValue = getValue(record, `aggregates.${countPath}`) ?? getValue(record, countPath);
-  const count = typeof aggregateValue === "number" ? aggregateValue : Number(aggregateValue);
-  return Number.isFinite(count) ? count : 0;
+  return undefined;
+}
+
+function relationCount(record: AdminRecord, relationPath: string, countPath: string): number {
+  return optionalRelationCount(record, relationPath, countPath) ?? 0;
 }
 
 function formatLinkedCount(count: number): React.ReactNode {
@@ -600,6 +620,12 @@ function stringValue(value: unknown): string | undefined {
 
 function formatCell(record: AdminRecord, column: ColumnConfig) {
   let value = getValue(record, column.path);
+  if (column.path === "booking_count") {
+    value = optionalRelationCount(record, "related_bookings", "booking_count");
+  }
+  if (column.path === "cancellation_count") {
+    value = optionalRelationCount(record, "related_cancellations", "cancellation_count");
+  }
   if ((value === null || value === undefined || value === "") && column.path === "customer.full_name") {
     value = getValue(record, "customer_name");
   }
@@ -1653,13 +1679,14 @@ function DetailPanel({
   onRequestDelete: (target: DeleteTarget) => void;
 }) {
   const id = selected ? getRecordId(selected) : "";
+  const selectedIsUrlPlaceholder = selected?.__url_placeholder === true;
   const effectiveScope = scope === "combined" ? "production" : scope;
   const detailQuery = useQuery({
     queryKey: queryKeys.details.resource(resource, id, effectiveScope, filters),
     queryFn: () => fetchAdminDetail<AdminRecord>(resource, id, effectiveScope, filters),
     enabled: Boolean(id),
   });
-  const record = detailQuery.data ?? selected;
+  const record = detailQuery.data ?? (selectedIsUrlPlaceholder ? null : selected);
   const isProduction = effectiveScope === "production";
   const editableResource =
     readOnly || resource === "agents" || isReferralBooking(record) ? null : resource;
@@ -1991,6 +2018,17 @@ function BackToTopButton() {
   );
 }
 
+function selectedRecordFromUrl(filters: TableQueryParams): string {
+  const value = filters.record;
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function apiFiltersFromUrlState(filters: TableQueryParams): SerializableFilters {
+  const apiFilters: SerializableFilters = { ...filters };
+  delete apiFilters.record;
+  return apiFilters;
+}
+
 export function OperationalResourcePage({ resource }: { resource: UiResource }) {
   const baseConfig = operationalConfigs[resource];
   const adminResource = uiToAdminResource[resource];
@@ -2019,6 +2057,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const filtersCollapsed = useLocalStorageBoolean(filtersSidebarStorageKey);
   const { filters, update, setSort, reset } = useUrlTableState(urlDefaults);
+  const requestedRecordId = selectedRecordFromUrl(filters);
   const committedSearchQuery =
     typeof filters.q === "string" ? getCommittedSearchQuery(filters.q) : "";
   const hasInvalidSearchQuery = committedSearchQuery === null;
@@ -2036,7 +2075,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
   }, [filters.receiver_agent, scope, update]);
 
   const effectiveFilters: SerializableFilters = {
-    ...filters,
+    ...apiFiltersFromUrlState(filters),
     ...config.fixedListFilters,
     q: hasInvalidSearchQuery ? undefined : committedSearchQuery || undefined,
     database_scope: filters.database_scope === "combined" ? "production" : filters.database_scope,
@@ -2065,12 +2104,42 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
   const pages = query.data?.pages ?? [];
   const items = pages.flatMap((page) => page.items);
   const lastPage = pages[pages.length - 1];
+  const selectedRecord = useMemo<AdminRecord | null>(() => {
+    if (!requestedRecordId) {
+      return selected;
+    }
+    if (selected && getRecordId(selected) === requestedRecordId) {
+      return selected;
+    }
+    return (
+      items.find((item) => getRecordId(item) === requestedRecordId) ?? {
+        _id: requestedRecordId,
+        database_scope: effectiveFilters.database_scope as DatabaseScope,
+        __url_placeholder: true,
+      }
+    );
+  }, [effectiveFilters.database_scope, items, requestedRecordId, selected]);
+  const selectedRecordIsPlaceholder = selectedRecord?.__url_placeholder === true;
   const isProduction = effectiveFilters.database_scope === "production";
   const canDelete = dashboardRole === "owner" && isProduction && !readOnly && isDeleteResource(resource);
   const requestDelete = useCallback((target: DeleteTarget) => {
     setDeleteError(null);
     setDeleteTarget(target);
   }, []);
+  const selectRecord = useCallback(
+    (record: AdminRecord) => {
+      const id = getRecordId(record);
+      setSelected(record);
+      if (id) {
+        update({ record: id }, { resetPage: false });
+      }
+    },
+    [update],
+  );
+  const closeSelectedRecord = useCallback(() => {
+    setSelected(null);
+    update({ record: null }, { resetPage: false });
+  }, [update]);
   const deleteMutation = useMutation({
     mutationFn: async (target: DeleteTarget) => {
       const id = getRecordId(target.record);
@@ -2085,6 +2154,9 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
       await invalidateOperationalMutations(queryClient);
       const deletedId = getRecordId(target.record);
       setSelected((current) => (current && getRecordId(current) === deletedId ? null : current));
+      if (requestedRecordId === deletedId) {
+        update({ record: null }, { resetPage: false });
+      }
       setDeleteTarget(null);
       setDeleteError(null);
       setDeleteMessage(
@@ -2225,7 +2297,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
                 items={items}
                 columns={columns}
                 getRowKey={getRecordId}
-                onRowClick={setSelected}
+                onRowClick={selectRecord}
                 stickyHeader
                 compact
                 horizontalControls
@@ -2243,27 +2315,27 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         </div>
       </div>
 
-      {selected && isProduction && !readOnly ? (
+      {selectedRecord && !selectedRecordIsPlaceholder && isProduction && !readOnly ? (
         <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 gap-2 rounded-lg border bg-background p-2 shadow-lg">
           {(resource === "form-leads" || resource === "call-leads") ? (
             <Link
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-navy hover:text-white"
-              href={`/bookings/new?${getBookingQuery(resource, selected)}`}
+              href={`/bookings/new?${getBookingQuery(resource, selectedRecord)}`}
             >
                 <Pencil className="h-4 w-4" aria-hidden="true" />
                 Start booking
             </Link>
           ) : null}
-          {((resource === "bookings" && !isReferralBooking(selected)) || resource === "form-leads" || resource === "call-leads") ? (
+          {((resource === "bookings" && !isReferralBooking(selectedRecord)) || resource === "form-leads" || resource === "call-leads") ? (
             <Link
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
-              href={`/cancellations/new?${getCancellationQuery(resource, selected)}`}
+              href={`/cancellations/new?${getCancellationQuery(resource, selectedRecord)}`}
             >
                 <XCircle className="h-4 w-4" aria-hidden="true" />
                 Start cancellation
             </Link>
           ) : null}
-          <Button variant="outline" onClick={() => setSelected(null)}>Close</Button>
+          <Button variant="outline" onClick={closeSelectedRecord}>Close</Button>
         </div>
       ) : null}
 
@@ -2271,10 +2343,10 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         config={config}
         resource={adminResource}
         uiResource={resource}
-        selected={selected}
+        selected={selectedRecord}
         scope={effectiveFilters.database_scope as DatabaseScope}
         filters={effectiveFilters}
-        onClose={() => setSelected(null)}
+        onClose={closeSelectedRecord}
         readOnly={readOnly}
         canDelete={canDelete}
         onRequestDelete={requestDelete}
