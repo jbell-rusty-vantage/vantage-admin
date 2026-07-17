@@ -139,6 +139,7 @@ const formLeadColumns: ColumnConfig[] = [
   { key: "ref", label: "Ref", path: "ref_no", sort: "ref_no" },
   { key: "move", label: "Move", path: "move_size" },
   { key: "bad_lead", label: "Bad Lead", path: "bad_lead" },
+  { key: "sms_message_sent", label: "SMS Sent", path: "sms_message_sent", format: "boolean" },
   { key: "booked", label: "Booked", path: "booked", format: "boolean" },
   { key: "cancelled", label: "Cancelled", path: "cancelled", format: "boolean" },
 ];
@@ -1655,6 +1656,63 @@ function CustomerTestimonialCard({ item }: { item: AdminTestimonial }) {
   );
 }
 
+function SmsMessageSection({ record }: { record: AdminRecord }) {
+  const message = getValue(record, "sms_message");
+  if (!message || typeof message !== "object" || Array.isArray(message)) {
+    return (
+      <DetailSection
+        title="SMS Message"
+        description="No Twilio message record is associated with this form lead."
+      >
+        <FeedbackMessage>
+          SMS message sent: {record.sms_message_sent === true ? "True" : "False"}
+        </FeedbackMessage>
+      </DetailSection>
+    );
+  }
+
+  const smsMessage = message as AdminRecord;
+  return (
+    <DetailSection
+      title="SMS Message"
+      description="Exact persisted message and current Twilio delivery data."
+    >
+      <DetailGrid>
+        <DetailItem label="SMS message sent" value={record.sms_message_sent === true ? "True" : "False"} />
+        <DetailItem label="Status" value={formatPlain(smsMessage.status)} />
+        <DetailItem label="Provider status" value={formatPlain(smsMessage.provider_status)} />
+        <DetailItem label="To" value={formatPlain(smsMessage.to)} />
+        <DetailItem label="From" value={formatPlain(smsMessage.from)} />
+        <DetailItem label="Purpose" value={formatPlain(smsMessage.purpose)} />
+        <DetailItem label="Twilio message SID" value={formatPlain(smsMessage.twilio_message_sid)} />
+        <DetailItem label="Accepted" value={formatDate(smsMessage.accepted_at)} />
+        <DetailItem label="Sent" value={formatDate(smsMessage.sent_at)} />
+        <DetailItem label="Delivered" value={formatDate(smsMessage.delivered_at)} />
+      </DetailGrid>
+      <div className="mt-4">
+        <Link
+          className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-muted"
+          href={`/observational?tab=events&category=messaging&entity_type=form_lead&entity_id=${encodeURIComponent(getRecordId(record))}`}
+        >
+          View messaging events
+        </Link>
+      </div>
+      <div className="mt-4 space-y-2">
+        <p className="text-sm font-medium text-navy">Message body</p>
+        <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">
+          {String(smsMessage.body ?? "") || "-"}
+        </pre>
+      </div>
+      <div className="mt-4 space-y-2">
+        <p className="text-sm font-medium text-navy">Message data</p>
+        <pre className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs">
+          {JSON.stringify(smsMessage, null, 2)}
+        </pre>
+      </div>
+    </DetailSection>
+  );
+}
+
 function DetailPanel({
   config,
   resource,
@@ -1719,6 +1777,9 @@ function DetailPanel({
               <DetailItem label="Mongo ID" value={id} />
             </DetailGrid>
           </DetailSection>
+          {uiResource === "form-leads" || uiResource === "duplicate-form-leads" ? (
+            <SmsMessageSection record={record} />
+          ) : null}
           {isLeadResource(uiResource) && isLeadRecordWithSourceMetadata(record) ? (
             <DetailSection title="Source Metadata" description="Catalog relation and source label snapshots.">
               <DetailGrid>

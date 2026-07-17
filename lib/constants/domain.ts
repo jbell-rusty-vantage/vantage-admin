@@ -192,6 +192,7 @@ export const LOCAL_TYPES = ["local", "long_distance"] as const;
 export const LEAD_MODELS = ["FormLead", "CallLead"] as const;
 export const MOVE_SIZES = [
   "Studio",
+  "1 Bedroom",
   "2 Bedrooms",
   "3 Bedrooms",
   "4 Bedrooms",
