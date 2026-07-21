@@ -154,6 +154,12 @@ const formLeadFilters: FilterConfig[] = [
   { key: "ref_no", label: "Ref number", type: "text" },
   { key: "booked", label: "Booked", type: "select", options: yesNoOptions },
   { key: "cancelled", label: "Cancelled", type: "select", options: yesNoOptions },
+  {
+    key: "past_move_date",
+    label: "Move date before created",
+    type: "select",
+    options: yesNoOptions,
+  },
   { key: "move_size", label: "Move size", type: "select", options: MOVE_SIZE_OPTIONS },
 ];
 
