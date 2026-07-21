@@ -1953,16 +1953,17 @@ function buildColumns(
       key: "__book",
       header: "",
       className: "w-px",
-      cell: (item) => (
-        <Link
-          href={`/bookings/new?${getBookingQuery(resource, item)}`}
-          onClick={(event) => event.stopPropagation()}
-          className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-primary px-3 text-xs font-semibold text-white hover:bg-navy hover:text-white"
-        >
-          <PlusCircle className="h-3.5 w-3.5" aria-hidden="true" />
-          Book
-        </Link>
-      ),
+      cell: (item) =>
+        item.booked ? null : (
+          <Link
+            href={`/bookings/new?${getBookingQuery(resource, item)}`}
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-primary px-3 text-xs font-semibold text-white hover:bg-navy hover:text-white"
+          >
+            <PlusCircle className="h-3.5 w-3.5" aria-hidden="true" />
+            Book
+          </Link>
+        ),
     });
   }
 
