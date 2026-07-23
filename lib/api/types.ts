@@ -48,6 +48,7 @@ export type PaginatedResult<T> = {
   total?: number;
   has_next_page?: boolean;
   cursor?: string;
+  next_cursor?: string | null;
 };
 
 export type LegacyBrowseResult<T> = {

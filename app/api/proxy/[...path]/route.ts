@@ -8,6 +8,7 @@ import {
   refreshAdminSession,
   setAuthCookies,
 } from "@/server/auth";
+import { setTrustedAdminHeaders } from "@/server/auth/trustedProxyHeaders";
 import { canProxyVantagePath } from "@/server/auth/authorization";
 import { writeAuditLog } from "@/server/audit";
 import { requestVantageApi, type VantageApiMethod } from "@/server/vantage-api/client";
@@ -86,7 +87,10 @@ function getDatabaseScope(path: string, body: unknown): string | undefined {
   return undefined;
 }
 
-function getForwardHeaders(request: NextRequest): Headers {
+function getForwardHeaders(
+  request: NextRequest,
+  admin: NonNullable<Awaited<ReturnType<typeof requireAdmin>>>,
+): Headers {
   const headers = new Headers();
   const accept = request.headers.get("accept");
   const contentType = request.headers.get("content-type");
@@ -99,6 +103,7 @@ function getForwardHeaders(request: NextRequest): Headers {
     headers.set("content-type", contentType);
   }
 
+  setTrustedAdminHeaders(headers, admin);
   return headers;
 }
 
@@ -196,7 +201,7 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
     const vantageResponse = await requestVantageApi(backendPath, {
       method,
       body,
-      headers: getForwardHeaders(request),
+      headers: getForwardHeaders(request, admin),
     });
 
     if (shouldAudit) {

@@ -52,3 +52,39 @@ test("observability detail and sheet-sync keys nest under the observability root
   // Invalidate-all on the observability root must cover sheet-sync keys too.
   assert.equal(queryKeys.observability.sheetSync.all[0], queryKeys.observability.all[0]);
 });
+
+test("booking reconciliation query keys are stable across filter ordering", () => {
+  const first = queryKeys.bookingReconciliation.list({ status: "pending", q: "job-1", empty: "" });
+  const second = queryKeys.bookingReconciliation.list({ q: "job-1", empty: "", status: "pending" });
+
+  assert.deepEqual(first, second);
+  assert.deepEqual(first, ["booking-reconciliation", "list", { q: "job-1", status: "pending" }]);
+});
+
+test("booking reconciliation candidate keys include case id", () => {
+  assert.deepEqual(queryKeys.bookingReconciliation.candidates("case-1", { limit: 10 }), [
+    "booking-reconciliation",
+    "candidates",
+    "case-1",
+    { limit: 10 },
+  ]);
+});
+
+test("booking reconciliation queue pages and filters have isolated cache keys", () => {
+  const firstPage = queryKeys.bookingReconciliation.list({
+    status: "pending",
+    lead_source_company: "company-a",
+  });
+  const secondPage = queryKeys.bookingReconciliation.list({
+    status: "pending",
+    lead_source_company: "company-a",
+    cursor: "page-2",
+  });
+  const otherFilter = queryKeys.bookingReconciliation.list({
+    status: "pending",
+    lead_source_company: "company-b",
+  });
+
+  assert.notDeepEqual(firstPage, secondPage);
+  assert.notDeepEqual(firstPage, otherFilter);
+});

@@ -35,6 +35,10 @@ export const queryKeys = {
     global: (query: string, scope: DatabaseScope = "production") =>
       [...queryKeys.search.all, "global", query, scope] as const,
   },
+  publicEmployeeBooking: {
+    all: ["public-employee-booking"] as const,
+    options: () => [...queryKeys.publicEmployeeBooking.all, "options"] as const,
+  },
   exports: {
     all: ["exports"] as const,
     resource: (resource: string, filters?: QueryFilters) =>
@@ -51,6 +55,15 @@ export const queryKeys = {
       [...queryKeys.workflows.all, "booking", leadType, leadId] as const,
     cancellation: (recordId?: string) =>
       [...queryKeys.workflows.all, "cancellation", recordId] as const,
+  },
+  bookingReconciliation: {
+    all: ["booking-reconciliation"] as const,
+    list: (filters?: QueryFilters) =>
+      [...queryKeys.bookingReconciliation.all, "list", stableFilters(filters)] as const,
+    detail: (id: string) =>
+      [...queryKeys.bookingReconciliation.all, "detail", id] as const,
+    candidates: (caseId: string, filters?: QueryFilters) =>
+      [...queryKeys.bookingReconciliation.all, "candidates", caseId, stableFilters(filters)] as const,
   },
   analytics: {
     all: ["analytics"] as const,

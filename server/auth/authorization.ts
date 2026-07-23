@@ -1,7 +1,7 @@
 import type { AdminRole } from "@/server/models";
 import type { VantageApiMethod } from "@/server/vantage-api/client";
 
-const OWNER_ONLY_PAGE_PREFIXES = ["/audit-log", "/settings"] as const;
+const OWNER_ONLY_PAGE_PREFIXES = ["/audit-log", "/settings", "/bookings/reconciliation"] as const;
 
 const OPERATIONAL_PATCH_PREFIXES = [
   "/api/v1/form-leads/",
@@ -37,6 +37,9 @@ export function canProxyVantagePath(input: {
   }
 
   const path = normalizeProxyPath(input.path);
+  if (path.startsWith("/api/v1/admin/booking-lead-reconciliations")) {
+    return false;
+  }
   if (input.method === "DELETE") {
     return false;
   }

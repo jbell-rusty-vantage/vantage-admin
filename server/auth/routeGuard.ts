@@ -4,6 +4,7 @@ import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "./cookies";
 
 /** Public pages required for Twilio A2P campaign registration (no auth). */
 export const PUBLIC_LEGAL_PATHS = ["/privacy-policy", "/terms-and-conditions"] as const;
+export const PUBLIC_APP_PATHS = ["/employee-booking"] as const;
 
 export const DASHBOARD_PATH_PREFIXES = [
   "/",
@@ -26,6 +27,7 @@ export function shouldProtectPath(pathname: string): boolean {
   if (
     pathname === "/login" ||
     pathname.startsWith("/api/") ||
+    PUBLIC_APP_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`)) ||
     PUBLIC_LEGAL_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
   ) {
     return false;

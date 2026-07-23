@@ -13,7 +13,7 @@ import { LogoutButton } from "./logout-button";
 import { ScopeAwareHeaderControls } from "./scope-aware-header-controls";
 
 const sidebarStorageKey = "vantage-admin-sidebar-collapsed";
-const ownerOnlyPagePrefixes = ["/audit-log", "/settings"] as const;
+const ownerOnlyPagePrefixes = ["/audit-log", "/settings", "/bookings/reconciliation"] as const;
 
 export function DashboardShell({
   adminEmail,

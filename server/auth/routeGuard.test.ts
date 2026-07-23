@@ -23,6 +23,10 @@ test("route guard skips public legal pages", () => {
   assert.equal(shouldProtectPath("/terms-and-conditions"), false);
 });
 
+test("route guard leaves employee booking public", () => {
+  assert.equal(shouldProtectPath("/employee-booking"), false);
+});
+
 test("route guard allows login page even when stale auth cookies exist", () => {
   const request = new NextRequest("http://localhost:3000/login", {
     headers: {

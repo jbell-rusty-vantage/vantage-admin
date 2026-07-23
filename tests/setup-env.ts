@@ -8,6 +8,9 @@ export function setTestEnv() {
   process.env.ADMIN_ACCESS_TOKEN_TTL_SECONDS = "900";
   process.env.ADMIN_REFRESH_TOKEN_TTL_DAYS = "7";
   process.env.VANTAGE_API_BASE_URL = "https://vantage-movers-main-server.test";
+  process.env.EMPLOYEE_BOOKING_API_BASE_URL = "https://employee-bookings-main-server.test";
+  process.env.EMPLOYEE_BOOKING_PUBLIC_ENABLED = "true";
+  process.env.EMPLOYEE_BOOKING_PUBLIC_BODY_LIMIT_BYTES = "16384";
   process.env.VANTAGE_API_SECRET = "vantage-api-secret-for-tests";
   process.env.NEXT_PUBLIC_APP_NAME = "Vantage Admin";
   resetServerEnvForTests();
