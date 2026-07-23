@@ -12,11 +12,8 @@ import {
   refreshBookingLeadCandidates,
   reopenBookingLeadReconciliation,
   resolveBookingLeadReconciliation,
-  searchBookingLeadCandidates,
   updatePendingEmployeeBooking,
   type BookingLeadCandidate,
-  type BookingLeadCandidateSearchFilters,
-  type BookingLeadCandidateSearchResult,
   type BookingLeadModel,
   type BookingLeadReconciliationCaseDetail,
   type BookingLeadReconciliationReason,
@@ -29,6 +26,7 @@ import { useCatalogOptions } from "@/lib/api/use-catalog-options";
 import { MOVE_SIZE_OPTIONS } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
 import { runWithCaseWriteLock } from "@/lib/reconciliation/caseWriteLock";
+import { BookingLeadBrowser } from "@/components/reconciliation/booking-lead-browser";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
@@ -265,13 +263,6 @@ export function BookingReconciliationDashboard() {
   const [dismissNotes, setDismissNotes] = useState("");
   const [reopenNotes, setReopenNotes] = useState("");
   const [createLeadForm, setCreateLeadForm] = useState<CreateLeadForm>(initialCreateLeadForm);
-  const [candidateSearchFilters, setCandidateSearchFilters] = useState<BookingLeadCandidateSearchFilters>({
-    limit: 25,
-  });
-  const [candidateSearchResult, setCandidateSearchResult] = useState<{
-    caseId: string;
-    items: BookingLeadCandidateSearchResult[];
-  } | null>(null);
   const pendingWriteCaseIdsRef = useRef(new Set<string>());
   const recoveringCaseIdsRef = useRef(new Set<string>());
   const [pendingWriteCaseIds, setPendingWriteCaseIds] = useState<Set<string>>(new Set());
@@ -355,21 +346,6 @@ export function BookingReconciliationDashboard() {
     }
   }, [detailQuery.data]);
 
-  const candidateSearchMutation = useMutation({
-    mutationFn: ({
-      caseId,
-      filters: searchFilters,
-    }: {
-      caseId: string;
-      filters: BookingLeadCandidateSearchFilters;
-    }) => searchBookingLeadCandidates(caseId, searchFilters),
-    onSuccess: (result, variables) => {
-      if (selectedCaseIdRef.current === variables.caseId) {
-        setCandidateSearchResult({ caseId: variables.caseId, items: result.items });
-      }
-    },
-  });
-  const resetCandidateSearchMutation = candidateSearchMutation.reset;
   const clearUnsafeDrafts = useCallback(() => {
     setSelectedLeadAction(null);
     setSelectedLeadNotes("");
@@ -377,7 +353,6 @@ export function BookingReconciliationDashboard() {
     setAcknowledgedWarnings([]);
     setCreateLeadForm(initialCreateLeadForm);
     setPendingBookingForm(null);
-    setCandidateSearchResult(null);
   }, []);
   const selectCase = useCallback(
     (caseId: string) => {
@@ -385,11 +360,10 @@ export function BookingReconciliationDashboard() {
         return;
       }
       selectedCaseIdRef.current = caseId;
-      resetCandidateSearchMutation();
       clearUnsafeDrafts();
       setSelectedCaseId(caseId);
     },
-    [clearUnsafeDrafts, resetCandidateSearchMutation],
+    [clearUnsafeDrafts],
   );
 
   useEffect(() => {
@@ -413,7 +387,6 @@ export function BookingReconciliationDashboard() {
       queryClient.setQueryData(queryKeys.bookingReconciliation.detail(variables.caseId), detail);
       await invalidateReconciliationMutations(queryClient);
       if (selectedCaseIdRef.current === variables.caseId) {
-        setCandidateSearchResult(null);
         setQueueMessage("Candidates refreshed.");
       }
     },
@@ -488,8 +461,6 @@ export function BookingReconciliationDashboard() {
 
   const detail = detailQuery.data;
   const sourceGroups = sourceOptionGroups(sourceCompaniesQuery.data);
-  const searchResults =
-    candidateSearchResult?.caseId === selectedCaseId ? candidateSearchResult.items : [];
   const pendingCount =
     queueQuery.data?.items.filter((item) => item.status === "pending").length ?? 0;
   const oldestPending = queueQuery.data?.items.find((item) => item.status === "pending");
@@ -512,7 +483,6 @@ export function BookingReconciliationDashboard() {
     if (isStaleBookingLeadReconciliationError(error)) {
       if (selectedCaseIdRef.current === caseId) {
         clearUnsafeDrafts();
-        candidateSearchMutation.reset();
         setQueueMessage("This case changed on the server. Reloading the latest version...");
       }
       try {
@@ -520,6 +490,10 @@ export function BookingReconciliationDashboard() {
           queryClient.invalidateQueries({
             queryKey: queryKeys.bookingReconciliation.detail(caseId),
             exact: true,
+            refetchType: "active",
+          }),
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.bookingReconciliation.candidates(caseId),
             refetchType: "active",
           }),
           queryClient.invalidateQueries({
@@ -571,7 +545,7 @@ export function BookingReconciliationDashboard() {
       selectedLeadAction.caseId !== detail._id ||
       selectedLeadAction.caseId !== selectedCaseId ||
       caseActionsDisabled ||
-      (detail.status !== "pending" && detail.status !== "resolved") ||
+      !["pending", "resolved", "dismissed"].includes(detail.status) ||
       (selectedLeadAction.warnings.includes("source_conflict") &&
         !selectedLeadSourceResolution) ||
       !selectedLeadAction.warnings.every((warning) => acknowledgedWarnings.includes(warning))
@@ -1050,6 +1024,105 @@ export function BookingReconciliationDashboard() {
                 </CardContent>
               </Card>
 
+              <BookingLeadBrowser
+                key={detail._id}
+                caseId={detail._id}
+                mode={detail.status === "resolved" ? "reassign" : "attach"}
+                disabled={caseActionsDisabled}
+                sourceCompanies={sourceCompaniesQuery.data ?? []}
+                onSelect={(candidate, overrideableWarnings) =>
+                  selectLeadAction(
+                    detail._id,
+                    detail.status === "resolved" ? "reassign" : "attach_existing",
+                    {
+                      lead_model: candidate.lead_model,
+                      lead_id: candidate._id,
+                      label: candidate.name ?? candidate._id,
+                      warnings: overrideableWarnings,
+                    },
+                  )
+                }
+              />
+
+              {selectedLeadAction && selectedLeadAction.caseId === detail._id ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-xl">
+                      {selectedLeadAction.action === "attach_existing"
+                        ? "Attach existing lead"
+                        : "Reassign attached lead"}
+                    </CardTitle>
+                    <CardDescription>{selectedLeadAction.label}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {selectedLeadAction.warnings.length > 0 ? (
+                      <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3">
+                        <p className="text-sm font-semibold text-amber-900">
+                          Acknowledge current warnings before continuing.
+                        </p>
+                        {selectedLeadAction.warnings.map((warning) => (
+                          <label key={warning} className="flex items-start gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={acknowledgedWarnings.includes(warning)}
+                              onChange={() => toggleWarning(warning)}
+                            />
+                            <span>{warning}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : null}
+                    <Field label="Source resolution" htmlFor="lead-source-resolution">
+                      <select
+                        id="lead-source-resolution"
+                        value={selectedLeadSourceResolution}
+                        onChange={(event) =>
+                          setSelectedLeadSourceResolution(
+                            event.target.value as BookingLeadSourceResolution | "",
+                          )
+                        }
+                        className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
+                      >
+                        {sourceResolutionOptions.map((option) => (
+                          <option key={option.label} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Notes" htmlFor="lead-action-notes">
+                      <Textarea
+                        id="lead-action-notes"
+                        value={selectedLeadNotes}
+                        onChange={(event) => setSelectedLeadNotes(event.target.value)}
+                      />
+                    </Field>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        onClick={submitLeadResolution}
+                        disabled={
+                          caseActionsDisabled ||
+                          (selectedLeadAction.warnings.includes("source_conflict") &&
+                            !selectedLeadSourceResolution) ||
+                          !selectedLeadAction.warnings.every((warning) =>
+                            acknowledgedWarnings.includes(warning),
+                          )
+                        }
+                      >
+                        {selectedCaseWritePending
+                          ? "Saving..."
+                          : selectedLeadAction.action === "attach_existing"
+                            ? "Attach lead"
+                            : "Reassign lead"}
+                      </Button>
+                      <Button variant="outline" onClick={() => setSelectedLeadAction(null)}>
+                        Clear selection
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : null}
+
               <Card>
                 <CardHeader>
                   <CardTitle className="text-xl">Latest candidates</CardTitle>
@@ -1079,7 +1152,7 @@ export function BookingReconciliationDashboard() {
                       }
                       mode={detail.status === "resolved" ? "reassign" : "attach"}
                       canAct={
-                        (detail.status === "pending" || detail.status === "resolved") &&
+                        ["pending", "resolved", "dismissed"].includes(detail.status) &&
                         !caseActionsDisabled
                       }
                     />
@@ -1087,6 +1160,9 @@ export function BookingReconciliationDashboard() {
                 </CardContent>
               </Card>
 
+              {/*
+                The former mutation-based, single-page search and its duplicate
+                confirmation card were replaced by BookingLeadBrowser above.
               <Card className={detail.status === "dismissed" ? "hidden" : undefined}>
                 <CardHeader>
                   <CardTitle className="text-xl">Lead search</CardTitle>
@@ -1335,6 +1411,7 @@ export function BookingReconciliationDashboard() {
                   </CardContent>
                 </Card>
               ) : null}
+              */}
 
               <Card className={detail.status !== "pending" ? "hidden" : undefined}>
                 <CardHeader>
@@ -1924,6 +2001,7 @@ function CandidateCard({
   );
 }
 
+/*
 function SearchResultCard({
   candidate,
   onUse,
@@ -1984,3 +2062,4 @@ function SearchResultCard({
     </div>
   );
 }
+*/

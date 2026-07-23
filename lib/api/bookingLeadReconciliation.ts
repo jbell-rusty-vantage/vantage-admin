@@ -56,6 +56,7 @@ export type BookingLeadCandidateActionabilityInput = {
   duplicate?: boolean;
   booked?: boolean | string;
   cancelled?: boolean | string;
+  is_current_attachment?: boolean;
   warnings?: readonly string[];
 };
 
@@ -76,11 +77,14 @@ export function evaluateBookingLeadCandidateActionability(
   }
 
   const hardBlockReasons = new Set<string>();
-  if (candidate.eligibility === "booked" || candidate.booked) {
+  if ((candidate.eligibility === "booked" || candidate.booked) && !candidate.is_current_attachment) {
     hardBlockReasons.add("lead_already_booked");
   }
   if (candidate.eligibility === "cancelled" || candidate.cancelled) {
     hardBlockReasons.add("lead_cancelled");
+  }
+  if (candidate.is_current_attachment) {
+    hardBlockReasons.add("already_attached_to_this_booking");
   }
   for (const warning of warnings) {
     if (!overrideableWarningSet.has(warning)) {
@@ -261,6 +265,7 @@ export type BookingLeadCandidateSearchResult = {
   duplicate?: boolean;
   booked?: boolean | string;
   cancelled?: boolean | string;
+  is_current_attachment?: boolean;
   source_company?: string;
   source_granularity_key?: string;
   createdAt?: string;

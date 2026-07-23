@@ -81,6 +81,36 @@ test("candidate search URL is isolated to the supplied case id", async () => {
   );
 });
 
+test("candidate search forwards cursor and availability filters", async () => {
+  const { calls, restore } = stubFetch(
+    new Response(
+      JSON.stringify({ ok: true, data: { items: [], next_cursor: "next-cursor" } }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    ),
+  );
+
+  try {
+    const result = await searchBookingLeadCandidates("case-1", {
+      lead_model: "CallLead",
+      booked: false,
+      cancelled: false,
+      cursor: "current-cursor",
+      limit: 25,
+    });
+    assert.equal(result.next_cursor, "next-cursor");
+  } finally {
+    restore();
+  }
+
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    lead_model: "CallLead",
+    booked: false,
+    cancelled: false,
+    cursor: "current-cursor",
+    limit: 25,
+  });
+});
+
 test("reconciliation API errors preserve HTTP status for stale-revision recovery", async () => {
   const { restore } = stubFetch(
     new Response(JSON.stringify({ ok: false, error: "Revision is stale." }), {
@@ -145,6 +175,16 @@ test("candidate actionability exposes only exact overrideable warning codes", ()
       overrideableWarnings: ["source_unassigned", "duplicate_lead"],
       hardBlockReasons: [],
     },
+  );
+});
+
+test("candidate actionability blocks the lead already attached to this booking", () => {
+  assert.deepEqual(
+    evaluateBookingLeadCandidateActionability({
+      booked: "booking-1",
+      is_current_attachment: true,
+    }).hardBlockReasons,
+    ["already_attached_to_this_booking"],
   );
 });
 
