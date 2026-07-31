@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   TableEmptyState,
@@ -44,8 +45,10 @@ function matchesFilter(route: RingCentralRoute, filter: StatusFilter): boolean {
 
 export function RingCentralRoutesManager({ readOnly }: { readOnly: boolean }) {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const initialEntity = searchParams.get("entity");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialEntity);
   const [message, setMessage] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<unknown>(null);
 

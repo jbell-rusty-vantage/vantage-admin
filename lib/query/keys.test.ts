@@ -75,6 +75,15 @@ test("operations registry query keys nest under a shared root", () => {
     "operations-registry",
     "overview",
   ]);
+  assert.deepEqual(queryKeys.operationsRegistry.health(), [
+    "operations-registry",
+    "health",
+  ]);
+  assert.deepEqual(queryKeys.operationsRegistry.changes({ page: 1, entity_type: "agent" }), [
+    "operations-registry",
+    "changes",
+    { entity_type: "agent", page: 1 },
+  ]);
   assert.deepEqual(queryKeys.operationsRegistry.agents(true), [
     "operations-registry",
     "agents",

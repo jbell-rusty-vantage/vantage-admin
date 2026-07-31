@@ -53,7 +53,7 @@ export type RegistryChangeItem = {
   entity_type: string;
   entity_id: string;
   action: string;
-  actor_type: string;
+  actor_type: "owner" | "admin" | "system" | string;
   actor_id: string;
   actor_label: string;
   actor_role: string;

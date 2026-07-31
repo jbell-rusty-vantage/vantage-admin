@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DataTable } from "@/components/data-table/table-shell";
 import {
@@ -50,8 +51,17 @@ const MODE_TABS: Array<{ id: CplMode; label: string }> = [
   { id: "corrections", label: "Corrections" },
 ];
 
+function parseCplMode(value: string | null): CplMode {
+  if (value === "advanced" || value === "corrections" || value === "simple") {
+    return value;
+  }
+  return "simple";
+}
+
 export function CplManager({ readOnly }: { readOnly: boolean }) {
-  const [mode, setMode] = useState<CplMode>("simple");
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState<CplMode>(() => parseCplMode(searchParams.get("cpl_mode")));
+  const deepLinkEntity = searchParams.get("entity");
 
   return (
     <div className="space-y-4">
@@ -60,14 +70,21 @@ export function CplManager({ readOnly }: { readOnly: boolean }) {
         Use Corrections to backfill historical leads when needed.
       </FeedbackMessage>
 
-      <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-1">
+      <div
+        className="flex flex-wrap gap-1 rounded-lg border bg-background p-1"
+        role="tablist"
+        aria-label="CPL modes"
+      >
         {MODE_TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
+            role="tab"
+            aria-selected={mode === tab.id}
             onClick={() => setMode(tab.id)}
             className={cn(
               "rounded-md px-4 py-2 text-sm font-semibold transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               mode === tab.id
                 ? "bg-pale-gold/70 text-navy"
                 : "text-steel hover:bg-steel-100 hover:text-navy",
@@ -78,9 +95,24 @@ export function CplManager({ readOnly }: { readOnly: boolean }) {
         ))}
       </div>
 
+      {deepLinkEntity ? (
+        <p className="text-xs text-muted-foreground">
+          Linked entity <span className="font-mono">{deepLinkEntity}</span>
+          {mode === "corrections"
+            ? " — open Corrections below to preview or review jobs."
+            : mode === "advanced"
+              ? " — select the matching granularity in Advanced mode."
+              : null}
+        </p>
+      ) : null}
+
       {mode === "simple" ? <SimpleCplPanel readOnly={readOnly} /> : null}
-      {mode === "advanced" ? <AdvancedCplPanel readOnly={readOnly} /> : null}
-      {mode === "corrections" ? <CorrectionsCplPanel readOnly={readOnly} /> : null}
+      {mode === "advanced" ? (
+        <AdvancedCplPanel readOnly={readOnly} initialGranularityId={deepLinkEntity} />
+      ) : null}
+      {mode === "corrections" ? (
+        <CorrectionsCplPanel readOnly={readOnly} initialJobId={deepLinkEntity} />
+      ) : null}
     </div>
   );
 }
@@ -304,9 +336,15 @@ const ADVANCED_COMMAND_HELP: Record<
   },
 };
 
-function AdvancedCplPanel({ readOnly }: { readOnly: boolean }) {
+function AdvancedCplPanel({
+  readOnly,
+  initialGranularityId,
+}: {
+  readOnly: boolean;
+  initialGranularityId?: string | null;
+}) {
   const queryClient = useQueryClient();
-  const [granularityId, setGranularityId] = useState("");
+  const [granularityId, setGranularityId] = useState(initialGranularityId ?? "");
   const [effectiveDate, setEffectiveDate] = useState(floridaCalendarDateInputValue());
   const [amount, setAmount] = useState("");
   const [periodId, setPeriodId] = useState("");
@@ -631,13 +669,19 @@ function classifyPeriods(periods: CplSchedulePeriod[], today: string) {
   return { past, current, future };
 }
 
-function CorrectionsCplPanel({ readOnly }: { readOnly: boolean }) {
+function CorrectionsCplPanel({
+  readOnly,
+  initialJobId,
+}: {
+  readOnly: boolean;
+  initialJobId?: string | null;
+}) {
   const queryClient = useQueryClient();
   const [granularityId, setGranularityId] = useState("");
   const [windowFrom, setWindowFrom] = useState("");
   const [windowUntil, setWindowUntil] = useState("");
   const [preview, setPreview] = useState<CplCorrectionPreviewResult | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(initialJobId ?? null);
   const [error, setError] = useState<unknown>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [reason, setReason] = useState("");

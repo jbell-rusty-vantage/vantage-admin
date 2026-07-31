@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import {
@@ -26,6 +27,7 @@ import {
 } from "@/lib/api/registryAgents";
 import { invalidateRegistryQueries } from "@/lib/api/registryInvalidation";
 import { queryKeys } from "@/lib/query/keys";
+import { cn } from "@/lib/utils";
 import { RegistryApiErrorMessage } from "./registry-api-error";
 
 const labels: Record<RegistryCatalogKind, { singular: string; plural: string }> = {
@@ -41,7 +43,9 @@ export function CatalogRegistryManager({
   readOnly: boolean;
 }) {
   const label = labels[kind];
-  const [includeInactive, setIncludeInactive] = useState(false);
+  const searchParams = useSearchParams();
+  const deepLinkEntity = searchParams.get("entity");
+  const [includeInactive, setIncludeInactive] = useState(Boolean(deepLinkEntity));
   const [message, setMessage] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<unknown>(null);
   const queryClient = useQueryClient();
@@ -50,6 +54,16 @@ export function CatalogRegistryManager({
     queryKey: queryKeys.operationsRegistry[kind](includeInactive),
     queryFn: () => fetchRegistryCatalog(kind, { includeInactive }),
   });
+
+  useEffect(() => {
+    if (!deepLinkEntity || !query.data) {
+      return;
+    }
+    document.getElementById(`registry-catalog-${deepLinkEntity}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [deepLinkEntity, query.data]);
 
   const createMutation = useMutation({
     mutationFn: createRegistryCatalogItem.bind(null, kind),
@@ -189,6 +203,7 @@ export function CatalogRegistryManager({
               key={`${item.id}-${item.name}-${item.active}-${item.granot_crm_username ?? ""}`}
               item={item}
               kind={kind}
+              highlighted={deepLinkEntity === item.id}
               readOnly={readOnly}
               onSave={(body) => updateMutation.mutate({ id: item.id, body })}
               onActivation={(active, reason) =>
@@ -206,6 +221,7 @@ export function CatalogRegistryManager({
 function CatalogRow({
   item,
   kind,
+  highlighted = false,
   readOnly,
   onSave,
   onActivation,
@@ -213,6 +229,7 @@ function CatalogRow({
 }: {
   item: RegistryCatalogItem;
   kind: RegistryCatalogKind;
+  highlighted?: boolean;
   readOnly: boolean;
   onSave: (body: CatalogUpdateInput) => void;
   onActivation: (active: boolean, reason?: string) => void;
@@ -262,7 +279,13 @@ function CatalogRow({
   }
 
   return (
-    <div className="space-y-3 rounded-md border bg-background p-3">
+    <div
+      id={`registry-catalog-${item.id}`}
+      className={cn(
+        "space-y-3 rounded-md border bg-background p-3",
+        highlighted ? "border-trust-blue ring-2 ring-trust-blue/30" : undefined,
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold">{item.name}</h3>

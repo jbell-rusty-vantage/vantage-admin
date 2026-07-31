@@ -10,38 +10,11 @@ import {
   TableLoadingState,
 } from "@/components/data-table/table-states";
 import { Button } from "@/components/ui/button";
-import { FeedbackMessage } from "@/components/ui/feedback";
-import {
-  fetchRegistryHealth,
-  fetchRegistryOverview,
-  type RegistryHealthFinding,
-} from "@/lib/api/operationsRegistry";
+import { fetchRegistryHealth, fetchRegistryOverview } from "@/lib/api/operationsRegistry";
 import { formatRegistryError } from "@/lib/api/registryRequest";
 import { queryKeys } from "@/lib/query/keys";
 import { cn } from "@/lib/utils";
-
-function entityTabHint(entityType?: string): string | null {
-  switch (entityType) {
-    case "agent":
-      return "/operations-registry?tab=agents";
-    case "merchant":
-      return "/operations-registry?tab=merchants";
-    case "source_company":
-    case "source_granularity":
-      return "/operations-registry?tab=sources";
-    case "cpl_schedule":
-    case "cpl_correction":
-      return "/operations-registry?tab=cpl";
-    default:
-      return null;
-  }
-}
-
-function severityTone(severity: RegistryHealthFinding["severity"]) {
-  if (severity === "error") return "destructive" as const;
-  if (severity === "warn") return "warning" as const;
-  return "muted" as const;
-}
+import { RegistryHealthFindings } from "./registry-health-findings";
 
 function MetricCard({
   label,
@@ -102,6 +75,8 @@ export function RegistryOverview() {
   const overview = overviewQuery.data!;
   const health = healthQuery.data!;
   const counts = overview.counts;
+  const errorCount = health.findings.filter((finding) => finding.severity === "error").length;
+  const warnCount = health.findings.filter((finding) => finding.severity === "warn").length;
 
   return (
     <div className="space-y-6">
@@ -117,6 +92,7 @@ export function RegistryOverview() {
             void healthQuery.refetch();
           }}
           disabled={overviewQuery.isFetching || healthQuery.isFetching}
+          aria-busy={overviewQuery.isFetching || healthQuery.isFetching}
         >
           <RefreshCw
             className={cn(
@@ -189,60 +165,29 @@ export function RegistryOverview() {
         </ul>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-navy">Health findings</h3>
+      <section className="space-y-3" aria-labelledby="registry-health-heading">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 id="registry-health-heading" className="text-sm font-semibold text-navy">
+              Registry Health
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Configuration and resolution integrity for the Operations Registry. Distinct from
+              Workflow Observational events.
+              {health.findings.length > 0
+                ? ` ${errorCount} error · ${warnCount} warning · ${health.findings.length} total.`
+                : ""}
+            </p>
+          </div>
           <Link
             href="/operations-registry?tab=changes"
             className="text-xs font-medium text-primary hover:underline"
           >
-            View change log
+            View change history
           </Link>
         </div>
-        {health.findings.length === 0 ? (
-          <FeedbackMessage tone="success">No health findings. Registry looks healthy.</FeedbackMessage>
-        ) : (
-          <div className="space-y-2">
-            {health.findings.map((finding) => {
-              const href = entityTabHint(finding.entity_type);
-              return (
-                <div
-                  key={`${finding.code}-${finding.entity_id ?? "global"}`}
-                  className="rounded-lg border bg-background p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <StatusBadge tone={severityTone(finding.severity)}>
-                          {finding.severity}
-                        </StatusBadge>
-                        <span className="text-sm font-semibold">{finding.summary}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {finding.code}
-                        {finding.entity_type ? ` · ${finding.entity_type}` : ""}
-                        {finding.entity_id ? ` · ${finding.entity_id}` : ""}
-                      </p>
-                    </div>
-                    {href ? (
-                      <Link href={href} className="text-xs font-medium text-primary hover:underline">
-                        Open in registry
-                      </Link>
-                    ) : null}
-                  </div>
-                  {finding.remediation?.summary ? (
-                    <p className="mt-2 text-sm text-muted-foreground">{finding.remediation.summary}</p>
-                  ) : null}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    First observed {formatDateTime(finding.first_observed_at)} · Last observed{" "}
-                    {formatDateTime(finding.last_observed_at)}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        <RegistryHealthFindings findings={health.findings} />
+      </section>
     </div>
   );
 }

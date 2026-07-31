@@ -101,6 +101,22 @@ test("admin can read registry endpoints but cannot mutate them", () => {
     canProxyVantagePath({
       role: "admin",
       method: "GET",
+      path: "api/v1/admin/operations-registry/health",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "GET",
+      path: "api/v1/admin/operations-registry/changes",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "GET",
       path: "api/v1/admin/agents",
     }),
     true,

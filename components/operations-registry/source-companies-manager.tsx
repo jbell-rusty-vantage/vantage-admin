@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import {
@@ -40,8 +41,11 @@ const selectClassName =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm";
 
 export function SourceCompaniesManager({ readOnly }: { readOnly: boolean }) {
-  const [includeInactive, setIncludeInactive] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const initialEntity = searchParams.get("entity");
+  const initialGranularity = searchParams.get("granularity");
+  const [includeInactive, setIncludeInactive] = useState(Boolean(initialEntity || initialGranularity));
+  const [selectedId, setSelectedId] = useState<string | null>(initialEntity);
   const [message, setMessage] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<unknown>(null);
   const queryClient = useQueryClient();
@@ -52,8 +56,30 @@ export function SourceCompaniesManager({ readOnly }: { readOnly: boolean }) {
   });
 
   const companies = companiesQuery.data ?? [];
-  const effectiveSelectedId = selectedId ?? companies[0]?.id ?? null;
+
+  const allGranularitiesForLinkQuery = useQuery({
+    queryKey: queryKeys.operationsRegistry.sourceGranularities({
+      includeInactive: true,
+      deepLink: initialGranularity ?? "",
+    }),
+    queryFn: () => fetchSourceGranularities({ includeInactive: true }),
+    enabled: Boolean(initialGranularity) && !initialEntity && !selectedId,
+  });
+
+  const linkedCompanyFromGranularity = useMemo(() => {
+    if (!initialGranularity) {
+      return null;
+    }
+    return (
+      (allGranularitiesForLinkQuery.data ?? []).find((item) => item.id === initialGranularity)
+        ?.source_company ?? null
+    );
+  }, [allGranularitiesForLinkQuery.data, initialGranularity]);
+
+  const effectiveSelectedId =
+    selectedId ?? linkedCompanyFromGranularity ?? companies[0]?.id ?? null;
   const selectedCompany = companies.find((c) => c.id === effectiveSelectedId) ?? null;
+  const highlightGranularityId = initialGranularity;
 
   const granularitiesQuery = useQuery({
     queryKey: queryKeys.operationsRegistry.sourceGranularities({
@@ -185,6 +211,7 @@ export function SourceCompaniesManager({ readOnly }: { readOnly: boolean }) {
             company={selectedCompany}
             granularities={granularitiesQuery.data ?? []}
             granularitiesLoading={granularitiesQuery.isPending}
+            highlightGranularityId={highlightGranularityId}
             readOnly={readOnly}
             onSave={(body) => updateCompanyMutation.mutate({ id: selectedCompany.id, body })}
             onActivation={async (body) => {
@@ -279,6 +306,7 @@ function CompanyEditor({
   company,
   granularities,
   granularitiesLoading,
+  highlightGranularityId,
   readOnly,
   onSave,
   onActivation,
@@ -288,6 +316,7 @@ function CompanyEditor({
   company: SourceCompanyItem;
   granularities: SourceGranularityItem[];
   granularitiesLoading: boolean;
+  highlightGranularityId?: string | null;
   readOnly: boolean;
   onSave: (body: Parameters<typeof updateSourceCompany>[1]) => void;
   onActivation: (body: SourceActivationInput) => Promise<void>;
@@ -483,6 +512,7 @@ function CompanyEditor({
           companyId={company.id}
           granularities={granularities}
           loading={granularitiesLoading}
+          highlightGranularityId={highlightGranularityId}
           readOnly={readOnly}
           onSaved={onGranularitySaved}
           onError={onGranularityError}
@@ -496,6 +526,7 @@ function GranularitiesSection({
   companyId,
   granularities,
   loading,
+  highlightGranularityId,
   readOnly,
   onSaved,
   onError,
@@ -503,6 +534,7 @@ function GranularitiesSection({
   companyId: string;
   granularities: SourceGranularityItem[];
   loading: boolean;
+  highlightGranularityId?: string | null;
   readOnly: boolean;
   onSaved: () => Promise<void>;
   onError: (error: unknown) => void;
@@ -512,6 +544,16 @@ function GranularitiesSection({
   const [createOwnerLabel, setCreateOwnerLabel] = useState("");
   const [createCrmLabel, setCreateCrmLabel] = useState("");
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    if (!highlightGranularityId) {
+      return;
+    }
+    document.getElementById(`registry-granularity-${highlightGranularityId}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [highlightGranularityId, granularities]);
 
   async function handleCreate() {
     setCreating(true);
@@ -546,6 +588,7 @@ function GranularitiesSection({
           <GranularityRow
             key={`${granularity.id}-${granularity.owner_label}-${granularity.active}`}
             granularity={granularity}
+            highlighted={highlightGranularityId === granularity.id}
             readOnly={readOnly}
             onSaved={onSaved}
             onError={onError}
@@ -590,11 +633,13 @@ function GranularitiesSection({
 
 function GranularityRow({
   granularity,
+  highlighted = false,
   readOnly,
   onSaved,
   onError,
 }: {
   granularity: SourceGranularityItem;
+  highlighted?: boolean;
   readOnly: boolean;
   onSaved: () => Promise<void>;
   onError: (error: unknown) => void;
@@ -656,7 +701,13 @@ function GranularityRow({
   }
 
   return (
-    <div className="space-y-3 rounded-md border bg-background p-3">
+    <div
+      id={`registry-granularity-${granularity.id}`}
+      className={cn(
+        "space-y-3 rounded-md border bg-background p-3",
+        highlighted ? "border-trust-blue ring-2 ring-trust-blue/30" : undefined,
+      )}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold">{granularity.granularity_key}</span>
         <StatusBadge tone={granularity.active ? "success" : "muted"}>
