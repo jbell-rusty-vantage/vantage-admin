@@ -30,8 +30,16 @@ const serverEnvSchema = z.object({
     .transform((value) => value === "true"),
   EMPLOYEE_BOOKING_PUBLIC_BODY_LIMIT_BYTES: z.coerce.number().int().positive().default(16_384),
   VANTAGE_API_SECRET: z.string().trim().min(1, "VANTAGE_API_SECRET is required"),
+  // Server-only HMAC secret shared with vantage-main-server for Operations Registry
+  // actor signing. Never expose via NEXT_PUBLIC_*.
+  VANTAGE_ADMIN_PROXY_SIGNING_SECRET: z
+    .string()
+    .trim()
+    .min(16, "VANTAGE_ADMIN_PROXY_SIGNING_SECRET must be at least 16 characters")
+    .optional(),
   NEXT_PUBLIC_APP_NAME: z.string().trim().min(1).default("Vantage Admin"),
 });
+
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 

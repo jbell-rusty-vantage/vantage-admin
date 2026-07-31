@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(Number(params.get("limit") ?? 50), 1), 100);
   const query: Record<string, unknown> = {};
 
-  for (const key of ["action", "entity_type", "admin_email", "database_scope"]) {
+  for (const key of ["action", "entity_type", "admin_email", "database_scope", "request_id"]) {
     const value = params.get(key);
     if (value) {
       query[key] = key === "admin_email" ? value.toLowerCase() : value;

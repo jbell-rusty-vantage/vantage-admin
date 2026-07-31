@@ -12,6 +12,7 @@ export function setTestEnv() {
   process.env.EMPLOYEE_BOOKING_PUBLIC_ENABLED = "true";
   process.env.EMPLOYEE_BOOKING_PUBLIC_BODY_LIMIT_BYTES = "16384";
   process.env.VANTAGE_API_SECRET = "vantage-api-secret-for-tests";
+  process.env.VANTAGE_ADMIN_PROXY_SIGNING_SECRET = "proxy-signing-secret-for-tests-32chars";
   process.env.NEXT_PUBLIC_APP_NAME = "Vantage Admin";
   resetServerEnvForTests();
 }

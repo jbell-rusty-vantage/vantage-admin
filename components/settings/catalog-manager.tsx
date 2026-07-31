@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { FilterField } from "@/components/filters/filter-field";
@@ -137,7 +137,7 @@ function CatalogSection({ kind }: { kind: CatalogKind }) {
         <div className="space-y-2">
           {(query.data ?? []).map((item) => (
             <CatalogRow
-              key={item.id}
+              key={`${item.id}-${item.name}-${item.role ?? ""}-${item.granot_crm_username ?? ""}-${item.active}`}
               item={item}
               kind={kind}
               onSave={(body) => updateMutation.mutate({ id: item.id, body })}
@@ -170,12 +170,6 @@ function CatalogRow({
     name.trim() !== item.name ||
     (kind === "agents" && role.trim() !== (item.role ?? "agent")) ||
     (kind === "agents" && normalizedGranotCrmUsername !== savedGranotCrmUsername);
-
-  useEffect(() => {
-    setName(item.name);
-    setRole(item.role ?? "agent");
-    setGranotCrmUsername(item.granot_crm_username ?? "");
-  }, [item.name, item.role, item.granot_crm_username]);
 
   return (
     <div className="space-y-3 rounded-md border bg-background p-3">

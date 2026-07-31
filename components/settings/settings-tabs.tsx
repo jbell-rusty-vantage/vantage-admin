@@ -1,46 +1,42 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useState } from "react";
 import { CarrierManager } from "@/components/settings/carrier-manager";
-import { CatalogManager } from "@/components/settings/catalog-manager";
 import { CplRateManager } from "@/components/settings/cpl-rate-manager";
-import { SourceCompanyManager } from "@/components/settings/source-company-manager";
 import { Button } from "@/components/ui/button";
+import { FeedbackMessage } from "@/components/ui/feedback";
 
 const tabs = [
-  {
-    id: "source-company",
-    label: "Source Company",
-    description: "Strategic catalog for labels, granularities, CPL, RingCentral, and sheet routing.",
-  },
-  {
-    id: "catalog",
-    label: "Catalog",
-    description: "Agents and merchants used by booking workflows and owner filters.",
-  },
   {
     id: "moving-carriers",
     label: "Moving Carriers",
     description: "Carrier DOT/MC collection, manual edits, and CSV imports for the main site table.",
   },
   {
-    id: "cpl-rate",
-    label: "CPL Rate",
-    description: "Legacy compatibility rates. Prefer Source Company granularities for new edits.",
+    id: "legacy-cpl",
+    label: "Legacy CPL",
+    description: "Read-only compatibility view of seeded CPL rates. New edits belong in Operations Registry.",
   },
 ] as const;
 
 type SettingsTabId = (typeof tabs)[number]["id"];
 
 export function SettingsTabs() {
-  const [activeTab, setActiveTab] = useState<SettingsTabId>("source-company");
-  const active = useMemo(
-    () => tabs.find((tab) => tab.id === activeTab) ?? tabs[0],
-    [activeTab],
-  );
+  const [activeTab, setActiveTab] = useState<SettingsTabId>("moving-carriers");
+  const active = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
 
   return (
     <div className="space-y-4">
+      <FeedbackMessage tone="info">
+        Agents, merchants, source companies, granularities, RingCentral queue numbers, and CPL
+        schedules are managed in{" "}
+        <Link href="/operations-registry" className="font-medium underline">
+          Operations Registry
+        </Link>
+        . This page keeps moving-carrier maintenance and legacy CPL compatibility only.
+      </FeedbackMessage>
+
       <div className="flex flex-wrap gap-2 rounded-lg border bg-muted/30 p-2">
         {tabs.map((tab) => (
           <Button
@@ -54,10 +50,19 @@ export function SettingsTabs() {
         ))}
       </div>
       <p className="text-sm text-muted-foreground">{active.description}</p>
-      {activeTab === "source-company" ? <SourceCompanyManager /> : null}
-      {activeTab === "catalog" ? <CatalogManager /> : null}
       {activeTab === "moving-carriers" ? <CarrierManager /> : null}
-      {activeTab === "cpl-rate" ? <CplRateManager compatibilityMode /> : null}
+      {activeTab === "legacy-cpl" ? (
+        <div className="space-y-3">
+          <FeedbackMessage tone="warning">
+            Legacy CPL rates are compatibility-only. Prefer{" "}
+            <Link href="/operations-registry?tab=cpl" className="font-medium underline">
+              Operations Registry → CPL
+            </Link>{" "}
+            for schedule edits and corrections.
+          </FeedbackMessage>
+          <CplRateManager compatibilityMode />
+        </div>
+      ) : null}
     </div>
   );
 }

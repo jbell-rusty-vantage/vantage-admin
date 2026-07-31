@@ -90,7 +90,9 @@ function getDatabaseScope(path: string, body: unknown): string | undefined {
 function getForwardHeaders(
   request: NextRequest,
   admin: NonNullable<Awaited<ReturnType<typeof requireAdmin>>>,
-): Headers {
+  method: VantageApiMethod,
+  backendPath: string,
+): { headers: Headers; requestId: string | undefined } {
   const headers = new Headers();
   const accept = request.headers.get("accept");
   const contentType = request.headers.get("content-type");
@@ -103,8 +105,11 @@ function getForwardHeaders(
     headers.set("content-type", contentType);
   }
 
-  setTrustedAdminHeaders(headers, admin);
-  return headers;
+  const { requestId } = setTrustedAdminHeaders(headers, admin, {
+    method,
+    path: backendPath,
+  });
+  return { headers, requestId };
 }
 
 async function readRequestBody(request: NextRequest, method: VantageApiMethod): Promise<unknown> {
@@ -148,6 +153,7 @@ async function auditProxyRequest(input: {
   status: number;
   ok: boolean;
   errorMessage?: string;
+  requestId?: string;
 }) {
   if (!input.admin) {
     return;
@@ -170,6 +176,7 @@ async function auditProxyRequest(input: {
       response_status: input.status,
       ok: input.ok,
       error_message: input.errorMessage,
+      request_id: input.requestId,
     });
   } catch (error) {
     console.error("Failed to write proxy audit log", error);
@@ -196,12 +203,18 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
 
   const shouldAudit = MUTATING_METHODS.has(method) || isExportRequest(method, backendPath);
   const body = await readRequestBody(request, method);
+  const { headers: forwardHeaders, requestId } = getForwardHeaders(
+    request,
+    admin,
+    method,
+    backendPath,
+  );
 
   try {
     const vantageResponse = await requestVantageApi(backendPath, {
       method,
       body,
-      headers: getForwardHeaders(request, admin),
+      headers: forwardHeaders,
     });
 
     if (shouldAudit) {
@@ -212,6 +225,7 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
         body,
         status: vantageResponse.status,
         ok: true,
+        requestId,
       });
     }
 
@@ -248,6 +262,8 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
         status,
         ok: false,
         errorMessage: message,
+        requestId:
+          requestId ?? (error instanceof VantageApiError ? error.requestId : undefined),
       });
     }
 
@@ -256,7 +272,10 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
         ok: false,
         error: status >= 500 ? "Vantage API request failed." : message,
         issues: error instanceof VantageApiError ? error.issues : undefined,
-        request_id: error instanceof VantageApiError ? error.requestId : undefined,
+        request_id:
+          (error instanceof VantageApiError ? error.requestId : undefined) ?? requestId,
+        registry_code: error instanceof VantageApiError ? error.registryCode : undefined,
+        remediation: error instanceof VantageApiError ? error.remediation : undefined,
       },
       { status },
     );

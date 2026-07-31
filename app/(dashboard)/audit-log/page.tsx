@@ -58,6 +58,14 @@ export default function AuditLogPage() {
         <FilterField label="Admin email">
           <Input value={String(filters.admin_email ?? "")} onChange={(event) => update({ admin_email: event.target.value })} />
         </FilterField>
+        <FilterField label="Request ID">
+          <Input
+            value={String(filters.request_id ?? "")}
+            onChange={(event) => update({ request_id: event.target.value })}
+            placeholder="Correlate with Registry Changes"
+            aria-label="Request ID"
+          />
+        </FilterField>
         <FilterField label="Status">
           <SelectFilter value={String(filters.ok ?? "")} options={okOptions} onChange={(value) => update({ ok: value })} />
         </FilterField>
@@ -85,6 +93,12 @@ export default function AuditLogPage() {
               { key: "action", header: "Action", cell: friendlyAction },
               { key: "entity", header: "Entity", cell: (item) => item.entity_type ?? "-" },
               { key: "scope", header: "Scope", cell: (item) => item.database_scope ?? "-" },
+              {
+                key: "request_id",
+                header: "Request",
+                truncate: true,
+                cell: (item) => item.request_id ?? "-",
+              },
               {
                 key: "ok",
                 header: "Result",

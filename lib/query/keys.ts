@@ -104,6 +104,57 @@ export const queryKeys = {
     agentSales: (filters?: QueryFilters) =>
       [...queryKeys.reports.all, "agent-sales", stableFilters(filters)] as const,
   },
+  operationsRegistry: {
+    all: ["operations-registry"] as const,
+    overview: () => [...queryKeys.operationsRegistry.all, "overview"] as const,
+    health: () => [...queryKeys.operationsRegistry.all, "health"] as const,
+    changes: (filters?: QueryFilters) =>
+      [...queryKeys.operationsRegistry.all, "changes", stableFilters(filters)] as const,
+    agents: (includeInactive = false) =>
+      [...queryKeys.operationsRegistry.all, "agents", includeInactive ? "all" : "active"] as const,
+    agentDetail: (id: string) =>
+      [...queryKeys.operationsRegistry.all, "agents", "detail", id] as const,
+    merchants: (includeInactive = false) =>
+      [...queryKeys.operationsRegistry.all, "merchants", includeInactive ? "all" : "active"] as const,
+    merchantDetail: (id: string) =>
+      [...queryKeys.operationsRegistry.all, "merchants", "detail", id] as const,
+    dependencies: (kind: string, id: string) =>
+      [...queryKeys.operationsRegistry.all, "dependencies", kind, id] as const,
+    sourceCompanies: (includeInactive = false) =>
+      [
+        ...queryKeys.operationsRegistry.all,
+        "source-companies",
+        includeInactive ? "all" : "active",
+      ] as const,
+    sourceCompanyDetail: (id: string) =>
+      [...queryKeys.operationsRegistry.all, "source-companies", "detail", id] as const,
+    sourceGranularities: (filters?: QueryFilters) =>
+      [...queryKeys.operationsRegistry.all, "source-granularities", stableFilters(filters)] as const,
+    sourceGranularityDetail: (id: string) =>
+      [...queryKeys.operationsRegistry.all, "source-granularities", "detail", id] as const,
+    cplSnapshot: () => [...queryKeys.operationsRegistry.all, "cpl", "snapshot"] as const,
+    cplPeriods: (granularityId: string) =>
+      [...queryKeys.operationsRegistry.all, "cpl", "periods", granularityId] as const,
+    cplCorrection: (id: string) =>
+      [...queryKeys.operationsRegistry.all, "cpl", "correction", id] as const,
+    ringCentralRoutes: (filters?: QueryFilters) =>
+      [
+        ...queryKeys.operationsRegistry.all,
+        "ringcentral",
+        "routes",
+        stableFilters(filters),
+      ] as const,
+    ringCentralRouteDetail: (id: string) =>
+      [...queryKeys.operationsRegistry.all, "ringcentral", "routes", "detail", id] as const,
+    ringCentralRouteDependencies: (id: string) =>
+      [
+        ...queryKeys.operationsRegistry.all,
+        "ringcentral",
+        "routes",
+        "dependencies",
+        id,
+      ] as const,
+  },
   observability: {
     all: ["observability"] as const,
     overview: (filters?: QueryFilters) =>

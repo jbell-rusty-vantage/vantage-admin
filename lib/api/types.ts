@@ -8,6 +8,15 @@ export type ApiFailure = {
   error: string;
   issues?: unknown;
   request_id?: string;
+  registry_code?: string;
+  remediation?: {
+    summary?: string;
+    action?: string;
+    fields?: string[];
+    entity_type?: string;
+    entity_id?: string;
+    [key: string]: unknown;
+  };
 };
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;

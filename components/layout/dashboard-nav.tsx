@@ -43,7 +43,8 @@ const navigation: NavItem[] = [
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Agent Sales Report", href: "/reports/agent-sales", icon: SearchCheck },
   { label: "Observational", href: "/observational", icon: Activity },
-  { label: "Audit Log", href: "/audit-log", icon: Boxes, ownerOnly: true },
+  { label: "Operations Registry", href: "/operations-registry", icon: Boxes },
+  { label: "Audit Log", href: "/audit-log", icon: FileClock, ownerOnly: true },
   { label: "Exports", href: "/exports", icon: Download },
   { label: "Settings", href: "/settings", icon: Settings, ownerOnly: true },
 ];

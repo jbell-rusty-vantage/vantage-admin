@@ -18,12 +18,49 @@ const OPERATIONAL_POST_PATHS = new Set([
   "/api/v1/cancelled-leads",
 ]);
 
+/** Registry mutation surfaces are Owner-only; other roles may GET (and read-preview POST). */
+const REGISTRY_OWNER_MUTATION_PREFIXES = [
+  "/api/v1/admin/operations-registry",
+  "/api/v1/admin/agents",
+  "/api/v1/admin/merchants",
+  "/api/v1/admin/catalog/agents",
+  "/api/v1/admin/catalog/merchants",
+  "/api/v1/admin/source-companies",
+  "/api/v1/admin/source-granularities",
+  "/api/v1/admin/cpl",
+  "/api/v1/admin/cpl-rates",
+  "/api/v1/admin/cpl-corrections",
+  "/api/v1/admin/ringcentral",
+] as const;
+
+/** Read-style POSTs that admins may call. CPL correction preview is Owner-only. */
+const REGISTRY_READ_PREVIEW_POST_PATHS = new Set([
+  "/api/v1/admin/source-resolution/preview",
+]);
+
 export function canAccessDashboardPath(role: AdminRole, pathname: string): boolean {
   if (role === "owner") {
     return true;
   }
+  // Operations Registry is readable by authenticated admin roles.
+  if (pathname === "/operations-registry" || pathname.startsWith("/operations-registry/")) {
+    return true;
+  }
   return !OWNER_ONLY_PAGE_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+export function isRegistryOwnerMutationPath(method: VantageApiMethod, path: string): boolean {
+  if (method === "GET" || method === "DELETE") {
+    return false;
+  }
+  const normalized = normalizeProxyPath(path);
+  if (REGISTRY_READ_PREVIEW_POST_PATHS.has(normalized)) {
+    return false;
+  }
+  return REGISTRY_OWNER_MUTATION_PREFIXES.some(
+    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`),
   );
 }
 
@@ -41,6 +78,11 @@ export function canProxyVantagePath(input: {
     return false;
   }
   if (input.method === "DELETE") {
+    return false;
+  }
+
+  // Registry Owner-only rules override legacy admin write allowances for agents/merchants.
+  if (isRegistryOwnerMutationPath(input.method, path)) {
     return false;
   }
 
@@ -64,10 +106,8 @@ export function canProxyVantagePath(input: {
     return true;
   }
 
-  if (
-    (input.method === "POST" || input.method === "PATCH") &&
-    (path.startsWith("/api/v1/admin/agents") || path.startsWith("/api/v1/admin/merchants"))
-  ) {
+  // Read-preview POSTs for registry remain available to admin.
+  if (input.method === "POST" && REGISTRY_READ_PREVIEW_POST_PATHS.has(path)) {
     return true;
   }
 
