@@ -51,6 +51,17 @@ test("employee booking API keeps relative paths on the configured host", () => {
   assert.equal(url.href, "https://employee-bookings-main-server.test/api/v1/employee-booking-submissions");
 });
 
+test("employee booking options API stays on the configured host", () => {
+  setTestEnv();
+
+  const url = buildEmployeeBookingApiUrl("/api/v1/employee-booking-options");
+
+  assert.equal(
+    url.href,
+    "https://employee-bookings-main-server.test/api/v1/employee-booking-options",
+  );
+});
+
 test("employee booking API rejects absolute attacker paths", () => {
   setTestEnv();
 
