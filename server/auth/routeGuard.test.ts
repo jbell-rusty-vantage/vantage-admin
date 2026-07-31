@@ -9,6 +9,8 @@ test("route guard protects dashboard paths", () => {
   assert.equal(shouldProtectPath("/bookings"), true);
   assert.equal(shouldProtectPath("/duplicate-call-leads"), true);
   assert.equal(shouldProtectPath("/audit-log"), true);
+  assert.equal(shouldProtectPath("/operations-registry"), true);
+  assert.equal(shouldProtectPath("/operations-registry/foo"), true);
 });
 
 test("route guard skips auth, api, and static paths", () => {

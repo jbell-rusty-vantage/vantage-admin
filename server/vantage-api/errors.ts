@@ -4,6 +4,8 @@ export type VantageApiErrorOptions = {
   backendError?: string;
   issues?: unknown;
   requestId?: string;
+  registryCode?: string;
+  remediation?: unknown;
   responseType?: string;
   path?: string;
 };
@@ -13,6 +15,8 @@ export class VantageApiError extends Error {
   readonly backendError?: string;
   readonly issues?: unknown;
   readonly requestId?: string;
+  readonly registryCode?: string;
+  readonly remediation?: unknown;
   readonly responseType?: string;
   readonly path?: string;
 
@@ -23,6 +27,8 @@ export class VantageApiError extends Error {
     this.backendError = options.backendError;
     this.issues = options.issues;
     this.requestId = options.requestId;
+    this.registryCode = options.registryCode;
+    this.remediation = options.remediation;
     this.responseType = options.responseType;
     this.path = options.path;
   }

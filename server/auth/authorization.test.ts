@@ -83,8 +83,119 @@ test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/audit-log"), false);
   assert.equal(canAccessDashboardPath("admin", "/bookings/reconciliation"), false);
   assert.equal(canAccessDashboardPath("admin", "/form-leads"), true);
+  assert.equal(canAccessDashboardPath("admin", "/operations-registry"), true);
+  assert.equal(canAccessDashboardPath("admin", "/operations-registry?tab=cpl"), true);
   assert.equal(canAccessDashboardPath("owner", "/settings"), true);
 });
+
+test("admin can read registry endpoints but cannot mutate them", () => {
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "GET",
+      path: "api/v1/admin/operations-registry/overview",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "GET",
+      path: "api/v1/admin/agents",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/agents",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/agents/abc/activation",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/cpl/simple-schedule",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/source-resolution/preview",
+    }),
+    true,
+  );
+  // Correction preview is Owner-only on the server; proxy must match.
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/cpl-corrections/preview",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "owner",
+      method: "POST",
+      path: "api/v1/admin/cpl-corrections/preview",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "owner",
+      method: "POST",
+      path: "api/v1/admin/source-companies",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "GET",
+      path: "api/v1/admin/ringcentral/inbound-routes",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/ringcentral/inbound-routes",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/ringcentral/inbound-routes/abc/validate",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "owner",
+      method: "POST",
+      path: "api/v1/admin/ringcentral/inbound-routes/abc/reassign",
+    }),
+    true,
+  );
+});
+
 
 test("admin cannot proxy owner-only booking reconciliation endpoints", () => {
   assert.equal(

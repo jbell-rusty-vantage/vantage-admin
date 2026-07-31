@@ -18,9 +18,13 @@ export const DASHBOARD_PATH_PREFIXES = [
   "/agents",
   "/search",
   "/analytics",
+  "/observational",
+  "/operations-registry",
   "/audit-log",
   "/exports",
   "/settings",
+  "/testimonials",
+  "/reports",
 ] as const;
 
 export function shouldProtectPath(pathname: string): boolean {

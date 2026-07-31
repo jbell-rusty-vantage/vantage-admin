@@ -27,7 +27,14 @@ export type VantageApiResponse<T = unknown> =
 
 type BackendEnvelope<T> =
   | { ok: true; data: T }
-  | { ok: false; error?: string; issues?: unknown };
+  | {
+      ok: false;
+      error?: string;
+      issues?: unknown;
+      registry_code?: string;
+      remediation?: unknown;
+      request_id?: string;
+    };
 
 function isJsonContentType(contentType: string | null): boolean {
   return contentType?.toLowerCase().includes("application/json") ?? false;
@@ -103,7 +110,9 @@ export async function parseVantageApiResponse<T = unknown>(
           message: envelope.error ?? response.statusText ?? "Vantage API request failed.",
           backendError: envelope.error,
           issues: envelope.issues,
-          requestId,
+          requestId: envelope.request_id ?? requestId,
+          registryCode: envelope.registry_code,
+          remediation: envelope.remediation,
           responseType: contentType ?? undefined,
           path,
         });

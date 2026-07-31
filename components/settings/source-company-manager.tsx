@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { FilterField } from "@/components/filters/filter-field";
@@ -51,8 +51,8 @@ export function SourceCompanyManager() {
       <CardHeader>
         <CardTitle>Lead Source Companies</CardTitle>
         <CardDescription>
-          Create source companies and manage their Form and Call label granularities, CPL rates, aliases,
-          and RingCentral routing numbers.
+          Legacy compatibility editor for source companies and granularities. Prefer Operations
+          Registry for Source Company / Granularity and RingCentral queue-number management.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -72,7 +72,7 @@ export function SourceCompanyManager() {
         <div className="space-y-3">
           {(query.data ?? []).map((company) => (
             <SourceCompanyRow
-              key={company.id}
+              key={`${company.id}-${company.updatedAt ?? ""}-${company.granularities.length}-${company.active}`}
               company={company}
               isPending={updateMutation.isPending}
               onSave={(body) => updateMutation.mutate({ id: company.id, body })}
@@ -122,9 +122,6 @@ function CreateSourceCompanyForm({
         <FilterField label="Aliases">
           <Input name="aliases" placeholder="comma-separated" />
         </FilterField>
-        <FilterField label="RingCentral numbers">
-          <Input name="inbound_phone_numbers" placeholder="+18885551212, +18885553434" />
-        </FilterField>
       </div>
       <div className="mt-3 flex justify-end">
         <Button type="submit" disabled={isPending}>
@@ -165,17 +162,6 @@ function SourceCompanyRow({
     defaultFormGranularityKey !== (company.default_form_granularity_key ?? "") ||
     defaultCallGranularityKey !== (company.default_call_granularity_key ?? "") ||
     JSON.stringify(granularities) !== JSON.stringify(company.granularities);
-
-  useEffect(() => {
-    setName(company.name);
-    setOwnerLabel(company.owner_label);
-    setAliases(company.aliases.join(", "));
-    setSpreadsheetId(company.sheet_config?.spreadsheet_id ?? "");
-    setHasBadTabs(company.sheet_config?.has_bad_tabs === true);
-    setDefaultFormGranularityKey(company.default_form_granularity_key ?? "");
-    setDefaultCallGranularityKey(company.default_call_granularity_key ?? "");
-    setGranularities(company.granularities);
-  }, [company]);
 
   const formGranularities = granularities.filter((granularity) => granularity.channel === "form");
   const callGranularities = granularities.filter((granularity) => granularity.channel === "call");
@@ -436,17 +422,6 @@ function GranularityEditor({
             placeholder="main-site, landing-page-a"
           />
         </FilterField>
-        <FilterField label="Inbound numbers">
-          <Input
-            value={granularity.inbound_phone_numbers.join(", ")}
-            onChange={(event) =>
-              onChange({
-                ...granularity,
-                inbound_phone_numbers: parseList(event.target.value),
-              })
-            }
-          />
-        </FilterField>
       </div>
     </div>
   );
@@ -469,7 +444,6 @@ function buildNewGranularity(
     active: true,
     cpl: 0,
     source_sites: [],
-    inbound_phone_numbers: [],
     priority: 0,
   };
 }
@@ -508,7 +482,6 @@ function createSourceFromForm(form: HTMLFormElement) {
         aliases: [callLabel],
         active: true,
         cpl: Number(formData.get("call_cpl") ?? 0) || 0,
-        inbound_phone_numbers: parseList(String(formData.get("inbound_phone_numbers") ?? "")),
       },
     ],
     created_from: "admin",
@@ -528,7 +501,6 @@ function toGranularityPayload(
     cpl: granularity.cpl,
     ...(granularity.local ? { local: granularity.local } : {}),
     source_sites: granularity.source_sites,
-    inbound_phone_numbers: granularity.inbound_phone_numbers,
     priority: granularity.priority,
     ...(granularity.sheet_tab_name ? { sheet_tab_name: granularity.sheet_tab_name } : {}),
   };

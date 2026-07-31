@@ -17,7 +17,8 @@ export type LeadSourceGranularity = {
   cpl: number;
   local?: LeadSourceLocal;
   source_sites: string[];
-  inbound_phone_numbers: string[];
+  /** Retired: RingCentral numbers live under Operations Registry inbound routes. */
+  inbound_phone_numbers?: string[];
   priority: number;
   sheet_tab_name?: string;
 };
@@ -52,6 +53,7 @@ export type LeadSourceGranularityPayload = {
   cpl?: number;
   local?: LeadSourceLocal;
   source_sites?: string[];
+  /** Do not submit; use RingCentral inbound-routes API instead. */
   inbound_phone_numbers?: string[];
   priority?: number;
   sheet_tab_name?: string;

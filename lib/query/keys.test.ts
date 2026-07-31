@@ -70,6 +70,41 @@ test("booking reconciliation candidate keys include case id", () => {
   ]);
 });
 
+test("operations registry query keys nest under a shared root", () => {
+  assert.deepEqual(queryKeys.operationsRegistry.overview(), [
+    "operations-registry",
+    "overview",
+  ]);
+  assert.deepEqual(queryKeys.operationsRegistry.agents(true), [
+    "operations-registry",
+    "agents",
+    "all",
+  ]);
+  assert.deepEqual(queryKeys.operationsRegistry.cplSnapshot(), [
+    "operations-registry",
+    "cpl",
+    "snapshot",
+  ]);
+  assert.equal(queryKeys.operationsRegistry.cplPeriods("g1")[0], queryKeys.operationsRegistry.all[0]);
+  assert.deepEqual(queryKeys.operationsRegistry.ringCentralRoutes({ includeInactive: true }), [
+    "operations-registry",
+    "ringcentral",
+    "routes",
+    { includeInactive: true },
+  ]);
+  assert.deepEqual(queryKeys.operationsRegistry.ringCentralRouteDetail("r1"), [
+    "operations-registry",
+    "ringcentral",
+    "routes",
+    "detail",
+    "r1",
+  ]);
+  assert.equal(
+    queryKeys.operationsRegistry.ringCentralRouteDependencies("r1")[0],
+    queryKeys.operationsRegistry.all[0],
+  );
+});
+
 test("booking reconciliation queue pages and filters have isolated cache keys", () => {
   const firstPage = queryKeys.bookingReconciliation.list({
     status: "pending",

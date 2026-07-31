@@ -29,6 +29,7 @@ export function CplRateManager({ compatibilityMode = false }: { compatibilityMod
   });
 
   const groups = groupBySourceCompany(query.data ?? []);
+  const readOnly = compatibilityMode;
 
   return (
     <Card>
@@ -36,7 +37,7 @@ export function CplRateManager({ compatibilityMode = false }: { compatibilityMod
         <CardTitle>CPL Rates</CardTitle>
         <CardDescription>
           {compatibilityMode
-            ? "Legacy compatibility rates for seeded source labels. Manage new source-company CPL on the Source Company tab."
+            ? "Legacy compatibility view of seeded source labels. Edit schedules in Operations Registry → CPL."
             : "Set the cost-per-lead for each source and lead type. Saving a rate immediately recalculates the analytics dashboard for every matching existing lead."}
         </CardDescription>
       </CardHeader>
@@ -59,6 +60,7 @@ export function CplRateManager({ compatibilityMode = false }: { compatibilityMod
                   <CplRateRow
                     key={rate.label}
                     rate={rate}
+                    readOnly={readOnly}
                     onSave={(cpl) => updateMutation.mutate({ label: rate.label, cpl })}
                     isPending={updateMutation.isPending}
                   />
@@ -76,10 +78,12 @@ function CplRateRow({
   rate,
   onSave,
   isPending,
+  readOnly = false,
 }: {
   rate: CplRate;
   onSave: (cpl: number) => void;
   isPending: boolean;
+  readOnly?: boolean;
 }) {
   const [value, setValue] = useState(String(rate.cpl));
   const parsed = Number(value);
@@ -94,16 +98,20 @@ function CplRateRow({
           step="1"
           inputMode="decimal"
           value={value}
+          readOnly={readOnly}
+          disabled={readOnly}
           onChange={(event) => setValue(event.target.value)}
         />
       </FilterField>
-      <Button
-        variant="outline"
-        onClick={() => onSave(parsed)}
-        disabled={!changed || isPending || parsed < 0}
-      >
-        Save
-      </Button>
+      {!readOnly ? (
+        <Button
+          variant="outline"
+          onClick={() => onSave(parsed)}
+          disabled={!changed || isPending || parsed < 0}
+        >
+          Save
+        </Button>
+      ) : null}
     </div>
   );
 }
