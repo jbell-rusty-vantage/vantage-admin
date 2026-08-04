@@ -213,6 +213,49 @@ test("admin can read registry endpoints but cannot mutate them", () => {
 });
 
 
+test("admin can inspect Best Relocation ingestion health but cannot mutate it", () => {
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "GET",
+      path: "api/v1/admin/ingestion/connections/best-relocation",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/ingestion/connections/best-relocation/inspect",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/ingestion/connections/best-relocation/preview",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "PATCH",
+      path: "api/v1/admin/ingestion/connections/best-relocation",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/ingestion/conflicts/507f1f77bcf86cd799439011/resolve",
+    }),
+    false,
+  );
+});
+
 test("admin cannot proxy owner-only booking reconciliation endpoints", () => {
   assert.equal(
     canProxyVantagePath({

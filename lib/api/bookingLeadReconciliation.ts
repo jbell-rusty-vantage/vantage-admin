@@ -106,6 +106,7 @@ export type BookingLeadReconciliationCaseSummary = {
   id: string;
   _id: string;
   booking_id: string;
+  origin: "employee_booking" | "external_sheet_ingestion";
   booking?: {
     id?: string;
     _id?: string;

@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 type QueueFilters = {
   status: BookingLeadReconciliationStatus | "";
+  origin: "" | "employee_booking" | "external_sheet_ingestion";
   reason: BookingLeadReconciliationReason | "";
   q: string;
   lead_source_company: string;
@@ -117,6 +118,7 @@ const limitOptions = ["25", "50", "100"];
 
 const initialQueueFilters: QueueFilters = {
   status: "pending",
+  origin: "",
   reason: "",
   q: "",
   lead_source_company: "",
@@ -308,6 +310,7 @@ export function BookingReconciliationDashboard() {
   const queueFilters = useMemo(
     () => ({
       status: filters.status || undefined,
+      origin: filters.origin || undefined,
       reason: filters.reason || undefined,
       q: filters.q || undefined,
       lead_source_company: filters.lead_source_company || undefined,
@@ -691,6 +694,25 @@ export function BookingReconciliationDashboard() {
                   ))}
                 </select>
               </Field>
+              <Field label="Origin" htmlFor="queue-origin">
+                <select
+                  id="queue-origin"
+                  value={filters.origin}
+                  onChange={(event) =>
+                    updateQueueFilter(
+                      "origin",
+                      event.target.value as QueueFilters["origin"],
+                    )
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
+                >
+                  <option value="">All origins</option>
+                  <option value="employee_booking">Employee booking</option>
+                  <option value="external_sheet_ingestion">
+                    External sheet ingestion
+                  </option>
+                </select>
+              </Field>
               <Field label="Reason" htmlFor="queue-reason">
                 <select
                   id="queue-reason"
@@ -812,6 +834,12 @@ export function BookingReconciliationDashboard() {
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
                       <span>{item.reason}</span>
+                      <span>•</span>
+                      <span>
+                        {item.origin === "external_sheet_ingestion"
+                          ? "External sheet"
+                          : "Employee booking"}
+                      </span>
                       <span>•</span>
                       <span>{formatDateTime(item.createdAt)}</span>
                       <span>•</span>
