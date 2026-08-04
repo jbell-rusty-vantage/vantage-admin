@@ -40,6 +40,8 @@ const REGISTRY_READ_PREVIEW_POST_PATHS = new Set([
   "/api/v1/admin/ingestion/connections/best-relocation/inspect",
 ]);
 
+const REPORTING_PREFIX = "/api/v1/admin/reporting";
+
 export function canAccessDashboardPath(role: AdminRole, pathname: string): boolean {
   if (role === "owner") {
     return true;
@@ -81,6 +83,11 @@ export function canProxyVantagePath(input: {
   }
   if (input.method === "DELETE") {
     return false;
+  }
+
+  // Reporting metadata is readable by admins; every preview/revision/run mutation is Owner-only.
+  if (path === REPORTING_PREFIX || path.startsWith(`${REPORTING_PREFIX}/`)) {
+    return input.method === "GET";
   }
 
   // Registry Owner-only rules override legacy admin write allowances for agents/merchants.

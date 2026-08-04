@@ -274,3 +274,23 @@ test("admin cannot proxy owner-only booking reconciliation endpoints", () => {
     true,
   );
 });
+
+test("admin can read reporting but every reporting mutation is owner-only", () => {
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "GET",
+      path: "api/v1/admin/reporting/definitions/report-1",
+    }),
+    true,
+  );
+  for (const path of [
+    "api/v1/admin/reporting/definitions",
+    "api/v1/admin/reporting/definitions/report-1/preview",
+    "api/v1/admin/reporting/definitions/report-1/revisions",
+    "api/v1/admin/reporting/definitions/report-1/run",
+  ]) {
+    assert.equal(canProxyVantagePath({ role: "admin", method: "POST", path }), false);
+    assert.equal(canProxyVantagePath({ role: "owner", method: "POST", path }), true);
+  }
+});

@@ -132,3 +132,18 @@ test("booking reconciliation queue pages and filters have isolated cache keys", 
   assert.notDeepEqual(firstPage, secondPage);
   assert.notDeepEqual(firstPage, otherFilter);
 });
+
+test("reporting keys isolate catalog, definition detail, and run history", () => {
+  assert.deepEqual(queryKeys.reporting.catalog(), ["reporting", "catalog"]);
+  assert.deepEqual(queryKeys.reporting.definition("definition-1"), [
+    "reporting",
+    "definitions",
+    "detail",
+    "definition-1",
+  ]);
+  assert.deepEqual(queryKeys.reporting.runs({ status: "queued", empty: "" }), [
+    "reporting",
+    "runs",
+    { status: "queued" },
+  ]);
+});

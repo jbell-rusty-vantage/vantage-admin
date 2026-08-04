@@ -104,6 +104,17 @@ export const queryKeys = {
     agentSales: (filters?: QueryFilters) =>
       [...queryKeys.reports.all, "agent-sales", stableFilters(filters)] as const,
   },
+  reporting: {
+    all: ["reporting"] as const,
+    catalog: () => [...queryKeys.reporting.all, "catalog"] as const,
+    definitions: (filters?: QueryFilters) =>
+      [...queryKeys.reporting.all, "definitions", stableFilters(filters)] as const,
+    definition: (id: string) =>
+      [...queryKeys.reporting.all, "definitions", "detail", id] as const,
+    runs: (filters?: QueryFilters) =>
+      [...queryKeys.reporting.all, "runs", stableFilters(filters)] as const,
+    run: (id: string) => [...queryKeys.reporting.all, "runs", "detail", id] as const,
+  },
   operationsRegistry: {
     all: ["operations-registry"] as const,
     overview: () => [...queryKeys.operationsRegistry.all, "overview"] as const,

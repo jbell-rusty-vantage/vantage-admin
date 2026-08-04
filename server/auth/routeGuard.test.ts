@@ -11,6 +11,8 @@ test("route guard protects dashboard paths", () => {
   assert.equal(shouldProtectPath("/audit-log"), true);
   assert.equal(shouldProtectPath("/operations-registry"), true);
   assert.equal(shouldProtectPath("/operations-registry/foo"), true);
+  assert.equal(shouldProtectPath("/reporting"), true);
+  assert.equal(shouldProtectPath("/reporting/definition-1"), true);
 });
 
 test("route guard skips auth, api, and static paths", () => {
