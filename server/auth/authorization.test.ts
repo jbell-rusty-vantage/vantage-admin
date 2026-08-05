@@ -352,6 +352,7 @@ test("Granot automation plans and mutations are owner-only", () => {
     ["GET", "api/v1/admin/granot-automation/runs"],
     ["GET", "api/v1/admin/granot-automation/runs/run-1"],
     ["POST", "api/v1/admin/granot-automation/runs"],
+    ["POST", "api/v1/admin/granot-automation/run-groups"],
     ["POST", "api/v1/admin/granot-automation/runs/run-1/approve"],
   ] as const) {
     assert.equal(canProxyVantagePath({ role: "admin", method, path }), false);

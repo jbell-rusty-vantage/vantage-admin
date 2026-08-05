@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import {
   approveGranotRun,
   createGranotAutomationSource,
-  createGranotRun,
+  createGranotRunGroup,
   fetchGranotAutomationSources,
   fetchGranotRun,
   fetchGranotRuns,
@@ -20,7 +20,14 @@ import {
   type GranotAction,
   type GranotOperation,
   type GranotRun,
+  type GranotWorkflow,
 } from "@/lib/api/granotAutomation";
+import {
+  compatibleGranotSources,
+  DEFAULT_GRANOT_OPERATIONS,
+  granotSubmitLabel,
+  submittedGranotSourceIds,
+} from "@/lib/granotAutomationSelection";
 import { queryKeys } from "@/lib/query/keys";
 
 const TERMINAL_STATUSES = new Set(["completed", "completed_with_errors", "failed", "expired"]);
@@ -48,7 +55,7 @@ function number(value: unknown) {
 }
 
 function actionIsSyncable(action: GranotAction) {
-  return action.syncable !== false && !["conflict", "blocked", "skipped"].includes(action.status ?? "");
+  return action.syncable === true;
 }
 
 function statusTone(status: string): string {
@@ -95,12 +102,23 @@ export function GranotAutomationDashboard() {
   const role = useDashboardRole();
   const owner = role === "owner";
   const queryClient = useQueryClient();
-  const [operation, setOperation] = useState<GranotOperation>("form_leads");
+  const [operations, setOperations] = useState<GranotOperation[]>([
+    ...DEFAULT_GRANOT_OPERATIONS,
+  ]);
+  const [workflow, setWorkflow] = useState<GranotWorkflow>("apply");
   const [from, setFrom] = useState(localDate(7));
   const [to, setTo] = useState(localDate());
-  const [selectedSourceLabels, setSelectedSourceLabels] = useState<string[] | null>(null);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[] | null>(null);
   const [newSourceLabel, setNewSourceLabel] = useState("");
+  const [newSourceOperations, setNewSourceOperations] = useState<GranotOperation[]>([
+    "form_leads",
+    "call_leads",
+  ]);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [selectedRunGroup, setSelectedRunGroup] = useState<{
+    id: string;
+    runIds: string[];
+  } | null>(null);
   const [selectionByRun, setSelectionByRun] = useState<Record<string, string[]>>({});
   const [confirmedChecksum, setConfirmedChecksum] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(
@@ -116,7 +134,7 @@ export function GranotAutomationDashboard() {
   });
   const sourceCatalogQuery = useQuery({
     queryKey: queryKeys.granotAutomation.sources(),
-    queryFn: fetchGranotAutomationSources,
+    queryFn: () => fetchGranotAutomationSources(),
     enabled: owner,
   });
   const runQuery = useQuery({
@@ -130,12 +148,27 @@ export function GranotAutomationDashboard() {
   });
 
   const createMutation = useMutation({
-    mutationFn: createGranotRun,
-    onSuccess: async (run) => {
-      setSelectedRunId(run.run_id);
+    mutationFn: createGranotRunGroup,
+    onSuccess: async (group) => {
+      setSelectedRunId(null);
+      setSelectedRunGroup({
+        id: group.run_group_id,
+        runIds: group.runs.map((run) => run.run_id),
+      });
       setConfirmedChecksum(null);
-      setMessage({ tone: "success", text: `Created durable run ${run.run_id}.` });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.granotAutomation.runs() });
+      setMessage({
+        tone: "success",
+        text:
+          group.runs.length === 2
+            ? `Created two independent durable plans in group ${group.run_group_id}.`
+            : `Created durable plan ${group.runs[0]?.run_id ?? ""}.`,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.granotAutomation.runs() }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.granotAutomation.runGroup(group.run_group_id),
+        }),
+      ]);
     },
     onError: (error) => setMessage({ tone: "error", text: errorMessage(error) }),
   });
@@ -143,8 +176,13 @@ export function GranotAutomationDashboard() {
     mutationFn: createGranotAutomationSource,
     onSuccess: async (source) => {
       setNewSourceLabel("");
-      setSelectedSourceLabels((current) =>
-        current === null ? null : [...new Set([...current, source.label])],
+      setSelectedSourceIds((current) =>
+        current === null ||
+        !source.supported_operations.some((operation) =>
+          operations.includes(operation),
+        )
+          ? current
+          : [...new Set([...current, source.id])],
       );
       setMessage({ tone: "success", text: `Added Granot source “${source.label}”.` });
       await queryClient.invalidateQueries({ queryKey: queryKeys.granotAutomation.sources() });
@@ -171,8 +209,15 @@ export function GranotAutomationDashboard() {
 
   const run = runQuery.data;
   const catalogSources = sourceCatalogQuery.data ?? [];
-  const selectedLabels =
-    selectedSourceLabels ?? catalogSources.map((source) => source.label);
+  const compatibleSources = compatibleGranotSources(
+    catalogSources,
+    operations,
+  );
+  const submittedSourceIds = submittedGranotSourceIds(
+    catalogSources,
+    operations,
+    selectedSourceIds,
+  );
   const syncableIds = useMemo(
     () => (run?.actions ?? []).filter(actionIsSyncable).map((action) => action.action_id).filter(Boolean),
     [run],
@@ -181,11 +226,22 @@ export function GranotAutomationDashboard() {
     ? (selectionByRun[run.run_id] ?? syncableIds).filter((id) => syncableIds.includes(id))
     : [];
   const invalidWindow = Boolean(from && to && from > to);
-  const missingSourceLabels = selectedLabels.length === 0;
+  const missingOperations = operations.length === 0;
+  const operationWithoutSources = operations.some(
+    (operation) =>
+      !catalogSources.some(
+        (source) =>
+          submittedSourceIds.includes(source.id) &&
+          source.supported_operations.includes(operation),
+      ),
+  );
+  const missingSourceIds = submittedSourceIds.length === 0 || operationWithoutSources;
   const allSourcesSelected =
-    catalogSources.length > 0 && selectedLabels.length === catalogSources.length;
+    compatibleSources.length > 0 &&
+    compatibleSources.every((source) => submittedSourceIds.includes(source.id));
 
   function selectRun(runId: string) {
+    setSelectedRunGroup(null);
     setSelectedRunId(runId);
     setConfirmedChecksum(null);
     setMessage(null);
@@ -211,25 +267,28 @@ export function GranotAutomationDashboard() {
     createMutation.mutate({
       from,
       to,
-      operation,
-      workflow: "apply",
-      source_labels: selectedLabels,
+      operations,
+      workflow,
+      source_ids: [...new Set(submittedSourceIds)],
     });
   }
 
-  function setSourceSelected(label: string, checked: boolean) {
-    setSelectedSourceLabels(
+  function setSourceSelected(id: string, checked: boolean) {
+    setSelectedSourceIds(
       checked
-        ? [...new Set([...selectedLabels, label])]
-        : selectedLabels.filter((value) => value !== label),
+        ? [...new Set([...submittedSourceIds, id])]
+        : submittedSourceIds.filter((value) => value !== id),
     );
   }
 
   function addSource() {
     const label = newSourceLabel.trim();
-    if (!label || createSourceMutation.isPending) return;
+    if (!label || newSourceOperations.length === 0 || createSourceMutation.isPending) return;
     setMessage(null);
-    createSourceMutation.mutate(label);
+    createSourceMutation.mutate({
+      label,
+      supported_operations: newSourceOperations,
+    });
   }
 
   function approveSelected() {
@@ -279,50 +338,73 @@ export function GranotAutomationDashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Create read-only plan</CardTitle>
+          <CardTitle>Create Granot plans</CardTitle>
           <CardDescription>
-            Choose every Granot source or only the exact, case-sensitive sources this run should
-            collect.
+            Select Lead workflows and their compatible exact, case-sensitive Granot sources.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-4 lg:grid-cols-2" onSubmit={submitRun}>
-            <fieldset className="space-y-2">
-              <legend className="text-sm font-medium text-navy">Lead workflow</legend>
-              <div className="flex flex-wrap gap-4">
+          <form className="space-y-6" onSubmit={submitRun}>
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-semibold text-navy">1. Lead workflows</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
                 {(["form_leads", "call_leads"] as const).map((value) => (
-                  <label key={value} className="flex items-center gap-2 text-sm text-navy">
+                  <label
+                    key={value}
+                    className="flex items-start gap-2 rounded-md border border-steel-100 p-3 text-sm text-navy"
+                  >
                     <input
-                      type="radio"
-                      name="operation"
-                      value={value}
-                      checked={operation === value}
-                      onChange={() => setOperation(value)}
-                    />
-                    {value === "form_leads" ? "Form Leads" : "Call Leads"}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <fieldset className="space-y-3 lg:row-span-3">
-              <legend className="text-sm font-medium text-navy">Granot sources</legend>
-              <div className="flex justify-end">
-                {catalogSources.length > 0 ? (
-                  <label className="flex items-center gap-2 text-sm text-navy">
-                    <input
+                      className="mt-0.5"
                       type="checkbox"
-                      checked={allSourcesSelected}
+                      value={value}
+                      checked={operations.includes(value)}
                       onChange={(event) =>
-                        setSelectedSourceLabels(
+                        setOperations((current) =>
                           event.target.checked
-                            ? null
-                            : [],
+                            ? [...new Set([...current, value])]
+                            : current.filter((operation) => operation !== value),
                         )
                       }
                     />
-                    Select all
+                    <span>
+                      <span className="block font-medium">
+                        {value === "form_leads"
+                          ? "Form Lead enrichment"
+                          : "Call Lead enrichment and booked-call reconciliation"}
+                      </span>
+                    </span>
                   </label>
-                ) : null}
+                ))}
+              </div>
+              <p className="text-xs text-steel">
+                Selecting both creates two separate reviewable plans. Nothing is updated until you
+                approve actions from each plan.
+              </p>
+              {missingOperations ? (
+                <p className="text-sm text-red-700">Select at least one Lead workflow.</p>
+              ) : null}
+            </fieldset>
+            <fieldset className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <legend className="text-sm font-semibold text-navy">2. Granot sources</legend>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={compatibleSources.length === 0 || allSourcesSelected}
+                    onClick={() => setSelectedSourceIds(null)}
+                  >
+                    Select all compatible sources
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={submittedSourceIds.length === 0}
+                    onClick={() => setSelectedSourceIds([])}
+                  >
+                    Clear all
+                  </Button>
+                </div>
               </div>
               {sourceCatalogQuery.isLoading ? (
                 <p className="text-sm text-steel">Loading Granot sources…</p>
@@ -335,96 +417,186 @@ export function GranotAutomationDashboard() {
                   No Granot sources exist yet. Add the first exact label below.
                 </FeedbackMessage>
               ) : null}
-              {catalogSources.length > 0 ? (
-                <div className="grid max-h-64 gap-2 overflow-y-auto rounded-md border border-input bg-white p-3 sm:grid-cols-2">
-                  {catalogSources.map((source) => (
-                    <label key={source.id} className="flex items-start gap-2 text-sm text-navy">
-                      <input
-                        className="mt-0.5"
-                        type="checkbox"
-                        checked={selectedLabels.includes(source.label)}
-                        onChange={(event) => setSourceSelected(source.label, event.target.checked)}
-                      />
-                      <span>{source.label}</span>
-                    </label>
-                  ))}
-                </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                {(["form_leads", "call_leads"] as const)
+                  .filter((operation) => operations.includes(operation))
+                  .map((operation) => {
+                    const sources = catalogSources.filter((source) =>
+                      source.supported_operations.includes(operation),
+                    );
+                    const selectedCount = sources.filter((source) =>
+                      submittedSourceIds.includes(source.id),
+                    ).length;
+                    return (
+                      <div key={operation} className="rounded-md border border-input bg-white p-3">
+                        <h3 className="text-sm font-semibold text-navy">
+                          {operation === "form_leads"
+                            ? "Form Lead sources"
+                            : "Call Lead sources"}
+                        </h3>
+                        <p className="mt-1 text-xs text-steel">
+                          {selectedCount} of {sources.length} selected
+                        </p>
+                        <div className="mt-3 grid max-h-56 gap-2 overflow-y-auto">
+                          {sources.map((source) => (
+                            <label
+                              key={`${operation}-${source.id}`}
+                              className="flex items-start gap-2 text-sm text-navy"
+                            >
+                              <input
+                                className="mt-0.5"
+                                type="checkbox"
+                                checked={submittedSourceIds.includes(source.id)}
+                                onChange={(event) =>
+                                  setSourceSelected(source.id, event.target.checked)
+                                }
+                              />
+                              <span>{source.label}</span>
+                            </label>
+                          ))}
+                          {sources.length === 0 ? (
+                            <p className="text-sm text-steel">
+                              No classified sources support this workflow.
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+              {missingSourceIds && !missingOperations ? (
+                <p className="text-sm text-red-700">
+                  Select at least one compatible source for each selected workflow.
+                </p>
               ) : null}
-              <p className="text-xs text-steel">
-                {selectedLabels.length} of {catalogSources.length} selected. Labels are sent
-                exactly as displayed for both Form Leads and Call Leads.
-              </p>
-              {missingSourceLabels ? (
-                <p className="text-sm text-red-700">Select at least one Granot source.</p>
-              ) : null}
-              <div className="flex flex-col gap-2 rounded-md border border-steel-100 bg-steel-50 p-3 sm:flex-row">
-                <div className="min-w-0 flex-1">
-                  <Label htmlFor="granot-new-source">Add an exact Granot source</Label>
-                  <Input
-                    id="granot-new-source"
-                    className="mt-2 bg-white"
-                    value={newSourceLabel}
-                    maxLength={200}
-                    placeholder="New Granot source label"
-                    onChange={(event) => setNewSourceLabel(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        addSource();
-                      }
-                    }}
-                  />
+              <div className="rounded-md border border-steel-100 bg-steel-50 p-3">
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+                  <div>
+                    <Label htmlFor="granot-new-source">Add an exact Granot source</Label>
+                    <Input
+                      id="granot-new-source"
+                      className="mt-2 bg-white"
+                      value={newSourceLabel}
+                      maxLength={200}
+                      placeholder="New Granot source label"
+                      onChange={(event) => setNewSourceLabel(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addSource();
+                        }
+                      }}
+                    />
+                    <div className="mt-3 flex flex-wrap gap-4">
+                      {(["form_leads", "call_leads"] as const).map((operation) => (
+                        <label key={operation} className="flex items-center gap-2 text-sm text-navy">
+                          <input
+                            type="checkbox"
+                            checked={newSourceOperations.includes(operation)}
+                            onChange={(event) =>
+                              setNewSourceOperations((current) =>
+                                event.target.checked
+                                  ? [...new Set([...current, operation])]
+                                  : current.filter((value) => value !== operation),
+                              )
+                            }
+                          />
+                          {operation === "form_leads"
+                            ? "Used for Form Leads"
+                            : "Used for Call Leads"}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <Button
+                    className="lg:self-end"
+                    type="button"
+                    variant="outline"
+                    disabled={
+                      !newSourceLabel.trim() ||
+                      newSourceOperations.length === 0 ||
+                      createSourceMutation.isPending
+                    }
+                    onClick={addSource}
+                  >
+                    {createSourceMutation.isPending ? "Adding…" : "Add source"}
+                  </Button>
                 </div>
-                <Button
-                  className="sm:self-end"
-                  type="button"
-                  variant="outline"
-                  disabled={!newSourceLabel.trim() || createSourceMutation.isPending}
-                  onClick={addSource}
-                >
-                  {createSourceMutation.isPending ? "Adding…" : "Add source"}
-                </Button>
               </div>
             </fieldset>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="granot-from">From</Label>
-                <Input
-                  id="granot-from"
-                  className="mt-2"
-                  type="date"
-                  value={from}
-                  max={to}
-                  required
-                  onChange={(event) => setFrom(event.target.value)}
-                />
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-semibold text-navy">3. Date window and run mode</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="granot-from">From</Label>
+                  <Input
+                    id="granot-from"
+                    className="mt-2"
+                    type="date"
+                    value={from}
+                    max={to}
+                    required
+                    onChange={(event) => setFrom(event.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="granot-to">To</Label>
+                  <Input
+                    id="granot-to"
+                    className="mt-2"
+                    type="date"
+                    value={to}
+                    min={from}
+                    required
+                    onChange={(event) => setTo(event.target.value)}
+                  />
+                </div>
+                {invalidWindow ? (
+                  <p className="text-sm text-red-700 sm:col-span-2">From must not be after To.</p>
+                ) : null}
               </div>
-              <div>
-                <Label htmlFor="granot-to">To</Label>
-                <Input
-                  id="granot-to"
-                  className="mt-2"
-                  type="date"
-                  value={to}
-                  min={from}
-                  required
-                  onChange={(event) => setTo(event.target.value)}
-                />
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(["preview", "apply"] as const).map((value) => (
+                  <label
+                    key={value}
+                    className="flex items-start gap-2 rounded-md border border-steel-100 p-3 text-sm text-navy"
+                  >
+                    <input
+                      className="mt-0.5"
+                      type="radio"
+                      name="workflow"
+                      checked={workflow === value}
+                      onChange={() => setWorkflow(value)}
+                    />
+                    <span>
+                      <span className="block font-medium">
+                        {value === "preview"
+                          ? "Preview only"
+                          : "Preview, then allow approved updates"}
+                      </span>
+                      <span className="mt-1 block text-xs text-steel">
+                        {value === "preview"
+                          ? "Creates plans and performs no writes."
+                          : "Still requires checksum-bound owner approval before any write."}
+                      </span>
+                    </span>
+                  </label>
+                ))}
               </div>
-              {invalidWindow ? (
-                <p className="text-sm text-red-700 sm:col-span-2">From must not be after To.</p>
-              ) : null}
-            </div>
-            <div className="flex items-end justify-end">
+            </fieldset>
+            <div className="flex justify-end">
               <Button
                 type="submit"
                 disabled={
                   createMutation.isPending ||
                   invalidWindow ||
-                  missingSourceLabels
+                  missingOperations ||
+                  missingSourceIds
                 }
               >
-                {createMutation.isPending ? "Creating…" : "Create durable run"}
+                {createMutation.isPending
+                  ? "Creating…"
+                  : granotSubmitLabel(operations)}
               </Button>
             </div>
           </form>
@@ -463,6 +635,7 @@ export function GranotAutomationDashboard() {
                   <th>Workflow</th>
                   <th>Window</th>
                   <th>Status</th>
+                  <th>Run group</th>
                   <th>Checksum</th>
                   <th className="text-right">Review</th>
                 </tr>
@@ -475,6 +648,38 @@ export function GranotAutomationDashboard() {
                     <td>{item.workflow ?? "—"}</td>
                     <td>{item.from && item.to ? `${item.from} – ${item.to}` : "—"}</td>
                     <td><StatusBadge status={item.status} /></td>
+                    <td className="font-mono text-xs">
+                      {item.run_group_id ? (
+                        <div className="space-y-1">
+                          <span>{item.run_group_id.slice(0, 8)}…</span>
+                          {runsQuery.data?.some(
+                            (candidate) =>
+                              candidate.run_group_id === item.run_group_id &&
+                              candidate.run_id !== item.run_id,
+                          ) ? (
+                            <button
+                              type="button"
+                              className="block text-trust-blue underline"
+                              onClick={() => {
+                                const related = runsQuery.data
+                                  ?.filter(
+                                    (candidate) =>
+                                      candidate.run_group_id === item.run_group_id,
+                                  )
+                                  .map((candidate) => candidate.run_id) ?? [];
+                                setSelectedRunId(null);
+                                setSelectedRunGroup({
+                                  id: item.run_group_id!,
+                                  runIds: related,
+                                });
+                              }}
+                            >
+                              View related run
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : "—"}
+                    </td>
                     <td className="font-mono text-xs">
                       {item.plan_checksum ? `${item.plan_checksum.slice(0, 12)}…` : "—"}
                     </td>
@@ -493,6 +698,22 @@ export function GranotAutomationDashboard() {
           ) : null}
         </CardContent>
       </Card>
+
+      {selectedRunGroup ? (
+        <section className="space-y-4" aria-labelledby="granot-run-group-title">
+          <div>
+            <h2 id="granot-run-group-title" className="text-lg font-semibold text-navy">
+              Run group
+            </h2>
+            <p className="font-mono text-xs text-steel">{selectedRunGroup.id}</p>
+          </div>
+          <div className="grid items-start gap-6 xl:grid-cols-2">
+            {selectedRunGroup.runIds.map((runId) => (
+              <GroupedRunReview key={runId} runId={runId} />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {selectedRunId ? (
         <RunDetail
@@ -516,6 +737,91 @@ export function GranotAutomationDashboard() {
           onApprove={approveSelected}
         />
       ) : null}
+    </div>
+  );
+}
+
+function GroupedRunReview({ runId }: { runId: string }) {
+  const queryClient = useQueryClient();
+  const [selectedActionIds, setSelectedActionIds] = useState<string[] | null>(null);
+  const [confirmedChecksum, setConfirmedChecksum] = useState<string | null>(null);
+  const [approvalError, setApprovalError] = useState<unknown>(null);
+  const runQuery = useQuery({
+    queryKey: queryKeys.granotAutomation.run(runId),
+    queryFn: () => fetchGranotRun(runId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status && status !== APPROVAL_STATUS && !TERMINAL_STATUSES.has(status)
+        ? 2_500
+        : false;
+    },
+  });
+  const run = runQuery.data;
+  const syncableIds = useMemo(
+    () =>
+      (run?.actions ?? [])
+        .filter(actionIsSyncable)
+        .map((action) => action.action_id)
+        .filter(Boolean),
+    [run],
+  );
+  const selected = (selectedActionIds ?? syncableIds).filter((id) =>
+    syncableIds.includes(id),
+  );
+  const approveMutation = useMutation({
+    mutationFn: approveGranotRun,
+    onSuccess: async () => {
+      setConfirmedChecksum(null);
+      setApprovalError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.granotAutomation.runs() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.granotAutomation.run(runId) }),
+      ]);
+    },
+    onError: (error) => setApprovalError(error),
+  });
+
+  return (
+    <div className="min-w-0 rounded-lg border border-steel-100 p-4">
+      {approvalError ? (
+        <FeedbackMessage tone="error" className="mb-4">
+          {errorMessage(approvalError)}
+        </FeedbackMessage>
+      ) : null}
+      <RunDetail
+        run={run}
+        loading={runQuery.isLoading}
+        fetching={runQuery.isFetching}
+        error={runQuery.error}
+        selectedActionIds={selected}
+        confirmedChecksum={confirmedChecksum}
+        approving={approveMutation.isPending}
+        onRefresh={() => void runQuery.refetch()}
+        onToggleAction={(actionId, checked) => {
+          setSelectedActionIds(
+            checked
+              ? [...new Set([...selected, actionId])]
+              : selected.filter((id) => id !== actionId),
+          );
+          setConfirmedChecksum(null);
+        }}
+        onToggleAll={(checked) => {
+          setSelectedActionIds(checked ? syncableIds : []);
+          setConfirmedChecksum(null);
+        }}
+        onConfirmChecksum={(checked) =>
+          setConfirmedChecksum(checked ? (run?.plan_checksum ?? null) : null)
+        }
+        onApprove={() => {
+          if (!run?.plan_checksum) return;
+          setApprovalError(null);
+          approveMutation.mutate({
+            runId,
+            plan_checksum: run.plan_checksum,
+            selected_action_ids: selected,
+          });
+        }}
+      />
     </div>
   );
 }

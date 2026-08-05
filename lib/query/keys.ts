@@ -124,6 +124,8 @@ export const queryKeys = {
     all: ["granot-automation"] as const,
     sources: () => [...queryKeys.granotAutomation.all, "sources"] as const,
     runs: () => [...queryKeys.granotAutomation.all, "runs"] as const,
+    runGroup: (id: string) =>
+      [...queryKeys.granotAutomation.all, "run-groups", id] as const,
     run: (id: string) => [...queryKeys.granotAutomation.all, "runs", "detail", id] as const,
   },
   operationsRegistry: {

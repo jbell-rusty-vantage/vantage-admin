@@ -9,6 +9,7 @@ export type GranotAutomationSource = {
   id: string;
   label: string;
   active: boolean;
+  supported_operations: GranotOperation[];
   created_from: "seed" | "admin";
   created_at?: string;
 };
@@ -38,6 +39,24 @@ export type CreateGranotRunInput = {
     state?: string;
     status?: string;
   };
+};
+
+export type CreateGranotRunGroupInput = {
+  from: string;
+  to: string;
+  operations: GranotOperation[];
+  workflow: GranotWorkflow;
+  source_ids: string[];
+  filters?: CreateGranotRunInput["filters"];
+};
+
+export type GranotRunGroup = {
+  run_group_id: string;
+  runs: Array<{
+    run_id: string;
+    operation: GranotOperation;
+    source_labels: string[];
+  }>;
 };
 
 export type ApproveGranotRunInput = {
@@ -101,6 +120,7 @@ export type GranotCheckpoint = {
 
 export type GranotRun = {
   run_id: string;
+  run_group_id?: string;
   status: GranotRunStatus;
   operation?: GranotOperation;
   workflow?: GranotWorkflow;
@@ -143,7 +163,7 @@ export class GranotAutomationApiError extends Error {
   }
 }
 
-const root = "/api/proxy/api/v1/admin/granot-automation/runs";
+const root = "/api/proxy/api/v1/admin/granot-automation";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -270,6 +290,7 @@ export function normalizeGranotRun(value: unknown): GranotRun {
   const checkpoint = asRecord(run.checkpoint);
   return {
     run_id: stringValue(run.run_id, run.runId, run.id, run._id) ?? "",
+    run_group_id: stringValue(run.run_group_id, run.runGroupId),
     status: stringValue(run.status) ?? "unknown",
     operation: stringValue(run.operation) as GranotOperation | undefined,
     workflow: stringValue(run.workflow) as GranotWorkflow | undefined,
@@ -335,7 +356,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function createGranotRun(input: CreateGranotRunInput): Promise<GranotRun> {
   return normalizeGranotRun(
-    await request<unknown>("", {
+    await request<unknown>("/runs", {
       method: "POST",
       body: JSON.stringify({
         operation: input.operation,
@@ -349,8 +370,43 @@ export async function createGranotRun(input: CreateGranotRunInput): Promise<Gran
   );
 }
 
-export async function fetchGranotAutomationSources(): Promise<GranotAutomationSource[]> {
-  const data = await request<unknown>("/sources");
+export async function createGranotRunGroup(
+  input: CreateGranotRunGroupInput,
+): Promise<GranotRunGroup> {
+  const data = asRecord(
+    await request<unknown>("/run-groups", {
+      method: "POST",
+      body: JSON.stringify({
+        operations: input.operations,
+        workflow: input.workflow,
+        from: toGranotApiDate(input.from),
+        to: toGranotApiDate(input.to),
+        source_ids: input.source_ids,
+        ...(input.filters ? { filters: input.filters } : {}),
+      }),
+    }),
+  );
+  return {
+    run_group_id: stringValue(data.run_group_id) ?? "",
+    runs: Array.isArray(data.runs)
+      ? data.runs.map((value) => {
+          const run = asRecord(value);
+          return {
+            run_id: stringValue(run.run_id, run.id, run._id) ?? "",
+            operation: stringValue(run.operation) as GranotOperation,
+            source_labels: stringArray(run.source_labels),
+          };
+        })
+      : [],
+  };
+}
+
+export async function fetchGranotAutomationSources(
+  operation?: GranotOperation,
+): Promise<GranotAutomationSource[]> {
+  const data = await request<unknown>(
+    `/runs/sources${operation ? `?operation=${encodeURIComponent(operation)}` : ""}`,
+  );
   return Array.isArray(data)
     ? data
         .map((value) => {
@@ -359,6 +415,10 @@ export async function fetchGranotAutomationSources(): Promise<GranotAutomationSo
             id: stringValue(source.id, source._id) ?? "",
             label: stringValue(source.label) ?? "",
             active: source.active !== false,
+            supported_operations: stringArray(source.supported_operations).filter(
+              (operation): operation is GranotOperation =>
+                operation === "form_leads" || operation === "call_leads",
+            ),
             created_from: source.created_from === "admin" ? "admin" as const : "seed" as const,
             created_at: stringValue(source.created_at, source.createdAt),
           };
@@ -368,32 +428,39 @@ export async function fetchGranotAutomationSources(): Promise<GranotAutomationSo
 }
 
 export async function createGranotAutomationSource(
-  label: string,
+  input: {
+    label: string;
+    supported_operations: GranotOperation[];
+  },
 ): Promise<GranotAutomationSource> {
   const source = asRecord(
-    await request<unknown>("/sources", {
+    await request<unknown>("/runs/sources", {
       method: "POST",
-      body: JSON.stringify({ label }),
+      body: JSON.stringify(input),
     }),
   );
   return {
     id: stringValue(source.id, source._id) ?? "",
-    label: stringValue(source.label) ?? label,
+    label: stringValue(source.label) ?? input.label,
     active: source.active !== false,
+    supported_operations: stringArray(source.supported_operations).filter(
+      (operation): operation is GranotOperation =>
+        operation === "form_leads" || operation === "call_leads",
+    ),
     created_from: source.created_from === "seed" ? "seed" : "admin",
     created_at: stringValue(source.created_at, source.createdAt),
   };
 }
 
 export async function fetchGranotRuns(): Promise<GranotRun[]> {
-  const data = await request<unknown>("");
+  const data = await request<unknown>("/runs");
   const runs = Array.isArray(data) ? data : asRecord(data).runs;
   return Array.isArray(runs) ? runs.map(normalizeGranotRun) : [];
 }
 
 export async function fetchGranotRun(runId: string): Promise<GranotRun> {
   return normalizeGranotRun(
-    await request<unknown>(`/${encodeURIComponent(runId)}?details=owner`),
+    await request<unknown>(`/runs/${encodeURIComponent(runId)}?details=owner`),
   );
 }
 
@@ -401,7 +468,7 @@ export async function approveGranotRun(
   input: ApproveGranotRunInput,
 ): Promise<GranotApprovalAck> {
   const data = asRecord(
-    await request<unknown>(`/${encodeURIComponent(input.runId)}/approve`, {
+    await request<unknown>(`/runs/${encodeURIComponent(input.runId)}/approve`, {
       method: "POST",
       body: JSON.stringify({
         plan_checksum: input.plan_checksum,

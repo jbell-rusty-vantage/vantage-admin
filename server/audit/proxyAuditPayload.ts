@@ -404,6 +404,7 @@ function sanitizeGranotAutomationAuditBody(
 
   if (normalized === `${GRANOT_AUTOMATION_PREFIX}/runs` && method === "POST") {
     const sourceLabels = record.source_labels ?? record.sourceLabels;
+    const sourceIds = record.source_ids ?? record.sourceIds;
     return {
       operation: "granot_run_create",
       granot_operation: readString(record.operation),
@@ -411,6 +412,29 @@ function sanitizeGranotAutomationAuditBody(
       from: readString(record.from),
       to: readString(record.to),
       source_label_count: Array.isArray(sourceLabels) ? sourceLabels.length : 0,
+      source_id_count: Array.isArray(sourceIds) ? sourceIds.length : 0,
+      filters_present: hasValue(record.filters),
+    };
+  }
+
+  if (
+    normalized === `${GRANOT_AUTOMATION_PREFIX}/run-groups` &&
+    method === "POST"
+  ) {
+    const operations = Array.isArray(record.operations)
+      ? record.operations.filter(
+          (value): value is string =>
+            value === "form_leads" || value === "call_leads",
+        )
+      : [];
+    const sourceIds = record.source_ids ?? record.sourceIds;
+    return {
+      operation: "granot_run_group_create",
+      granot_operations: operations,
+      workflow: readString(record.workflow),
+      from: readString(record.from),
+      to: readString(record.to),
+      source_id_count: Array.isArray(sourceIds) ? sourceIds.length : 0,
       filters_present: hasValue(record.filters),
     };
   }

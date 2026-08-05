@@ -4,6 +4,7 @@ import {
   approveGranotRun,
   createGranotAutomationSource,
   createGranotRun,
+  createGranotRunGroup,
   fetchGranotAutomationSources,
   fetchGranotRun,
   fetchGranotRuns,
@@ -59,6 +60,7 @@ test("Granot source catalog lists and creates exact labels through the proxy", a
         id: "source-1",
         label: "TBM Forms",
         active: true,
+        supported_operations: ["form_leads"],
         created_from: "seed",
       },
     ],
@@ -73,16 +75,63 @@ test("Granot source catalog lists and creates exact labels through the proxy", a
       id: "source-2",
       label: "New Exact Label",
       active: true,
+      supported_operations: ["form_leads", "call_leads"],
       created_from: "admin",
     },
   }, 201);
-  const created = await createGranotAutomationSource("New Exact Label");
+  const created = await createGranotAutomationSource({
+    label: "New Exact Label",
+    supported_operations: ["form_leads", "call_leads"],
+  });
   assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-automation/runs/sources");
   assert.equal(calls[0]?.init?.method, "POST");
   assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
     label: "New Exact Label",
+    supported_operations: ["form_leads", "call_leads"],
   });
   assert.equal(created.label, "New Exact Label");
+  assert.deepEqual(created.supported_operations, ["form_leads", "call_leads"]);
+});
+
+test("run group creation submits both workflows in one request", async () => {
+  const calls = mockFetch({
+    ok: true,
+    data: {
+      run_group_id: "group-1",
+      runs: [
+        {
+          run_id: "run-form",
+          operation: "form_leads",
+          source_labels: ["TBM Forms"],
+        },
+        {
+          run_id: "run-call",
+          operation: "call_leads",
+          source_labels: ["10best Inbounds"],
+        },
+      ],
+    },
+  }, 202);
+  const result = await createGranotRunGroup({
+    from: "2026-08-01",
+    to: "2026-08-05",
+    operations: ["form_leads", "call_leads"],
+    workflow: "apply",
+    source_ids: ["source-form", "source-call"],
+  });
+  assert.equal(
+    calls[0]?.input,
+    "/api/proxy/api/v1/admin/granot-automation/run-groups",
+  );
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    operations: ["form_leads", "call_leads"],
+    workflow: "apply",
+    from: "08/01/2026",
+    to: "08/05/2026",
+    source_ids: ["source-form", "source-call"],
+  });
+  assert.equal(result.run_group_id, "group-1");
+  assert.equal(result.runs.length, 2);
 });
 
 test("detail requests owner fields and normalizes the server safeRun payload", async () => {
@@ -227,7 +276,11 @@ test("source duplicate response preserves its stable error code", async () => {
     error: "Granot automation source already exists: TBM Forms",
   }, 409);
   await assert.rejects(
-    () => createGranotAutomationSource("TBM Forms"),
+    () =>
+      createGranotAutomationSource({
+        label: "TBM Forms",
+        supported_operations: ["form_leads"],
+      }),
     (error: unknown) => {
       assert.ok(error instanceof GranotAutomationApiError);
       assert.equal(error.code, "GRANOT_SOURCE_ALREADY_EXISTS");
@@ -239,6 +292,7 @@ test("source duplicate response preserves its stable error code", async () => {
 test("normalizer tolerates a minimal create response", () => {
   assert.deepEqual(normalizeGranotRun({ run_id: "run-5", status: "queued" }), {
     run_id: "run-5",
+    run_group_id: undefined,
     status: "queued",
     operation: undefined,
     workflow: undefined,

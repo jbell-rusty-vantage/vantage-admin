@@ -287,9 +287,59 @@ test("Granot create audit labels operation without persisting exact source label
     from: "08/01/2026",
     to: "08/05/2026",
     source_label_count: 2,
+    source_id_count: 0,
     filters_present: true,
   });
   assertProxyAuditPayloadSafe(payload, ["Distinctive Source Label", "555-sensitive"]);
+});
+
+test("Granot single-run source-ID audit stores only the source count", () => {
+  const payload = buildProxyAuditRequestPayload({
+    method: "POST",
+    path: "api/v1/admin/granot-automation/runs",
+    body: {
+      operation: "form_leads",
+      workflow: "preview",
+      from: "08/01/2026",
+      to: "08/05/2026",
+      source_ids: ["sensitive-source-id"],
+    },
+  });
+
+  assert.equal(payload.source_label_count, 0);
+  assert.equal(payload.source_id_count, 1);
+  assertProxyAuditPayloadSafe(payload, ["sensitive-source-id"]);
+});
+
+test("Granot run-group audit records workflow counts without source identities", () => {
+  const payload = buildProxyAuditRequestPayload({
+    method: "POST",
+    path: "api/v1/admin/granot-automation/run-groups",
+    body: {
+      operations: ["form_leads", "call_leads"],
+      workflow: "apply",
+      from: "08/01/2026",
+      to: "08/05/2026",
+      source_ids: ["sensitive-source-id-1", "sensitive-source-id-2"],
+      filters: { department: "sensitive-department" },
+    },
+  });
+
+  assert.deepEqual(payload, {
+    method: "POST",
+    path: "api/v1/admin/granot-automation/run-groups",
+    operation: "granot_run_group_create",
+    granot_operations: ["form_leads", "call_leads"],
+    workflow: "apply",
+    from: "08/01/2026",
+    to: "08/05/2026",
+    source_id_count: 2,
+    filters_present: true,
+  });
+  assertProxyAuditPayloadSafe(payload, [
+    "sensitive-source-id-1",
+    "sensitive-department",
+  ]);
 });
 
 test("Granot approval audit fingerprints checksum and stores only selected action count", () => {
