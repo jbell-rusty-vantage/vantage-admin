@@ -15,6 +15,10 @@ import {
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
+import { DestinationSelector } from "@/components/reporting/destination-selector";
+import { GoogleSettingsPanel } from "@/components/reporting/google-settings-panel";
+import { InternalReportingLink } from "@/components/reporting/reporting-links";
+import { RunStatusBadge } from "@/components/reporting/reporting-status";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
@@ -235,7 +239,11 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
     onSuccess: (result) => {
       if ("status" in result) {
         setMessage(
-          `Run ${result.run_id} queued${result.idempotent_replay ? " (idempotent replay)" : ""}.`,
+          `Run ${result.run_id} queued${result.idempotent_replay ? " (idempotent replay)" : ""}.${
+            result.wakeup_published === false
+              ? " Immediate worker wakeup was unavailable; heartbeat recovery is pending."
+              : ""
+          }`,
         );
         clearRunConfirmation();
         void refresh();
@@ -243,7 +251,7 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
       }
       setConfirmation(result);
       setRunAttempt({ revisionId: result.revision_id, key: result.idempotency_key });
-      setMessage("Fresh run estimate ready. Confirm only after reviewing its impact.");
+      setMessage("Fresh run estimate ready. Confirm only after reviewing destination impact and PII.");
     },
     onError: (error) => setMessage(error.message),
   });
@@ -261,7 +269,11 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
     },
     onSuccess: async (result) => {
       setMessage(
-        `Run ${result.run_id} queued${result.idempotent_replay ? " (idempotent replay)" : ""}. Delivery is handled asynchronously.`,
+        `Run ${result.run_id} queued${result.idempotent_replay ? " (idempotent replay)" : ""}. Delivery runs asynchronously.${
+          result.wakeup_published === false
+            ? " Immediate worker wakeup was unavailable; heartbeat recovery is pending."
+            : ""
+        }`,
       );
       clearRunConfirmation();
       await refresh();
@@ -307,11 +319,22 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
       {!owner ? (
         <FeedbackMessage tone="info">
           <LockKeyhole className="mr-2 inline h-4 w-4" />
-          Read-only admin access. Only an owner can preview, save, archive, or run reports.
+          Read-only admin access. Only an owner can connect Google, manage destinations, preview,
+          save, archive, or run reports.
         </FeedbackMessage>
       ) : null}
       {message ? <FeedbackMessage>{message}</FeedbackMessage> : null}
       {loadingError ? <FeedbackMessage tone="error">{loadingError.message}</FeedbackMessage> : null}
+
+      {!definitionId && owner ? <GoogleSettingsPanel /> : null}
+
+      {!definitionId ? (
+        <div className="flex flex-wrap gap-3 text-sm">
+          <InternalReportingLink href="/reporting/destinations">
+            Manage destinations
+          </InternalReportingLink>
+        </div>
+      ) : null}
 
       {draft && selectedDataset ? (
         <Builder
@@ -333,6 +356,7 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
           catalog={catalog.data!.datasets}
           canChangeDataset={!definitionId}
           dateWindowContract={catalog.data!.date_window}
+          owner={owner}
         />
       ) : definitionId ? (
         <DefinitionDetail
@@ -408,8 +432,18 @@ function ReportingOverview({
         <CardContent className="space-y-3">
           {runs.slice(0, 12).map((run) => (
             <div key={run.id ?? run._id} className="rounded-md border border-steel-100 p-3">
-              <div className="flex justify-between gap-3"><span className="font-mono text-xs text-navy">{run.id ?? run._id}</span><StatusBadge value={run.status} /></div>
-              <p className="mt-1 text-xs text-steel">{formatDate(run.created_at)} · {run.actual_rows ?? run.estimated_rows ?? "—"} rows</p>
+              <div className="flex justify-between gap-3">
+                <Link
+                  className="font-mono text-xs text-trust-blue hover:underline"
+                  href={`/reporting/runs/${run.id ?? run._id}`}
+                >
+                  {run.id ?? run._id}
+                </Link>
+                <RunStatusBadge value={run.status} />
+              </div>
+              <p className="mt-1 text-xs text-steel">
+                {formatDate(run.created_at)} · {run.actual_rows ?? run.estimated_rows ?? "—"} rows
+              </p>
             </div>
           ))}
           {!runs.length ? <p className="text-sm text-steel">No reporting runs.</p> : null}
@@ -434,6 +468,7 @@ type BuilderProps = {
   catalog: ReportingCatalogDataset[];
   canChangeDataset: boolean;
   dateWindowContract: Awaited<ReturnType<typeof fetchReportingCatalog>>["date_window"];
+  owner: boolean;
 };
 
 function Builder(props: BuilderProps) {
@@ -608,17 +643,7 @@ function Builder(props: BuilderProps) {
             <p className="mt-2 text-xs text-steel">The server appends required tie-breakers: {dataset.required_tie_breakers.map((term) => `${term.id} ${term.direction}`).join(", ")}. They cannot be edited or included in clone owner sorting.</p>
           </section>
 
-          <section>
-            <h3 className="font-heading text-lg font-semibold text-navy">6. Destination reference</h3>
-            <p className="text-sm text-steel">Enter the ID and checksum of a snapshot already registered with the server destination port. The strict draft contract does not accept client-supplied destination JSON.</p>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <label className="text-sm font-semibold">Destination ID<Input className="mt-1" value={draft.destination_id} onChange={(event) => patch({ destination_id: event.target.value })} /></label>
-              <label className="text-sm font-semibold">Strategy
-                <select className={`${fieldClass} mt-1`} value={draft.strategy} onChange={(event) => patch({ strategy: event.target.value as "snapshot" | "replace_tab" })}><option value="snapshot">Snapshot workbook</option><option value="replace_tab">Replace managed tab</option></select>
-              </label>
-              <label className="text-sm font-semibold md:col-span-2">Destination snapshot checksum<Input className="mt-1 font-mono" value={draft.destination_snapshot_checksum} onChange={(event) => patch({ destination_snapshot_checksum: event.target.value })} /></label>
-            </div>
-          </section>
+          <DestinationSelector draft={draft} onChange={onChange} owner={props.owner} />
         </CardContent>
       </Card>
 
@@ -796,16 +821,12 @@ function DefinitionDetail({
   return <div className="space-y-6">
     <Card><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle>Current revision #{revision.revision_number}</CardTitle><CardDescription>{displayName(revision.dataset_key)} @ {revision.dataset_schema_version} · {revision.revision_snapshot_checksum}</CardDescription></div>{owner && definition.state === "active" ? <div className="flex gap-2"><Button variant="outline" onClick={onEdit}>Create new revision</Button><Button variant="destructive" disabled={busy} onClick={onArchive}>Archive</Button></div> : null}</div></CardHeader><CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"><Metric label="Timezone" value={revision.draft.timezone} /><Metric label="Window" value={windowLabel(revision.draft.date_window_spec)} /><Metric label="Window policy" value={windowPolicy(revision.draft.date_window_spec)} /><Metric label="Columns" value={revision.draft.selected_columns.length} /><Metric label="Sources" value={revision.draft.source_selection.length} /><Metric label="Strategy" value={revision.draft.strategy} /><Metric label="Destination" value={revision.draft.destination_id} /><Metric label="Sample evidence" value={revision.sample_evidence ?? "—"} /><Metric label="Created" value={formatDate(revision.created_at)} /></CardContent></Card>
 
-    {owner && definition.state === "active" ? <Card><CardHeader><CardTitle>Run current revision</CardTitle><CardDescription>Two steps are required: fetch a fresh estimate, then explicitly confirm the immutable revision.</CardDescription></CardHeader><CardContent className="space-y-4">{confirmation ? <><div className="grid gap-3 md:grid-cols-5"><Metric label={confirmation.estimate.kind === "upper_bound" ? "Fresh upper-bound rows" : "Fresh exact rows"} value={confirmation.estimate.rows} /><Metric label={confirmation.estimate.kind === "upper_bound" ? "Maximum cells" : "Exact cells"} value={confirmation.estimate.cells_including_header} /><Metric label="Warnings" value={confirmation.warnings.length} /><Metric label="Confirmation ID" value={confirmation.confirmation_id} /><Metric label="Expires" value={formatDate(confirmation.expires_at)} /></div>{confirmation.estimate.kind === "upper_bound" ? <FeedbackMessage tone="info">{confirmation.estimate.explanation ?? "This is a safe upper bound; actual run volume may be lower."}</FeedbackMessage> : null}<FeedbackMessage tone="warning">Confirming queues one manual run for revision #{revision.revision_number}. It does not run a query or write Google data in this request.</FeedbackMessage><Button disabled={busy} onClick={onConfirmRun}><Play className="mr-2 h-4 w-4" /> Confirm and queue run</Button></> : <Button disabled={busy} onClick={onPrepareRun}>Review fresh estimate</Button>}</CardContent></Card> : null}
+    {owner && definition.state === "active" ? <Card><CardHeader><CardTitle>Run current revision</CardTitle><CardDescription>Two steps: fetch a fresh estimate with destination/strategy impact, then explicitly confirm the immutable revision. Queued runs continue if you leave this page.</CardDescription></CardHeader><CardContent className="space-y-4">{confirmation ? <><div className="grid gap-3 md:grid-cols-5"><Metric label={confirmation.estimate.kind === "upper_bound" ? "Fresh upper-bound rows" : "Fresh exact rows"} value={confirmation.estimate.rows} /><Metric label={confirmation.estimate.kind === "upper_bound" ? "Maximum cells" : "Exact cells"} value={confirmation.estimate.cells_including_header} /><Metric label="Warnings" value={confirmation.warnings.length} /><Metric label="Confirmation ID" value={confirmation.confirmation_id} /><Metric label="Expires" value={formatDate(confirmation.expires_at)} /></div>{confirmation.estimate.kind === "upper_bound" ? <FeedbackMessage tone="info">{confirmation.estimate.explanation ?? "This is a safe upper bound; actual run volume may be lower."}</FeedbackMessage> : null}<details className="rounded border border-steel-100 p-3 text-sm"><summary className="cursor-pointer font-semibold text-navy">Intended Google mutations</summary><pre className="mt-2 overflow-auto text-xs">{JSON.stringify(confirmation.intended_changes, null, 2)}</pre></details><FeedbackMessage tone="warning">Confirming queues one manual run for revision #{revision.revision_number} ({revision.draft.strategy}). PII may appear in the authorized Google artifact.</FeedbackMessage><Button disabled={busy} onClick={onConfirmRun}><Play className="mr-2 h-4 w-4" /> Confirm and queue run</Button></> : <Button disabled={busy} onClick={onPrepareRun}>Review fresh estimate</Button>}</CardContent></Card> : null}
 
-    <div className="grid gap-6 xl:grid-cols-2"><Card><CardHeader><CardTitle>Revision history</CardTitle></CardHeader><CardContent className="space-y-2">{detail.revisions.map((item) => <div key={item.id ?? item._id} className="rounded-md border border-steel-100 p-3"><div className="flex justify-between"><strong>Revision #{item.revision_number}</strong><span className="text-xs text-steel">{formatDate(item.created_at)}</span></div><p className="mt-1 truncate font-mono text-xs text-steel">{item.revision_snapshot_checksum}</p>{item.sample_evidence ? <p className="mt-1 truncate font-mono text-xs text-steel">Sample evidence: {item.sample_evidence}</p> : null}</div>)}</CardContent></Card><Card><CardHeader><CardTitle>Run history</CardTitle></CardHeader><CardContent className="space-y-2">{runs.map((run) => <div key={run.id ?? run._id} className="rounded-md border border-steel-100 p-3"><div className="flex justify-between"><span className="font-mono text-xs">{run.id ?? run._id}</span><StatusBadge value={run.status} /></div><p className="mt-1 text-xs text-steel">{formatDate(run.created_at)} · revision {run.definition_revision_id}</p>{run.failure ? <p className="mt-1 text-xs text-red-700">{run.failure.summary ?? run.failure.code}</p> : null}</div>)}{!runs.length ? <p className="text-sm text-steel">No runs for this definition.</p> : null}</CardContent></Card></div>
+    <div className="grid gap-6 xl:grid-cols-2"><Card><CardHeader><CardTitle>Revision history</CardTitle></CardHeader><CardContent className="space-y-2">{detail.revisions.map((item) => <div key={item.id ?? item._id} className="rounded-md border border-steel-100 p-3"><div className="flex justify-between"><strong>Revision #{item.revision_number}</strong><span className="text-xs text-steel">{formatDate(item.created_at)}</span></div><p className="mt-1 truncate font-mono text-xs text-steel">{item.revision_snapshot_checksum}</p>{item.sample_evidence ? <p className="mt-1 truncate font-mono text-xs text-steel">Sample evidence: {item.sample_evidence}</p> : null}</div>)}</CardContent></Card><Card><CardHeader><CardTitle>Run history</CardTitle></CardHeader><CardContent className="space-y-2">{runs.map((run) => <div key={run.id ?? run._id} className="rounded-md border border-steel-100 p-3"><div className="flex justify-between gap-2"><Link className="font-mono text-xs text-trust-blue hover:underline" href={`/reporting/runs/${run.id ?? run._id}`}>{run.id ?? run._id}</Link><RunStatusBadge value={run.status} /></div><p className="mt-1 text-xs text-steel">{formatDate(run.created_at)} · revision {run.definition_revision_id}</p>{run.failure ? <p className="mt-1 text-xs text-red-700">{run.failure.summary ?? run.failure.code}{run.failure.metadata?.remediation ? ` — ${run.failure.metadata.remediation}` : ""}</p> : null}</div>)}{!runs.length ? <p className="text-sm text-steel">No runs for this definition.</p> : null}</CardContent></Card></div>
   </div>;
 }
 
 function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return <div className="rounded-md border border-steel-100 bg-white p-3"><p className="text-xs font-bold uppercase tracking-wide text-steel">{label}</p><p className="mt-1 wrap-break-word font-semibold text-navy">{value}</p></div>;
-}
-
-function StatusBadge({ value }: { value: string }) {
-  return <span className="rounded-full bg-steel-100 px-2 py-1 text-xs font-bold uppercase text-navy">{value}</span>;
 }

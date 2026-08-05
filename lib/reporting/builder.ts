@@ -72,6 +72,14 @@ export function idempotencyKeyForRunAttempt(
   return current?.revisionId === revisionId ? current.key : createKey();
 }
 
+export function idempotencyKeyForCancelAttempt(
+  current: { runId: string; key: string } | null,
+  runId: string,
+  createKey: () => string = () => crypto.randomUUID(),
+): string {
+  return current?.runId === runId ? current.key : createKey();
+}
+
 export function validateDraft(draft: ReportingDefinitionDraft): string[] {
   const issues: string[] = [];
   if (!draft.name.trim()) issues.push("Name is required.");

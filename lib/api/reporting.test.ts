@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  cancelReportingRun,
   confirmReportingRun,
   cloneReportingDefinition,
   createReportingDefinition,
   createReportingRevision,
+  fetchReportingRun,
   normalizeReportingCatalog,
   normalizeReportingDefinitionDetail,
   prepareReportingRun,
@@ -157,6 +159,8 @@ test("preview routes and bodies match create-draft and existing-definition contr
   );
   assert.deepEqual(JSON.parse(String(calls[1]?.init?.body)), { draft: wireDraft });
   assert.equal(createPreview.sample_evidence, "opaque-sample-evidence");
+  assert.equal(createPreview.capacity.provider_max_cells, 10_000_000);
+  assert.equal(createPreview.capacity.destination_available_cells, 100);
 });
 
 test("explicit and rolling windows serialize as strict discriminated wire shapes", () => {
@@ -423,6 +427,63 @@ test("run step one maps an idempotent queued replay", async () => {
   }
 });
 
+test("run detail and cancel clients use reporting run routes", async () => {
+  const detailStub = stubFetch(
+    ok({
+      _id: "run-1",
+      definition_id: definitionId,
+      definition_revision_id: revisionId,
+      revision_snapshot_checksum: checksum,
+      status: "writing",
+      trigger: "manual",
+      created_at: "2026-08-04T10:00:00.000Z",
+      progress: {
+        phase: "writing",
+        page_number: 2,
+        row_count: 100,
+        checksum_accumulator: checksum,
+        cancellation_requested: false,
+      },
+      delivery: {
+        run_id: "run-1",
+        strategy: "snapshot",
+        status: "writing",
+        progress: { rows_written: 100, provider_retries: 1 },
+      },
+    }),
+  );
+  try {
+    const run = await fetchReportingRun("run-1");
+    assert.equal(run.progress?.phase, "writing");
+    assert.equal(run.delivery?.progress?.provider_retries, 1);
+  } finally {
+    detailStub.restore();
+  }
+
+  const cancelStub = stubFetch(
+    ok({
+      runId: "run-1",
+      cancellation: "cancel_requested",
+      runStatus: "writing",
+    }),
+  );
+  try {
+    const result = await cancelReportingRun("run-1", "cancel-key");
+    assert.equal(result.cancellation, "cancel_requested");
+    assert.equal(cancelStub.calls.length, 1);
+    assert.equal(cancelStub.calls[0]?.init?.method, "POST");
+    assert.deepEqual(JSON.parse(String(cancelStub.calls[0]?.init?.body)), {
+      idempotencyKey: "cancel-key",
+    });
+  } finally {
+    cancelStub.restore();
+  }
+  assert.equal(
+    cancelStub.calls[0]?.url,
+    "/api/proxy/api/v1/admin/reporting/runs/run-1/cancel",
+  );
+});
+
 function previewResponse() {
   return ok({
     previewId,
@@ -430,7 +491,12 @@ function previewResponse() {
     previewChecksum: checksum,
     estimate: { kind: "exact", rows: 1 },
     projected: { rows: 2, columns: 1, cellsIncludingHeader: 2 },
-    capacity: { applicableLimit: 100, remainingCells: 98 },
+    capacity: {
+      providerMaxCells: 10_000_000,
+      destinationAvailableCells: 100,
+      applicableLimit: 100,
+      remainingCells: 98,
+    },
     batches: { queryPages: 1, writeBatches: 1 },
     sampleRows: [],
     sampleEvidence: "opaque-sample-evidence",

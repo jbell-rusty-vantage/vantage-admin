@@ -284,13 +284,62 @@ test("admin can read reporting but every reporting mutation is owner-only", () =
     }),
     true,
   );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "GET",
+      path: "api/v1/admin/reporting/destinations/dest-1",
+    }),
+    true,
+  );
   for (const path of [
     "api/v1/admin/reporting/definitions",
     "api/v1/admin/reporting/definitions/report-1/preview",
     "api/v1/admin/reporting/definitions/report-1/revisions",
     "api/v1/admin/reporting/definitions/report-1/run",
+    "api/v1/admin/reporting/destinations",
+    "api/v1/admin/reporting/destinations/dest-1/verify",
+    "api/v1/admin/reporting/runs/run-1/cancel",
   ]) {
     assert.equal(canProxyVantagePath({ role: "admin", method: "POST", path }), false);
     assert.equal(canProxyVantagePath({ role: "owner", method: "POST", path }), true);
   }
+});
+
+test("admin cannot proxy owner-only Google Drive routes", () => {
+  for (const path of [
+    "api/v1/admin/google-drive/status",
+    "api/v1/admin/google-drive/oauth/authorize",
+    "api/v1/admin/google-drive/picker/bootstrap",
+    "api/v1/admin/google-drive/picker/selections/verify",
+    "api/v1/admin/google-drive/folders",
+    "api/v1/admin/google-drive/test-spreadsheet",
+    "api/v1/admin/google-drive/connection",
+  ]) {
+    assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path }), false);
+    assert.equal(canProxyVantagePath({ role: "admin", method: "POST", path }), false);
+    assert.equal(canProxyVantagePath({ role: "admin", method: "DELETE", path }), false);
+    assert.equal(canProxyVantagePath({ role: "owner", method: "GET", path }), true);
+    assert.equal(canProxyVantagePath({ role: "owner", method: "POST", path }), true);
+    assert.equal(canProxyVantagePath({ role: "owner", method: "DELETE", path }), true);
+  }
+});
+
+test("admin cannot mutate reporting destinations including archive delete", () => {
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "DELETE",
+      path: "api/v1/admin/reporting/destinations/dest-1",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "owner",
+      method: "DELETE",
+      path: "api/v1/admin/reporting/destinations/dest-1",
+    }),
+    true,
+  );
 });

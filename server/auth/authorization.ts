@@ -41,6 +41,7 @@ const REGISTRY_READ_PREVIEW_POST_PATHS = new Set([
 ]);
 
 const REPORTING_PREFIX = "/api/v1/admin/reporting";
+const GOOGLE_DRIVE_PREFIX = "/api/v1/admin/google-drive";
 
 export function canAccessDashboardPath(role: AdminRole, pathname: string): boolean {
   if (role === "owner") {
@@ -88,6 +89,11 @@ export function canProxyVantagePath(input: {
   // Reporting metadata is readable by admins; every preview/revision/run mutation is Owner-only.
   if (path === REPORTING_PREFIX || path.startsWith(`${REPORTING_PREFIX}/`)) {
     return input.method === "GET";
+  }
+
+  // Google Drive OAuth/Picker routes are owner-only on the server; block admin at the proxy too.
+  if (path === GOOGLE_DRIVE_PREFIX || path.startsWith(`${GOOGLE_DRIVE_PREFIX}/`)) {
+    return false;
   }
 
   // Registry Owner-only rules override legacy admin write allowances for agents/merchants.

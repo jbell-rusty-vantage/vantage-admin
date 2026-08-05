@@ -251,9 +251,77 @@ export type ReportingRun = {
   created_at: string;
   started_at?: string | null;
   completed_at?: string | null;
-  failure?: { code?: string; summary?: string; retryable?: boolean } | null;
+  failure?: ReportingRunFailure | null;
   confirmation?: ReportingRunConfirmation;
+  progress?: ReportingRunProgress | null;
+  delivery?: ReportingDelivery | null;
+  final_data_checksum?: string | null;
+  counters?: Record<string, unknown> | null;
+  estimate?: Record<string, unknown> | null;
+  actual?: Record<string, unknown> | null;
 };
+
+export type ReportingRunFailure = {
+  code?: string;
+  summary?: string;
+  retryable?: boolean;
+  metadata?: {
+    phase?: string;
+    remediation?: string;
+    attempt?: number;
+    page_number?: number;
+    row_count?: number;
+    batch_number?: number;
+    provider_status?: number;
+    [key: string]: unknown;
+  };
+};
+
+export type ReportingRunProgress = {
+  phase?: string | null;
+  page_number?: number | null;
+  row_count?: number | null;
+  checksum_accumulator?: string | null;
+  cancellation_requested?: boolean;
+};
+
+export type ReportingDelivery = {
+  run_id?: string;
+  destination_id?: string;
+  strategy?: ReportingDestinationStrategy;
+  status?: string;
+  workbook_id?: string | null;
+  workbook_url?: string | null;
+  staging_sheet_id?: number | null;
+  published_sheet_id?: number | null;
+  published_sheet_title?: string | null;
+  old_sheet_id?: number | null;
+  expected?: Record<string, unknown> | null;
+  actual?: Record<string, unknown> | null;
+  verification?: Record<string, unknown> | null;
+  progress?: {
+    next_write_row?: number | null;
+    completed_batch_number?: number | null;
+    rows_written?: number | null;
+    cells_written?: number | null;
+    provider_requests?: number | null;
+    provider_retries?: number | null;
+    promotion_step?: string | null;
+  } | null;
+  cleanup?: {
+    state?: string | null;
+    attempts?: number | null;
+    last_error_code?: string | null;
+  } | null;
+  failure?: ReportingRunFailure | null;
+  completed_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type ReportingDestinationStrategy = "replace_tab" | "snapshot";
+
+export type ReportingRunDetail = ReportingRun;
 
 export type ReportingRunConfirmation = {
   confirmation_token: string;
@@ -274,6 +342,7 @@ export type ReportingQueuedRun = {
   run_id: string;
   status: "queued";
   idempotent_replay: boolean;
+  wakeup_published?: boolean;
   execution_package: Record<string, unknown>;
 };
 
@@ -386,7 +455,12 @@ type WirePreview = {
   previewChecksum: string;
   estimate: { kind: "exact" | "upper_bound"; rows: number; explanation?: string };
   projected: { rows: number; columns: number; cellsIncludingHeader: number };
-  capacity: { applicableLimit: number; remainingCells: number };
+  capacity: {
+    providerMaxCells?: number;
+    destinationAvailableCells?: number;
+    applicableLimit: number;
+    remainingCells: number;
+  };
   batches: { queryPages: number; writeBatches: number };
   sampleRows: Array<Record<string, unknown>>;
   sampleEvidence: string;
@@ -404,12 +478,27 @@ type WireRun = {
   revision_snapshot_checksum: string;
   status: ReportingRunStatus;
   trigger: "manual";
-  estimate?: { rows?: number };
-  actual?: { rows?: number } | null;
+  estimate?: { rows?: number } | Record<string, unknown>;
+  actual?: { rows?: number } | Record<string, unknown> | null;
   created_at: string;
   started_at?: string | null;
   completed_at?: string | null;
-  failure?: ReportingRun["failure"];
+  failure?: ReportingRunFailure;
+  progress?: ReportingRunProgress;
+  delivery?: ReportingDelivery | null;
+  final_data_checksum?: string | null;
+  counters?: Record<string, unknown> | null;
+};
+
+type WireRunDetail = WireRun & {
+  delivery?: ReportingDelivery | null;
+};
+
+type WireCancelRun = {
+  runId: string;
+  cancellation: "cancel_requested" | "already_terminal" | "already_requested" | "not_found";
+  runStatus?: ReportingRunStatus | null;
+  idempotencyKey?: string | null;
 };
 
 type WireRunConfirmation = {
@@ -440,6 +529,7 @@ type WireQueuedRun = {
   status: "queued";
   executionPackage: Record<string, unknown>;
   idempotentReplay: boolean;
+  wakeupPublished?: boolean;
 };
 
 const root = "/api/proxy/api/v1/admin/reporting";
@@ -652,8 +742,10 @@ function normalizePreview(value: WirePreview): ReportingPreview {
     warnings: value.warnings,
     blocking_reasons: [],
     capacity: {
-      provider_max_cells: value.capacity.applicableLimit,
-      destination_available_cells: value.capacity.applicableLimit,
+      provider_max_cells:
+        value.capacity.providerMaxCells ?? value.capacity.applicableLimit,
+      destination_available_cells:
+        value.capacity.destinationAvailableCells ?? value.capacity.applicableLimit,
       remaining_cells: value.capacity.remainingCells,
       fits: value.capacity.remainingCells >= 0,
     },
@@ -668,6 +760,14 @@ function normalizePreview(value: WirePreview): ReportingPreview {
 }
 
 function normalizeRun(value: WireRun): ReportingRun {
+  const estimate =
+    value.estimate && typeof value.estimate === "object" && "rows" in value.estimate
+      ? (value.estimate as { rows?: number })
+      : undefined;
+  const actual =
+    value.actual && typeof value.actual === "object" && "rows" in value.actual
+      ? (value.actual as { rows?: number })
+      : undefined;
   return {
     id: String(value._id),
     _id: String(value._id),
@@ -676,12 +776,18 @@ function normalizeRun(value: WireRun): ReportingRun {
     revision_snapshot_checksum: value.revision_snapshot_checksum,
     status: value.status,
     trigger: value.trigger,
-    estimated_rows: value.estimate?.rows,
-    actual_rows: value.actual?.rows,
+    estimated_rows: estimate?.rows,
+    actual_rows: actual?.rows,
     created_at: new Date(value.created_at).toISOString(),
     started_at: value.started_at,
     completed_at: value.completed_at,
-    failure: value.failure,
+    failure: value.failure ?? null,
+    progress: value.progress ?? null,
+    delivery: value.delivery ?? null,
+    final_data_checksum: value.final_data_checksum ?? null,
+    counters: value.counters ?? null,
+    estimate: value.estimate ?? null,
+    actual: value.actual ?? null,
   };
 }
 
@@ -716,7 +822,14 @@ export const fetchReportingDefinition = async (id: string) =>
 export const fetchReportingRuns = () =>
   request<WireRun[]>("/runs").then((items) => items.map(normalizeRun));
 export const fetchReportingRun = (id: string) =>
-  request<WireRun>(`/runs/${encodeURIComponent(id)}`).then(normalizeRun);
+  request<WireRunDetail>(`/runs/${encodeURIComponent(id)}`).then((value) => normalizeRun(value));
+
+export function cancelReportingRun(runId: string, idempotencyKey: string) {
+  return request<WireCancelRun>(`/runs/${encodeURIComponent(runId)}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ idempotencyKey }),
+  });
+}
 
 export function previewReportingDraft(
   definitionId: string | null,
@@ -785,6 +898,7 @@ function normalizeQueuedRun(value: WireQueuedRun): ReportingQueuedRun {
     run_id: value.runId,
     status: value.status,
     idempotent_replay: value.idempotentReplay,
+    wakeup_published: value.wakeupPublished,
     execution_package: value.executionPackage,
   };
 }

@@ -114,6 +114,11 @@ export const queryKeys = {
     runs: (filters?: QueryFilters) =>
       [...queryKeys.reporting.all, "runs", stableFilters(filters)] as const,
     run: (id: string) => [...queryKeys.reporting.all, "runs", "detail", id] as const,
+    destinations: (state: "active" | "archived" = "active") =>
+      [...queryKeys.reporting.all, "destinations", state] as const,
+    destination: (id: string) =>
+      [...queryKeys.reporting.all, "destinations", "detail", id] as const,
+    googleDrive: () => [...queryKeys.reporting.all, "google-drive", "status"] as const,
   },
   operationsRegistry: {
     all: ["operations-registry"] as const,

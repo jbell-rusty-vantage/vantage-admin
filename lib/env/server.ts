@@ -38,6 +38,17 @@ const serverEnvSchema = z.object({
     .min(16, "VANTAGE_ADMIN_PROXY_SIGNING_SECRET must be at least 16 characters")
     .optional(),
   NEXT_PUBLIC_APP_NAME: z.string().trim().min(1).default("Vantage Admin"),
+}).superRefine((value, context) => {
+  if (
+    process.env.NODE_ENV === "production" &&
+    !value.VANTAGE_ADMIN_PROXY_SIGNING_SECRET
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["VANTAGE_ADMIN_PROXY_SIGNING_SECRET"],
+      message: "VANTAGE_ADMIN_PROXY_SIGNING_SECRET is required in production",
+    });
+  }
 });
 
 

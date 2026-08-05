@@ -3,6 +3,7 @@ import test from "node:test";
 import type { ReportingCatalogDataset, ReportingDefinitionDraft } from "@/lib/api/reporting";
 import {
   defaultColumns,
+  idempotencyKeyForCancelAttempt,
   idempotencyKeyForRunAttempt,
   localDateInTimeZone,
   moveColumn,
@@ -75,6 +76,25 @@ test("one idempotency key is retained across both run steps and retries", () => 
       () => "new",
     ),
     "new",
+  );
+});
+
+test("one idempotency key is retained across cancel retries for the same run", () => {
+  assert.equal(
+    idempotencyKeyForCancelAttempt(
+      { runId: "run-a", key: "cancel-stable-key" },
+      "run-a",
+      () => "new-cancel-key",
+    ),
+    "cancel-stable-key",
+  );
+  assert.equal(
+    idempotencyKeyForCancelAttempt(
+      { runId: "run-a", key: "cancel-stable-key" },
+      "run-b",
+      () => "new-cancel-key",
+    ),
+    "new-cancel-key",
   );
 });
 

@@ -10,7 +10,7 @@ import {
 } from "@/server/auth";
 import { setTrustedAdminHeaders } from "@/server/auth/trustedProxyHeaders";
 import { canProxyVantagePath } from "@/server/auth/authorization";
-import { writeAuditLog } from "@/server/audit";
+import { writeAuditLog, buildProxyAuditRequestPayload, proxyAuditPathname } from "@/server/audit";
 import { requestVantageApi, type VantageApiMethod } from "@/server/vantage-api/client";
 import { VantageApiError } from "@/server/vantage-api/errors";
 
@@ -166,13 +166,13 @@ async function auditProxyRequest(input: {
       admin_user_id: input.admin.id,
       admin_email: input.admin.email,
       action: isExportRequest(input.method, input.path) ? "proxy_export_request" : "proxy_mutation",
-      entity_type: input.path.split("?")[0],
+      entity_type: proxyAuditPathname(input.path),
       database_scope: getDatabaseScope(input.path, input.body),
-      request_payload: {
+      request_payload: buildProxyAuditRequestPayload({
         method: input.method,
         path: input.path,
         body: input.body,
-      },
+      }),
       response_status: input.status,
       ok: input.ok,
       error_message: input.errorMessage,
