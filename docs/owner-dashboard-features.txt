@@ -1,0 +1,166 @@
+VANTAGE ADMIN — OWNER DASHBOARD FEATURES
+Compact reference. Newest features first.
+
+
+================================================================================
+1) GRANOT CRM AUTOMATION  (Ingestion → Granot)
+State: LIVE
+================================================================================
+
+What it does
+  Builds a durable plan of CRM updates for Form Leads and/or Call Leads across
+  selected source companies for a date window, then waits for your approval
+  before writing. After approval it walks each selected source company.
+
+How to use
+  1. Open Ingestion → Granot (owner only).
+  2. Lead types: check Form Leads, Call Leads, or both.
+  3. Source companies: pick which sources to include for each selected lead type
+     (Best Relocation sources stay unchecked by default until you opt in).
+  4. Set From and To dates.
+  5. Choose Preview only, or Preview then allow approved updates.
+  6. Create plan(s). Selecting both lead types creates two plans in one group.
+  7. Open a run awaiting approval. Review actions, confirm the plan checksum,
+     approve the selected actions.
+
+Important
+  Approve and finish one lead-type plan before starting the other. Each approved
+  plan still processes through every selected source company for that lead type.
+
+
+================================================================================
+2) BEST RELOCATION INGESTION  (Ingestion → Best Relocation)
+State: DISABLED (schedule / env gate off). Source wiring is up to date.
+================================================================================
+
+What it does
+  Pulls Best Relocation leads and bookings into Vantage. Once enabled, a cron
+  schedule ingests from 2026-04-30 through current time on the configured cadence
+  (24h or 48h).
+
+How to use (when ready to turn on)
+  1. Open Ingestion → Best Relocation.
+  2. Inspect sources to confirm health.
+  3. If bootstrap is still required: Plan bootstrap → review → Approve exact plan.
+  4. After bootstrap is complete and the deployment gate is enabled: Enable schedule.
+  5. Optional: Preview now for a one-off plan; approve when status is awaiting approval.
+  6. Watch run history and resolve any conflicts shown on the page.
+
+Do not enable until you intentionally want live Best Relocation ingestion.
+
+
+================================================================================
+3) REPORTING  (/reporting)
+State: LIVE. Google Picker API is being fixed (destination folder/sheet picking).
+================================================================================
+
+What it does
+  Create custom Google Sheet report definitions with any time-frame slice
+  (explicit date range or rolling “last N days”). You can scope reports to
+  specific source companies / granularities if you want company-level sheets.
+
+How to use
+  1. Open Reporting.
+  2. Create a definition: pick dataset, name it, set timezone and date window,
+     choose columns, optionally filter to source companies, pick a destination.
+  3. Preview the draft. Fix any blocking warnings.
+  4. Save / revise the definition.
+  5. Prepare a run → review destination impact → Confirm to write the sheet.
+
+Destinations
+  Manage under Reporting → Destinations. Google Picker for choosing folders /
+  spreadsheets is currently being fixed; destinations already registered still work.
+
+
+================================================================================
+4) OPERATIONS REGISTRY  (/operations-registry)  ** IMPORTANT **
+State: LIVE (owner mutations; others read-only)
+================================================================================
+
+What it does
+  Central catalog for the business graph. Create and manage Agents, Merchants,
+  Lead Source Companies (and channel granularities), RingCentral inbound queue
+  numbers, and granular CPL costs. Everything is interconnected: changes
+  propagate into bookings, ingestion recognition, filters, analytics, and
+  reporting source selection.
+
+How to use (tabs)
+  Overview     — counts and health findings.
+  Agents       — create/activate agents so they can be selected on bookings.
+  Merchants    — create/activate merchants so they can be selected on bookings.
+  Sources      — create Lead Source Companies + form/call granularities so
+                 ingestion from a site is recognized and attributable.
+  RingCentral  — create a draft inbound queue number → Validate → activate /
+                 start ingesting once validated.
+  CPL          — set cost-per-lead rates granularly (by source/channel slots);
+                 updates backfill matching leads for analytics.
+  Changes      — audited registry change history.
+
+Rule of thumb: add the registry entity first, then expect dropdowns, ingestion
+recognition, and reports to pick it up across the rest of the dashboard.
+
+
+================================================================================
+OPERATIONAL DATA TABLES
+================================================================================
+
+Form Leads (/form-leads)
+  Browse, filter, open, and edit production form leads.
+
+Duplicate Form Leads (/duplicate-form-leads)
+  Same for form leads marked duplicate.
+
+Call Leads (/call-leads)
+  Browse, filter, open, and edit production call leads.
+
+Duplicate Call Leads (/duplicate-call-leads)
+  Same for call leads marked duplicate.
+
+Bookings (/bookings)
+  Booked jobs. Create via Bookings → New (agent/merchant from registry).
+  Reconciliation available under Bookings when needed.
+
+Cancellations (/cancellations)
+  Cancelled jobs. Create via Cancellations → New.
+
+Testimonials (/testimonials)
+  Customer testimonials records.
+
+Customers (/customers)
+  Customer records linked across leads/bookings.
+
+
+================================================================================
+SUPPORT / VISIBILITY
+================================================================================
+
+Observational (/observational)
+  Server-side events, incidents, notifications, report runner, and sheet-sync
+  health. Use this to see what the backend is doing and investigate issues.
+
+Audit Log (/audit-log)  — owner only
+  Who did what in the admin app (mutations, exports, sensitive actions).
+
+Analytics (/analytics)
+  Summary charts: revenue, source/agent performance, funnel, cancellations, etc.
+
+Agent Sales Report (/reports/agent-sales)
+  Focused agent sales reporting view.
+
+Exports (/exports)
+  CSV downloads for operational datasets.
+
+Search (header)
+  Global search; routes back into the filtered operational lists.
+
+Settings (/settings)  — owner only
+  Owner account / app settings (including CPL management entry points where present).
+
+
+================================================================================
+QUICK STATE SUMMARY (newest four)
+================================================================================
+  Granot CRM Automation ........ LIVE — plan → approve → runs per source
+  Best Relocation Ingestion .... DISABLED — ready; enable when you want cron
+  Reporting .................... LIVE — Picker fix in progress
+  Operations Registry .......... LIVE — create agents/merchants/sources/RC/CPL

@@ -1,13 +1,10 @@
 "use client";
 
 import type { GooglePickerBootstrap } from "@/lib/api/googleDrive";
-
-type PickerDoc = {
-  id: string;
-  name: string;
-  url?: string;
-  parentId?: string;
-};
+import {
+  interpretPickerCallback,
+  type PickerDoc,
+} from "@/lib/google/pickerCallback";
 
 type GooglePickerDocsView = {
   setIncludeFolders: (include: boolean) => GooglePickerDocsView;
@@ -98,6 +95,7 @@ export async function openGooglePicker(input: {
   }
 
   return new Promise((resolve, reject) => {
+    let settled = false;
     const view =
       input.bootstrap.flow === "folder"
         ? new picker.DocsView(picker.ViewId.FOLDERS)
@@ -115,25 +113,19 @@ export async function openGooglePicker(input: {
       .setTitle(input.title)
       .enableFeature(picker.Feature.NAV_HIDDEN)
       .setCallback((data) => {
-        if (data.action === picker.Action.CANCEL) {
+        if (settled) return;
+        const result = interpretPickerCallback(data, picker.Action);
+        if (result.kind === "ignore") return;
+        settled = true;
+        if (result.kind === "cancel") {
           reject(new Error("Picker selection was cancelled."));
           return;
         }
-        if (data.action !== picker.Action.PICKED) {
-          reject(new Error("Unexpected Picker response."));
+        if (result.kind === "error") {
+          reject(new Error(result.message));
           return;
         }
-        const doc = data.docs?.[0];
-        if (!doc?.id) {
-          reject(new Error("Picker did not return a file ID."));
-          return;
-        }
-        resolve({
-          id: doc.id,
-          name: doc.name,
-          url: doc.url,
-          parentId: doc.parentId,
-        });
+        resolve(result.doc);
       })
       .build();
 

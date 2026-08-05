@@ -1,0 +1,106 @@
+VANTAGE ADMIN — EMPLOYEE BOOKING + BOOKING RECONCILIATION
+Compact owner reference. Copy/paste friendly.
+
+
+================================================================================
+1) EMPLOYEE BOOKING  (/employee-booking)
+State: LIVE when PUBLIC EMPLOYEE BOOKING is enabled for the deployment
+================================================================================
+
+What it is
+  Public form (no admin login) for sales staff to record a completed booking.
+  Agents do not pick Mongo IDs or Form vs Call models. They pick a Lead Source;
+  that source decides whether matching runs against form or call leads.
+
+Where
+  URL: /employee-booking
+  Not in the sidebar. Share this link with employees.
+  Dropdown options (sources, agents, merchants) come from Operations Registry
+  active catalogs.
+
+How employees use it
+  1. Open /employee-booking.
+  2. Choose Lead Source (shows Form or Call channel).
+  3. Choose Primary Agent (optional Secondary Agent; must differ from primary).
+  4. Enter Lead Name, Binder, Deposit, Merchant, Phone, Email (optional),
+     LID (optional), Job Number.
+  5. Submit once. Success shows a confirmation code and booking ID.
+
+What happens after submit
+  Booking is created immediately.
+  If a matching lead is found cleanly → lead is connected (booked_and_linked).
+  If matching is unclear or blocked → booking still exists, but lead connection
+  is pending owner review (booked_pending_lead) and a Reconciliation case is
+  opened for you.
+  Duplicate submit of the same sale is detected and not double-booked.
+
+Owner note
+  Keep Agents, Merchants, and Lead Source Companies current in Operations
+  Registry — the employee form only shows active options.
+
+
+================================================================================
+2) BOOKING RECONCILIATION  (/bookings/reconciliation)
+State: LIVE — owner only
+================================================================================
+
+What it is
+  Owner-only queue for bookings that need lead review, correction, or attachment.
+  Main origins:
+    - employee_booking          (from the public employee form)
+    - external_sheet_ingestion  (e.g. Best Relocation / sheet ingest gaps)
+
+How to use
+  1. Open Bookings → Reconciliation (owner only).
+  2. Filter the queue: status (pending / resolved / dismissed), origin, reason,
+     search (job, name, phone, LID, source, booking ID), source company, dates.
+  3. Select a case. Review submission details, booking, reason, and candidates.
+  4. Resolve it with one of these actions:
+
+Resolve actions
+  Attach existing lead
+    Pick a candidate lead and attach it to the booking. Some warnings can be
+    overridden (duplicate, source/channel conflict, etc.). Hard blocks remain
+    (already booked elsewhere, cancelled, already attached).
+
+  Create and attach lead
+    Create a new production Form or Call lead from the submission and attach
+    it in one step when no good candidate exists.
+
+  Dismiss
+    Close the case without attaching. Can be reopened later.
+
+  Reopen
+    Bring a resolved/dismissed case back to pending if needed.
+
+  Refresh candidates
+    Re-run lead matching for the case after data changes.
+
+  Save pending booking
+    Correct booking fields on the case (agent, amounts, merchant, notes, etc.)
+    before or while resolving.
+
+Typical reasons a case appears
+  no_match, multiple_matches, identity_conflict, source_conflict,
+  channel_conflict, duplicate_lead, lead_already_booked, lead_cancelled,
+  matching_unavailable.
+
+Workflow tip
+  Work oldest pending first. Employee bookings that say “Lead connection is
+  pending owner review” land here — attach or create the lead so the booking
+  is fully connected in the system.
+
+
+================================================================================
+HOW THEY CONNECT
+================================================================================
+
+  Employee submits sale
+        → Booking created
+        → Lead auto-linked when clear
+        → Otherwise: Reconciliation case (pending)
+              → Owner attaches / creates lead / dismisses
+              → Case resolved; booking fully linked
+
+Operations Registry feeds both: sources, agents, and merchants on the employee
+form, and source filters / catalogs inside reconciliation.
