@@ -4,6 +4,7 @@ import type { GranotAutomationSource } from "./api/granotAutomation";
 import {
   compatibleGranotSources,
   DEFAULT_GRANOT_OPERATIONS,
+  defaultGranotSourceIds,
   granotSubmitLabel,
   submittedGranotSourceIds,
 } from "./granotAutomationSelection";
@@ -30,31 +31,61 @@ const sources: GranotAutomationSource[] = [
     supported_operations: ["form_leads", "call_leads"],
     created_from: "admin",
   },
+  {
+    id: "best-forms",
+    label: "Best Relocation Forms",
+    active: true,
+    supported_operations: ["form_leads"],
+    created_from: "seed",
+  },
+  {
+    id: "best-calls",
+    label: "BestRelocation Inbounds",
+    active: true,
+    supported_operations: ["call_leads"],
+    created_from: "seed",
+  },
 ];
 
 test("both Granot workflows are the default selection", () => {
   assert.deepEqual(DEFAULT_GRANOT_OPERATIONS, ["form_leads", "call_leads"]);
 });
 
-test("select-all chooses every compatible source exactly once", () => {
+test("default selection chooses every compatible source except Best Relocation", () => {
+  assert.deepEqual(defaultGranotSourceIds(sources, DEFAULT_GRANOT_OPERATIONS), [
+    "form",
+    "call",
+    "both",
+  ]);
   assert.deepEqual(
     submittedGranotSourceIds(sources, DEFAULT_GRANOT_OPERATIONS, null),
     ["form", "call", "both"],
   );
 });
 
+test("explicit select-all can include Best Relocation", () => {
+  assert.deepEqual(
+    submittedGranotSourceIds(
+      sources,
+      DEFAULT_GRANOT_OPERATIONS,
+      sources.map((source) => source.id),
+    ),
+    ["form", "call", "both", "best-forms", "best-calls"],
+  );
+});
+
 test("one workflow excludes incompatible sources", () => {
   assert.deepEqual(
     compatibleGranotSources(sources, ["form_leads"]).map((source) => source.id),
-    ["form", "both"],
+    ["form", "both", "best-forms"],
   );
   assert.deepEqual(
     submittedGranotSourceIds(
       sources,
       ["form_leads"],
-      ["form", "call", "both"],
+      ["form", "call", "both", "best-forms", "best-calls"],
     ),
-    ["form", "both"],
+    ["form", "both", "best-forms"],
   );
 });
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowUp, ChevronDown, Download, Funnel, PanelLeftClose, PanelLeftOpen, Pencil, PlusCircle, Trash2, X, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowUp, ArrowUpRight, ChevronDown, Download, Funnel, PanelLeftClose, PanelLeftOpen, Pencil, PlusCircle, Trash2, X, XCircle } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/data-table/table-shell";
 import { formatDate as formatCalendarDate } from "@/components/data-table/formatters";
 import { SortableHeader } from "@/components/data-table/sortable-header";
@@ -22,6 +22,11 @@ import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import { floridaCalendarDateInputValue } from "@/lib/floridaTime";
 import { Textarea } from "@/components/ui/textarea";
 import { DetailGrid, DetailItem, DetailSection } from "@/components/record-detail/detail-section";
+import {
+  getRelatedNavLinks,
+  linkedContextHref,
+  type RelatedNavLink,
+} from "@/components/operational/related-record-nav";
 import {
   adminExportUrl,
   deleteBookedLead,
@@ -668,6 +673,80 @@ function isLeadResource(resource: UiResource): boolean {
     resource === "call-leads" ||
     resource === "duplicate-call-leads"
   );
+}
+
+function supportsRelatedNav(
+  resource: UiResource,
+): resource is
+  | "form-leads"
+  | "duplicate-form-leads"
+  | "call-leads"
+  | "duplicate-call-leads"
+  | "bookings"
+  | "cancellations" {
+  return (
+    isLeadResource(resource) || resource === "bookings" || resource === "cancellations"
+  );
+}
+
+function relatedNavLinksFor(resource: UiResource, record: AdminRecord): RelatedNavLink[] {
+  if (!supportsRelatedNav(resource)) {
+    return [];
+  }
+  return getRelatedNavLinks(resource, record);
+}
+
+function RelatedNavLinkButton({
+  link,
+  compact = false,
+}: {
+  link: RelatedNavLink;
+  compact?: boolean;
+}) {
+  return (
+    <Link
+      href={link.href}
+      onClick={(event) => event.stopPropagation()}
+      className={
+        compact
+          ? "inline-flex h-8 items-center justify-center gap-1 rounded-md border border-input bg-background px-3 text-xs font-semibold hover:bg-muted"
+          : "inline-flex h-10 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+      }
+    >
+      <ArrowUpRight className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} aria-hidden="true" />
+      {compact ? (link.label === "View booking" ? "Booking" : link.label === "View lead" ? "Lead" : link.label) : link.label}
+    </Link>
+  );
+}
+
+function formatLinkedContextValue(
+  uiResource: UiResource,
+  key: string,
+  record: AdminRecord,
+): React.ReactNode {
+  const value = getValue(record, key);
+  const href = supportsRelatedNav(uiResource)
+    ? linkedContextHref(uiResource, key, record)
+    : null;
+  if (href) {
+    const label =
+      key === "booked" || key === "booked_lead"
+        ? "View booking"
+        : key === "lead_ref"
+          ? "View lead"
+          : key === "cancelled"
+            ? "View cancellation"
+            : key === "customer"
+              ? "View customer"
+              : "Open linked record";
+    return (
+      <Link className="inline-flex items-center gap-1 font-medium text-navy underline-offset-4 hover:underline" href={href}>
+        {label}
+        <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+      </Link>
+    );
+  }
+  return formatPlain(value);
 }
 
 function isLeadRecordWithSourceMetadata(record: AdminRecord): boolean {
@@ -1463,6 +1542,34 @@ function MarkBadLeadControl({
   );
 }
 
+function RelatedRecordsActions({
+  uiResource,
+  record,
+}: {
+  uiResource: UiResource;
+  record: AdminRecord;
+}) {
+  const links = relatedNavLinksFor(uiResource, record);
+  if (links.length === 0) {
+    return null;
+  }
+  const description =
+    uiResource === "bookings"
+      ? "Open the lead that created this booking."
+      : uiResource === "cancellations"
+        ? "Open the booking this cancellation belongs to."
+        : "Open the booking created from this lead.";
+  return (
+    <DetailSection title="Related Records" description={description}>
+      <div className="flex flex-wrap gap-2">
+        {links.map((link) => (
+          <RelatedNavLinkButton key={link.href} link={link} />
+        ))}
+      </div>
+    </DetailSection>
+  );
+}
+
 function WorkflowActions({
   uiResource,
   record,
@@ -1814,11 +1921,16 @@ function DetailPanel({
                 </>
               ) : (
                 ["customer", "booked", "cancelled", "lead_ref", "booked_lead", "related_bookings", "related_cancellations", "recent_bookings"].map((key) => (
-                  <DetailItem key={key} label={key.replaceAll("_", " ")} value={formatPlain(getValue(record, key))} />
+                  <DetailItem
+                    key={key}
+                    label={key.replaceAll("_", " ")}
+                    value={formatLinkedContextValue(uiResource, key, record)}
+                  />
                 ))
               )}
             </DetailGrid>
           </DetailSection>
+          <RelatedRecordsActions uiResource={uiResource} record={record} />
           {uiResource === "customers" ? (
             <CustomerTestimonialsSection customerId={id} customerName={customerName(record)} />
           ) : null}
@@ -1949,6 +2061,27 @@ function buildColumns(
       truncate: truncateTableColumns.has(column.key),
       className: getTableColumnClassName(column),
     }));
+
+  if (supportsRelatedNav(resource)) {
+    columns.unshift({
+      key: "__related",
+      header: "",
+      className: "w-px",
+      cell: (item) => {
+        const links = relatedNavLinksFor(resource, item);
+        if (links.length === 0) {
+          return null;
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {links.map((link) => (
+              <RelatedNavLinkButton key={link.href} link={link} compact />
+            ))}
+          </div>
+        );
+      },
+    });
+  }
 
   const canBook =
     isProduction &&
@@ -2189,6 +2322,28 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
   }, [effectiveFilters.database_scope, items, requestedRecordId, selected]);
   const selectedRecordIsPlaceholder = selectedRecord?.__url_placeholder === true;
   const isProduction = effectiveFilters.database_scope === "production";
+  const selectedRelatedLinks =
+    selectedRecord && !selectedRecordIsPlaceholder
+      ? relatedNavLinksFor(resource, selectedRecord)
+      : [];
+  const showSelectedStartBooking =
+    Boolean(selectedRecord) &&
+    !selectedRecordIsPlaceholder &&
+    isProduction &&
+    !readOnly &&
+    (resource === "form-leads" || resource === "call-leads");
+  const showSelectedStartCancellation =
+    Boolean(selectedRecord) &&
+    !selectedRecordIsPlaceholder &&
+    isProduction &&
+    !readOnly &&
+    ((resource === "bookings" && !isReferralBooking(selectedRecord)) ||
+      resource === "form-leads" ||
+      resource === "call-leads");
+  const showSelectedActionBar =
+    selectedRelatedLinks.length > 0 ||
+    showSelectedStartBooking ||
+    showSelectedStartCancellation;
   const canDelete = dashboardRole === "owner" && isProduction && !readOnly && isDeleteResource(resource);
   const requestDelete = useCallback((target: DeleteTarget) => {
     setDeleteError(null);
@@ -2383,24 +2538,27 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         </div>
       </div>
 
-      {selectedRecord && !selectedRecordIsPlaceholder && isProduction && !readOnly ? (
+      {selectedRecord && !selectedRecordIsPlaceholder && showSelectedActionBar ? (
         <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 gap-2 rounded-lg border bg-background p-2 shadow-lg">
-          {(resource === "form-leads" || resource === "call-leads") ? (
+          {selectedRelatedLinks.map((link) => (
+            <RelatedNavLinkButton key={link.href} link={link} />
+          ))}
+          {showSelectedStartBooking ? (
             <Link
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-navy hover:text-white"
               href={`/bookings/new?${getBookingQuery(resource, selectedRecord)}`}
             >
-                <Pencil className="h-4 w-4" aria-hidden="true" />
-                Start booking
+              <Pencil className="h-4 w-4" aria-hidden="true" />
+              Start booking
             </Link>
           ) : null}
-          {((resource === "bookings" && !isReferralBooking(selectedRecord)) || resource === "form-leads" || resource === "call-leads") ? (
+          {showSelectedStartCancellation ? (
             <Link
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
               href={`/cancellations/new?${getCancellationQuery(resource, selectedRecord)}`}
             >
-                <XCircle className="h-4 w-4" aria-hidden="true" />
-                Start cancellation
+              <XCircle className="h-4 w-4" aria-hidden="true" />
+              Start cancellation
             </Link>
           ) : null}
           <Button variant="outline" onClick={closeSelectedRecord}>Close</Button>

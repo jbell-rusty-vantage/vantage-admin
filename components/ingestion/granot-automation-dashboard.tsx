@@ -392,7 +392,9 @@ export function GranotAutomationDashboard() {
                     type="button"
                     variant="outline"
                     disabled={compatibleSources.length === 0 || allSourcesSelected}
-                    onClick={() => setSelectedSourceIds(null)}
+                    onClick={() =>
+                      setSelectedSourceIds(compatibleSources.map((source) => source.id))
+                    }
                   >
                     Select all compatible sources
                   </Button>

@@ -8,6 +8,12 @@ export const DEFAULT_GRANOT_OPERATIONS: GranotOperation[] = [
   "call_leads",
 ];
 
+/** Exact Granot source labels left unchecked until the operator opts in. */
+export const GRANOT_SOURCES_UNSELECTED_BY_DEFAULT = new Set([
+  "Best Relocation Forms",
+  "BestRelocation Inbounds",
+]);
+
 export function compatibleGranotSources(
   sources: GranotAutomationSource[],
   operations: GranotOperation[],
@@ -19,6 +25,15 @@ export function compatibleGranotSources(
   );
 }
 
+export function defaultGranotSourceIds(
+  sources: GranotAutomationSource[],
+  operations: GranotOperation[],
+): string[] {
+  return compatibleGranotSources(sources, operations)
+    .filter((source) => !GRANOT_SOURCES_UNSELECTED_BY_DEFAULT.has(source.label))
+    .map((source) => source.id);
+}
+
 export function submittedGranotSourceIds(
   sources: GranotAutomationSource[],
   operations: GranotOperation[],
@@ -26,7 +41,7 @@ export function submittedGranotSourceIds(
 ): string[] {
   const compatible = compatibleGranotSources(sources, operations);
   const selected =
-    selectedSourceIds ?? compatible.map((source) => source.id);
+    selectedSourceIds ?? defaultGranotSourceIds(sources, operations);
   const compatibleIds = new Set(compatible.map((source) => source.id));
   return [...new Set(selected.filter((id) => compatibleIds.has(id)))];
 }
