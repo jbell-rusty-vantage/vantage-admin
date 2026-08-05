@@ -85,7 +85,10 @@ test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/form-leads"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry?tab=cpl"), true);
+  assert.equal(canAccessDashboardPath("admin", "/ingestion"), true);
+  assert.equal(canAccessDashboardPath("admin", "/ingestion/granot"), false);
   assert.equal(canAccessDashboardPath("owner", "/settings"), true);
+  assert.equal(canAccessDashboardPath("owner", "/ingestion/granot"), true);
 });
 
 test("admin can read registry endpoints but cannot mutate them", () => {
@@ -342,4 +345,16 @@ test("admin cannot mutate reporting destinations including archive delete", () =
     }),
     true,
   );
+});
+
+test("Granot automation plans and mutations are owner-only", () => {
+  for (const [method, path] of [
+    ["GET", "api/v1/admin/granot-automation/runs"],
+    ["GET", "api/v1/admin/granot-automation/runs/run-1"],
+    ["POST", "api/v1/admin/granot-automation/runs"],
+    ["POST", "api/v1/admin/granot-automation/runs/run-1/approve"],
+  ] as const) {
+    assert.equal(canProxyVantagePath({ role: "admin", method, path }), false);
+    assert.equal(canProxyVantagePath({ role: "owner", method, path }), true);
+  }
 });

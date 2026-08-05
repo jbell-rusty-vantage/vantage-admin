@@ -26,6 +26,7 @@ export const DASHBOARD_PATH_PREFIXES = [
   "/testimonials",
   "/reports",
   "/reporting",
+  "/ingestion",
 ] as const;
 
 export function shouldProtectPath(pathname: string): boolean {

@@ -1,7 +1,12 @@
 import type { AdminRole } from "@/server/models";
 import type { VantageApiMethod } from "@/server/vantage-api/client";
 
-const OWNER_ONLY_PAGE_PREFIXES = ["/audit-log", "/settings", "/bookings/reconciliation"] as const;
+const OWNER_ONLY_PAGE_PREFIXES = [
+  "/audit-log",
+  "/settings",
+  "/bookings/reconciliation",
+  "/ingestion/granot",
+] as const;
 
 const OPERATIONAL_PATCH_PREFIXES = [
   "/api/v1/form-leads/",
@@ -32,6 +37,7 @@ const REGISTRY_OWNER_MUTATION_PREFIXES = [
   "/api/v1/admin/cpl-corrections",
   "/api/v1/admin/ringcentral",
   "/api/v1/admin/ingestion",
+  "/api/v1/admin/granot-automation",
 ] as const;
 
 /** Read-style POSTs that admins may call. CPL correction preview is Owner-only. */
@@ -42,6 +48,7 @@ const REGISTRY_READ_PREVIEW_POST_PATHS = new Set([
 
 const REPORTING_PREFIX = "/api/v1/admin/reporting";
 const GOOGLE_DRIVE_PREFIX = "/api/v1/admin/google-drive";
+const GRANOT_AUTOMATION_PREFIX = "/api/v1/admin/granot-automation";
 
 export function canAccessDashboardPath(role: AdminRole, pathname: string): boolean {
   if (role === "owner") {
@@ -80,6 +87,12 @@ export function canProxyVantagePath(input: {
 
   const path = normalizeProxyPath(input.path);
   if (path.startsWith("/api/v1/admin/booking-lead-reconciliations")) {
+    return false;
+  }
+  if (
+    path === GRANOT_AUTOMATION_PREFIX ||
+    path.startsWith(`${GRANOT_AUTOMATION_PREFIX}/`)
+  ) {
     return false;
   }
   if (input.method === "DELETE") {

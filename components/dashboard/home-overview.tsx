@@ -7,6 +7,7 @@ import {
   BarChart3,
   PhoneCall,
   PlusCircle,
+  RefreshCw,
   Trophy,
   Users,
   XCircle,
@@ -14,6 +15,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { TableLoadingState } from "@/components/data-table/table-states";
+import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import {
   fetchOverviewReport,
   type OverviewAgentRow,
@@ -53,6 +55,12 @@ const quickLinks = [
   { href: "/call-leads", label: "Call Leads", description: "Inbound phone leads", icon: PhoneCall },
   { href: "/bookings", label: "Bookings", description: "Booked deals", icon: PlusCircle },
   { href: "/cancellations", label: "Cancellations", description: "Cancelled deals", icon: XCircle },
+  {
+    href: "/ingestion/granot",
+    label: "Granot Automation",
+    description: "Preview and enrich CRM leads",
+    icon: RefreshCw,
+  },
   { href: "/analytics", label: "Analytics", description: "Charts and trends", icon: BarChart3 },
 ];
 
@@ -252,6 +260,7 @@ function TotalsCards({
 }
 
 export function HomeOverview() {
+  const role = useDashboardRole();
   const { scope } = useDatabaseScope();
   const overviewQuery = useQuery({
     queryKey: queryKeys.dashboard.overview({ database_scope: scope }),
@@ -460,28 +469,30 @@ export function HomeOverview() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {quickLinks.map((link) => {
-                const Icon = link.icon;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="group flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors hover:bg-muted"
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-foreground">
-                      <Icon className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium">{link.label}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{link.description}</span>
-                    </span>
-                    <ArrowRight
-                      className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                );
-              })}
+              {quickLinks
+                .filter((link) => link.href !== "/ingestion/granot" || role === "owner")
+                .map((link) => {
+                  const Icon = link.icon;
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="group flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors hover:bg-muted"
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-foreground">
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium">{link.label}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{link.description}</span>
+                      </span>
+                      <ArrowRight
+                        className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  );
+                })}
             </div>
           </CardContent>
         </Card>

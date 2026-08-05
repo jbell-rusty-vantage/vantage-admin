@@ -13,7 +13,12 @@ import { LogoutButton } from "./logout-button";
 import { ScopeAwareHeaderControls } from "./scope-aware-header-controls";
 
 const sidebarStorageKey = "vantage-admin-sidebar-collapsed";
-const ownerOnlyPagePrefixes = ["/audit-log", "/settings", "/bookings/reconciliation"] as const;
+const ownerOnlyPagePrefixes = [
+  "/audit-log",
+  "/settings",
+  "/bookings/reconciliation",
+  "/ingestion/granot",
+] as const;
 // /operations-registry is intentionally readable by admin roles (mutations gated in UI/proxy).
 
 export function DashboardShell({

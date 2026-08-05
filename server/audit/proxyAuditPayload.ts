@@ -5,6 +5,7 @@ import { redactPayload } from "@/server/audit/auditLog";
 
 const REPORTING_PREFIX = "/api/v1/admin/reporting";
 const GOOGLE_DRIVE_PREFIX = "/api/v1/admin/google-drive";
+const GRANOT_AUTOMATION_PREFIX = "/api/v1/admin/granot-automation";
 
 const FORBIDDEN_AUDIT_KEYS = new Set([
   "confirmationToken",
@@ -393,6 +394,43 @@ function sanitizeGoogleDriveAuditBody(
   };
 }
 
+function sanitizeGranotAutomationAuditBody(
+  method: VantageApiMethod,
+  path: string,
+  body: unknown,
+): Record<string, unknown> {
+  const normalized = normalizeProxyAuditPath(path);
+  const record = asRecord(body);
+
+  if (normalized === `${GRANOT_AUTOMATION_PREFIX}/runs` && method === "POST") {
+    const sourceLabels = record.source_labels ?? record.sourceLabels;
+    return {
+      operation: "granot_run_create",
+      granot_operation: readString(record.operation),
+      workflow: readString(record.workflow),
+      from: readString(record.from),
+      to: readString(record.to),
+      source_label_count: Array.isArray(sourceLabels) ? sourceLabels.length : 0,
+      filters_present: hasValue(record.filters),
+    };
+  }
+
+  if (/\/runs\/[^/]+\/approve$/.test(normalized) && method === "POST") {
+    const actionIds = record.selected_action_ids ?? record.selectedActionIds;
+    return {
+      operation: "granot_run_approve",
+      run_id: pathSegment(path, "runs"),
+      plan_checksum: secretFingerprint(record.plan_checksum ?? record.planChecksum),
+      action_count: Array.isArray(actionIds) ? actionIds.length : 0,
+    };
+  }
+
+  return {
+    operation: "granot_automation_mutation",
+    path: proxyAuditPathname(path),
+  };
+}
+
 function sanitizeGenericProxyAuditBody(
   method: VantageApiMethod,
   path: string,
@@ -438,6 +476,16 @@ export function buildProxyAuditRequestPayload(input: {
     return {
       ...base,
       ...sanitizeGoogleDriveAuditBody(input.method, input.path, input.body),
+    };
+  }
+
+  if (
+    normalized === GRANOT_AUTOMATION_PREFIX ||
+    normalized.startsWith(`${GRANOT_AUTOMATION_PREFIX}/`)
+  ) {
+    return {
+      ...base,
+      ...sanitizeGranotAutomationAuditBody(input.method, input.path, input.body),
     };
   }
 

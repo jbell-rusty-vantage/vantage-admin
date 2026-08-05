@@ -147,3 +147,14 @@ test("reporting keys isolate catalog, definition detail, and run history", () =>
     { status: "queued" },
   ]);
 });
+
+test("Granot automation keys isolate run history and detail", () => {
+  assert.deepEqual(queryKeys.granotAutomation.sources(), ["granot-automation", "sources"]);
+  assert.deepEqual(queryKeys.granotAutomation.runs(), ["granot-automation", "runs"]);
+  assert.deepEqual(queryKeys.granotAutomation.run("run-1"), [
+    "granot-automation",
+    "runs",
+    "detail",
+    "run-1",
+  ]);
+});

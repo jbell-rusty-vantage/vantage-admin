@@ -263,3 +263,60 @@ test("operation resource extraction ignores query strings on audited mutation pa
   assert.equal(payload.definition_id, "def-with-query");
   assert.deepEqual(payload.query, { database_scope: "production" });
 });
+
+test("Granot create audit labels operation without persisting exact source labels or filters", () => {
+  const payload = buildProxyAuditRequestPayload({
+    method: "POST",
+    path: "api/v1/admin/granot-automation/runs",
+    body: {
+      operation: "form_leads",
+      workflow: "apply",
+      from: "08/01/2026",
+      to: "08/05/2026",
+      source_labels: ["Distinctive Source Label", "Partner Two"],
+      filters: { department: "555-sensitive" },
+    },
+  });
+
+  assert.deepEqual(payload, {
+    method: "POST",
+    path: "api/v1/admin/granot-automation/runs",
+    operation: "granot_run_create",
+    granot_operation: "form_leads",
+    workflow: "apply",
+    from: "08/01/2026",
+    to: "08/05/2026",
+    source_label_count: 2,
+    filters_present: true,
+  });
+  assertProxyAuditPayloadSafe(payload, ["Distinctive Source Label", "555-sensitive"]);
+});
+
+test("Granot approval audit fingerprints checksum and stores only selected action count", () => {
+  const checksum = "granot-plan-checksum-must-not-persist";
+  const payload = buildProxyAuditRequestPayload({
+    method: "POST",
+    path: "api/v1/admin/granot-automation/runs/run-1/approve",
+    body: {
+      plan_checksum: checksum,
+      selected_action_ids: ["action-sensitive-1", "action-sensitive-2"],
+    },
+  });
+
+  assert.deepEqual(payload, {
+    method: "POST",
+    path: "api/v1/admin/granot-automation/runs/run-1/approve",
+    operation: "granot_run_approve",
+    run_id: "run-1",
+    plan_checksum: {
+      present: true,
+      hash: expectedFingerprint(checksum),
+    },
+    action_count: 2,
+  });
+  assertProxyAuditPayloadSafe(payload, [
+    checksum,
+    "action-sensitive-1",
+    "action-sensitive-2",
+  ]);
+});

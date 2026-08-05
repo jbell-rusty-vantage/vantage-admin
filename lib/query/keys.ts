@@ -120,6 +120,12 @@ export const queryKeys = {
       [...queryKeys.reporting.all, "destinations", "detail", id] as const,
     googleDrive: () => [...queryKeys.reporting.all, "google-drive", "status"] as const,
   },
+  granotAutomation: {
+    all: ["granot-automation"] as const,
+    sources: () => [...queryKeys.granotAutomation.all, "sources"] as const,
+    runs: () => [...queryKeys.granotAutomation.all, "runs"] as const,
+    run: (id: string) => [...queryKeys.granotAutomation.all, "runs", "detail", id] as const,
+  },
   operationsRegistry: {
     all: ["operations-registry"] as const,
     overview: () => [...queryKeys.operationsRegistry.all, "overview"] as const,
