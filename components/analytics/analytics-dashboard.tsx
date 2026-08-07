@@ -21,13 +21,26 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { StatusBadge } from "@/components/data-table/status-badge";
+import {
+  isSourceCompanyHierarchyReport,
+  shouldUseSourceCompanyHierarchy,
+  sourceCompanyChartLabel,
+  sourceCompanyChartRows,
+  SourceCompanyHierarchyTable,
+  type SourceCompanyHierarchyColumn,
+} from "@/components/data-table/source-company-hierarchy-table";
 import { FilterBar } from "@/components/filters/filter-bar";
 import { FilterField } from "@/components/filters/filter-field";
 import { DateRangeFilter } from "@/components/filters/date-range-filter";
 import { SelectFilter } from "@/components/filters/select-filter";
 import { TableErrorState, TableLoadingState } from "@/components/data-table/table-states";
 import { DataTable, type DataTableColumn } from "@/components/data-table/table-shell";
-import { analyticsExportUrl, fetchAnalyticsReport, type AnalyticsReport } from "@/lib/api/admin";
+import {
+  analyticsExportUrl,
+  fetchAnalyticsReport,
+  type AnalyticsReport,
+  type AnalyticsSourceCompanyRow,
+} from "@/lib/api/admin";
 import { downloadCsvFromProxy } from "@/lib/api/csv";
 import { useFacetOptions, type FacetOptions } from "@/lib/api/facets";
 import type { SerializableFilters } from "@/lib/api/filters";
@@ -107,12 +120,12 @@ const TAB_CONFIGS: TabConfig[] = [
   {
     id: "lead-sources",
     label: "Lead Sources",
-    description: "Source-company funnel, CPL efficiency, and lead source quality.",
+    description: "Source-company performance, funnel reconciliation, and lead source quality.",
     primaryReport: "source-company-performance",
     filters: ["source_company", "source_granularity_key", "lead_type", "local"],
     reports: [
       { id: "source-company-performance", label: "Source Company Performance", description: "Bookings and revenue by source company.", kind: "bar" },
-      { id: "source-company-funnel", label: "Source Company Funnel", description: "Lead volume and booking reconciliation by source.", kind: "bar" },
+      { id: "source-company-funnel", label: "Source Company Funnel", description: "Lead volume and booking reconciliation by source company.", kind: "bar" },
       { id: "lead-source-performance", label: "Lead Source Performance", description: "Booked-lead performance by CRM source label.", kind: "bar" },
     ],
   },
@@ -155,6 +168,15 @@ const TAB_CONFIGS: TabConfig[] = [
 ];
 
 const TAB_SPECIFIC_FILTERS = ["source_granularity_key", "agent", "receiver_agent", "merchant", "source", "local", "lead_type", "granularity", "report"] as const;
+const SOURCE_HIERARCHY_IDENTITY_KEYS = new Set([
+  "_id",
+  "source_company",
+  "source_company_label",
+  "source_label",
+  "source_granularity_key",
+  "source_granularity_label",
+  "granularities",
+]);
 
 function defaultDateRange() {
   const to = new Date();
@@ -250,6 +272,7 @@ function chartKeys(rows: Record<string, unknown>[]) {
     [
       "period",
       "receiver_agent_name",
+      "source_company_label",
       "source_label",
       "source_company",
       "agent_name",
@@ -324,13 +347,71 @@ function buildFilters(filters: Record<string, unknown>, scope: DatabaseScope, ta
 }
 
 function columnsForRows(rows: Record<string, unknown>[]): DataTableColumn<Record<string, unknown>>[] {
-  const keys = Object.keys(rows[0] ?? {}).filter((key) => key !== "_id");
+  const keys = Object.keys(rows[0] ?? {}).filter(
+    (key) => key !== "_id" && key !== "granularities",
+  );
   return keys.map((key) => ({
     key,
     header: humanizeKey(key),
     cell: (row) => formatCellValue(key, row[key]),
     sticky: key === "receiver_agent_name" || key === "label" ? "left" : undefined,
   }));
+}
+
+function sourceCompanyRows(rows: Record<string, unknown>[]): AnalyticsSourceCompanyRow[] {
+  return rows
+    .filter((row) => typeof row.source_company === "string")
+    .map((row) => ({
+      ...row,
+      granularities: Array.isArray(row.granularities)
+        ? row.granularities.filter(isRecord)
+        : undefined,
+    }));
+}
+
+function sourceHierarchyColumns(rows: AnalyticsSourceCompanyRow[]): SourceCompanyHierarchyColumn[] {
+  const keys = new Set<string>();
+  for (const row of rows) {
+    for (const key of Object.keys(row)) {
+      if (!SOURCE_HIERARCHY_IDENTITY_KEYS.has(key)) keys.add(key);
+    }
+    for (const child of row.granularities ?? []) {
+      for (const key of Object.keys(child)) {
+        if (!SOURCE_HIERARCHY_IDENTITY_KEYS.has(key)) keys.add(key);
+      }
+    }
+  }
+
+  return Array.from(keys).map((key) => ({
+    key,
+    header: humanizeKey(key),
+    cell: (row) => formatCellValue(key, row[key]),
+    headerClassName: typeof rows[0]?.[key] === "number" ? "text-right" : undefined,
+    cellClassName: typeof rows[0]?.[key] === "number" ? "text-right tabular-nums" : undefined,
+  }));
+}
+
+function parentCompanyChartRows(
+  rows: Record<string, unknown>[],
+  report: AnalyticsReport,
+): Record<string, unknown>[] {
+  return isSourceCompanyHierarchyReport(report)
+    ? sourceCompanyChartRows(rows)
+    : rows;
+}
+
+function tableReportDescription(
+  report: ReportConfig,
+  scope: SerializableFilters["database_scope"],
+): string {
+  if (!isSourceCompanyHierarchyReport(report.id)) return report.description;
+  if (scope === "historical") {
+    return `${report.description} Historical data is shown at company level.`;
+  }
+  if (scope === "combined") {
+    return `${report.description} Expanded child rows contain production metrics only.`;
+  }
+  return `${report.description} Expanded rows show registered production child granularities.`;
 }
 
 function KpiCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -388,7 +469,7 @@ function ReportChart({ rows, report }: { rows: Record<string, unknown>[]; report
   if (report.kind === "pie") {
     const { labelKey, valueKey } = chartKeys(rows);
     const items = rows
-      .map((row) => ({ name: String(row.source_label ?? row.source_company ?? row[labelKey] ?? "Unknown"), value: Number(row.total_deposit_amount ?? row[valueKey] ?? 0) }))
+      .map((row) => ({ name: sourceCompanyChartLabel(row, row[labelKey]), value: Number(row.total_deposit_amount ?? row[valueKey] ?? 0) }))
       .filter((row) => row.value > 0)
       .sort((left, right) => right.value - left.value)
       .slice(0, 8);
@@ -448,6 +529,7 @@ function ReportPanel({ report, filters }: { report: ReportConfig; filters: Seria
     queryFn: () => fetchAnalyticsReport(report.id, filters),
   });
   const rows = flattenRows(query.data?.data);
+  const chartRows = parentCompanyChartRows(rows, report.id);
   const metadata = isRecord(query.data?.data?.metadata) ? query.data.data.metadata : undefined;
   return (
     <section className="rounded-lg border bg-background p-4">
@@ -458,7 +540,7 @@ function ReportPanel({ report, filters }: { report: ReportConfig; filters: Seria
       {metadata?.message ? <FeedbackMessage className="mb-3">{String(metadata.message)}</FeedbackMessage> : null}
       {query.isLoading ? <TableLoadingState label="Loading analytics..." /> : null}
       {query.isError ? <TableErrorState error={query.error instanceof Error ? query.error.message : undefined} /> : null}
-      {rows.length ? <ReportChart rows={rows} report={report} /> : query.data ? <FeedbackMessage>No analytics data for these filters.</FeedbackMessage> : null}
+      {chartRows.length ? <ReportChart rows={chartRows} report={report} /> : query.data ? <FeedbackMessage>No analytics data for these filters.</FeedbackMessage> : null}
     </section>
   );
 }
@@ -498,18 +580,31 @@ function TableView({ report, filters }: { report: ReportConfig; filters: Seriali
     queryFn: () => fetchAnalyticsReport(report.id, filters),
   });
   const rows = flattenRows(query.data?.data);
+  const hierarchyRows = isSourceCompanyHierarchyReport(report.id)
+    ? sourceCompanyRows(rows)
+    : [];
+  const showHierarchy = shouldUseSourceCompanyHierarchy(report.id, hierarchyRows);
   const metadata = isRecord(query.data?.data?.metadata) ? query.data.data.metadata : undefined;
   return (
     <section className="space-y-3 rounded-lg border bg-background p-4">
       <div>
         <h2 className="text-sm font-semibold">{report.label} Table</h2>
-        <p className="text-xs text-muted-foreground">{report.description}</p>
+        <p className="text-xs text-muted-foreground">
+          {tableReportDescription(report, filters.database_scope)}
+        </p>
       </div>
       {query.data?.generated_at ? <p className="text-xs text-muted-foreground">Last generated {new Date(query.data.generated_at).toLocaleString()}</p> : null}
       {metadata?.message ? <FeedbackMessage>{String(metadata.message)}</FeedbackMessage> : null}
       {query.isLoading ? <TableLoadingState label="Loading table..." /> : null}
       {query.isError ? <TableErrorState error={query.error instanceof Error ? query.error.message : undefined} /> : null}
-      {rows.length ? (
+      {showHierarchy ? (
+        <SourceCompanyHierarchyTable
+          rows={hierarchyRows}
+          columns={sourceHierarchyColumns(hierarchyRows)}
+          defaultExpanded
+          stickyHeader
+        />
+      ) : rows.length ? (
         <DataTable items={rows} getRowKey={(row) => `${String(row._id ?? row.receiver_agent_id ?? row.period ?? row.label ?? "")}-${String(row.source_label ?? "")}-${String(row.lead_type ?? "")}`} columns={columnsForRows(rows)} horizontalControls stickyHeader />
       ) : query.data ? (
         <FeedbackMessage>No table rows for these filters.</FeedbackMessage>

@@ -49,20 +49,48 @@ export type AnalyticsReport =
   | "receiver-agent-trend"
   | "receiver-agent-source-breakdown";
 
-export type AnalyticsResponse = {
+export type SourceGranularityMetricRow = Record<string, unknown> & {
+  source_granularity_key?: string;
+  source_granularity_label?: string;
+  channel?: "form" | "call" | string | null;
+};
+
+export type SourceCompanyMetricRow<
+  TGranularity extends SourceGranularityMetricRow = SourceGranularityMetricRow,
+> = Record<string, unknown> & {
+  source_company?: string;
+  source_company_label?: string;
+  granularities?: TGranularity[];
+};
+
+export type AnalyticsSourceGranularityRow = SourceGranularityMetricRow;
+
+export type AnalyticsSourceCompanyRow =
+  SourceCompanyMetricRow<AnalyticsSourceGranularityRow>;
+
+export type AnalyticsResponse<TData extends Record<string, unknown> = Record<string, unknown>> = {
   report: AnalyticsReport;
   database_scope: DatabaseScope;
   generated_at: string;
-  data: Record<string, unknown>;
+  data: TData;
 };
+
+export type OverviewLeadCostGranularityRow = SourceGranularityMetricRow & {
+  lead_count?: number;
+  total_lead_cost?: number;
+  unresolved_cpl_count?: number;
+};
+
+export type OverviewLeadCostSourceRow =
+  SourceCompanyMetricRow<OverviewLeadCostGranularityRow> & {
+    lead_count?: number;
+    total_lead_cost?: number;
+    unresolved_cpl_count?: number;
+  };
 
 export type OverviewLeadCost = {
   total: number;
-  by_source_company: Array<{
-    source_company?: string;
-    lead_count?: number;
-    total_lead_cost?: number;
-  }>;
+  by_source_company: OverviewLeadCostSourceRow[];
 };
 
 export type OverviewTotals = {
@@ -87,11 +115,16 @@ export type OverviewAgentRow = {
   total_deposit_amount?: number;
 };
 
-export type OverviewSourceRow = {
-  source_company?: string;
+export type OverviewSourceGranularityRow = SourceGranularityMetricRow & {
   bookings?: number;
   total_deposit_amount?: number;
 };
+
+export type OverviewSourceRow =
+  SourceCompanyMetricRow<OverviewSourceGranularityRow> & {
+    bookings?: number;
+    total_deposit_amount?: number;
+  };
 
 export type OverviewReportResponse = {
   database_scope: DatabaseScope;

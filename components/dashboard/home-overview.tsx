@@ -14,14 +14,18 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
+import {
+  SourceCompanyHierarchyTable,
+  type SourceCompanyHierarchyColumn,
+} from "@/components/data-table/source-company-hierarchy-table";
 import { TableLoadingState } from "@/components/data-table/table-states";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import {
   fetchOverviewReport,
   type OverviewAgentRow,
   type OverviewLeadCost,
-  type OverviewSourceRow,
   type OverviewTotals,
+  type SourceCompanyMetricRow,
 } from "@/lib/api/admin";
 import { DATABASE_SCOPE_LABELS } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
@@ -43,11 +47,6 @@ function formatNumber(value: number): string {
 
 function formatPercent(value: number): string {
   return `${(Number.isFinite(value) ? value : 0).toFixed(1)}%`;
-}
-
-function formatSourceLabel(value: string | undefined): string {
-  if (!value) return "Unknown";
-  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 const quickLinks = [
@@ -141,13 +140,13 @@ function AgentRankingList({
   );
 }
 
-function SourceCompanyTable({
+function OverviewSourceCompanyTable({
   rows,
   loading,
   emptyMessage,
   showLeadCost = false,
 }: {
-  rows: OverviewSourceRow[] | OverviewLeadCost["by_source_company"];
+  rows: SourceCompanyMetricRow[];
   loading?: boolean;
   emptyMessage: string;
   showLeadCost?: boolean;
@@ -160,54 +159,41 @@ function SourceCompanyTable({
     return <FeedbackMessage>{emptyMessage}</FeedbackMessage>;
   }
 
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <th className="pb-2 pr-4 font-medium">Source</th>
-            {showLeadCost ? (
-              <>
-                <th className="pb-2 pr-4 font-medium text-right">Leads</th>
-                <th className="pb-2 font-medium text-right">Lead Cost</th>
-              </>
-            ) : (
-              <>
-                <th className="pb-2 pr-4 font-medium text-right">Bookings</th>
-                <th className="pb-2 font-medium text-right">Deposits</th>
-              </>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={`${row.source_company ?? "unknown"}-${index}`} className="border-b last:border-0">
-              <td className="py-2.5 pr-4 font-medium">{formatSourceLabel(row.source_company)}</td>
-              {showLeadCost ? (
-                <>
-                  <td className="py-2.5 pr-4 text-right tabular-nums">
-                    {formatNumber(Number("lead_count" in row ? row.lead_count ?? 0 : 0))}
-                  </td>
-                  <td className="py-2.5 text-right tabular-nums">
-                    {formatMoney(Number("total_lead_cost" in row ? row.total_lead_cost ?? 0 : 0))}
-                  </td>
-                </>
-              ) : (
-                <>
-                  <td className="py-2.5 pr-4 text-right tabular-nums">
-                    {formatNumber(Number("bookings" in row ? row.bookings ?? 0 : 0))}
-                  </td>
-                  <td className="py-2.5 text-right tabular-nums">
-                    {formatMoney(Number("total_deposit_amount" in row ? row.total_deposit_amount ?? 0 : 0))}
-                  </td>
-                </>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  const columns: SourceCompanyHierarchyColumn[] = showLeadCost
+    ? [
+        {
+          key: "lead_count",
+          header: "Leads",
+          cell: (row) => formatNumber(Number(row.lead_count ?? 0)),
+          headerClassName: "text-right",
+          cellClassName: "text-right tabular-nums",
+        },
+        {
+          key: "total_lead_cost",
+          header: "Lead Cost",
+          cell: (row) => formatMoney(Number(row.total_lead_cost ?? 0)),
+          headerClassName: "text-right",
+          cellClassName: "text-right tabular-nums",
+        },
+      ]
+    : [
+        {
+          key: "bookings",
+          header: "Bookings",
+          cell: (row) => formatNumber(Number(row.bookings ?? 0)),
+          headerClassName: "text-right",
+          cellClassName: "text-right tabular-nums",
+        },
+        {
+          key: "total_deposit_amount",
+          header: "Deposits",
+          cell: (row) => formatMoney(Number(row.total_deposit_amount ?? 0)),
+          headerClassName: "text-right",
+          cellClassName: "text-right tabular-nums",
+        },
+      ];
+
+  return <SourceCompanyHierarchyTable rows={rows} columns={columns} defaultExpanded compact />;
 }
 
 function TotalsCards({
@@ -331,10 +317,12 @@ export function HomeOverview() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Lead Cost by Source (All Time)</CardTitle>
-              <CardDescription>Billable form and call leads using stored CPL values.</CardDescription>
+              <CardDescription>
+                By source company and registered child granularity (production), using stored CPL values.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <SourceCompanyTable
+              <OverviewSourceCompanyTable
                 rows={allTime.lead_cost.by_source_company}
                 loading={loading}
                 emptyMessage="No lead cost data available."
@@ -389,10 +377,12 @@ export function HomeOverview() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Sales by Source Company</CardTitle>
-                <CardDescription>Deposits and bookings in the last 7 days.</CardDescription>
+                <CardDescription>
+                  By source company and registered child granularity (production) for the last 7 days.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <SourceCompanyTable
+                <OverviewSourceCompanyTable
                   rows={last7Days.by_source_company}
                   loading={loading}
                   emptyMessage="No source company sales in the last 7 days."
@@ -402,10 +392,12 @@ export function HomeOverview() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Lead Cost by Source</CardTitle>
-                <CardDescription>Billable leads and stored CPL totals in the last 7 days.</CardDescription>
+                <CardDescription>
+                  By source company and registered child granularity (production), with stored CPL totals.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <SourceCompanyTable
+                <OverviewSourceCompanyTable
                   rows={last7Days.lead_cost.by_source_company}
                   loading={loading}
                   emptyMessage="No lead cost data in the last 7 days."

@@ -1,130 +1,107 @@
 ---
-description: Project organization and architecture rules for the Vantage Admin app
+description: Compact map of the Vantage Admin app structure and ownership boundaries
 alwaysApply: true
 ---
 
 # Vantage Admin Project Organization
 
-`vantage-admin` is actively being built as a separate Next.js 16 App Router application for the Vantage Movers owner/admin dashboard. Preserve the current architecture and keep new work organized by ownership boundary.
+`vantage-admin` is the Next.js 16 App Router owner/admin dashboard. Preserve ownership boundaries; put new work in the folder that owns the behavior.
 
-## Current Architecture
+## Architecture Map
 
-- `app/` owns App Router pages, route groups, route handlers, and the Next 16 `proxy.ts` auth entrypoint.
-- `app/(auth)/` owns owner login pages; `app/(dashboard)/` owns protected dashboard pages, layouts, operational tables, workflows, analytics, audit log, exports, search, and settings.
-- `app/api/auth/` owns local admin auth route handlers only.
-- `app/api/proxy/[...path]/` owns the authenticated local proxy to `vantage-main-server`; it must never trust browser-supplied `x-api-secret`, `authorization`, or `cookie` headers.
-- `app/api/audit-log/` owns local admin audit-log reads from the admin auth database. Do not proxy audit-log browsing to `vantage-main-server`.
-- `components/ui/` contains shadcn-compatible primitives; `components/layout/` contains shell, login, global search, database scope, and navigation UI.
-- `components/filters/`, `components/data-table/`, and `components/record-detail/` contain reusable dashboard primitives.
-- `components/operational/` owns the shared operational table/detail/edit page implementation for form leads, call leads, bookings, cancellations, customers, and agents.
-- `components/forms/` owns owner workflow forms such as booking and cancellation creation.
-- `components/analytics/` owns frontend analytics cards, chart/table rendering, and analytics export UI.
-- `components/observational/` owns the Observational dashboard: URL-driven tab shell (`?tab=overview|events|incidents|reports|notifications|sheet-sync`), overview cards/charts, events/incidents/notifications tables with detail side panels, the deterministic report builder/result viewer, the sheet-sync health surface, severity/status badges, and pure helpers in `entity-link.ts`.
-- `lib/env/` validates server environment; `lib/db/` owns the admin Mongo connection; `lib/utils.ts` owns shared UI utilities.
-- `lib/api/` owns frontend API types, proxy-facing browser clients, filter/query-string utilities, URL state helpers, audit-log client helpers, and browser CSV download helpers.
-- `lib/query/` owns TanStack Query provider setup and stable query keys.
-- `lib/constants/` owns frontend domain constants that mirror backend config and current Google Forms dropdowns.
-- `server/auth/`, `server/audit/`, and `server/models/` own server-only auth, audit, and admin collection logic.
-- `server/vantage-api/` owns the server-only Vantage API client, response parsing, proxy URL construction, and typed API errors.
-- `scripts/` owns operational scripts such as seeding the first admin user.
-- `tests/` and colocated `*.test.ts` files cover focused behavior with Node's built-in test runner.
+| Area | Owns |
+|------|------|
+| `app/(auth)/` | Owner login (`/login`) |
+| `app/(dashboard)/` | Protected dashboard pages + layouts |
+| `app/(public)/` | Public surfaces (`/employee-booking`) |
+| `app/api/auth/` | Local admin session handlers only |
+| `app/api/audit-log/` | Local audit reads from admin Mongo (never proxy) |
+| `app/api/proxy/[...path]/` | Authenticated BFF → `vantage-main-server` |
+| `app/api/employee-booking/` | Public options/submit (feature-flagged; not dashboard auth) |
+| `proxy.ts` | Next 16 request-boundary auth (not `middleware.ts`) |
+| `components/ui/` | shadcn-compatible primitives |
+| `components/layout/` | Shell, nav, login, global search, scope controls, role context |
+| `components/filters/`, `data-table/`, `record-detail/` | Shared table/detail primitives |
+| `components/operational/` | Shared operational list/detail/edit (`operational-resource-page.tsx`) |
+| `components/forms/` | Booking + cancellation create workflows |
+| `components/dashboard/` | Home overview |
+| `components/analytics/`, `reports/` | Analytics + agent-sales report UI |
+| `components/observational/` | Observability tabs (events/incidents/reports/notifications/sheet-sync) |
+| `components/operations-registry/` | Registry shell: agents, merchants, sources, CPL, RingCentral, changes |
+| `components/ingestion/` | Best Relocation + Granot automation dashboards |
+| `components/reporting/` | Report definitions, destinations, runs, Google settings |
+| `components/reconciliation/` | Booking-lead reconciliation dashboard |
+| `components/employee-booking/` | Public employee booking form |
+| `components/settings/` | Settings tabs (carriers + legacy CPL); prefer registry for catalog/sources/CPL |
+| `lib/api/` | Browser clients + filter/URL/CSV helpers (see clients below) |
+| `lib/query/` | TanStack Query provider + `queryKeys` |
+| `lib/reporting/`, `lib/google/`, `lib/reconciliation/` | Pure/client helpers for those surfaces |
+| `lib/env/`, `lib/db/`, `lib/constants/` | Server env, admin Mongo, domain constants |
+| `server/auth/` | Sessions, JWT, `routeGuard`, role ACL, proxy signing, trusted headers |
+| `server/audit/` | Admin audit writes + proxy audit payloads |
+| `server/models/` | `AdminUser`, `AdminAuditLog` |
+| `server/vantage-api/` | Server-only API client (`x-api-secret`), URL/response/errors |
+| `server/employee-booking/` | Public nonce cookie issuance/validation |
+| `scripts/` | Ops scripts (e.g. seed first admin) |
+| `tests/` + colocated `*.test.ts` | Node built-in test runner |
 
-## Backend Admin API Contract
+## Auth & Proxy
 
-- `vantage-main-server` now exposes admin read/search/export endpoints under `/api/v1/admin/...`; the admin UI should reach them only through local `/api/proxy/...`.
-- Browse endpoints return `{ ok: true, data: { items, page, limit, total, has_next_page } }`; detail endpoints return `{ ok: true, data }`; errors return `{ ok: false, error, issues? }`.
-- CSV export endpoints return `Content-Type: text/csv` and `Content-Disposition: attachment; filename="...csv"`; `lib/api/csv.ts` should handle browser downloads from proxy responses.
-- Implemented backend endpoints for Unit 5 UI work:
-  - `GET /api/v1/admin/form-leads` and `GET /api/v1/admin/form-leads/:id`
-  - `GET /api/v1/admin/call-leads` and `GET /api/v1/admin/call-leads/:id`
-  - `GET /api/v1/admin/booked-leads` and `GET /api/v1/admin/booked-leads/:id`
-  - `GET /api/v1/admin/cancelled-leads` and `GET /api/v1/admin/cancelled-leads/:id`
-  - `GET /api/v1/admin/customers` and `GET /api/v1/admin/customers/:id`
-  - `GET /api/v1/admin/agents` and `GET /api/v1/admin/agents/:id`
-  - `GET /api/v1/admin/search`
-  - `GET /api/v1/admin/exports/form-leads.csv`
-  - `GET /api/v1/admin/exports/call-leads.csv`
-  - `GET /api/v1/admin/exports/booked-leads.csv`
-  - `GET /api/v1/admin/exports/cancelled-leads.csv`
-  - `GET /api/v1/admin/exports/customers.csv`
-  - `GET /api/v1/admin/exports/agents.csv`
-- Implemented backend analytics endpoints used by the frontend analytics page:
-  - `GET /api/v1/admin/analytics/summary`
-  - `GET /api/v1/admin/analytics/revenue-trend`
-  - `GET /api/v1/admin/analytics/source-company-performance`
-  - `GET /api/v1/admin/analytics/agent-performance`
-  - `GET /api/v1/admin/analytics/booking-cancellation-ratio`
-  - `GET /api/v1/admin/analytics/source-company-funnel`
-  - `GET /api/v1/admin/analytics/cancellation-reasons`
-  - `GET /api/v1/admin/analytics/lead-source-performance`
-  - `GET /api/v1/admin/analytics/local-vs-long-distance`
-  - `GET /api/v1/admin/analytics/geographic-lanes`
-  - `GET /api/v1/admin/exports/analytics/:report.csv`
-- Implemented backend observability endpoints used by the `/observational` page (all via the proxy):
-  - `GET /api/v1/admin/observability/overview` and `GET /api/v1/admin/observability/facets` (filter dropdown values)
-  - `GET /api/v1/admin/observability/events` and `GET /api/v1/admin/observability/events/:id`
-  - `GET /api/v1/admin/observability/incidents`, `GET /api/v1/admin/observability/incidents/:id`, and `PATCH /api/v1/admin/observability/incidents/:id/status`
-  - `GET /api/v1/admin/observability/notifications`
-  - `GET /api/v1/admin/observability/reports`, `GET /api/v1/admin/observability/reports/:id`, and `POST /api/v1/admin/observability/reports/run`
-  - `GET /api/v1/admin/exports/observability/events.csv`, `/incidents.csv`, and `/reports/:id.csv`
-  - `GET /api/v1/admin/sheet-sync/health|jobs|runs|runs/:id` and `POST /api/v1/admin/sheet-sync/retry`
-- Observability lead identity filters (`lead_name`, `lead_phone`, `lead_email`) are partial-match server-side; event `q` is full-text, incident `q` is a regex OR. Incident status transitions are enforced server-side (open -> acknowledged/resolved/ignored; acknowledged -> resolved/ignored; resolved/ignored/auto_resolved -> open).
-- Common query params match `lib/api/filters.ts`: `database_scope`, `q`, `from`, `to`, `date_field`, model-specific filters, `limit`, `page`, `sort`, and `direction`.
-- `database_scope=production|historical` is valid for browse and detail. `database_scope=combined` is supported for global search and export-style reads; detail routes reject combined scope.
-- Historical records from the backend are read-only. UI code must hide mutation actions in historical scope and must not add delete actions in any scope.
-- Existing write workflows should call the established public v1 write endpoints through the proxy so booking, cancellation, and Google Sheet sync side effects remain owned by `vantage-main-server`.
-- Production edit mutations use public PATCH endpoints through the proxy: `/api/v1/form-leads/:id`, `/api/v1/call-leads/:id`, `/api/v1/booked-leads/:id`, `/api/v1/cancelled-leads/:id`, and `/api/v1/customers/:id`.
-- Booking creation uses `POST /api/v1/booked-leads/from-source` through the proxy. Cancellation creation uses `POST /api/v1/cancelled-leads` through the proxy.
-- Agent management is read-only in v1; agents are still browsable/detail-able through admin read endpoints.
-- Implemented backend CPL (cost-per-lead) rate management endpoints used by the `/settings` page's `CplRateManager`:
-  - `GET /api/v1/admin/cpl-rates` -- returns all 13 granular rate slots (e.g. `"Best Relocation Forms"`, `"Best Relocation Inbounds"`), self-seeding defaults on first read.
-  - `PATCH /api/v1/admin/cpl-rates/:label` -- updates one slot's `cpl` and immediately backfills the `cpl` field on every matching, non-duplicate production `FormLead`/`CallLead` so analytics reflect the new rate right away; returns `{ rate, leads_updated }`.
+- `proxy.ts` → cookie presence check → redirect to `/login`. Dashboard layout re-verifies JWT.
+- Public: `/login`, `/api/*`, `/employee-booking`, legal pages, static assets.
+- **Owner-only pages:** `/audit-log`, `/settings`, `/bookings/reconciliation`, `/ingestion/granot`.
+- Proxy flow: require admin session → validate relative path → `canProxyVantagePath(role, method, path)` → strip browser `x-api-secret`/`authorization`/`cookie` → set `x-vantage-admin-{user-id,email,role}` (+ optional HMAC via `VANTAGE_ADMIN_PROXY_SIGNING_SECRET`) → `server/vantage-api/client.ts` attaches `x-api-secret`.
+- Non-owners: blocked from reconciliation, Granot automation, Google Drive, reporting mutations (GET reporting OK), registry mutations (some read-preview POSTs OK), DELETE, observability deletes. Allowed: operational PATCH/POST, sheet-sync retry, incident status, observability report run.
+- Never expose `VANTAGE_API_SECRET` or signing secrets to client / `NEXT_PUBLIC_*`.
 
-## Current Frontend Route Surface
+## Frontend Route Surface
 
-- Operational routes:
-  - `/form-leads`
-  - `/call-leads`
-  - `/bookings`
-  - `/cancellations`
-  - `/customers`
-  - `/agents`
-- Workflow routes:
-  - `/bookings/new`
-  - `/cancellations/new`
-- Support routes:
-  - `/search`
-  - `/analytics`
-  - `/observational` (tabbed via `?tab=`; selected records open via `?record=`)
-  - `/exports`
-  - `/audit-log`
-  - `/settings`
-- `/search` and all dashboard routes must remain protected by `server/auth/routeGuard.ts`.
-- Operational pages share the `components/operational/operational-resource-page.tsx` implementation. Prefer extending that shared configuration before forking model-specific pages.
-- The dashboard header uses scope-aware controls from `components/layout/scope-aware-header-controls.tsx`; operational details must coerce `combined` to an operational scope before fetching detail records.
-- Global search should route users back to operational list pages with filters rather than assuming model-specific detail URLs exist.
+**Operational:** `/` (overview), `/form-leads`, `/duplicate-form-leads`, `/call-leads`, `/duplicate-call-leads`, `/bookings`, `/bookings/new`, `/bookings/reconciliation` (owner), `/cancellations`, `/cancellations/new`, `/customers`, `/agents`, `/testimonials`
+
+**Insight:** `/analytics`, `/reports/agent-sales`
+
+**Ops:** `/observational` (`?tab=overview|events|incidents|reports|notifications|sheet-sync`), `/operations-registry` (`?tab=overview|agents|merchants|sources|ringcentral|cpl|changes`), `/ingestion` (Best Relocation), `/ingestion/granot` (owner), `/reporting`, `/reporting/[id]`, `/reporting/destinations`, `/reporting/destinations/[id]`, `/reporting/runs/[id]`
+
+**Support:** `/search`, `/exports`, `/audit-log` (owner), `/settings` (owner)
+
+**Public:** `/employee-booking`, `/privacy-policy`, `/terms-and-conditions`
+
+- Prefer extending `operational-resource-page` config before forking model pages.
+- Scope controls live in `components/layout/scope-aware-header-controls.tsx`; coerce `combined` before detail fetches.
+- Historical scope is read-only; hide mutations. No delete UI in any scope unless an explicit owner-only observability delete path already exists.
+
+## Browser → Backend Clients (`lib/api/`)
+
+All operational/admin data goes through `/api/proxy/...` except local audit + public employee-booking.
+
+| Client | Backend prefix / role |
+|--------|------------------------|
+| `admin.ts` | Browse/detail/search/facets/testimonials/analytics/overview/observability/sheet-sync/exports + public v1 writes (leads/bookings/cancellations/customers, referral/leadless) |
+| `audit.ts` | Local `/api/audit-log` |
+| `operationsRegistry.ts` + `registry*.ts` | `/api/v1/admin/operations-registry/*`, catalog agents/merchants, source-companies/granularities, CPL schedules/corrections, RingCentral inbound routes |
+| `registryRequest.ts` | Shared registry JSON helper + `RegistryApiError` |
+| `ingestion.ts` | `/api/v1/admin/ingestion/*` (Best Relocation) |
+| `granotAutomation.ts` | `/api/v1/admin/granot-automation/*` |
+| `reporting.ts`, `reportingDestinations.ts` | `/api/v1/admin/reporting/*` |
+| `googleDrive.ts` | `/api/v1/admin/google-drive/*` (owner) |
+| `bookingLeadReconciliation.ts` | `/api/v1/admin/booking-lead-reconciliations/*` (owner) |
+| `carriers.ts`, `cplRates.ts`, `catalog.ts` | Carriers + legacy settings CPL/catalog helpers |
+| `employeeBooking.ts` | Local `/api/employee-booking/*` (not proxy) |
+
+Use `lib/api/filters.ts` + `url-state.ts` for URL-synced filters; `lib/query/keys.ts` for cache keys/invalidation (`queryKeys.observability`, `queryKeys` registry/reporting/granot/reconciliation roots).
 
 ## Ownership Boundaries
 
-- `vantage-admin` owns admin login, sessions, audit logs, UI, route handlers, TanStack Query state, frontend constants, and the server-only proxy to `vantage-main-server`.
-- `vantage-main-server` owns operational data validation, booking/cancellation business rules, Google Sheet sync, analytics aggregation, CSV exports, and production/historical business database access.
-- Do not read from or write to `vantagemovers` or `vantagemovershistorical` directly from `vantage-admin`; all operational reads, writes, analytics, and exports go through `vantage-main-server`.
-- Never expose `VANTAGE_API_SECRET` to client components, browser requests, or `NEXT_PUBLIC_*` variables.
-- Browser code calls local `/api/proxy/...` routes only; only `server/vantage-api/client.ts` may attach `x-api-secret`.
-- Local admin-only reads, such as `/api/audit-log`, may read the admin auth database through `server/models/*` and `lib/db/adminMongo.ts`, but they must not access operational business collections.
+- **Admin owns:** login/sessions, admin audit DB, UI, route handlers, TanStack Query, frontend constants, signed proxy BFF, public employee-booking nonce.
+- **Main server owns:** operational DBs, business rules, sheet sync, analytics, registry, ingestion, Granot automation, reporting delivery, Google Drive connection, reconciliation, exports.
+- Do not open `vantagemovers` / `vantagemovershistorical` from admin.
+- Settings CPL/catalog managers are legacy/compatibility; durable source/CPL/agent/merchant edits live in Operations Registry.
+- Mutations must invalidate the relevant query keys (lists, details, search, audit, analytics, registry, reporting) where data can change.
 
 ## Quality Practices
 
-- Keep server-only code out of client components; use route handlers or `server/` modules for secrets, Mongo access, and auth checks.
-- Keep `server/vantage-api/client.ts` marked server-only; put testable pure parsing or URL helpers in adjacent modules when needed.
-- Validate proxy paths so requests stay within `VANTAGE_API_BASE_URL`; never allow absolute or protocol-relative proxy targets.
-- Proxy routes must require a verified admin session and should audit mutating requests and CSV/export requests without letting audit failures mask successful backend responses.
-- Prefer small focused modules over broad utility files, and place code in the folder that owns the behavior.
-- Use Next 16 `proxy.ts`, not `middleware.ts`, for request-boundary auth logic.
-- Keep operational pages server-side filtered, sorted, and paginated when they are implemented.
-- Use `lib/api/filters.ts` for URL-synced filters and pagination conventions; use `lib/query/keys.ts` for cache keys and invalidation targets.
-- Use `lib/api/admin.ts` for browser calls to admin resources, workflows, analytics, observability, sheet-sync, exports, and production edit mutations. Use `lib/api/audit.ts` for audit-log browsing. Observability cache keys live under `queryKeys.observability` (including `queryKeys.observability.sheetSync`); incident status mutations invalidate the `observability` root.
-- Use `lib/api/url-state.ts` for URL-synced table/filter state instead of custom page-local query-string logic.
-- Mutations must invalidate the relevant TanStack Query keys for lists, details, search, audit log, and analytics where the changed data can affect them.
-- Preserve no-delete and historical-read-only rules throughout v1.
-- After substantive changes, run `pnpm lint`, `pnpm typecheck`, and relevant tests.
+- Keep secrets/Mongo/auth in `server/` or route handlers — never in client components.
+- Validate proxy paths stay under `VANTAGE_API_BASE_URL`; reject absolute/`://` targets.
+- Audit mutating + CSV/export proxy requests without masking successful backend responses.
+- Prefer small focused modules in the owning feature folder.
+- After substantive changes: `pnpm lint`, `pnpm typecheck`, and relevant tests.
