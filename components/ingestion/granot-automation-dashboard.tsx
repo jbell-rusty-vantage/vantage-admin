@@ -54,6 +54,21 @@ function number(value: unknown) {
   return typeof value === "number" ? value.toLocaleString() : "—";
 }
 
+function matchMethodLabel(value?: string) {
+  switch (value) {
+    case "ref_no_exact":
+      return "Exact ref_no";
+    case "mongo_id":
+      return "Mongo id";
+    case "fallback":
+      return "Source-gated fallback";
+    case "none":
+      return "No match";
+    default:
+      return text(value);
+  }
+}
+
 function actionIsSyncable(action: GranotAction) {
   return action.syncable === true;
 }
@@ -973,7 +988,7 @@ function RunDetail({
           ) : (
             <table className="w-full min-w-4xl text-left text-sm">
               <thead className="text-xs uppercase text-steel">
-                <tr><th className="py-2">Sync</th><th>Operation</th><th>Status</th><th>Source</th><th>Row / target</th><th>Summary</th></tr>
+                <tr><th className="py-2">Sync</th><th>Operation</th><th>Status</th><th>Match</th><th>Source</th><th>Row / target</th><th>Summary / warnings</th></tr>
               </thead>
               <tbody>
                 {run.actions?.map((action, index) => {
@@ -991,9 +1006,17 @@ function RunDetail({
                       </td>
                       <td>{text(action.operation)}</td>
                       <td>{action.status ? <StatusBadge status={action.status} /> : "—"}</td>
+                      <td>{matchMethodLabel(action.match_method)}</td>
                       <td>{text(action.source_label)}</td>
                       <td className="font-mono text-xs">{text(action.source_row_id ?? action.target_id)}</td>
-                      <td>{text(action.summary ?? action.reason)}</td>
+                      <td>
+                        <p>{text(action.summary ?? action.reason)}</p>
+                        {action.warnings?.map((warning) => (
+                          <p key={warning} className="mt-1 text-xs font-semibold text-amber-700">
+                            Warning: {warning}
+                          </p>
+                        ))}
+                      </td>
                     </tr>
                   );
                 })}

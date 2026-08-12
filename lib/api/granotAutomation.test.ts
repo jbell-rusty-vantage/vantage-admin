@@ -183,7 +183,9 @@ test("detail requests owner fields and normalizes the server safeRun payload", a
             row_id: "row-1",
             source_label: "Google",
             classification: "update",
+            match_method: "ref_no_exact",
             lead_id: "lead-1",
+            warnings: ["Exact ref matched a different source_company."],
           },
           {
             action_id: "Google:row-2",
@@ -219,6 +221,10 @@ test("detail requests owner fields and normalizes the server safeRun payload", a
     row_count: 5,
   });
   assert.equal(detail.actions?.[0]?.syncable, true);
+  assert.equal(detail.actions?.[0]?.match_method, "ref_no_exact");
+  assert.deepEqual(detail.actions?.[0]?.warnings, [
+    "Exact ref matched a different source_company.",
+  ]);
   assert.equal(detail.actions?.[1]?.syncable, false);
   assert.equal(detail.conflicts?.[0]?.conflict_id, "Google:row-2");
   assert.equal(detail.receipts?.[0]?.status, "applied");

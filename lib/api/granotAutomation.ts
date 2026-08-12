@@ -91,6 +91,8 @@ export type GranotAction = {
   summary?: string;
   reason?: string;
   classification?: string;
+  match_method?: "ref_no_exact" | "mongo_id" | "fallback" | "none" | string;
+  warnings?: string[];
   preview?: Record<string, unknown>;
 };
 
@@ -197,6 +199,8 @@ function normalizeAction(value: unknown): GranotAction {
     operation,
     status,
     classification,
+    match_method: stringValue(action.match_method, preview.match_method),
+    warnings: stringArray(action.warnings ?? preview.warnings),
     syncable:
       typeof action.syncable === "boolean"
         ? action.syncable
