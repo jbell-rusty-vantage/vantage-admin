@@ -17,25 +17,29 @@ export type SourceCompanyHierarchyColumn = {
   cellClassName?: string;
 };
 
+function usableLabel(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || /^(undefined|null)$/i.test(trimmed)) return undefined;
+  return trimmed;
+}
+
 export function formatSourceHierarchyLabel(value: unknown): string {
-  if (typeof value !== "string" || value.trim() === "") return "Unknown";
-  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const label = usableLabel(value);
+  if (!label) return "Unknown";
+  return label.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 export function sourceCompanyRowLabel(row: SourceCompanyMetricRow): string {
   return (
-    (typeof row.source_company_label === "string" && row.source_company_label.trim()
-      ? row.source_company_label
-      : undefined) ??
+    usableLabel(row.source_company_label) ??
     formatSourceHierarchyLabel(row.source_company)
   );
 }
 
 export function sourceGranularityRowLabel(row: SourceGranularityMetricRow): string {
   return (
-    (typeof row.source_granularity_label === "string" && row.source_granularity_label.trim()
-      ? row.source_granularity_label
-      : undefined) ??
+    usableLabel(row.source_granularity_label) ??
     formatSourceHierarchyLabel(row.source_granularity_key)
   );
 }
@@ -73,16 +77,16 @@ export function sourceCompanyChartLabel(
   row: Record<string, unknown>,
   genericLabel?: unknown,
 ): string {
-  for (const value of [
-    row.source_company_label,
-    row.source_label,
-    row.source_company,
-    genericLabel,
-  ]) {
-    if (typeof value === "string" && value.trim()) return value;
-    if (typeof value === "number" || typeof value === "boolean") {
-      return String(value);
-    }
+  const canonicalLabel = usableLabel(row.source_company_label);
+  if (canonicalLabel) return canonicalLabel;
+  const sourceLabel = usableLabel(row.source_label);
+  if (sourceLabel) return sourceLabel;
+  const sourceCompany = usableLabel(row.source_company);
+  if (sourceCompany) return formatSourceHierarchyLabel(sourceCompany);
+  const fallbackLabel = usableLabel(genericLabel);
+  if (fallbackLabel) return fallbackLabel;
+  if (typeof genericLabel === "number" || typeof genericLabel === "boolean") {
+    return String(genericLabel);
   }
   return "Unknown";
 }
@@ -90,11 +94,15 @@ export function sourceCompanyChartLabel(
 export function sourceCompanyChartRows(
   rows: Record<string, unknown>[],
 ): Record<string, unknown>[] {
-  return rows.map((row) =>
-    Object.fromEntries(
+  return rows.map((row) => {
+    const chartRow = Object.fromEntries(
       Object.entries(row).filter(([key]) => key !== "granularities"),
-    )
-  );
+    );
+    return {
+      ...chartRow,
+      source_company_label: sourceCompanyChartLabel(row),
+    };
+  });
 }
 
 export function SourceCompanyHierarchyTable({

@@ -162,14 +162,22 @@ test("source chart labels prefer canonical company labels and stay parent-only",
         },
       ],
     },
+    {
+      source_company: "main_site",
+      source_company_label: "undefined",
+      granularities: [],
+    },
   ]);
 
-  assert.equal(rows.length, 1);
+  assert.equal(rows.length, 2);
   assert.equal("granularities" in rows[0], false);
+  assert.equal("granularities" in rows[1], false);
   assert.equal(sourceCompanyChartLabel(rows[0]), "TBM Prime Leads");
+  assert.equal(rows[1].source_company_label, "Main Site");
+  assert.equal(sourceCompanyChartLabel(rows[1]), "Main Site");
   assert.equal(
     sourceCompanyChartLabel({ source_company: "tbm_prime_leads" }),
-    "tbm_prime_leads",
+    "Tbm Prime Leads",
   );
 });
 
