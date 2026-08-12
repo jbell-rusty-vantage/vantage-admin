@@ -23,7 +23,7 @@ export function CarrierManager() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [importMode, setImportMode] = useState<CarrierImportMode>("patch");
+  const [importMode, setImportMode] = useState<CarrierImportMode>("replace");
   const [lastImport, setLastImport] = useState<CarrierImportResult | null>(null);
 
   const carriersQuery = useQuery({
@@ -175,8 +175,8 @@ export function CarrierManager() {
                 onChange={(event) => setImportMode(event.target.value as CarrierImportMode)}
                 className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="patch">Patch only</option>
                 <option value="replace">Replace active list</option>
+                <option value="patch">Patch only</option>
               </select>
             </FilterField>
             <FilterField label="&nbsp;">
