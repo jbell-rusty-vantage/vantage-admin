@@ -178,6 +178,10 @@ export const queryKeys = {
         "dependencies",
         id,
       ] as const,
+    granotCrmSources: () =>
+      [...queryKeys.operationsRegistry.all, "granot-crm-sources"] as const,
+    granotCrmSourceDetail: (id: string) =>
+      [...queryKeys.operationsRegistry.all, "granot-crm-sources", "detail", id] as const,
   },
   observability: {
     all: ["observability"] as const,

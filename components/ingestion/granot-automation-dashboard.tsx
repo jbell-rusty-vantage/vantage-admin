@@ -26,6 +26,7 @@ import {
   compatibleGranotSources,
   DEFAULT_GRANOT_OPERATIONS,
   granotSubmitLabel,
+  isGranotSourceAvailableForApply,
   submittedGranotSourceIds,
 } from "@/lib/granotAutomationSelection";
 import { queryKeys } from "@/lib/query/keys";
@@ -193,6 +194,7 @@ export function GranotAutomationDashboard() {
       setNewSourceLabel("");
       setSelectedSourceIds((current) =>
         current === null ||
+        !isGranotSourceAvailableForApply(source) ||
         !source.supported_operations.some((operation) =>
           operations.includes(operation),
         )
@@ -251,9 +253,10 @@ export function GranotAutomationDashboard() {
       ),
   );
   const missingSourceIds = submittedSourceIds.length === 0 || operationWithoutSources;
+  const selectableSources = compatibleSources.filter(isGranotSourceAvailableForApply);
   const allSourcesSelected =
-    compatibleSources.length > 0 &&
-    compatibleSources.every((source) => submittedSourceIds.includes(source.id));
+    selectableSources.length > 0 &&
+    selectableSources.every((source) => submittedSourceIds.includes(source.id));
 
   function selectRun(runId: string) {
     setSelectedRunGroup(null);
@@ -406,9 +409,9 @@ export function GranotAutomationDashboard() {
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={compatibleSources.length === 0 || allSourcesSelected}
+                    disabled={selectableSources.length === 0 || allSourcesSelected}
                     onClick={() =>
-                      setSelectedSourceIds(compatibleSources.map((source) => source.id))
+                      setSelectedSourceIds(selectableSources.map((source) => source.id))
                     }
                   >
                     Select all compatible sources
@@ -455,22 +458,35 @@ export function GranotAutomationDashboard() {
                           {selectedCount} of {sources.length} selected
                         </p>
                         <div className="mt-3 grid max-h-56 gap-2 overflow-y-auto">
-                          {sources.map((source) => (
-                            <label
-                              key={`${operation}-${source.id}`}
-                              className="flex items-start gap-2 text-sm text-navy"
-                            >
-                              <input
-                                className="mt-0.5"
-                                type="checkbox"
-                                checked={submittedSourceIds.includes(source.id)}
-                                onChange={(event) =>
-                                  setSourceSelected(source.id, event.target.checked)
-                                }
-                              />
-                              <span>{source.label}</span>
-                            </label>
-                          ))}
+                          {sources.map((source) => {
+                            const available = isGranotSourceAvailableForApply(source);
+                            const issue = source.compatibility?.issues[0]?.message;
+                            return (
+                              <label
+                                key={`${operation}-${source.id}`}
+                                className="flex items-start gap-2 text-sm text-navy"
+                              >
+                                <input
+                                  className="mt-0.5"
+                                  type="checkbox"
+                                  checked={submittedSourceIds.includes(source.id)}
+                                  disabled={!available}
+                                  onChange={(event) =>
+                                    setSourceSelected(source.id, event.target.checked)
+                                  }
+                                />
+                                <span>
+                                  <span>{source.label}</span>
+                                  {!available ? (
+                                    <span className="mt-0.5 block text-xs text-red-700">
+                                      {issue ??
+                                        "Unavailable for apply until a reviewed Granot CRM source is linked."}
+                                    </span>
+                                  ) : null}
+                                </span>
+                              </label>
+                            );
+                          })}
                           {sources.length === 0 ? (
                             <p className="text-sm text-steel">
                               No classified sources support this workflow.
@@ -539,6 +555,10 @@ export function GranotAutomationDashboard() {
                     {createSourceMutation.isPending ? "Adding…" : "Add source"}
                   </Button>
                 </div>
+                <p className="mt-2 text-xs text-steel">
+                  A newly added label stays visible but unavailable for apply until an Owner links
+                  it to a reviewed Granot CRM source in Operations Registry.
+                </p>
               </div>
             </fieldset>
             <fieldset className="space-y-3">

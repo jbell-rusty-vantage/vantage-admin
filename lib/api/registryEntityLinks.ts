@@ -11,6 +11,8 @@ export const REGISTRY_CHANGE_ENTITY_TYPES = [
   "cpl_schedule",
   "ringcentral_route",
   "ringcentral_assignment",
+  "granot_crm_source",
+  "granot_automation_source",
   "registry",
 ] as const;
 
@@ -127,6 +129,14 @@ export function registryEntityHref(
           ? `/operations-registry?tab=ringcentral&entity=${id}`
           : "/operations-registry?tab=ringcentral",
         label: id ? "Open RingCentral route" : "Open RingCentral",
+      };
+    case "granot_crm_source":
+    case "granot_automation_source":
+      return {
+        href: id
+          ? `/operations-registry?tab=granot-sources&entity=${id}`
+          : "/operations-registry?tab=granot-sources",
+        label: id ? "Open Granot source" : "Open Granot sources",
       };
     case "registry":
     case "registry_cache":

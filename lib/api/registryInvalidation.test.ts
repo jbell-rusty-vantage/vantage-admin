@@ -20,6 +20,7 @@ test("registry invalidation covers every required domain root", () => {
     "auditLog",
     "publicEmployeeBooking",
     "workflows",
+    "granotAutomation",
   ]);
 
   const keys = registryInvalidationQueryKeys();
@@ -36,6 +37,7 @@ test("registry invalidation covers every required domain root", () => {
     queryKeys.auditLog.all,
     queryKeys.publicEmployeeBooking.all,
     queryKeys.workflows.all,
+    queryKeys.granotAutomation.all,
   ]);
 });
 

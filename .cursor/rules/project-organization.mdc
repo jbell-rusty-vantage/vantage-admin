@@ -27,7 +27,7 @@ alwaysApply: true
 | `components/dashboard/` | Home overview |
 | `components/analytics/`, `reports/` | Analytics + agent-sales report UI |
 | `components/observational/` | Observability tabs (events/incidents/reports/notifications/sheet-sync) |
-| `components/operations-registry/` | Registry shell: agents, merchants, sources, CPL, RingCentral, changes |
+| `components/operations-registry/` | Registry shell: agents, merchants, sources, Granot sources, CPL, RingCentral, changes |
 | `components/ingestion/` | Best Relocation + Granot automation dashboards |
 | `components/reporting/` | Report definitions, destinations, runs, Google settings |
 | `components/reconciliation/` | Booking-lead reconciliation dashboard |
@@ -60,7 +60,7 @@ alwaysApply: true
 
 **Insight:** `/analytics`, `/reports/agent-sales`
 
-**Ops:** `/observational` (`?tab=overview|events|incidents|reports|notifications|sheet-sync`), `/operations-registry` (`?tab=overview|agents|merchants|sources|ringcentral|cpl|changes`), `/ingestion` (Best Relocation), `/ingestion/granot` (owner), `/reporting`, `/reporting/[id]`, `/reporting/destinations`, `/reporting/destinations/[id]`, `/reporting/runs/[id]`
+**Ops:** `/observational` (`?tab=overview|events|incidents|reports|notifications|sheet-sync`), `/operations-registry` (`?tab=overview|agents|merchants|sources|granot-sources|ringcentral|cpl|changes`), `/ingestion` (Best Relocation), `/ingestion/granot` (owner), `/reporting`, `/reporting/[id]`, `/reporting/destinations`, `/reporting/destinations/[id]`, `/reporting/runs/[id]`
 
 **Support:** `/search`, `/exports`, `/audit-log` (owner), `/settings` (owner)
 
@@ -78,10 +78,11 @@ All operational/admin data goes through `/api/proxy/...` except local audit + pu
 |--------|------------------------|
 | `admin.ts` | Browse/detail/search/facets/testimonials/analytics/overview/observability/sheet-sync/exports + public v1 writes (leads/bookings/cancellations/customers, referral/leadless) |
 | `audit.ts` | Local `/api/audit-log` |
-| `operationsRegistry.ts` + `registry*.ts` | `/api/v1/admin/operations-registry/*`, catalog agents/merchants, source-companies/granularities, CPL schedules/corrections, RingCentral inbound routes |
+| `operationsRegistry.ts` + `registry*.ts` | `/api/v1/admin/operations-registry/*`, catalog agents/merchants, source-companies/granularities, Granot CRM sources, CPL schedules/corrections, RingCentral inbound routes |
 | `registryRequest.ts` | Shared registry JSON helper + `RegistryApiError` |
 | `ingestion.ts` | `/api/v1/admin/ingestion/*` (Best Relocation) |
-| `granotAutomation.ts` | `/api/v1/admin/granot-automation/*` |
+| `granotAutomation.ts` | `/api/v1/admin/granot-automation/*` (additive compatibility projection) |
+| `registryGranotCrmSources.ts` | `/api/v1/admin/granot-crm-sources` list/detail/update/activation |
 | `reporting.ts`, `reportingDestinations.ts` | `/api/v1/admin/reporting/*` |
 | `googleDrive.ts` | `/api/v1/admin/google-drive/*` (owner) |
 | `bookingLeadReconciliation.ts` | `/api/v1/admin/booking-lead-reconciliations/*` (owner) |

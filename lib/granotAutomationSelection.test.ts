@@ -112,6 +112,45 @@ test("a dual-compatible source renders in both groups but submits one ID", () =>
   );
 });
 
+test("unavailable sources stay visible but cannot be submitted for apply", () => {
+  const unavailable: GranotAutomationSource = {
+    id: "missing-ref",
+    label: "Unreviewed Source",
+    active: true,
+    supported_operations: ["form_leads"],
+    created_from: "admin",
+    compatibility: {
+      available_for_apply: false,
+      status: "missing_reference",
+      issues: [
+        {
+          code: "granot_crm_source_reference_missing",
+          message: "No reviewed Granot CRM source is linked.",
+        },
+      ],
+    },
+  };
+  const withUnavailable = [...sources, unavailable];
+  assert.equal(
+    compatibleGranotSources(withUnavailable, ["form_leads"]).some(
+      (source) => source.id === "missing-ref",
+    ),
+    true,
+  );
+  assert.deepEqual(
+    submittedGranotSourceIds(
+      withUnavailable,
+      ["form_leads"],
+      ["form", "missing-ref"],
+    ),
+    ["form"],
+  );
+  assert.equal(
+    defaultGranotSourceIds(withUnavailable, ["form_leads"]).includes("missing-ref"),
+    false,
+  );
+});
+
 test("submit labels match the selected workflows", () => {
   assert.equal(granotSubmitLabel(["form_leads"]), "Create Form Lead plan");
   assert.equal(granotSubmitLabel(["call_leads"]), "Create Call Lead plan");

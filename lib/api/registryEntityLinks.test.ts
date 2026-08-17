@@ -40,6 +40,14 @@ test("registryEntityHref covers company, granularity, CPL, correction, route, ag
     href: "/operations-registry?tab=ringcentral&entity=r1",
     label: "Open RingCentral route",
   });
+  assert.deepEqual(registryEntityHref("granot_crm_source", "s1"), {
+    href: "/operations-registry?tab=granot-sources&entity=s1",
+    label: "Open Granot source",
+  });
+  assert.deepEqual(registryEntityHref("granot_automation_source", "a1"), {
+    href: "/operations-registry?tab=granot-sources&entity=a1",
+    label: "Open Granot source",
+  });
 });
 
 test("registryEntityHref encodes ids and handles overview-only entity types", () => {

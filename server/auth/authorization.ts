@@ -38,6 +38,7 @@ const REGISTRY_OWNER_MUTATION_PREFIXES = [
   "/api/v1/admin/ringcentral",
   "/api/v1/admin/ingestion",
   "/api/v1/admin/granot-automation",
+  "/api/v1/admin/granot-crm-sources",
 ] as const;
 
 /** Read-style POSTs that admins may call. CPL correction preview is Owner-only. */

@@ -11,6 +11,7 @@ import { MerchantsManager } from "./merchants-manager";
 import { RegistryChanges } from "./registry-changes";
 import { RegistryOverview } from "./registry-overview";
 import { RingCentralRoutesManager } from "./ringcentral/routes-list";
+import { GranotCrmSourcesManager } from "./granot-crm-sources-manager";
 import { SourceCompaniesManager } from "./source-companies-manager";
 
 const TABS = [
@@ -18,6 +19,7 @@ const TABS = [
   { id: "agents", label: "Agents" },
   { id: "merchants", label: "Merchants" },
   { id: "sources", label: "Sources" },
+  { id: "granot-sources", label: "Granot sources" },
   { id: "ringcentral", label: "RingCentral" },
   { id: "cpl", label: "CPL" },
   { id: "changes", label: "Changes" },
@@ -78,8 +80,9 @@ export function RegistryShell() {
       <div>
         <h1 className="text-2xl font-semibold text-navy">Operations Registry</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Owner-managed catalog of agents, merchants, source companies, granularities, RingCentral
-          queue numbers, and CPL schedules. Changes are audited and dependency-aware.
+          Owner-managed catalog of agents, merchants, source companies, granularities, Granot CRM
+          sources, RingCentral queue numbers, and CPL schedules. Changes are audited and
+          dependency-aware.
         </p>
       </div>
 
@@ -129,6 +132,7 @@ export function RegistryShell() {
         {activeTab === "agents" ? <AgentsManager readOnly={readOnly} /> : null}
         {activeTab === "merchants" ? <MerchantsManager readOnly={readOnly} /> : null}
         {activeTab === "sources" ? <SourceCompaniesManager readOnly={readOnly} /> : null}
+        {activeTab === "granot-sources" ? <GranotCrmSourcesManager readOnly={readOnly} /> : null}
         {activeTab === "ringcentral" ? <RingCentralRoutesManager readOnly={readOnly} /> : null}
         {activeTab === "cpl" ? <CplManager readOnly={readOnly} /> : null}
         {activeTab === "changes" ? <RegistryChanges /> : null}

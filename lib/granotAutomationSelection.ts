@@ -14,6 +14,12 @@ export const GRANOT_SOURCES_UNSELECTED_BY_DEFAULT = new Set([
   "BestRelocation Inbounds",
 ]);
 
+export function isGranotSourceAvailableForApply(
+  source: GranotAutomationSource,
+): boolean {
+  return source.compatibility?.available_for_apply !== false;
+}
+
 export function compatibleGranotSources(
   sources: GranotAutomationSource[],
   operations: GranotOperation[],
@@ -31,6 +37,7 @@ export function defaultGranotSourceIds(
 ): string[] {
   return compatibleGranotSources(sources, operations)
     .filter((source) => !GRANOT_SOURCES_UNSELECTED_BY_DEFAULT.has(source.label))
+    .filter(isGranotSourceAvailableForApply)
     .map((source) => source.id);
 }
 
@@ -42,8 +49,10 @@ export function submittedGranotSourceIds(
   const compatible = compatibleGranotSources(sources, operations);
   const selected =
     selectedSourceIds ?? defaultGranotSourceIds(sources, operations);
-  const compatibleIds = new Set(compatible.map((source) => source.id));
-  return [...new Set(selected.filter((id) => compatibleIds.has(id)))];
+  const selectableIds = new Set(
+    compatible.filter(isGranotSourceAvailableForApply).map((source) => source.id),
+  );
+  return [...new Set(selected.filter((id) => selectableIds.has(id)))];
 }
 
 export function granotSubmitLabel(operations: GranotOperation[]): string {

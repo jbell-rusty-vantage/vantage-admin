@@ -5,6 +5,18 @@ type ApiEnvelope<T> =
 export type GranotOperation = "form_leads" | "call_leads";
 export type GranotWorkflow = "preview" | "apply";
 
+export type GranotAutomationCompatibility = {
+  granot_crm_source_id?: string;
+  available_for_apply: boolean;
+  status:
+    | "ready"
+    | "missing_reference"
+    | "source_disabled"
+    | "source_ambiguous"
+    | "operation_not_permitted";
+  issues: Array<{ code: string; message: string }>;
+};
+
 export type GranotAutomationSource = {
   id: string;
   label: string;
@@ -12,6 +24,8 @@ export type GranotAutomationSource = {
   supported_operations: GranotOperation[];
   created_from: "seed" | "admin";
   created_at?: string;
+  granot_crm_source?: string;
+  compatibility?: GranotAutomationCompatibility;
 };
 
 export type GranotRunStatus =
@@ -185,6 +199,56 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function normalizeCompatibility(value: unknown): GranotAutomationCompatibility | undefined {
+  const compatibility = asRecord(value);
+  const status = stringValue(compatibility.status);
+  if (
+    status !== "ready" &&
+    status !== "missing_reference" &&
+    status !== "source_disabled" &&
+    status !== "source_ambiguous" &&
+    status !== "operation_not_permitted"
+  ) {
+    return undefined;
+  }
+  const issues = Array.isArray(compatibility.issues)
+    ? compatibility.issues.flatMap((issue) => {
+        const row = asRecord(issue);
+        const code = stringValue(row.code);
+        const message = stringValue(row.message);
+        return code && message ? [{ code, message }] : [];
+      })
+    : [];
+  return {
+    granot_crm_source_id: stringValue(compatibility.granot_crm_source_id),
+    available_for_apply: compatibility.available_for_apply === true,
+    status,
+    issues,
+  };
+}
+
+function normalizeAutomationSource(value: unknown): GranotAutomationSource | null {
+  const source = asRecord(value);
+  const id = stringValue(source.id, source._id);
+  const label = stringValue(source.label);
+  if (!id || !label) {
+    return null;
+  }
+  return {
+    id,
+    label,
+    active: source.active !== false,
+    supported_operations: stringArray(source.supported_operations).filter(
+      (operation): operation is GranotOperation =>
+        operation === "form_leads" || operation === "call_leads",
+    ),
+    created_from: source.created_from === "admin" ? "admin" : "seed",
+    created_at: stringValue(source.created_at, source.createdAt),
+    granot_crm_source: stringValue(source.granot_crm_source),
+    compatibility: normalizeCompatibility(source.compatibility),
+  };
 }
 
 function normalizeAction(value: unknown): GranotAction {
@@ -413,21 +477,8 @@ export async function fetchGranotAutomationSources(
   );
   return Array.isArray(data)
     ? data
-        .map((value) => {
-          const source = asRecord(value);
-          return {
-            id: stringValue(source.id, source._id) ?? "",
-            label: stringValue(source.label) ?? "",
-            active: source.active !== false,
-            supported_operations: stringArray(source.supported_operations).filter(
-              (operation): operation is GranotOperation =>
-                operation === "form_leads" || operation === "call_leads",
-            ),
-            created_from: source.created_from === "admin" ? "admin" as const : "seed" as const,
-            created_at: stringValue(source.created_at, source.createdAt),
-          };
-        })
-        .filter((source) => source.id && source.label)
+        .map((value) => normalizeAutomationSource(value))
+        .filter((source): source is GranotAutomationSource => source !== null)
     : [];
 }
 
@@ -443,17 +494,19 @@ export async function createGranotAutomationSource(
       body: JSON.stringify(input),
     }),
   );
-  return {
-    id: stringValue(source.id, source._id) ?? "",
-    label: stringValue(source.label) ?? input.label,
-    active: source.active !== false,
-    supported_operations: stringArray(source.supported_operations).filter(
-      (operation): operation is GranotOperation =>
-        operation === "form_leads" || operation === "call_leads",
-    ),
-    created_from: source.created_from === "seed" ? "seed" : "admin",
-    created_at: stringValue(source.created_at, source.createdAt),
-  };
+  return (
+    normalizeAutomationSource({
+      ...source,
+      label: stringValue(source.label) ?? input.label,
+      created_from: source.created_from === "seed" ? "seed" : "admin",
+    }) ?? {
+      id: stringValue(source.id, source._id) ?? "",
+      label: stringValue(source.label) ?? input.label,
+      active: source.active !== false,
+      supported_operations: input.supported_operations,
+      created_from: "admin",
+    }
+  );
 }
 
 export async function fetchGranotRuns(): Promise<GranotRun[]> {

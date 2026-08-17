@@ -185,6 +185,38 @@ test("admin can read registry endpoints but cannot mutate them", () => {
     canProxyVantagePath({
       role: "admin",
       method: "GET",
+      path: "api/v1/admin/granot-crm-sources",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "PATCH",
+      path: "api/v1/admin/granot-crm-sources/aaaaaaaaaaaaaaaaaaaaaaaa",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "PATCH",
+      path: "api/v1/admin/granot-crm-sources/aaaaaaaaaaaaaaaaaaaaaaaa/activation",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "owner",
+      method: "PATCH",
+      path: "api/v1/admin/granot-crm-sources/aaaaaaaaaaaaaaaaaaaaaaaa",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "GET",
       path: "api/v1/admin/ringcentral/inbound-routes",
     }),
     true,

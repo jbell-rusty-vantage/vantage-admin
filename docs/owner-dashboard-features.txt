@@ -79,22 +79,26 @@ State: LIVE (owner mutations; others read-only)
 
 What it does
   Central catalog for the business graph. Create and manage Agents, Merchants,
-  Lead Source Companies (and channel granularities), RingCentral inbound queue
-  numbers, and granular CPL costs. Everything is interconnected: changes
-  propagate into bookings, ingestion recognition, filters, analytics, and
-  reporting source selection.
+  Lead Source Companies (and channel granularities), reviewed Granot CRM
+  sources, RingCentral inbound queue numbers, and granular CPL costs. Everything
+  is interconnected: changes propagate into bookings, ingestion recognition,
+  filters, analytics, and reporting source selection.
 
 How to use (tabs)
-  Overview     — counts and health findings.
-  Agents       — create/activate agents so they can be selected on bookings.
-  Merchants    — create/activate merchants so they can be selected on bookings.
-  Sources      — create Lead Source Companies + form/call granularities so
-                 ingestion from a site is recognized and attributable.
-  RingCentral  — create a draft inbound queue number → Validate → activate /
-                 start ingesting once validated.
-  CPL          — set cost-per-lead rates granularly (by source/channel slots);
-                 updates backfill matching leads for analytics.
-  Changes      — audited registry change history.
+  Overview        — counts and health findings.
+  Agents          — create/activate agents so they can be selected on bookings.
+  Merchants       — create/activate merchants so they can be selected on bookings.
+  Sources         — create Lead Source Companies + form/call granularities so
+                    ingestion from a site is recognized and attributable.
+  Granot sources  — review exact Granot CRM labels, lifecycle disposition,
+                    link_only/observation_only policy, route dependencies, and
+                    automation compatibility. create_if_missing is a later
+                    rollout and cannot be selected. Admin is read-only.
+  RingCentral     — create a draft inbound queue number → Validate → activate /
+                    start ingesting once validated.
+  CPL             — set cost-per-lead rates granularly (by source/channel slots);
+                    updates backfill matching leads for analytics.
+  Changes         — audited registry change history.
 
 Rule of thumb: add the registry entity first, then expect dropdowns, ingestion
 recognition, and reports to pick it up across the rest of the dashboard.
