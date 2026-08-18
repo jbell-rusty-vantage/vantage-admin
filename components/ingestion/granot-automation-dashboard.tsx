@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, RefreshCw, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import { Button } from "@/components/ui/button";
@@ -1104,15 +1104,24 @@ function RunDetail({
           </CardHeader>
           <CardContent className="space-y-2">
             {run.receipts?.map((receipt, index) => (
-              <div key={receipt.receipt_id || `receipt-${index}`} className="flex items-start gap-3 rounded-md border border-steel-100 p-3">
-                {receipt.outcome === "applied" || receipt.outcome === "already_applied" ? (
+              <div key={receipt.lifecycle_receipt_id || receipt.receipt_id || `receipt-${index}`} className="flex items-start gap-3 rounded-md border border-steel-100 p-3">
+                {receipt.pending ? (
+                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-steel" aria-hidden="true" />
+                ) : receipt.outcome === "applied" || receipt.outcome === "already_current" || receipt.outcome === "already_applied" ? (
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
                 ) : (
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
                 )}
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-navy">
-                    Action {receipt.action_id} · {text(receipt.outcome)}
+                    Action {receipt.action_id} · {receipt.pending ? "Accepted for processing" : text(receipt.outcome)}
+                  </p>
+                  <p className="mt-1 break-all font-mono text-xs text-steel">
+                    {receipt.lifecycle_receipt_id
+                      ? `Receipt ${receipt.lifecycle_receipt_id}`
+                      : null}
+                    {receipt.observation_id ? ` · Observation ${receipt.observation_id}` : ""}
+                    {receipt.decision_id ? ` · Decision ${receipt.decision_id}` : ""}
                   </p>
                   <p className="mt-1 break-all font-mono text-xs text-steel">
                     {formatDate(receipt.applied_at)}

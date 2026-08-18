@@ -228,7 +228,35 @@ test("detail requests owner fields and normalizes the server safeRun payload", a
   assert.equal(detail.actions?.[1]?.syncable, false);
   assert.equal(detail.conflicts?.[0]?.conflict_id, "Google:row-2");
   assert.equal(detail.receipts?.[0]?.status, "applied");
+  assert.equal(detail.receipts?.[0]?.pending, false);
   assert.equal(detail.checkpoint?.completed_units, 2);
+});
+
+test("[AC-02] receipt adapter preserves lifecycle IDs and durable pending without payload", () => {
+  const run = normalizeGranotRun({
+    id: "run-lifecycle",
+    status: "applying",
+    receipt_count: 1,
+    receipts: [
+      {
+        action_id: "Synthetic Forms:row-1",
+        lifecycle_receipt_id: "507f1f77bcf86cd7994390aa",
+        observation_id: "507f1f77bcf86cd7994390bb",
+        decision_id: "507f1f77bcf86cd7994390cc",
+        outcome: "accepted_for_processing",
+        applied_at: "2026-08-18T16:00:00.000Z",
+        granot_statement: { phone: "must-not-surface" },
+        payload: { authorization: "must-not-surface" },
+      },
+    ],
+  });
+  assert.equal(run.receipts?.[0]?.lifecycle_receipt_id, "507f1f77bcf86cd7994390aa");
+  assert.equal(run.receipts?.[0]?.observation_id, "507f1f77bcf86cd7994390bb");
+  assert.equal(run.receipts?.[0]?.decision_id, "507f1f77bcf86cd7994390cc");
+  assert.equal(run.receipts?.[0]?.outcome, "accepted_for_processing");
+  assert.equal(run.receipts?.[0]?.pending, true);
+  assert.equal(JSON.stringify(run.receipts).includes("must-not-surface"), false);
+  assert.equal(JSON.stringify(run.receipts).includes("authorization"), false);
 });
 
 test("approve sends selected_action_ids and returns the server acknowledgment", async () => {

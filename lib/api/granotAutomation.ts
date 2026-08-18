@@ -122,10 +122,15 @@ export type GranotConflict = {
 
 export type GranotReceipt = {
   receipt_id: string;
+  lifecycle_receipt_id?: string;
+  observation_id?: string;
+  decision_id?: string;
   action_id: string;
   outcome: string;
   status: string;
+  pending: boolean;
   applied_at?: string;
+  error_code?: string;
 };
 
 export type GranotCheckpoint = {
@@ -296,12 +301,25 @@ function normalizeReceipt(value: unknown): GranotReceipt {
   const receipt = asRecord(value);
   const actionId = stringValue(receipt.action_id, receipt.actionId) ?? "";
   const outcome = stringValue(receipt.outcome) ?? "unknown";
+  const lifecycleReceiptId = stringValue(
+    receipt.lifecycle_receipt_id,
+    receipt.lifecycleReceiptId,
+    receipt.receipt_id,
+    receipt.receiptId,
+  );
+  const pending =
+    outcome === "accepted_for_processing" || outcome === "pending_match";
   return {
-    receipt_id: stringValue(receipt.receipt_id, receipt.receiptId) ?? actionId,
+    receipt_id: lifecycleReceiptId ?? actionId,
+    lifecycle_receipt_id: lifecycleReceiptId,
+    observation_id: stringValue(receipt.observation_id, receipt.observationId),
+    decision_id: stringValue(receipt.decision_id, receipt.decisionId),
     action_id: actionId,
     outcome,
     status: outcome,
+    pending,
     applied_at: stringValue(receipt.applied_at, receipt.appliedAt),
+    error_code: stringValue(receipt.error_code, receipt.errorCode),
   };
 }
 

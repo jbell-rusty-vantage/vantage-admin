@@ -81,7 +81,7 @@ All operational/admin data goes through `/api/proxy/...` except local audit + pu
 | `operationsRegistry.ts` + `registry*.ts` | `/api/v1/admin/operations-registry/*`, catalog agents/merchants, source-companies/granularities, Granot CRM sources, CPL schedules/corrections, RingCentral inbound routes |
 | `registryRequest.ts` | Shared registry JSON helper + `RegistryApiError` |
 | `ingestion.ts` | `/api/v1/admin/ingestion/*` (Best Relocation) |
-| `granotAutomation.ts` | `/api/v1/admin/granot-automation/*` (additive compatibility projection) |
+| `granotAutomation.ts` | `/api/v1/admin/granot-automation/*` (additive compatibility projection; apply receipts show lifecycle IDs / pending / bounded outcome only) |
 | `registryGranotCrmSources.ts` | `/api/v1/admin/granot-crm-sources` list/detail/update/activation |
 | `reporting.ts`, `reportingDestinations.ts` | `/api/v1/admin/reporting/*` |
 | `googleDrive.ts` | `/api/v1/admin/google-drive/*` (owner) |
