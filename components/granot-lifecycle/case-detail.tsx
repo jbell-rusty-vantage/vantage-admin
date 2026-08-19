@@ -15,7 +15,7 @@ import {
 import { queryKeys } from "@/lib/query/keys";
 import { JobTimeline } from "./job-timeline";
 import { LeadCandidateBrowser } from "./lead-candidate-browser";
-import { BookingCommandForm } from "./booking-command-form";
+import { BookingOwnerActions } from "./booking-owner-actions";
 
 function ContactBlock({
   title,
@@ -140,6 +140,7 @@ export function CaseDetail({
                   <div><dt className="text-xs text-muted-foreground">Deposit</dt><dd>{formatMoney(booking.deposit_amount)}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Binder total</dt><dd>{formatMoney(booking.total_binder_amount)}</dd></div>
                 </dl>
+                <div className="mt-3"><h4 className="text-sm font-medium">Agent allocations</h4><ul className="mt-1 space-y-1 text-sm">{booking.agent_allocations.map((allocation) => <li key={allocation.agent_id}>{allocation.agent_name}: {formatMoney(allocation.binder_amount)}</li>)}</ul></div>
               </section>
             ) : (
               <FeedbackMessage>
@@ -230,6 +231,6 @@ export function GranotLifecycleCasePage({ caseId }: { caseId: string }) {
   return <CaseDetail
     detail={query.data}
     candidateBrowser={<LeadCandidateBrowser caseId={caseId} />}
-    commandForm={<BookingCommandForm detail={query.data} />}
+    commandForm={<BookingOwnerActions detail={query.data} />}
   />;
 }

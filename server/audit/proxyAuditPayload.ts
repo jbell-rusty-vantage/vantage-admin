@@ -497,6 +497,26 @@ function sanitizeGranotLifecycleAuditBody(
       official_details_present: hasValue(record.official_booking_details),
     };
   }
+  if (method === "POST" && /\/booking-cases\/[^/]+\/update-booking$/.test(normalized)) {
+    const official = asRecord(record.official_booking_details);
+    return {
+      operation: "granot_booking_update",
+      case_id: pathSegment(path, "booking-cases"),
+      expected_case_revision: record.expected_case_revision,
+      expected_booking_revision: record.expected_booking_revision,
+      allocation_count: Array.isArray(official.agent_allocations) ? official.agent_allocations.length : 0,
+      official_details_present: hasValue(record.official_booking_details),
+    };
+  }
+  if (method === "POST" && /\/booking-cases\/[^/]+\/no-action$/.test(normalized)) {
+    return {
+      operation: "granot_booking_no_action",
+      case_id: pathSegment(path, "booking-cases"),
+      expected_case_revision: record.expected_case_revision,
+      reason_code: readString(record.reason_code),
+      reason_text_present: hasValue(record.reason_text),
+    };
+  }
   return { operation: "granot_lifecycle_mutation", path: proxyAuditPathname(path) };
 }
 

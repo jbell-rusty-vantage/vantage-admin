@@ -7,6 +7,8 @@ import {
   fetchGranotLifecycleCase,
   fetchGranotLifecycleCases,
   confirmGranotBooking,
+  updateGranotBooking,
+  resolveGranotBookingNoAction,
   GranotLifecycleApiError,
 } from "./granotLifecycle";
 
@@ -79,7 +81,41 @@ test("[AC-21][AC-22] confirm uses the authenticated proxy and forwards one idemp
   assert.equal(calls[0]?.init?.method, "POST");
   assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit24-key");
   assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), body);
-  assert.equal(result.booking_ref.id, "booking-1");
+  assert.equal(result.booking_ref?.id, "booking-1");
+});
+
+test("[AC-21][AC-24][AC-32] update and No Action use only their exact authenticated proxy paths", async () => {
+  let calls = mockFetch({ ok: true, data: {
+    case_id: "case-1", case_state: "resolved", case_revision: 2,
+    outcome: "booking_updated", command_execution_id: "command-1", decision_id: "decision-1",
+    booking_ref: { id: "booking-1", domain_revision: 2 }, entity_refs: [], replayed: false,
+  } });
+  const updateBody = {
+    expected_case_revision: 1,
+    expected_booking_revision: 1,
+    official_booking_details: {
+      book_date: "2026-08-19",
+      agent_allocations: [{ agent_id: "b".repeat(24), binder_amount: 10 }],
+      total_binder_amount: 10,
+      deposit_amount: 5,
+      merchant_id: "c".repeat(24),
+    },
+  };
+  await updateGranotBooking("case/one", updateBody, "unit25-update-key");
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/booking-cases/case%2Fone/update-booking");
+  assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit25-update-key");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), updateBody);
+
+  calls = mockFetch({ ok: true, data: {
+    case_id: "case-1", case_state: "resolved", case_revision: 2,
+    outcome: "no_action", command_execution_id: "command-2", decision_id: "decision-1",
+    entity_refs: [], replayed: false,
+  } });
+  const noActionBody = { expected_case_revision: 1, reason_code: "other" as const };
+  await resolveGranotBookingNoAction("case/one", noActionBody, "unit25-no-action-key");
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/booking-cases/case%2Fone/no-action");
+  assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit25-no-action-key");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), noActionBody);
 });
 
 test("case list unwraps a nested proxy envelope and missing items without throwing", async () => {

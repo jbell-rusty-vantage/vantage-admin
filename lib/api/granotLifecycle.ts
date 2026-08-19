@@ -70,9 +70,10 @@ export type SafeBookingProjection = {
   customer_name: string | null;
   source: string;
   merchant: string;
+  merchant_id?: string;
   deposit_amount: number;
   total_binder_amount: number;
-  agent_allocations: Array<{ agent_name: string; binder_amount: number }>;
+  agent_allocations: Array<{ agent_id: string; agent_name: string; binder_amount: number }>;
   domain_revision: number;
   lead_ref?: GranotEntityRef;
 };
@@ -308,13 +309,36 @@ export type BookingOwnerCommandResult = {
   case_id: string;
   case_state: "resolved";
   case_revision: number;
-  outcome: "booking_created" | "already_satisfied";
+  outcome: "booking_created" | "booking_updated" | "no_action" | "already_satisfied";
   command_execution_id: string;
   decision_id: string;
-  booking_ref: { id: string; domain_revision: number };
-  record_link_ref: { id: string; domain_revision: number };
+  booking_ref?: { id: string; domain_revision: number };
+  record_link_ref?: { id: string; domain_revision: number };
   entity_refs: Array<{ model: string; id: string }>;
   replayed: boolean;
+};
+
+export type UpdateGranotBookingBody = {
+  expected_case_revision: number;
+  expected_booking_revision: number;
+  official_booking_details: ConfirmGranotBookingBody["official_booking_details"];
+};
+
+export type BookingNoActionReasonCode =
+  | "already_handled_elsewhere"
+  | "granot_action_not_authoritative"
+  | "wrong_customer_or_job"
+  | "duplicate_granot_action"
+  | "booking_still_valid"
+  | "granot_change_only"
+  | "insufficient_information"
+  | "legacy_data"
+  | "other";
+
+export type BookingNoActionBody = {
+  expected_case_revision: number;
+  reason_code?: BookingNoActionReasonCode;
+  reason_text?: string;
 };
 
 export class GranotLifecycleApiError extends Error {
@@ -526,6 +550,36 @@ export function confirmGranotBooking(
 ): Promise<BookingOwnerCommandResult> {
   return requestJson(
     proxyUrl(`api/v1/admin/granot-lifecycle/booking-cases/${encodeURIComponent(caseId)}/confirm-booking`),
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function updateGranotBooking(
+  caseId: string,
+  body: UpdateGranotBookingBody,
+  idempotencyKey: string,
+): Promise<BookingOwnerCommandResult> {
+  return requestJson(
+    proxyUrl(`api/v1/admin/granot-lifecycle/booking-cases/${encodeURIComponent(caseId)}/update-booking`),
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function resolveGranotBookingNoAction(
+  caseId: string,
+  body: BookingNoActionBody,
+  idempotencyKey: string,
+): Promise<BookingOwnerCommandResult> {
+  return requestJson(
+    proxyUrl(`api/v1/admin/granot-lifecycle/booking-cases/${encodeURIComponent(caseId)}/no-action`),
     {
       method: "POST",
       headers: { "Idempotency-Key": idempotencyKey },

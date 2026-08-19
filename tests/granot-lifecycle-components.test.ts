@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BookingCommandForm } from "../components/granot-lifecycle/booking-command-form";
+import { BookingOwnerActions } from "../components/granot-lifecycle/booking-owner-actions";
 import { GranotLifecycleCaseList } from "../components/granot-lifecycle/case-list";
 import { CaseDetail } from "../components/granot-lifecycle/case-detail";
 import { GranotNavigationLinks } from "../components/granot-lifecycle/granot-navigation";
@@ -203,7 +204,7 @@ test("[AC-19][AC-39] review detail shows deterministic official Booking and Empl
           merchant: "Synthetic Merchant",
           deposit_amount: 100,
           total_binder_amount: 200,
-          agent_allocations: [{ agent_name: "Synthetic Agent", binder_amount: 200 }],
+          agent_allocations: [{ agent_id: "agent-1", agent_name: "Synthetic Agent", binder_amount: 200 }],
           domain_revision: 4,
         },
       },
@@ -218,6 +219,66 @@ test("[AC-19][AC-39] review detail shows deterministic official Booking and Empl
   assert.match(markup, /booking-safe-id/);
   assert.match(markup, /separate Employee Booking Lead Reconciliation workflow/);
   assert.match(markup, /\/bookings\/reconciliation\?record=employee-case-1/);
+});
+
+test("[AC-20][AC-24][AC-32] review-existing actions initialize from live values and expose exact final labels", () => {
+  const commandDetail = detail({
+    mode: "review_existing_booking",
+    capabilities: { commands: true, referral: false, release_cases: false, discrepancies: false },
+    official_current: {
+      booking: {
+        id: "booking-safe-id",
+        normalized_job_no: "SYNTHETIC JOB 1",
+        job_no: "Synthetic Job 1",
+        book_date: "2026-08-17T00:00:00.000Z",
+        customer_name: "Masked Owner Work",
+        source: "Synthetic Source",
+        merchant: "Synthetic Merchant",
+        merchant_id: "merchant-1",
+        deposit_amount: 100.25,
+        total_binder_amount: 200.5,
+        agent_allocations: [{ agent_id: "agent-1", agent_name: "Synthetic Agent", binder_amount: 200.5 }],
+        domain_revision: 4,
+        lead_ref: { model: "FormLead", id: "lead-1" },
+      },
+    },
+  });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
+    createElement(BookingOwnerActions, { detail: commandDetail })));
+  for (const value of [
+    "Update Existing Booking",
+    "Full replacement initialized once from live official Vantage values",
+    "2026-08-17",
+    "100.25",
+    "200.5",
+    "Review Booking Update",
+    "No Action",
+    "Review No Action",
+  ]) assert.match(markup, new RegExp(value));
+  assert.equal(markup.includes("Confirm Granot Booking"), false);
+  assert.equal(markup.includes("LeadCandidateBrowser"), false);
+});
+
+test("[AC-20] create-missing actions show Confirm and No Action while Referral shows neither", () => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const createMarkup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
+    createElement(BookingOwnerActions, { detail: detail({
+      mode: "create_missing_booking",
+      capabilities: { commands: true, referral: false, release_cases: false, discrepancies: false },
+    }) })));
+  assert.match(createMarkup, /Confirm Granot Booking/);
+  assert.match(createMarkup, /No Action/);
+  assert.equal(createMarkup.includes("Update Existing Booking"), false);
+
+  const referralMarkup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
+    createElement(BookingOwnerActions, { detail: detail({
+      mode: "create_referral_booking",
+      capabilities: { commands: true, referral: true, release_cases: false, discrepancies: false },
+    }) })));
+  assert.equal(referralMarkup.includes("Confirm Granot Booking"), false);
+  assert.equal(referralMarkup.includes("Update Existing Booking"), false);
+  assert.equal(referralMarkup.includes("No Action"), false);
 });
 
 test("[AC-20] evidence-only refetch architecture keeps the candidate draft slot while counts change", () => {

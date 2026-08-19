@@ -29,7 +29,7 @@ alwaysApply: true
 | `components/observational/` | Observability tabs (events/incidents/reports/notifications/sheet-sync) |
 | `components/operations-registry/` | Registry shell: agents, merchants, sources, Granot sources, CPL, RingCentral, changes |
 | `components/ingestion/` | Best Relocation + Granot automation dashboards |
-| `components/granot-lifecycle/` | Read-only Granot lifecycle case, candidate, and timeline UI |
+| `components/granot-lifecycle/` | Granot lifecycle case/candidate/timeline UI plus gated standard Booking Owner forms |
 | `components/reporting/` | Report definitions, destinations, runs, Google settings |
 | `components/reconciliation/` | Booking-lead reconciliation dashboard |
 | `components/employee-booking/` | Public employee booking form |
@@ -93,13 +93,13 @@ All operational/admin data goes through `/api/proxy/...` except local audit + pu
 
 Use `lib/api/filters.ts` + `url-state.ts` for URL-synced filters; `lib/query/keys.ts` for cache keys/invalidation (`queryKeys.observability`, `queryKeys` registry/reporting/granot/reconciliation roots).
 
-### Granot lifecycle reads
+### Granot lifecycle reads and Booking commands
 
 - Owner-only pages live under `/ingestion/granot/lifecycle`; `/ingestion/granot` remains the Automation surface, and the nested layout exposes distinct Automation/Lifecycle tabs.
-- Browser code always uses the signed `/api/proxy/api/v1/...` boundary. Standard lifecycle GETs are Owner/Admin at the proxy and server; candidate GETs are Owner-only. Unit 23 exposes no mutation controls.
+- Browser code always uses the signed `/api/proxy/api/v1/...` boundary. Standard lifecycle GETs are Owner/Admin at the proxy and server; candidates and every command are Owner-only. Only the exact confirm/update/No Action paths forward `Idempotency-Key`; browser secrets and actor headers are stripped before trusted headers are minted.
 - Server DTOs remain semantic authority for source scope, matching, candidate eligibility, masking, and timeline ordering. Admin components render those DTOs and never open operational Mongo.
 - `queryKeys.granotLifecycle` is isolated from Employee Booking reconciliation and Granot Automation. Future command invalidation helpers are not invoked by the read-only Unit 23 surface.
-- Polling may refresh evidence and timelines but must preserve component-owned draft state. Booking and Release discriminants never collapse, and capability flags cannot advertise future Release/discrepancy data.
+- Polling may refresh evidence and timelines but must preserve component-owned confirm/update/No Action draft state. Review-existing initializes once from the live Booking projection (including active catalog IDs), never Granot evidence. `409` refetch preserves unsent values and never auto-resubmits. Booking and Release discriminants never collapse, and capability flags cannot advertise future Release/discrepancy data.
 
 ## Ownership Boundaries
 

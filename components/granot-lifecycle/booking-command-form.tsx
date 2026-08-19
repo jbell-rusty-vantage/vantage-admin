@@ -94,6 +94,7 @@ export function BookingCommandForm({ detail }: { detail: GranotLifecycleCaseDeta
     setNotice(undefined);
     try {
       const result = await confirmGranotBooking(detail.case_id, body, attempt.key);
+      if (!result.booking_ref) throw new Error("Booking command response omitted the created Booking reference.");
       lastAttempt.current = undefined;
       setReviewing(false);
       setNotice(result.outcome === "booking_created" ? "Booking created successfully." : "The current official Booking already satisfied this case.");

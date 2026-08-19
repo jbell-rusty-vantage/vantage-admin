@@ -98,6 +98,48 @@ test("[AC-32] Granot booking confirm audit excludes money, catalog IDs, and over
   assertProxyAuditPayloadSafe(payload, ["Sensitive correction prose", "merchant-secret", "agent-secret"]);
 });
 
+test("[AC-24][AC-32] Granot update and No Action audits retain only bounded metadata", () => {
+  const update = buildProxyAuditRequestPayload({
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/booking-cases/case-1/update-booking",
+    body: {
+      expected_case_revision: 4,
+      expected_booking_revision: 8,
+      official_booking_details: {
+        book_date: "2026-08-19", deposit_amount: 12.34, total_binder_amount: 50,
+        merchant_id: "merchant-secret", agent_allocations: [{ agent_id: "agent-secret", binder_amount: 50 }],
+      },
+    },
+  });
+  assert.deepEqual(update, {
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/booking-cases/case-1/update-booking",
+    operation: "granot_booking_update",
+    case_id: "case-1",
+    expected_case_revision: 4,
+    expected_booking_revision: 8,
+    allocation_count: 1,
+    official_details_present: true,
+  });
+  assertProxyAuditPayloadSafe(update, ["merchant-secret", "agent-secret", "12.34"]);
+
+  const noAction = buildProxyAuditRequestPayload({
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/booking-cases/case-1/no-action",
+    body: { expected_case_revision: 4, reason_code: "other", reason_text: "Sensitive owner prose" },
+  });
+  assert.deepEqual(noAction, {
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/booking-cases/case-1/no-action",
+    operation: "granot_booking_no_action",
+    case_id: "case-1",
+    expected_case_revision: 4,
+    reason_code: "other",
+    reason_text_present: true,
+  });
+  assertProxyAuditPayloadSafe(noAction, ["Sensitive owner prose"]);
+});
+
 test("reporting preview and save audits exclude draft free text and PII-bearing fields", () => {
   const payloads = [
     buildProxyAuditRequestPayload({
