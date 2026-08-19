@@ -7,6 +7,7 @@ import {
   fetchGranotLifecycleCase,
   fetchGranotLifecycleCases,
   confirmGranotBooking,
+  createGranotReferralBooking,
   updateGranotBooking,
   resolveGranotBookingNoAction,
   confirmGranotCancellation,
@@ -119,6 +120,29 @@ test("[AC-21][AC-24][AC-32] update and No Action use only their exact authentica
   assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/booking-cases/case%2Fone/no-action");
   assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit25-no-action-key");
   assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), noActionBody);
+});
+
+test("[AC-28] Referral create sends only official details through the exact proxy path", async () => {
+  const calls = mockFetch({ ok: true, data: {
+    case_id: "case-1", case_state: "resolved", case_revision: 2,
+    outcome: "referral_booking_created", command_execution_id: "command-1", decision_id: "decision-1",
+    booking_ref: { id: "booking-1", domain_revision: 1 },
+    record_link_ref: { id: "link-1", domain_revision: 1 }, entity_refs: [], replayed: false,
+  } }, 201);
+  const body = {
+    expected_case_revision: 1,
+    official_booking_details: {
+      book_date: "2026-08-19",
+      agent_allocations: [{ agent_id: "b".repeat(24), binder_amount: 10 }],
+      total_binder_amount: 10,
+      deposit_amount: 5,
+      merchant_id: "c".repeat(24),
+    },
+  };
+  await createGranotReferralBooking("case/one", body, "unit28-referral-key");
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/booking-cases/case%2Fone/create-referral-booking");
+  assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit28-referral-key");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), body);
 });
 
 test("[AC-21][AC-25][AC-32] Release commands use exact proxy paths, bodies, and idempotency keys", async () => {

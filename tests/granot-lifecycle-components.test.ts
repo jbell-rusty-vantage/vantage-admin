@@ -293,7 +293,7 @@ test("[AC-20][AC-24][AC-32] review-existing actions initialize from live values 
   assert.equal(markup.includes("LeadCandidateBrowser"), false);
 });
 
-test("[AC-20] create-missing actions show Confirm and No Action while Referral shows neither", () => {
+test("[AC-20][AC-28] create-missing and Referral expose only their explicit Owner actions", () => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const createMarkup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
     createElement(BookingOwnerActions, { detail: detail({
@@ -311,7 +311,11 @@ test("[AC-20] create-missing actions show Confirm and No Action while Referral s
     }) })));
   assert.equal(referralMarkup.includes("Confirm Granot Booking"), false);
   assert.equal(referralMarkup.includes("Update Existing Booking"), false);
-  assert.equal(referralMarkup.includes("No Action"), false);
+  assert.match(referralMarkup, /Create Referral Booking/);
+  assert.match(referralMarkup, /Review Booking/);
+  assert.match(referralMarkup, /No Action/);
+  assert.equal(referralMarkup.includes("Select one eligible Lead"), false);
+  assert.equal(referralMarkup.includes("LeadCandidateBrowser"), false);
 });
 
 test("[AC-25][AC-32] open Release cases expose exactly the three explicit Owner actions", () => {

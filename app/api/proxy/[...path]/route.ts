@@ -105,7 +105,7 @@ function getForwardHeaders(
     headers.set("content-type", contentType);
   }
 
-  if (/^api\/v1\/admin\/granot-lifecycle\/(?:booking-cases\/[^/?]+\/(?:confirm-booking|update-booking|no-action)|release-cases\/[^/?]+\/(?:confirm-cancellation|update-booking|no-action))(?:\?|$)/.test(backendPath)) {
+  if (/^api\/v1\/admin\/granot-lifecycle\/(?:booking-cases\/[^/?]+\/(?:confirm-booking|create-referral-booking|update-booking|no-action)|release-cases\/[^/?]+\/(?:confirm-cancellation|update-booking|no-action))(?:\?|$)/.test(backendPath)) {
     const idempotencyKey = request.headers.get("idempotency-key");
     if (idempotencyKey) headers.set("idempotency-key", idempotencyKey);
   }

@@ -426,8 +426,8 @@ test("Granot lifecycle standard reads allow admin while candidates and all write
   );
 });
 
-test("[AC-32] exact Granot Booking command paths are Owner-only at the proxy", () => {
-  for (const action of ["confirm-booking", "update-booking", "no-action"]) {
+test("[AC-28][AC-32] exact Granot Booking command paths are Owner-only at the proxy", () => {
+  for (const action of ["confirm-booking", "create-referral-booking", "update-booking", "no-action"]) {
     const path = `api/v1/admin/granot-lifecycle/booking-cases/case-1/${action}`;
     assert.equal(canProxyVantagePath({ role: "owner", method: "POST", path }), true);
     assert.equal(canProxyVantagePath({ role: "admin", method: "POST", path }), false);

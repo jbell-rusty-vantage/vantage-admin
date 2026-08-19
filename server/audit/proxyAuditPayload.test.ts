@@ -140,6 +140,29 @@ test("[AC-24][AC-32] Granot update and No Action audits retain only bounded meta
   assertProxyAuditPayloadSafe(noAction, ["Sensitive owner prose"]);
 });
 
+test("[AC-28] Referral create audit excludes contact, Job, money, and catalog IDs", () => {
+  const payload = buildProxyAuditRequestPayload({
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/booking-cases/case-1/create-referral-booking",
+    body: {
+      expected_case_revision: 4,
+      official_booking_details: {
+        book_date: "2026-08-19", deposit_amount: 12.34, total_binder_amount: 50,
+        merchant_id: "merchant-secret", agent_allocations: [{ agent_id: "agent-secret", binder_amount: 50 }],
+      },
+    },
+  });
+  assert.deepEqual(payload, {
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/booking-cases/case-1/create-referral-booking",
+    operation: "granot_referral_booking_create",
+    case_id: "case-1",
+    expected_case_revision: 4,
+    official_details_present: true,
+  });
+  assertProxyAuditPayloadSafe(payload, ["merchant-secret", "agent-secret", "12.34", "2026-08-19"]);
+});
+
 test("[AC-25][AC-32] Granot Release audits exclude official values and owner prose", () => {
   const cancellation = buildProxyAuditRequestPayload({
     method: "POST",

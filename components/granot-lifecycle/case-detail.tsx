@@ -96,6 +96,7 @@ export function CaseDetail({
           <StatusBadge>{String(detail.mode ?? "").replaceAll("_", " ")}</StatusBadge>
           <StatusBadge tone="muted">case rev {detail.case_revision}</StatusBadge>
           <StatusBadge tone="muted">evidence rev {detail.evidence_revision}</StatusBadge>
+          {detail.source?.label ? <StatusBadge tone="muted">source {detail.source.label}</StatusBadge> : null}
         </div>
       </header>
 
@@ -208,9 +209,11 @@ export function CaseDetail({
       ) : null}
 
       <JobTimeline page={timeline} />
-      {candidateSearch.available && !capabilities.referral
-        ? (capabilities.commands ? commandForm : candidateBrowser)
-        : null}
+      {capabilities.commands
+        ? commandForm
+        : candidateSearch.available && !capabilities.referral
+          ? candidateBrowser
+          : null}
     </div>
   );
 }

@@ -508,6 +508,14 @@ function sanitizeGranotLifecycleAuditBody(
       official_details_present: hasValue(record.official_booking_details),
     };
   }
+  if (method === "POST" && /\/booking-cases\/[^/]+\/create-referral-booking$/.test(normalized)) {
+    return {
+      operation: "granot_referral_booking_create",
+      case_id: pathSegment(path, "booking-cases"),
+      expected_case_revision: record.expected_case_revision,
+      official_details_present: hasValue(record.official_booking_details),
+    };
+  }
   if (method === "POST" && /\/booking-cases\/[^/]+\/no-action$/.test(normalized)) {
     return {
       operation: "granot_booking_no_action",

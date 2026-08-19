@@ -94,7 +94,7 @@ export function NoActionForm({ detail, release = false }: { detail: GranotLifecy
 
   return (
     <Card>
-      <CardHeader><CardTitle>No Action</CardTitle><CardDescription>Resolve this {release ? "Release" : "standard Booking"} case without changing a Lead, Booking, Cancellation, or Sheet Sync work.</CardDescription></CardHeader>
+      <CardHeader><CardTitle>No Action</CardTitle><CardDescription>Resolve this {release ? "Release" : detail.capabilities.referral ? "Referral Booking" : "standard Booking"} case without changing a Lead, Booking, Cancellation, or Sheet Sync work.</CardDescription></CardHeader>
       <CardContent className="space-y-4">
         {notice ? <FeedbackMessage>{notice}</FeedbackMessage> : null}
         {errors.length ? <div ref={errorRef} role="alert" tabIndex={-1} className="rounded-md border border-destructive p-3"><strong>Review the following:</strong><ul className="mt-2 list-disc pl-5">{errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}

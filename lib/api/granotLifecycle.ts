@@ -200,6 +200,7 @@ export type GranotLifecycleCaseDetail = {
     lead_source_company: string;
     source_granularity_id: string;
   };
+  source?: { id?: string; label?: string };
   evidence: Array<{
     observation_id: string;
     decision_id: string;
@@ -309,13 +310,18 @@ export type BookingOwnerCommandResult = {
   case_id: string;
   case_state: "resolved";
   case_revision: number;
-  outcome: "booking_created" | "booking_updated" | "no_action" | "already_satisfied";
+  outcome: "booking_created" | "booking_updated" | "referral_booking_created" | "no_action" | "already_satisfied";
   command_execution_id: string;
   decision_id: string;
   booking_ref?: { id: string; domain_revision: number };
   record_link_ref?: { id: string; domain_revision: number };
   entity_refs: Array<{ model: string; id: string }>;
   replayed: boolean;
+};
+
+export type CreateReferralBookingBody = {
+  expected_case_revision: number;
+  official_booking_details: ConfirmGranotBookingBody["official_booking_details"];
 };
 
 export type UpdateGranotBookingBody = {
@@ -591,6 +597,21 @@ export function updateGranotBooking(
 ): Promise<BookingOwnerCommandResult> {
   return requestJson(
     proxyUrl(`api/v1/admin/granot-lifecycle/booking-cases/${encodeURIComponent(caseId)}/update-booking`),
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function createGranotReferralBooking(
+  caseId: string,
+  body: CreateReferralBookingBody,
+  idempotencyKey: string,
+): Promise<BookingOwnerCommandResult> {
+  return requestJson(
+    proxyUrl(`api/v1/admin/granot-lifecycle/booking-cases/${encodeURIComponent(caseId)}/create-referral-booking`),
     {
       method: "POST",
       headers: { "Idempotency-Key": idempotencyKey },
