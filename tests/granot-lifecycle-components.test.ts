@@ -127,6 +127,26 @@ test("[AC-18][AC-20][AC-40] queue renders masked Booking and Release rows withou
   assert.equal((markup.match(/case-release/g) ?? []).length, 1);
 });
 
+test("detail stays mounted when official_current, evidence, contacts, or timeline are omitted", () => {
+  const sparse = {
+    ...detail(),
+    official_current: undefined,
+    evidence: undefined,
+    contacts: undefined,
+    observed_context: undefined,
+    timeline: undefined,
+    candidate_search: undefined,
+    capabilities: undefined,
+  } as unknown as GranotLifecycleCaseDetail;
+  let markup = "";
+  assert.doesNotThrow(() => {
+    markup = renderToStaticMarkup(createElement(CaseDetail, { detail: sparse }));
+  });
+  assert.match(markup, /Official current Vantage facts/);
+  assert.match(markup, /Official create fields remain blank/);
+  assert.match(markup, /Granot evidence — not official Vantage values/);
+});
+
 test("[AC-20][AC-35] detail separates Granot evidence, contacts, and blank official facts with no mutation copy", () => {
   const markup = renderToStaticMarkup(createElement(CaseDetail, {
     detail: detail(),

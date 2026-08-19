@@ -18,12 +18,15 @@ export async function requestVantageApi<T = unknown>(
   path: string,
   options: VantageApiRequestOptions = {},
 ): Promise<VantageApiResponse<T>> {
-  const { VANTAGE_API_SECRET } = getServerEnv();
+  const { VANTAGE_API_SECRET, VANTAGE_API_PROTECTION_BYPASS } = getServerEnv();
   const method = options.method ?? "GET";
   const url = buildVantageApiUrl(path);
   const headers = new Headers(options.headers);
 
   headers.set("x-api-secret", VANTAGE_API_SECRET);
+  if (VANTAGE_API_PROTECTION_BYPASS) {
+    headers.set("x-vercel-protection-bypass", VANTAGE_API_PROTECTION_BYPASS);
+  }
   headers.delete("cookie");
   headers.delete("authorization");
 

@@ -30,6 +30,10 @@ const serverEnvSchema = z.object({
     .transform((value) => value === "true"),
   EMPLOYEE_BOOKING_PUBLIC_BODY_LIMIT_BYTES: z.coerce.number().int().positive().default(16_384),
   VANTAGE_API_SECRET: z.string().trim().min(1, "VANTAGE_API_SECRET is required"),
+  // Preview-only: the *server* project's Protection Bypass for Automation secret.
+  // Never reuse this project's own VERCEL_AUTOMATION_BYPASS_SECRET — that unlocks
+  // Admin, not the API. Leave unset on Production Admin.
+  VANTAGE_API_PROTECTION_BYPASS: z.string().trim().min(1).optional(),
   // Server-only HMAC secret shared with vantage-main-server for Operations Registry
   // actor signing. Never expose via NEXT_PUBLIC_*.
   VANTAGE_ADMIN_PROXY_SIGNING_SECRET: z

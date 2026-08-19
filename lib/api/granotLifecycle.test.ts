@@ -72,6 +72,30 @@ test("case list unwraps a nested proxy envelope and missing items without throwi
   assert.equal(aliased.next_cursor, "cursor-1");
 });
 
+test("case detail unwraps a nested envelope and defaults official_current", async () => {
+  mockFetch({
+    ok: true,
+    data: { ok: true, data: { case_id: "case-1" } },
+  });
+  const result = await fetchGranotLifecycleCase("case-1");
+  assert.equal(result.case_id, "case-1");
+  assert.deepEqual(result.official_current, {});
+  assert.deepEqual(result.evidence, []);
+});
+
+test("case detail fails closed when the proxy body has no case_id", async () => {
+  mockFetch({ ok: true, data: { ok: true } });
+  await assert.rejects(
+    () => fetchGranotLifecycleCase("6a85348abb59311027d5660b"),
+    (error: unknown) => {
+      assert.ok(error instanceof GranotLifecycleApiError);
+      assert.equal(error.status, 502);
+      assert.equal(error.code, "GRANOT_CASE_PROJECTION_MISSING");
+      return true;
+    },
+  );
+});
+
 test("[AC-35] case detail uses an encoded case identity through the authenticated proxy", async () => {
   const calls = mockFetch({ ok: true, data: { case_id: "case/one" } });
   await fetchGranotLifecycleCase("case/one");

@@ -14,13 +14,14 @@ import {
 } from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
 
-export function LeadCandidateResults({ items }: { items: GranotLifecycleCandidateItem[] }) {
-  if (items.length === 0) {
+export function LeadCandidateResults({ items }: { items?: GranotLifecycleCandidateItem[] }) {
+  const rows = items ?? [];
+  if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">No eligible candidates match this search.</p>;
   }
   return (
     <ul className="space-y-3" aria-label="Eligible Lead candidates">
-      {items.map((item) => (
+      {rows.map((item) => (
         <li key={`${item.lead_ref.model}:${item.lead_ref.id}`} className="rounded-md border p-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
@@ -42,10 +43,10 @@ export function LeadCandidateResults({ items }: { items: GranotLifecycleCandidat
           <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
             <div><dt className="text-xs text-muted-foreground">Match method</dt><dd>{item.match_method}</dd></div>
             <div><dt className="text-xs text-muted-foreground">Job / reference</dt><dd>{item.job_no ?? item.reference ?? "—"}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">Source Company</dt><dd>{item.source.source_company_label ?? item.source.lead_source_company ?? "—"}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">Source Granularity</dt><dd>{item.source.source_granularity_label ?? item.source.source_granularity_id ?? "—"}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">Source Company</dt><dd>{item.source?.source_company_label ?? item.source?.lead_source_company ?? "—"}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">Source Granularity</dt><dd>{item.source?.source_granularity_label ?? item.source?.source_granularity_id ?? "—"}</dd></div>
           </dl>
-          {item.reason_codes.length > 0 ? (
+          {(item.reason_codes ?? []).length > 0 ? (
             <p className="mt-2 text-xs text-muted-foreground">Reasons: {item.reason_codes.join(", ")}</p>
           ) : null}
           {item.requires_override_reason ? (
@@ -143,7 +144,7 @@ export function LeadCandidateBrowser({ caseId }: { caseId: string }) {
           {query.error instanceof Error ? query.error.message : "Unable to load candidates."}
         </FeedbackMessage>
       ) : null}
-      {query.data ? <LeadCandidateResults items={query.data.items} /> : null}
+      {query.data ? <LeadCandidateResults items={query.data.items ?? []} /> : null}
       {query.data?.next_cursor ? (
         <Button
           type="button"

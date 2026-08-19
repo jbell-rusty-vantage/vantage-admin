@@ -113,6 +113,7 @@ Use `lib/api/filters.ts` + `url-state.ts` for URL-synced filters; `lib/query/key
 
 - Keep secrets/Mongo/auth in `server/` or route handlers — never in client components.
 - Validate proxy paths stay under `VANTAGE_API_BASE_URL`; reject absolute/`://` targets.
+- CLI Admin Previews do not inherit branch-only env. When the API host is a protected Preview, set Preview-only `VANTAGE_API_PROTECTION_BYPASS` to the **server** project's automation bypass (never this project's `VERCEL_AUTOMATION_BYPASS_SECRET`) and pass both values with `vercel deploy --env`. Do not set the bypass on Production Admin.
 - Audit mutating + CSV/export proxy requests without masking successful backend responses.
 - Prefer small focused modules in the owning feature folder.
 - After substantive changes: `pnpm lint`, `pnpm typecheck`, and relevant tests.

@@ -37,6 +37,30 @@ test("parseVantageApiResponse throws typed errors for failed envelopes", async (
   );
 });
 
+test("parseVantageApiResponse fails closed on Vercel deployment-protection JSON", async () => {
+  await assert.rejects(
+    parseVantageApiResponse(
+      new Response(
+        JSON.stringify({
+          error: { message: "Protected deployment", code: "401" },
+          protection: { vercel_auth_enabled: true },
+        }),
+        {
+          status: 401,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+      "/api/v1/admin/granot-lifecycle/cases/1",
+    ),
+    (error) => {
+      assert.ok(error instanceof VantageApiError);
+      assert.equal(error.status, 401);
+      assert.match(error.message, /VANTAGE_API_PROTECTION_BYPASS/);
+      return true;
+    },
+  );
+});
+
 test("parseVantageApiResponse supports text health responses", async () => {
   const parsed = await parseVantageApiResponse(
     new Response("ok", {

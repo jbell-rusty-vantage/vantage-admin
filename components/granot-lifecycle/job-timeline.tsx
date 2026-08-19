@@ -52,7 +52,14 @@ function entrySummary(entry: GranotTimelineEntry): string {
   }
 }
 
-export function JobTimeline({ page }: { page: GranotTimelinePage }) {
+export function JobTimeline({ page }: { page?: GranotTimelinePage }) {
+  const items = page?.items ?? [];
+  const capabilities = page?.capabilities ?? {
+    booking_cases: false,
+    release_cases: false,
+    discrepancies: false,
+    official_facts: true as const,
+  };
   return (
     <section aria-labelledby="lifecycle-timeline-heading" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -65,18 +72,18 @@ export function JobTimeline({ page }: { page: GranotTimelinePage }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-1" aria-label="Available timeline capabilities">
-          <StatusBadge tone={page.capabilities.booking_cases ? "success" : "muted"}>Booking cases</StatusBadge>
-          <StatusBadge tone={page.capabilities.release_cases ? "success" : "muted"}>Release cases</StatusBadge>
-          <StatusBadge tone={page.capabilities.discrepancies ? "success" : "muted"}>Discrepancies</StatusBadge>
+          <StatusBadge tone={capabilities.booking_cases ? "success" : "muted"}>Booking cases</StatusBadge>
+          <StatusBadge tone={capabilities.release_cases ? "success" : "muted"}>Release cases</StatusBadge>
+          <StatusBadge tone={capabilities.discrepancies ? "success" : "muted"}>Discrepancies</StatusBadge>
           <StatusBadge tone="success">Official facts</StatusBadge>
         </div>
       </div>
 
-      {page.items.length === 0 ? (
+      {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">No lifecycle events are available.</p>
       ) : (
         <ol className="space-y-3">
-          {page.items.map((entry) => (
+          {items.map((entry) => (
             <li key={`${entry.type}:${entry.id}`} className="rounded-md border border-steel-100 p-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>

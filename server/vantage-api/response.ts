@@ -102,6 +102,22 @@ export async function parseVantageApiResponse<T = unknown>(
   if (isJsonContentType(contentType)) {
     const json = (await response.json()) as BackendEnvelope<T> | T;
 
+    if (
+      typeof json === "object" &&
+      json !== null &&
+      "protection" in json &&
+      !("ok" in json)
+    ) {
+      throw new VantageApiError({
+        status: response.status || 401,
+        message:
+          "Vantage API preview is Vercel-protected. Set Preview-only VANTAGE_API_PROTECTION_BYPASS to the server project's automation bypass secret.",
+        requestId,
+        responseType: contentType ?? undefined,
+        path,
+      });
+    }
+
     if (typeof json === "object" && json !== null && "ok" in json) {
       const envelope = json as BackendEnvelope<T>;
       if (!envelope.ok) {

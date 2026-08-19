@@ -382,10 +382,60 @@ export function fetchGranotLifecycleCases(
   ).then(asGranotLifecycleCaseListPage);
 }
 
+export function asGranotTimelinePage(data: unknown): GranotTimelinePage {
+  const page = unwrapEnvelope(data);
+  const record = page && typeof page === "object" ? page as Partial<GranotTimelinePage> : {};
+  return {
+    items: Array.isArray(record.items) ? record.items : [],
+    next_cursor: typeof record.next_cursor === "string" ? record.next_cursor : null,
+    current: record.current ?? {},
+    capabilities: {
+      booking_cases: Boolean(record.capabilities?.booking_cases),
+      release_cases: Boolean(record.capabilities?.release_cases),
+      discrepancies: Boolean(record.capabilities?.discrepancies),
+      official_facts: true,
+    },
+  };
+}
+
+export function asGranotLifecycleCaseDetail(data: unknown): GranotLifecycleCaseDetail {
+  const raw = unwrapEnvelope(data);
+  const record = raw && typeof raw === "object" ? raw as Partial<GranotLifecycleCaseDetail> : {};
+  if (typeof record.case_id !== "string" || record.case_id.trim() === "") {
+    throw new GranotLifecycleApiError({
+      message: "Lifecycle case response was empty. The Admin Preview is not reading the test-database projection.",
+      status: 502,
+      code: "GRANOT_CASE_PROJECTION_MISSING",
+    });
+  }
+  return {
+    ...record,
+    official_current: record.official_current ?? {},
+    official_draft: record.official_draft ?? {},
+    evidence: record.evidence ?? [],
+    contacts: record.contacts ?? {},
+    observed_context: record.observed_context ?? {
+      section_label: "Granot evidence — not official Vantage values",
+    },
+    candidate_search: record.candidate_search ?? {
+      available: false,
+      default_scope: "source",
+      all_scope_warning: false,
+    },
+    timeline: asGranotTimelinePage(record.timeline),
+    capabilities: record.capabilities ?? {
+      commands: false,
+      referral: false,
+      release_cases: false,
+      discrepancies: false,
+    },
+  } as GranotLifecycleCaseDetail;
+}
+
 export function fetchGranotLifecycleCase(caseId: string): Promise<GranotLifecycleCaseDetail> {
   return requestJson(
     proxyUrl(`api/v1/admin/granot-lifecycle/cases/${encodeURIComponent(caseId)}`),
-  );
+  ).then(asGranotLifecycleCaseDetail);
 }
 
 export function fetchGranotLifecycleCandidates(
@@ -401,7 +451,14 @@ export function fetchGranotLifecycleCandidates(
       `api/v1/admin/granot-lifecycle/cases/${encodeURIComponent(caseId)}/candidates`,
       normalized as SerializableFilters,
     ),
-  );
+  ).then((data) => {
+    const page = unwrapEnvelope(data);
+    const record = page && typeof page === "object" ? page as Partial<GranotLifecycleCandidatePage> : {};
+    return {
+      items: Array.isArray(record.items) ? record.items : [],
+      next_cursor: typeof record.next_cursor === "string" ? record.next_cursor : null,
+    };
+  });
 }
 
 export function fetchGranotJobTimeline(
@@ -413,7 +470,7 @@ export function fetchGranotJobTimeline(
       `api/v1/admin/granot-lifecycle/jobs/${encodeURIComponent(jobNo)}`,
       filters as SerializableFilters,
     ),
-  );
+  ).then(asGranotTimelinePage);
 }
 
 export function fetchGranotLeadTimeline(
@@ -426,5 +483,5 @@ export function fetchGranotLeadTimeline(
       `api/v1/admin/leads/${encodeURIComponent(leadModel)}/${encodeURIComponent(leadId)}/lifecycle`,
       filters as SerializableFilters,
     ),
-  );
+  ).then(asGranotTimelinePage);
 }

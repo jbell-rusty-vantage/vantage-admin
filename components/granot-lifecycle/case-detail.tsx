@@ -7,7 +7,11 @@ import { formatDateTime, formatMoney } from "@/components/data-table/formatters"
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
-import { fetchGranotLifecycleCase, type GranotLifecycleCaseDetail } from "@/lib/api/granotLifecycle";
+import {
+  fetchGranotLifecycleCase,
+  type GranotLifecycleCaseDetail,
+  type GranotTimelinePage,
+} from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
 import { JobTimeline } from "./job-timeline";
 import { LeadCandidateBrowser } from "./lead-candidate-browser";
@@ -33,6 +37,18 @@ function ContactBlock({
   );
 }
 
+const EMPTY_TIMELINE: GranotTimelinePage = {
+  items: [],
+  next_cursor: null,
+  current: {},
+  capabilities: {
+    booking_cases: false,
+    release_cases: false,
+    discrepancies: false,
+    official_facts: true,
+  },
+};
+
 export function CaseDetail({
   detail,
   candidateBrowser,
@@ -40,8 +56,26 @@ export function CaseDetail({
   detail: GranotLifecycleCaseDetail;
   candidateBrowser?: ReactNode;
 }) {
-  const booking = detail.official_current.booking;
-  const cancellation = detail.official_current.cancellation;
+  const official = detail.official_current ?? {};
+  const booking = official.booking;
+  const cancellation = official.cancellation;
+  const observed = detail.observed_context ?? {
+    section_label: "Granot evidence — not official Vantage values",
+  };
+  const contacts = detail.contacts ?? {};
+  const evidence = detail.evidence ?? [];
+  const timeline = detail.timeline ?? EMPTY_TIMELINE;
+  const candidateSearch = detail.candidate_search ?? {
+    available: false,
+    default_scope: "source" as const,
+    all_scope_warning: false,
+  };
+  const capabilities = detail.capabilities ?? {
+    commands: false as const,
+    referral: false,
+    release_cases: false,
+    discrepancies: false,
+  };
 
   return (
     <div className="space-y-5">
@@ -55,7 +89,7 @@ export function CaseDetail({
         </div>
         <div className="flex flex-wrap gap-1">
           <StatusBadge tone={detail.state === "open" ? "warning" : "muted"}>{detail.state}</StatusBadge>
-          <StatusBadge>{detail.mode.replaceAll("_", " ")}</StatusBadge>
+          <StatusBadge>{String(detail.mode ?? "").replaceAll("_", " ")}</StatusBadge>
           <StatusBadge tone="muted">case rev {detail.case_revision}</StatusBadge>
           <StatusBadge tone="muted">evidence rev {detail.evidence_revision}</StatusBadge>
         </div>
@@ -64,22 +98,22 @@ export function CaseDetail({
       <div className="grid gap-5 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>{detail.observed_context.section_label}</CardTitle>
+            <CardTitle>{observed.section_label}</CardTitle>
             <CardDescription>Immutable observations for review. These values do not change official records.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <ContactBlock title="Observed Granot contact" contact={detail.observed_context.contact} />
+            <ContactBlock title="Observed Granot contact" contact={observed.contact} />
             <dl className="grid gap-2 text-sm sm:grid-cols-2">
-              <div><dt className="text-xs text-muted-foreground">Move date</dt><dd>{detail.observed_context.move_date ?? "—"}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">Cubic feet</dt><dd>{detail.observed_context.estimated_cubic_feet ?? "—"}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">Estimate</dt><dd>{detail.observed_context.estimate ?? "—"}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">Payment</dt><dd>{detail.observed_context.payment ?? "—"}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">Balance</dt><dd>{detail.observed_context.balance ?? "—"}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">Priority</dt><dd>{detail.observed_context.granot_priority ?? "—"}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Move date</dt><dd>{observed.move_date ?? "—"}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Cubic feet</dt><dd>{observed.estimated_cubic_feet ?? "—"}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Estimate</dt><dd>{observed.estimate ?? "—"}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Payment</dt><dd>{observed.payment ?? "—"}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Balance</dt><dd>{observed.balance ?? "—"}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Priority</dt><dd>{observed.granot_priority ?? "—"}</dd></div>
             </dl>
             <div className="grid gap-3 md:grid-cols-2">
-              <ContactBlock title="Submitted / ingested contact" contact={detail.contacts.submitted_or_ingested} />
-              <ContactBlock title="Accepted Granot contact" contact={detail.contacts.accepted_granot} />
+              <ContactBlock title="Submitted / ingested contact" contact={contacts.submitted_or_ingested} />
+              <ContactBlock title="Accepted Granot contact" contact={contacts.accepted_granot} />
             </div>
           </CardContent>
         </Card>
@@ -122,23 +156,23 @@ export function CaseDetail({
 
       <Card>
         <CardHeader>
-          <CardTitle>Evidence history ({detail.evidence.length})</CardTitle>
+          <CardTitle>Evidence history ({evidence.length})</CardTitle>
           <CardDescription>Each captured action remains an individual append-only entry.</CardDescription>
         </CardHeader>
         <CardContent>
-          {detail.evidence.length === 0 ? <p className="text-sm text-muted-foreground">No evidence summaries.</p> : (
+          {evidence.length === 0 ? <p className="text-sm text-muted-foreground">No evidence summaries.</p> : (
             <ol className="space-y-2">
-              {detail.evidence.map((evidence) => (
-                <li key={`${evidence.observation_id}:${evidence.decision_id}`} className="rounded-md border p-3 text-sm">
+              {evidence.map((item) => (
+                <li key={`${item.observation_id}:${item.decision_id}`} className="rounded-md border p-3 text-sm">
                   <div className="flex flex-wrap justify-between gap-2">
-                    <strong>{evidence.action.replaceAll("_", " ")}</strong>
-                    <time dateTime={evidence.captured_at}>{formatDateTime(evidence.captured_at)}</time>
+                    <strong>{String(item.action ?? "").replaceAll("_", " ")}</strong>
+                    <time dateTime={item.captured_at}>{formatDateTime(item.captured_at)}</time>
                   </div>
                   <p className="mt-1 font-mono text-xs text-muted-foreground">
-                    Observation {evidence.observation_id} · Decision {evidence.decision_id}
+                    Observation {item.observation_id} · Decision {item.decision_id}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {evidence.normalization_result ?? "normalization unavailable"} · {evidence.decision_outcome ?? "decision unavailable"}
+                    {item.normalization_result ?? "normalization unavailable"} · {item.decision_outcome ?? "decision unavailable"}
                   </p>
                 </li>
               ))}
@@ -153,7 +187,7 @@ export function CaseDetail({
           <CardContent className="text-sm">
             <p>{detail.suggestion.lead_ref.model} · <span className="font-mono text-xs">{detail.suggestion.lead_ref.id}</span></p>
             <p>{detail.suggestion.confidence} confidence via {detail.suggestion.match_method}</p>
-            <p className="text-muted-foreground">{detail.suggestion.reason_codes.join(", ")}</p>
+            <p className="text-muted-foreground">{(detail.suggestion.reason_codes ?? []).join(", ")}</p>
           </CardContent>
         </Card>
       ) : null}
@@ -168,8 +202,8 @@ export function CaseDetail({
         </FeedbackMessage>
       ) : null}
 
-      <JobTimeline page={detail.timeline} />
-      {detail.candidate_search.available && !detail.capabilities.referral ? candidateBrowser : null}
+      <JobTimeline page={timeline} />
+      {candidateSearch.available && !capabilities.referral ? candidateBrowser : null}
     </div>
   );
 }
@@ -184,6 +218,9 @@ export function GranotLifecycleCasePage({ caseId }: { caseId: string }) {
   if (query.isPending) return <p role="status" className="text-sm text-muted-foreground">Loading lifecycle case…</p>;
   if (query.isError) {
     return <FeedbackMessage tone="error">{query.error instanceof Error ? query.error.message : "Unable to load lifecycle case."}</FeedbackMessage>;
+  }
+  if (!query.data) {
+    return <FeedbackMessage tone="error">Unable to load lifecycle case.</FeedbackMessage>;
   }
   return <CaseDetail detail={query.data} candidateBrowser={<LeadCandidateBrowser caseId={caseId} />} />;
 }
