@@ -8,7 +8,9 @@
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
-!.yarn/versions
+!.yarn/versions 
+
+internal_hidden_docs/
 
 # testing
 /coverage

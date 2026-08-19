@@ -6,7 +6,12 @@ import { BookingUpdateForm } from "./booking-update-form";
 import { NoActionForm } from "./no-action-form";
 
 export function BookingOwnerActions({ detail }: { detail: GranotLifecycleCaseDetail }) {
-  if (!detail.capabilities.commands || detail.state !== "open" || detail.mode === "create_referral_booking") return null;
+  if (
+    detail.kind !== "booking" ||
+    !detail.capabilities.commands ||
+    detail.state !== "open" ||
+    detail.mode === "create_referral_booking"
+  ) return null;
   return (
     <div className="space-y-5">
       {detail.mode === "create_missing_booking" ? <BookingCommandForm detail={detail} /> : null}

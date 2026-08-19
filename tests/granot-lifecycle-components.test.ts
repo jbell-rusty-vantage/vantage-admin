@@ -76,7 +76,7 @@ const timeline: GranotTimelinePage = {
   ],
   next_cursor: "timeline-next",
   current: {},
-  capabilities: { booking_cases: true, release_cases: false, discrepancies: false, official_facts: true },
+  capabilities: { booking_cases: true, release_cases: true, discrepancies: false, official_facts: true },
 };
 
 function detail(overrides: Partial<GranotLifecycleCaseDetail> = {}): GranotLifecycleCaseDetail {
@@ -161,6 +161,38 @@ test("[AC-20][AC-35] detail separates Granot evidence, contacts, and blank offic
   assert.match(markup, /Accepted Granot contact/);
   assert.match(markup, /Official create fields remain blank/);
   assert.match(markup, /Candidate draft remains mounted/);
+  for (const forbidden of ["Confirm Booking", "Create Booking", "Attach Lead", "No Action", "Resolve case"]) {
+    assert.equal(markup.includes(forbidden), false);
+  }
+});
+
+test("[AC-25][AC-35][AC-40] Release detail is visibly distinct and exposes no candidate or mutation controls", () => {
+  const releaseDetail = detail({
+    case_id: "case-release",
+    kind: "release",
+    mode: "release",
+    sequence_number: 2,
+    evidence: [{
+      observation_id: "release-observation",
+      decision_id: "release-decision",
+      captured_at: "2026-08-18T11:00:00.000Z",
+      action: "release",
+      normalization_result: "valid_with_issues",
+      decision_outcome: "linked",
+    }],
+    candidate_search: { available: false, default_scope: "source", all_scope_warning: false },
+    capabilities: { commands: false, referral: false, release_cases: true, discrepancies: false },
+  });
+  const markup = renderToStaticMarkup(createElement(CaseDetail, {
+    detail: releaseDetail,
+    candidateBrowser: createElement("span", null, "FORBIDDEN CANDIDATE BROWSER"),
+    commandForm: createElement("span", null, "FORBIDDEN RELEASE COMMAND"),
+  }));
+  assert.match(markup, /release #2/);
+  assert.match(markup, /Current Booking|No official Booking exists/);
+  assert.match(markup, /release opened; sequence 2/);
+  assert.equal(markup.includes("FORBIDDEN CANDIDATE BROWSER"), false);
+  assert.equal(markup.includes("FORBIDDEN RELEASE COMMAND"), false);
   for (const forbidden of ["Confirm Booking", "Create Booking", "Attach Lead", "No Action", "Resolve case"]) {
     assert.equal(markup.includes(forbidden), false);
   }
