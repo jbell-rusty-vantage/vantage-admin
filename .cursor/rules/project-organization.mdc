@@ -7,6 +7,8 @@ alwaysApply: true
 
 `vantage-admin` is the Next.js 16 App Router owner/admin dashboard. Preserve ownership boundaries; put new work in the folder that owns the behavior.
 
+**Planned (not shipped):** an Owner Daily View / owner-home UX change is intended on branch `granot-lead-lifecycle`. It is **not architected** and has **no implementation**. Live `/` remains `HomeOverview` (analytics overview + quick links). Do not invent routes, components, query keys, or KPIs, and do not treat `uxdocs/admin-operational-views-ux-proposal.md` as current product. See `uxdocs/owner-daily-view-planned.txt`.
+
 ## Architecture Map
 
 | Area | Owns |
@@ -29,7 +31,7 @@ alwaysApply: true
 | `components/observational/` | Observability tabs (events/incidents/reports/notifications/sheet-sync) |
 | `components/operations-registry/` | Registry shell: agents, merchants, sources, Granot sources, CPL, RingCentral, changes |
 | `components/ingestion/` | Best Relocation + Granot automation dashboards |
-| `components/granot-lifecycle/` | Granot lifecycle case/candidate/timeline UI plus gated standard Booking Owner forms |
+| `components/granot-lifecycle/` | Lifecycle queue/detail/timeline/candidate UI plus live standard Booking Owner forms (`booking-owner-actions`, `booking-command-form`, `booking-update-form`, `no-action-form`) |
 | `components/reporting/` | Report definitions, destinations, runs, Google settings |
 | `components/reconciliation/` | Booking-lead reconciliation dashboard |
 | `components/employee-booking/` | Public employee booking form |
@@ -50,18 +52,18 @@ alwaysApply: true
 
 - `proxy.ts` → cookie presence check → redirect to `/login`. Dashboard layout re-verifies JWT.
 - Public: `/login`, `/api/*`, `/employee-booking`, legal pages, static assets.
-- **Owner-only pages:** `/audit-log`, `/settings`, `/bookings/reconciliation`, `/ingestion/granot`.
+- **Owner-only pages:** `/audit-log`, `/settings`, `/bookings/reconciliation`, `/ingestion/granot` (Automation + Lifecycle, including case/job detail).
 - Proxy flow: require admin session → validate relative path → `canProxyVantagePath(role, method, path)` → strip browser `x-api-secret`/`authorization`/`cookie` → set `x-vantage-admin-{user-id,email,role}` (+ optional HMAC via `VANTAGE_ADMIN_PROXY_SIGNING_SECRET`) → `server/vantage-api/client.ts` attaches `x-api-secret`.
-- Non-owners: blocked from reconciliation, Granot automation, Google Drive, reporting mutations (GET reporting OK), registry mutations (some read-preview POSTs OK), DELETE, observability deletes. Allowed: operational PATCH/POST, sheet-sync retry, incident status, observability report run.
+- Non-owners: blocked from reconciliation, Granot automation, Granot lifecycle **pages** / candidates / Booking commands, Google Drive, reporting mutations (GET reporting OK), registry mutations (some read-preview POSTs OK), DELETE, observability deletes. Allowed: operational PATCH/POST, sheet-sync retry, incident status, observability report run, standard Granot lifecycle **GET** (cases/jobs, not candidates).
 - Never expose `VANTAGE_API_SECRET` or signing secrets to client / `NEXT_PUBLIC_*`.
 
 ## Frontend Route Surface
 
-**Operational:** `/` (overview), `/form-leads`, `/duplicate-form-leads`, `/call-leads`, `/duplicate-call-leads`, `/bookings`, `/bookings/new`, `/bookings/reconciliation` (owner), `/cancellations`, `/cancellations/new`, `/customers`, `/agents`, `/testimonials`
+**Operational:** `/` (`HomeOverview` — live home; not the planned Daily View), `/form-leads`, `/duplicate-form-leads`, `/call-leads`, `/duplicate-call-leads`, `/bookings`, `/bookings/new`, `/bookings/reconciliation` (owner), `/cancellations`, `/cancellations/new`, `/customers`, `/agents`, `/testimonials`
 
 **Insight:** `/analytics`, `/reports/agent-sales`
 
-**Ops:** `/observational` (`?tab=overview|events|incidents|reports|notifications|sheet-sync`), `/operations-registry` (`?tab=overview|agents|merchants|sources|granot-sources|ringcentral|cpl|changes`), `/ingestion` (Best Relocation), `/ingestion/granot` (owner), `/ingestion/granot/lifecycle` (owner), `/reporting`, `/reporting/[id]`, `/reporting/destinations`, `/reporting/destinations/[id]`, `/reporting/runs/[id]`
+**Ops:** `/observational` (`?tab=overview|events|incidents|reports|notifications|sheet-sync`), `/operations-registry` (`?tab=overview|agents|merchants|sources|granot-sources|ringcentral|cpl|changes`), `/ingestion` (Best Relocation), `/ingestion/granot` (owner), `/ingestion/granot/lifecycle` (owner queue), `/ingestion/granot/lifecycle/cases/[caseId]`, `/ingestion/granot/lifecycle/jobs/[jobNo]`, `/reporting`, `/reporting/[id]`, `/reporting/destinations`, `/reporting/destinations/[id]`, `/reporting/runs/[id]`
 
 **Support:** `/search`, `/exports`, `/audit-log` (owner), `/settings` (owner)
 
@@ -83,7 +85,7 @@ All operational/admin data goes through `/api/proxy/...` except local audit + pu
 | `registryRequest.ts` | Shared registry JSON helper + `RegistryApiError` |
 | `ingestion.ts` | `/api/v1/admin/ingestion/*` (Best Relocation) |
 | `granotAutomation.ts` | `/api/v1/admin/granot-automation/*` (additive compatibility projection; apply receipts show lifecycle IDs / pending / bounded outcome only) |
-| `granotLifecycle.ts` | `/api/v1/admin/granot-lifecycle/*` masked read DTOs; candidate browsing is Owner-only |
+| `granotLifecycle.ts` | `/api/v1/admin/granot-lifecycle/*` masked read DTOs plus Owner confirm/update/No Action POSTs; candidate browsing and commands are Owner-only |
 | `registryGranotCrmSources.ts` | `/api/v1/admin/granot-crm-sources` list/detail/update/activation |
 | `reporting.ts`, `reportingDestinations.ts` | `/api/v1/admin/reporting/*` |
 | `googleDrive.ts` | `/api/v1/admin/google-drive/*` (owner) |
@@ -91,20 +93,21 @@ All operational/admin data goes through `/api/proxy/...` except local audit + pu
 | `carriers.ts`, `cplRates.ts`, `catalog.ts` | Carriers + legacy settings CPL/catalog helpers |
 | `employeeBooking.ts` | Local `/api/employee-booking/*` (not proxy) |
 
-Use `lib/api/filters.ts` + `url-state.ts` for URL-synced filters; `lib/query/keys.ts` for cache keys/invalidation (`queryKeys.observability`, `queryKeys` registry/reporting/granot/reconciliation roots).
+Use `lib/api/filters.ts` + `url-state.ts` for URL-synced filters; `lib/query/keys.ts` for cache keys/invalidation (`queryKeys.observability`, `queryKeys` registry/reporting/granot/reconciliation roots). Lifecycle command invalidation lives in `lib/query/granotLifecycle.ts`.
 
 ### Granot lifecycle reads and Booking commands
 
-- Owner-only pages live under `/ingestion/granot/lifecycle`; `/ingestion/granot` remains the Automation surface, and the nested layout exposes distinct Automation/Lifecycle tabs.
-- Browser code always uses the signed `/api/proxy/api/v1/...` boundary. Standard lifecycle GETs are Owner/Admin at the proxy and server; candidates and every command are Owner-only. Only the exact confirm/update/No Action paths forward `Idempotency-Key`; browser secrets and actor headers are stripped before trusted headers are minted.
+- Owner-only pages live under `/ingestion/granot/lifecycle` (queue + `cases/[caseId]` + `jobs/[jobNo]`). `/ingestion/granot` remains Automation. Nested layout tabs: Automation vs Lifecycle.
+- Browser code always uses the signed `/api/proxy/api/v1/...` boundary. Standard lifecycle GETs are Owner/Admin at the proxy; candidates and every command are Owner-only. Only the exact confirm/update/No Action paths forward `Idempotency-Key`; browser secrets and actor headers are stripped before trusted headers are minted.
 - Server DTOs remain semantic authority for source scope, matching, candidate eligibility, masking, and timeline ordering. Admin components render those DTOs and never open operational Mongo.
-- `queryKeys.granotLifecycle` is isolated from Employee Booking reconciliation and Granot Automation. Future command invalidation helpers are not invoked by the read-only Unit 23 surface.
-- Polling may refresh evidence and timelines but must preserve component-owned confirm/update/No Action draft state. Review-existing initializes once from the live Booking projection (including active catalog IDs), never Granot evidence. `409` refetch preserves unsent values and never auto-resubmits. Booking and Release discriminants never collapse, and capability flags cannot advertise future Release/discrepancy data.
+- `queryKeys.granotLifecycle` is isolated from Employee Booking reconciliation and Granot Automation. `invalidateGranotLifecycleCommandViews` is invoked after Confirm Granot Booking, Update Existing Booking, and No Action (success and `409` refetch).
+- Live Owner command UI (`booking-owner-actions`): open standard Booking cases with `capabilities.commands` — Confirm Granot Booking on `create_missing_booking`, Update Existing Booking on `review_existing_booking`, plus No Action on both. Hidden for `create_referral_booking`. Release/discrepancy command UIs are not present.
+- Polling (case detail 15s) may refresh evidence and timelines but must preserve component-owned confirm/update/No Action draft state. Review-existing initializes once from the live Booking projection (including active catalog IDs), never Granot evidence. `409` refetch preserves unsent values and never auto-resubmits. Booking and Release discriminants never collapse, and capability flags cannot advertise future Release/discrepancy data.
 
 ## Ownership Boundaries
 
 - **Admin owns:** login/sessions, admin audit DB, UI, route handlers, TanStack Query, frontend constants, signed proxy BFF, public employee-booking nonce.
-- **Main server owns:** operational DBs, business rules, sheet sync, analytics, registry, ingestion, Granot automation, reporting delivery, Google Drive connection, reconciliation, exports.
+- **Main server owns:** operational DBs, business rules, sheet sync, analytics, registry, ingestion, Granot automation, Granot lifecycle, reporting delivery, Google Drive connection, reconciliation, exports.
 - Do not open `vantagemovers` / `vantagemovershistorical` from admin.
 - Settings CPL/catalog managers are legacy/compatibility; durable source/CPL/agent/merchant edits live in Operations Registry.
 - Mutations must invalidate the relevant query keys (lists, details, search, audit, analytics, registry, reporting) where data can change.

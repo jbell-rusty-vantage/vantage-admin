@@ -1,0 +1,25 @@
+OWNER DAILY VIEW — PLANNED ONLY
+Not a spec. Not current product.
+
+Intent
+  The owner will change owner UI/UX and/or create a Daily View for the owner.
+
+Branch
+  granot-lead-lifecycle
+
+Status
+  Not architected. No implementation. No issue write-up yet.
+
+Do not invent
+  Routes, components, folders, query keys, APIs, KPI lists, layouts, or whether
+  Daily View replaces / Overview or sits beside it.
+
+Current home
+  / remains HomeOverview (analytics overview + quick links). That is live.
+
+Agents
+  Do not implement Daily View.
+  Do not treat admin-operational-views-ux-proposal.md as shipped
+  (infinite scroll, filter rail, and Daily View sketches are proposals only).
+
+When architecture exists, replace this stub on the same branch.

@@ -1,2 +1,8 @@
-Write text wireframes and ui / ux suggestions in this directory ! 
+Write text wireframes and ui / ux suggestions in this directory !
+
+These files are suggestions unless a doc says the surface is live.
+
+Planned only (not architected): owner-daily-view-planned.txt
+Proposal only (not shipped): admin-operational-views-ux-proposal.md
+  — infinite scroll, filter rail, and Daily View sketches are not current product. 
 

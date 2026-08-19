@@ -8,4 +8,6 @@ Internal web application for lead search, bookings, cancellations, analytics, an
 
 **Agent consumer rules:** [`../docs/agents/domain.md`](../docs/agents/domain.md)
 
-Codebase-specific domain terms, if any, will be added here later. Shared vocabulary always defers to the root glossary.
+**Planned (admin-local pointer, not a glossary term):** Owner Daily View / owner-home UX change is intended on branch `granot-lead-lifecycle`. It is not architected and is not current `/` Overview (`HomeOverview`) behavior. See [`.cursor/rules/project-organization.mdc`](.cursor/rules/project-organization.mdc) and [`uxdocs/owner-daily-view-planned.txt`](uxdocs/owner-daily-view-planned.txt).
+
+Shared vocabulary always defers to the root glossary.

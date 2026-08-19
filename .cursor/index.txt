@@ -1,2 +1,13 @@
-Vantage ADMIN! 
+Vantage Admin — agent doc index
 
+Map (always apply): .cursor/rules/project-organization.mdc
+Owner feature list: docs/owner-dashboard-features.txt
+Employee booking + Booking Lead Reconciliation: docs/owner-employee-booking-and-reconciliation.txt
+Admin-local terms / planned pointer: CONTEXT.md (shared terms → workspace-root CONTEXT.md)
+
+Planned, not shipped: Owner Daily View on branch granot-lead-lifecycle.
+  See uxdocs/owner-daily-view-planned.txt
+  Do not treat uxdocs/admin-operational-views-ux-proposal.md as current product.
+
+Historical catalog proposal (not the live surface): docs/dynamic-agents-and-merchants.md
+  Live catalog UI is Operations Registry.

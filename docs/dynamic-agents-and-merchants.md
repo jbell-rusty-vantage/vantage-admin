@@ -1,5 +1,7 @@
 # Dynamic Agents and Merchants
 
+> **Historical (not current).** Agents, merchants, source companies, and CPL are managed in Operations Registry (`/operations-registry`). This file is an older catalog proposal. Do not implement from it.
+
 ## Problem
 
 Customer Sales Agent and Merchant dropdowns are duplicated as hardcoded frontend constants in `lib/constants/domain.ts`. The same production lists are mirrored again in `vantage-main-server` (`adminFacets.service.ts`). Agents and merchants change often, so every roster or processor change requires a code deploy in two repos.
