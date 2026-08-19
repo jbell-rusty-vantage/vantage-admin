@@ -2,7 +2,16 @@ Write text wireframes and ui / ux suggestions in this directory !
 
 These files are suggestions unless a doc says the surface is live.
 
-Planned only (not architected): owner-daily-view-planned.txt
+Start here for Daily View work: HANDOFF-owner-daily-view.md
+  — orientation for an agent picking up the Owner Daily View in this repo.
+    Points at the spec, the nine unit contracts, and the wireframes.
+
+Architected, not implemented: owner-daily-view-planned.txt
+  — text wireframes for the Owner Daily View. The contract lives in
+    vantage-main-server/docs/granot-lead-lifecycle/owner-daily-operations-view-specification.md
+    Where the wireframes and the specification disagree, the specification wins.
+    The RingCentral conversation pipeline inside it is DEFERRED (spec 5.0).
+
 Proposal only (not shipped): admin-operational-views-ux-proposal.md
-  — infinite scroll, filter rail, and Daily View sketches are not current product. 
+  — infinite scroll, filter rail, and Daily View sketches are not current product.
 

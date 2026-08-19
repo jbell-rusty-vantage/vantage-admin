@@ -1,25 +1,582 @@
-OWNER DAILY VIEW — PLANNED ONLY
-Not a spec. Not current product.
-
-Intent
-  The owner will change owner UI/UX and/or create a Daily View for the owner.
+OWNER DAILY VIEW — TEXT WIREFRAMES
+Status: architected. Not implemented.
 
 Branch
   granot-lead-lifecycle
 
-Status
-  Not architected. No implementation. No issue write-up yet.
+Specification (authoritative — this file is the picture, that file is the contract)
+  vantage-main-server/docs/granot-lead-lifecycle/owner-daily-operations-view-specification.md
 
-Do not invent
-  Routes, components, folders, query keys, APIs, KPI lists, layouts, or whether
-  Daily View replaces / Overview or sits beside it.
+What changed
+  This file used to say "not architected, do not invent, do not implement."
+  The architecture now exists. Routes, endpoints, query keys, the window
+  contract, and the unit split are all defined in the specification above.
+  These wireframes show intent and information hierarchy. Where a wireframe and
+  the specification disagree, the specification wins.
 
-Current home
-  / remains HomeOverview (analytics overview + quick links). That is live.
+Still true
+  Do not implement from this file alone.
+  admin-operational-views-ux-proposal.md is still a proposal, not shipped.
 
-Agents
-  Do not implement Daily View.
-  Do not treat admin-operational-views-ux-proposal.md as shipped
-  (infinite scroll, filter rail, and Daily View sketches are proposals only).
+Decided 2026-08-19 (spec 12.1 — do not relitigate)
+  Window is ROLLING 24h/48h back from now. Not Florida business days. No third
+  mode. Reasoning: this is an operational view, not a reporting view — a
+  business-day board is nearly empty at 8:00 AM and files the overnight call
+  leads under yesterday. Comparable day-over-day numbers stay in /analytics.
 
-When architecture exists, replace this stub on the same branch.
+  /daily is ITS OWN PAGE. / remains HomeOverview (analytics overview + quick
+  links), unchanged. Daily View is a new sidebar item above Form Leads. No
+  other admin's landing experience changes.
+
+  Cancellation Intakes wait for Granot Unit 26. The Daily View does not wait
+  for it — ODV-G ships the Booking half plus a not_built panel.
+
+Route
+  /daily?tab=<tab>&window=24h|48h&open=<kind>:<id>
+  Owner-only. Added to OWNER_ONLY_PAGE_PREFIXES.
+
+Legend used below
+  (••) 4192      masked contact — maskContactLabel, last 4 only
+  ⬤ / ●          needs attention / positive state
+  ⚠              error or mismatch
+  ⏳              in flight
+  [ Button ]     action
+  ░░░            skeleton / loading
+  DEFERRED       conversation pipeline is deferred, spec 5.0
+
+
+================================================================================
+ 1. SHELL — chrome shared by every tab
+================================================================================
+
++------------------------------------------------------------------------------+
+| VANTAGE ADMIN            [Production v]   [ Search... ]      Owner   Logout   |
++--------+---------------------------------------------------------------------+
+| Daily ◀|  Daily Operations                    [ 24h | 48h ]   ● Live · 2s ago |
+| Home   |  Wed Aug 19 6:12 AM  ->  Thu Aug 20 6:12 AM  (Florida)               |
+| Form   |                                                                      |
+| Call   |  +----------------------------------------------------------------+  |
+| Book   |  | Overview | Leads | Booking Intakes ② | Cancel Intakes | Bookings |  |
+| Cancel |  | Cancellations | Agents | Conversations                          |  |
+| Cust   |  +----------------------------------------------------------------+  |
+| Agents |                                                                      |
+| Analyt |  <tab content>                                                       |
+| ...    |                                                                      |
++--------+---------------------------------------------------------------------+
+
+  Window toggle is GLOBAL and lives in the URL. Every tab, every count, and
+  every shared link agree. Switching 24h <-> 48h is a clean query-key boundary.
+
+  Tab badges count ONLY things needing action:
+      Booking Intakes ②    open intakes
+      Cancel Intakes       (none open — no badge)
+      Conversations ⚠      failed records
+  Never a badge for "leads exist".
+
+  Live indicator is honest about its own state:
+      ● Live · 2s ago          polling, focused
+      ◌ Paused (background)    tab hidden, backed off to 60s
+      ⚠ Reconnecting…          last poll failed, retrying
+      ○ Live off               owner switched it off
+  A board that silently stops updating is worse than one that never claimed to.
+
+
+================================================================================
+ 2. OVERVIEW TAB — the screen he actually stares at
+================================================================================
+
++------------------------------------------------------------------------------+
+|  NEEDS YOU                                                                    |
+|  ---------------------------------------------------------------------------  |
+|   ⬤ 3 Booking intakes open        ⬤ 1 Cancel intake open      ⚠ 2 conv.      |
+|     oldest 4h 12m                   oldest 40m                   failed       |
+|     [ Review → ]                    [ Review → ]                 [ View → ]   |
++------------------------------------------------------------------------------+
+|  LAST 24 HOURS                                                                |
+|  ---------------------------------------------------------------------------  |
+|   Form Leads      Call Leads       Bookings         Cancellations             |
+|      41              27                9                  2                   |
+|   12 booked       6 booked        $14,208 dep       $1,100 refund             |
+|   29.3%           22.2%           avg $1,578        2 of 9 same-day           |
++------------------------------------------------------------------------------+
+|  LIVE — last 10 minutes            |  GRANOT EVENTS — last 10 minutes         |
+|  --------------------------------  |  --------------------------------------  |
+|  6:09  Call lead                   |  6:11  decision   matched · shadow       |
+|        Best Relocation             |                   P5562401               |
+|        (••) 4192 · 8m02s  [booked] |  6:09  receipt    lead_created           |
+|                                    |                   P5562401 · webhook     |
+|  6:04  Form lead                   |  6:04  receipt    priority_updated       |
+|        Top10 Forms · (••) 7731     |                   P5562388 · webhook     |
+|                                    |                                          |
+|  5:58  Booking  P5562388           |  6:01  conversation  summary ready       |
+|        $1,064 deposit · Jacob      |                   P5562344               |
+|                                    |                                          |
+|  ────────── nothing newer ───────  |  ────────── nothing newer ───────────    |
++------------------------------------------------------------------------------+
+
+  Band order is deliberate. NEEDS YOU is first and always first — his scarce
+  resource is attention on blocked work, not lead counts.
+
+  When nothing is waiting, the band does NOT disappear. It collapses to:
+
++------------------------------------------------------------------------------+
+|  ● NEEDS YOU — nothing open. Last intake resolved 2h 41m ago.                 |
++------------------------------------------------------------------------------+
+
+  An absent band reads as a bug. A green line reads as "clear".
+
+  Both live columns are the same DailyFeedEvent list filtered by kind.
+  New rows fade in with a 1.5s highlight. Existing rows NEVER reorder.
+  Client keys on event id, so a retried poll replaces rather than appends.
+
+
+================================================================================
+ 3. LEADS TAB
+================================================================================
+
++------------------------------------------------------------------------------+
+| [ All (68) | Form (41) | Call (27) ]                                          |
+| [ Search name, phone, job, ref...        ]  [ Booked v ] [ Source v ] [Reset] |
+| Chips:  [ Source: Best Relocation x ]  [ Booked: No x ]                       |
++------------------------------------------------------------------------------+
+| Time   Kind  Name          Source            Job / Ref   Status      Conv.    |
+|------------------------------------------------------------------------------|
+| 6:09   Call  R•••• M••••   Best Relocation   P5562401    ● Booked    🎧 8m02s |
+| 6:04   Form  J•••• T••••   Top10 Forms       ref 88213   Open        —        |
+| 5:52   Call  A•••• K••••   Best Relocation   P5562399    Open        —        |
+| 5:44   Form  C•••• A••••   Top10 Forms       ref 88209   ● Booked    ⏳       |
+| 5:31   Call  D•••• B••••   Best Relocation   —           Open        —        |
+| 5:12   Form  M•••• S••••   MoveBuddha        ref 88204   ⚠ Bad lead  —        |
+|------------------------------------------------------------------------------|
+| Showing 50 of 68                                     [ Load more ]  [ ↑ Top ] |
++------------------------------------------------------------------------------+
+
+  Segmented control, not two tables. He scans one chronological stream and
+  narrows only when he has a reason to.
+
+  Contact is MASKED in the list (maskContactLabel). Full contact appears in the
+  drawer, to an Owner, only.  
+
+  Owner: Change this. Please show the name he uses it a lot for determining bookings  
+
+  The Conv. column is the conversation feature's front door:
+      🎧 8m02s   summary ready, click to open drawer on the Conversation tab
+      ⏳         in flight   (only once the pipeline lands — spec 5.0)
+      —          none on file
+      ⚠          failed, click to retry   (DEFERRED action)
+
+  While the pipeline is DEFERRED this column reads 🎧 for seeded records and —
+  for everything else. That is honest, and it is also the most direct way to
+  show the Owner exactly what he is deciding whether to buy.
+
+  Row click -> right drawer. Search is server-side, debounced. Filters are URL
+  state. Infinite scroll on the existing cursor contract.
+
+
+================================================================================
+ 4. DETAIL DRAWER — the answer to "pane or panel?"
+================================================================================
+
+  RIGHT-SIDE OVERLAY, ~max-w-4xl, drag-resizable, persisted to local storage.
+  Deep-linked as ?open=call_lead:6a761d3d7ceae445794c57bd
+
+  Why overlay and not a split pane: the content is formatted state + a
+  provenance chain + a transcript. All three are tall and narrow-hostile. A
+  split pane on a 1440px laptop leaves the list too narrow to scan AND the
+  detail too narrow to read — the worst of both.
+
++---------------------------------------+--------------------------------------+
+| Leads list continues underneath,       | Call Lead · P5562401                 |
+| dimmed, click-outside closes           |            [ Open full ]      [ ✕ ]  |
+|                                        +--------------------------------------|
+|                                        | ( Details | Provenance | Conversation)|
+|                                        |--------------------------------------|
+|                                        | Robert Martinez                      |
+|                                        | (402) 215-5590 · robert@example.com  |
+|                                        |                                      |
+|                                        | Best Relocation                      |
+|                                        |   -> best_relocation_leads_call      |
+|                                        | Council Bluffs, IA 51501             |
+|                                        |   -> Cypress, TX 77433               |
+|                                        | 300 cu ft · quoted                   |
+|                                        |                                      |
+|                                        | Received  6:09 AM (Florida)          |
+|                                        | Agent     Patrick                    |
+|                                        | CPL       $42.00                     |
+|                                        |                                      |
+|                                        | ● BOOKED  P5562014                   |
+|                                        |   Deposit    $814                    |
+|                                        |   Binder     $770                    |
+|                                        |   Book date  Aug 12   ← 7 days back  |
+|                                        |   Merchant   Stripe                  |
++---------------------------------------+--------------------------------------+
+
+  Note "Book date Aug 12" on a lead received today. That gap is exactly why the
+  window binds on activity_at and never on book_date (spec 0.3). Showing both
+  makes the rule self-evident instead of surprising.
+
+
+ 4a. PROVENANCE TAB — the evidence chain he asked for
+ ---------------------------------------------------
+  Renders GranotTimelinePage from projectGranotLeadTimeline. NOT a second chain.
+  One component, reused on Leads, Bookings, Cancellations, and case detail.
+
++--------------------------------------------------------------+
+| PROVENANCE                              P5562401             |
+|--------------------------------------------------------------|
+|                                                              |
+|  ●  6:09:02   Granot observation                             |
+|  │            lead_created · Best Relocation · webhook        |
+|  │            receipt 7f3a…  normalization: valid            |
+|  │                                                           |
+|  ●  6:09:04   RingCentral call                               |
+|  │            Inbound · 8m02s · Accepted                     |
+|  │            session s-a785c6…  adopted lead: yes           |
+|  │                                                           |
+|  ●  6:09:07   Decision                                       |
+|  │            matched · granot_priority · live               |
+|  │            target CallLead 6a761d…                        |
+|  │                                                           |
+|  ●  6:09:07   Record link established                        |
+|  │            P5562401 -> CallLead 6a761d…   rev 1           |
+|  │                                                           |
+|  ●  6:14:20   Entity change                                  |
+|  │            CallLead rev 3 -> 4                            |
+|  │            changed: booked, over_2000                     |
+|  │                                                           |
+|  ●  6:22:41   Conversation                                   |
+|               summary ready · high confidence · 8m02s        |
+|                                                              |
+|                        [ Load earlier ]                      |
++--------------------------------------------------------------+
+
+  Ordering is (event_at, type_priority). The two new type_priority values:
+      15  ringcentral_call  — right after the observation that created the lead
+      85  conversation      — after the entity change that booked it
+  which is the causal order the Owner described.
+
+  Timeline entries carry NO transcript text, NO summary text, NO unmasked
+  phone. assertProjectionSafe enforces it. The chain carries the pointer; the
+  Conversation tab fetches the text through its own Owner-only endpoint.
+
+
+ 4b. CONVERSATION TAB
+ --------------------
+
++--------------------------------------------------------------+
+| CONVERSATION                                                 |
+|--------------------------------------------------------------|
+| ▶ ──────────────────────────────────── 0:00 / 8:02           |
+|   Inbound · Aug 19 6:09 AM · Patrick                         |
+|   Matched by telephony session · HIGH confidence             |
+|--------------------------------------------------------------|
+|                                                              |
+| ⚠  MISMATCH VS CRM                                           |
+|    Caller said the move is Sept 4. The record has no move    |
+|    date. Caller also mentioned a piano; not on the record.   |
+|                                                              |
+| OVERVIEW                                                     |
+|    Robert called about a 300 cu ft move from Council Bluffs  |
+|    to Cypress. Patrick quoted $2,840 all-in, collected an    |
+|    $814 deposit on the call, and booked it.                  |
+|                                                              |
+| WHAT THE CUSTOMER WANTED                                     |
+|    …                                                         |
+|                                                              |
+| MONEY AND DATES DISCUSSED                                    |
+|    …                                                         |
+|                                                              |
+| OUTCOME AND NEXT STEPS                                       |
+|    …                                                         |
+|                                                              |
+| PROMISED / STILL OWED                                        |
+|    Patrick promised a written inventory by Thursday.         |
+|                                                              |
+| [ Show transcript v ]        model gpt-4.1-nano · v1 · $0.03 |
++--------------------------------------------------------------+
+
+  The MISMATCH block sorts to the TOP and is visually distinct. It is the only
+  place in the whole product where the system tells the Owner his own record is
+  wrong. That is the single highest-value line on this dashboard.
+
+  Transcript is collapsed by default — it is long, and it is the most sensitive
+  text on the page.
+
+  Audio requests its signed URL ONLY on press-play. Opening a drawer must not
+  count as listening to a customer call, because issuing that URL is audited.
+
+
+================================================================================
+ 5. BOOKING INTAKES TAB — the only tab where he writes
+================================================================================
+
++------------------------------------------------------------------------------+
+| Open Booking Intakes                                     3 open · oldest 4h12m|
+| [ All modes v ]  [ Search job... ]                                            |
++------------------------------------------------------------------------------+
+| Opened  Job       Source           Evidence         Suggested lead      Age   |
+|------------------------------------------------------------------------------|
+| 6:02    P5562401  Best Relocation  Booked (2)       R•••• M••••  HIGH   10m   |
+|                                                                     [Open →]  |
+| 4:41    P5562388  Top10 Forms      Priority 5 (1)   — ambiguous          1h31m|
+|                                                                     [Open →]  |
+| 2:00    P5562344  Best Relocation  Booked (1)       K•••• W••••  MED    4h12m |
+|                                                                     [Open →]  |
++------------------------------------------------------------------------------+
+
+  [Open →] routes to the EXISTING Unit 23/24 case detail:
+      /ingestion/granot/lifecycle/cases/:id?return=/daily?tab=booking-intakes
+
+  This is deliberately NOT a drawer. Confirming a booking is data entry with
+  exact-cent allocations, revision guards, an Idempotency-Key, and a
+  draft-preserving 409. A cramped overlay is the wrong container for a form
+  whose failure mode is losing typed work — and duplicating that form would
+  fork the concurrency logic that most needs not to be forked.
+
+  The candidate lead search the Owner asked for ALREADY EXISTS there
+  (cases/:id/candidates — in-scope by default, out-of-scope requires a reason).
+  It needs no new work.
+
+
+ 5a. CAPABILITY-GATED STATES — spec 0.1
+ --------------------------------------
+  Every pane declares available | not_activated | not_built. An empty table is
+  indistinguishable from a broken one, so we never render one.
+
+  Booking cases built but flag off:
+
++------------------------------------------------------------------------------+
+|                                                                              |
+|                        ⚙  Booking intake is not enabled                       |
+|                                                                              |
+|   The workflow is built and tested (Units 22–25) but                          |
+|   GRANOT_LIFECYCLE_BOOKING_CASES_ENABLED is currently false, so no cases      |
+|   are being opened.                                                           |
+|                                                                              |
+|                      [ View lifecycle health → ]                             |
++------------------------------------------------------------------------------+
+
+  Cancellation intake, not yet built:
+
++------------------------------------------------------------------------------+
+|                                                                              |
+|                        🔨 Cancellation intake is not built yet                |
+|                                                                              |
+|   Release Reconciliation lands in Unit 26. Until then, Granot release         |
+|   evidence is captured but opens no case.                                     |
+|                                                                              |
++------------------------------------------------------------------------------+
+
+  Note: "Cancellation Intake" == Release Reconciliation (Units 26–27). It is
+  NOT BookingLeadReconciliationCase, which is the employee-booking workflow and
+  must never be conflated with it.
+
+
+================================================================================
+ 6. COMPLETED BOOKINGS TAB
+================================================================================
+
++------------------------------------------------------------------------------+
+| [ Search job, customer... ]   [ Agent v ] [ Merchant v ]        9 in window   |
++------------------------------------------------------------------------------+
+| Recorded  Book date  Job       Customer     Agents    Binder   Deposit  Merch |
+|------------------------------------------------------------------------------|
+| 6:01 AM   Aug 12     P5562014  C•••• H•••   Patrick   $770     $814     Strip |
+| 5:44 AM   Aug 19     P5562444  C•••• A•••   Jacob     $1,020   $1,064   Strip |
+| 4:02 AM   Aug 19     P5562401  R•••• M•••   Patrick   $770     $814     Strip |
+| 1:15 AM   Aug 08     P5562344  K•••• W•••   Jacob +1  $1,410   $1,502   Strip |
+|------------------------------------------------------------------------------|
+| Total in window                                       $3,970   $4,194         |
++------------------------------------------------------------------------------+
+
+  Two date columns, always. "Recorded" is activity_at and bounds the window.
+  "Book date" is what the Owner typed and never bounds anything. Rows 1 and 4
+  are exactly the case that would silently vanish under a book_date filter.
+
+  "Jacob +1" = multi-agent allocation. Hover / drawer shows the split.
+
+
+================================================================================
+ 7. COMPLETED CANCELLATIONS TAB
+================================================================================
+
++------------------------------------------------------------------------------+
+| Recorded   Cancel date  Job       Customer     Refund   Reason        By      |
+|------------------------------------------------------------------------------|
+| 5:22 AM    Aug 19       P5562188  T•••• R•••   $600     Date changed  Jacob   |
+| 3:07 AM    Aug 14       P5561902  L•••• P•••   $500     Found cheaper Patrick |
+|------------------------------------------------------------------------------|
+| Total in window                               $1,100                          |
++------------------------------------------------------------------------------+
+
+  Same two-date rule. Row click opens the drawer with the booking it cancelled
+  and the full provenance chain of both.
+
+
+================================================================================
+ 8. AGENTS TAB
+================================================================================
+
++------------------------------------------------------------------------------+
+| Agent     Leads   Recv.    Conv.    Booking      Conversa-   Avg              |
+|           recv.   booked   rate     credit       tions       talk            |
+|------------------------------------------------------------------------------|
+| Patrick   18      5        27.8%    $3,204       7           11m 20s         |
+| Jacob     14      6        42.9%    $4,180       9           14m 02s         |
+| Maria     9       1        11.1%    $610         2            6m 41s         |
+|------------------------------------------------------------------------------|
+| Team      41      12       29.3%    $7,994       18          11m 33s         |
++------------------------------------------------------------------------------+
+
+  THREE numbers, never merged into one — spec 0.7:
+
+    Leads recv.      leads with receiver_agent = X, activity_at in window
+    Recv. booked     of those, how many booked. Conversion of what they were
+                     handed.
+    Booking credit   sum of agent_allocations.binder_amount where X appears, on
+                     bookings recorded in window.
+
+  "Recv. booked" and "Booking credit" answer DIFFERENT questions and routinely
+  disagree — receiver_agent and agent_allocations are deliberately independent
+  (see the comment at models/CallLead.ts:148). Each column gets a tooltip
+  saying which question it answers.
+
+  Row click filters the LEADS tab to that agent. It does not open a drawer —
+  the useful next action is "show me their leads", not "show me a card".
+
+  Conversation columns render 0 / — until records exist.
+
+
+================================================================================
+ 9. CONVERSATIONS TAB — ships read-only, pipeline DEFERRED
+================================================================================
+
+  Why it earns a tab at all: summaries are read on the Lead, but a class of
+  conversation has no lead attached or failed outright. Without this tab a
+  silently failing pipeline is invisible and trust in every summary degrades.
+
+  WHAT IT LOOKS LIKE NOW (deferred — one or two seeded records):
+
++------------------------------------------------------------------------------+
+| [ All (1) | ⚠ Needs attention (0) | Unmatched (0) | Complete (1) ]            |
+|                                                     Window cost: $0.03        |
++------------------------------------------------------------------------------+
+| Started  Dir  Duration  Matched to               State        Cost   Actions  |
+|------------------------------------------------------------------------------|
+| 6:09     In   8m02s     Call lead R•••• M••••    ● complete   $0.03  [ Open ] |
++------------------------------------------------------------------------------+
+| ℹ  Automated conversation discovery is deferred.                              |
+|    This record was seeded by hand from a known booked lead so the workflow    |
+|    can be reviewed before recurring transcription cost is authorized.         |
+|    Cost, retention, and consent decisions: see spec sections 5.0 and 7.       |
++------------------------------------------------------------------------------+
+
+  [ Attach → ] and [ Retry ] render DISABLED with a tooltip
+  "requires the conversation pipeline" — rendered, not hidden, so the tab's
+  purpose is legible on day one.
+
+
+  WHAT IT LOOKS LIKE ONCE UNIT H LANDS (unchanged layout):
+
++------------------------------------------------------------------------------+
+| [ All (46) | ⚠ Needs attention (2) | Unmatched (3) | Complete (41) ]          |
+|                                                     Window cost: $2.84        |
++------------------------------------------------------------------------------+
+| Started  Dir  Duration  Matched to               State          Cost  Actions |
+|------------------------------------------------------------------------------|
+| 6:09     In   8m02s     Call lead R•••• M••••    ● complete     $0.03 [Open]  |
+| 5:44     Out  17m25s    Form lead C•••• A••••    ⏳ transcribing  —    [Open]  |
+| 5:31     In   22m10s    — unmatched               ● complete     $0.07 [Attach]|
+| 4:02     In   12m00s    Call lead A•••• K••••    ⚠ failed         —   [Retry] |
+|                                                    rc_rate_limited            |
++------------------------------------------------------------------------------+
+
+  The running window cost keeps the spend honest and visible, which is the
+  whole point of storing cost_cents per record.
+
+
+================================================================================
+ 10. LOADING, EMPTY, AND ERROR STATES
+================================================================================
+
+  Loading (first paint, no cache):
+
++------------------------------------------------------------------------------+
+| NEEDS YOU                                                                     |
+|   ░░░░░░░░░░░░░░░░       ░░░░░░░░░░░░░░       ░░░░░░░░░░                      |
+| LAST 24 HOURS                                                                 |
+|   ░░░░░░░     ░░░░░░░     ░░░░░░░     ░░░░░░░                                |
++------------------------------------------------------------------------------+
+
+  Genuinely empty window (real, not broken):
+
++------------------------------------------------------------------------------+
+|                     Nothing yet in the last 24 hours.                         |
+|              Try 48h, or check back — the board updates live.                 |
+|                             [ Switch to 48h ]                                 |
++------------------------------------------------------------------------------+
+
+  Feed degraded, data still valid:
+
++------------------------------------------------------------------------------+
+| ⚠ Reconnecting… showing data from 6:09 AM (2m ago).      [ Retry now ]        |
++------------------------------------------------------------------------------+
+
+  Never blank a populated pane because a poll failed. Keep the last good data,
+  say how old it is, and offer a retry.
+
+
+================================================================================
+ 11. NARROW / TABLET
+================================================================================
+
++------------------------------------------+
+| [Menu] Daily Operations                  |
+| [ 24h | 48h ]            ● Live · 2s     |
++------------------------------------------+
+| ‹ Overview  Leads  Intakes ②  Bookings › |   horizontally scrolling tabs
++------------------------------------------+
+| ⬤ NEEDS YOU                              |
+|   3 booking intakes · oldest 4h12m       |
+|   [ Review → ]                           |
++------------------------------------------+
+| 41 Form   27 Call   9 Book   2 Cancel    |
++------------------------------------------+
+| CARD ROW                                 |
+| 6:09  Call · Best Relocation             |
+| R•••• M•••• · (••) 4192                  |
+| ● Booked P5562401 · 🎧 8m02s             |
++------------------------------------------+
+| CARD ROW                                 |
++------------------------------------------+
+| Loading more...                [ ↑ Top ] |
++------------------------------------------+
+
+  Tables become card rows below the tablet breakpoint. The drawer becomes a
+  full-screen sheet. The window toggle stays pinned — it is the one control
+  that changes the meaning of everything on screen.
+
+
+================================================================================
+ 12. BUILD ORDER (mirrors spec section 9)
+================================================================================
+
+  A   window contract + capabilities + Overview tab            <- first value
+  B   Leads / Bookings / Cancellations tabs + drawer + chain
+  C   live feed poll + useDailyFeed() + live indicator
+  D   LeadConversation model + redactor + read routes + ONE seeded record
+  E   Conversations tab + drawer conversation panel + audio URL
+  F   Agents tab
+  G   Booking Intakes tab (gated) + Cancel Intakes (needs Unit 26)
+  H   DEFERRED — automated conversation pipeline. Gated on cost, retention,
+      PCI, and consent. Do not merge back in early: the moment a discovery
+      cron exists, those decisions have been made by default instead of by the
+      Owner.
+  I   optional — SSE transport swap behind useDailyFeed(), only if 3s polling
+      proves insufficient.
+
+  Realtime, short version: producers are separate Vercel lambdas, so there is
+  no shared memory and an in-process EventEmitter CANNOT work in production
+  even though it will appear to work in `next dev`. Ship the 3s cursor poll.
+  See spec section 4.
+
