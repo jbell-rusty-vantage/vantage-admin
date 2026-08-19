@@ -77,7 +77,7 @@ export function LifecycleDashboardView({
   loading,
   error,
 }: {
-  data?: GranotLifecycleCaseListPage;
+  data?: Partial<GranotLifecycleCaseListPage>;
   loading?: boolean;
   error?: string;
 }) {

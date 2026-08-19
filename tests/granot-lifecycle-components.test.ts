@@ -244,7 +244,7 @@ test("queue stays mounted when the list page omits items instead of throwing on 
   let markup = "";
   assert.doesNotThrow(() => {
     markup = renderToStaticMarkup(createElement(LifecycleDashboardView, {
-      data: { next_cursor: null } as { items?: typeof bookingCase[]; next_cursor: null },
+      data: { next_cursor: null },
     }));
   });
   assert.match(markup, /No lifecycle cases match/);
