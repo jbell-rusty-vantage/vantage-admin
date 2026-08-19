@@ -16,6 +16,7 @@ import { queryKeys } from "@/lib/query/keys";
 import { JobTimeline } from "./job-timeline";
 import { LeadCandidateBrowser } from "./lead-candidate-browser";
 import { BookingOwnerActions } from "./booking-owner-actions";
+import { ReleaseOwnerActions } from "./release-owner-actions";
 
 function ContactBlock({
   title,
@@ -231,6 +232,8 @@ export function GranotLifecycleCasePage({ caseId }: { caseId: string }) {
   return <CaseDetail
     detail={query.data}
     candidateBrowser={<LeadCandidateBrowser caseId={caseId} />}
-    commandForm={<BookingOwnerActions detail={query.data} />}
+    commandForm={query.data.kind === "release"
+      ? <ReleaseOwnerActions detail={query.data} />
+      : <BookingOwnerActions detail={query.data} />}
   />;
 }

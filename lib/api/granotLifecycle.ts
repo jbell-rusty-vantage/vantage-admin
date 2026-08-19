@@ -341,6 +341,32 @@ export type BookingNoActionBody = {
   reason_text?: string;
 };
 
+export type ConfirmGranotCancellationBody = {
+  expected_case_revision: number;
+  expected_booking_revision: number;
+  official_cancellation_details: {
+    cancel_date: string;
+    refund_amount: number;
+    reason?: string;
+    notes?: string;
+    cancelled_by?: string;
+  };
+};
+
+export type ReleaseOwnerCommandResult = {
+  case_id: string;
+  case_state: "resolved";
+  case_revision: number;
+  outcome: "cancellation_created" | "booking_updated" | "no_action" | "already_satisfied";
+  command_execution_id: string;
+  decision_id: string;
+  booking_ref: { id: string; domain_revision: number };
+  cancellation_ref?: { id: string; domain_revision: number };
+  record_link_ref?: { id: string; domain_revision: number };
+  entity_refs: Array<{ model: string; id: string }>;
+  replayed: boolean;
+};
+
 export class GranotLifecycleApiError extends Error {
   readonly status: number;
   readonly code?: string;
@@ -580,6 +606,51 @@ export function resolveGranotBookingNoAction(
 ): Promise<BookingOwnerCommandResult> {
   return requestJson(
     proxyUrl(`api/v1/admin/granot-lifecycle/booking-cases/${encodeURIComponent(caseId)}/no-action`),
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function confirmGranotCancellation(
+  caseId: string,
+  body: ConfirmGranotCancellationBody,
+  idempotencyKey: string,
+): Promise<ReleaseOwnerCommandResult> {
+  return requestJson(
+    proxyUrl(`api/v1/admin/granot-lifecycle/release-cases/${encodeURIComponent(caseId)}/confirm-cancellation`),
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function updateGranotReleaseBooking(
+  caseId: string,
+  body: UpdateGranotBookingBody,
+  idempotencyKey: string,
+): Promise<ReleaseOwnerCommandResult> {
+  return requestJson(
+    proxyUrl(`api/v1/admin/granot-lifecycle/release-cases/${encodeURIComponent(caseId)}/update-booking`),
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function resolveGranotReleaseNoAction(
+  caseId: string,
+  body: BookingNoActionBody,
+  idempotencyKey: string,
+): Promise<ReleaseOwnerCommandResult> {
+  return requestJson(
+    proxyUrl(`api/v1/admin/granot-lifecycle/release-cases/${encodeURIComponent(caseId)}/no-action`),
     {
       method: "POST",
       headers: { "Idempotency-Key": idempotencyKey },

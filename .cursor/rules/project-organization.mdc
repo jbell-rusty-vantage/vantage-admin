@@ -31,7 +31,7 @@ alwaysApply: true
 | `components/observational/` | Observability tabs (events/incidents/reports/notifications/sheet-sync) |
 | `components/operations-registry/` | Registry shell: agents, merchants, sources, Granot sources, CPL, RingCentral, changes |
 | `components/ingestion/` | Best Relocation + Granot automation dashboards |
-| `components/granot-lifecycle/` | Mixed Booking/Release lifecycle queue/detail/timeline plus Booking-only candidate UI and live standard Booking Owner forms (`booking-owner-actions`, `booking-command-form`, `booking-update-form`, `no-action-form`); Release is read-only |
+| `components/granot-lifecycle/` | Mixed Booking/Release lifecycle queue/detail/timeline plus Booking-only candidate UI and gated Booking/Release Owner forms (`booking-owner-actions`, `release-owner-actions`, booking/update/cancellation/no-action forms) |
 | `components/reporting/` | Report definitions, destinations, runs, Google settings |
 | `components/reconciliation/` | Booking-lead reconciliation dashboard |
 | `components/employee-booking/` | Public employee booking form |
@@ -95,14 +95,14 @@ All operational/admin data goes through `/api/proxy/...` except local audit + pu
 
 Use `lib/api/filters.ts` + `url-state.ts` for URL-synced filters; `lib/query/keys.ts` for cache keys/invalidation (`queryKeys.observability`, `queryKeys` registry/reporting/granot/reconciliation roots). Lifecycle command invalidation lives in `lib/query/granotLifecycle.ts`.
 
-### Granot lifecycle reads and Booking commands
+### Granot lifecycle reads and Booking/Release commands
 
 - Owner-only pages live under `/ingestion/granot/lifecycle` (queue + `cases/[caseId]` + `jobs/[jobNo]`). `/ingestion/granot` remains Automation. Nested layout tabs: Automation vs Lifecycle.
 - Browser code always uses the signed `/api/proxy/api/v1/...` boundary. Standard lifecycle GETs are Owner/Admin at the proxy; candidates and every command are Owner-only. Only the exact confirm/update/No Action paths forward `Idempotency-Key`; browser secrets and actor headers are stripped before trusted headers are minted.
 - Server DTOs remain semantic authority for source scope, matching, candidate eligibility, masking, and timeline ordering. Admin components render those DTOs and never open operational Mongo.
 - `queryKeys.granotLifecycle` is isolated from Employee Booking reconciliation and Granot Automation. `invalidateGranotLifecycleCommandViews` is invoked after Confirm Granot Booking, Update Existing Booking, and No Action (success and `409` refetch).
-- Live Owner command UI (`booking-owner-actions`): open standard Booking cases with `capabilities.commands` — Confirm Granot Booking on `create_missing_booking`, Update Existing Booking on `review_existing_booking`, plus No Action on both. Hidden for `create_referral_booking` and every `kind:"release"` case. Release detail shows immutable evidence and current Booking/Cancellation only; candidate and mutation controls are absent.
-- Polling (case detail 15s) may refresh evidence and timelines but must preserve component-owned confirm/update/No Action draft state. Review-existing initializes once from the live Booking projection (including active catalog IDs), never Granot evidence. `409` refetch preserves unsent values and never auto-resubmits. Booking and Release discriminants, sequences, and timeline entries never collapse. Release read capability is live; Release commands and discrepancies remain false.
+- Live Owner command UI: open standard Booking cases use `booking-owner-actions`; open `kind:"release"`, `mode:"release"` cases use `release-owner-actions` for Create Cancellation, full Update Existing Booking, and No Action. Release never shows candidate or attach controls. Both surfaces require `capabilities.commands` and explicit review before submit.
+- Polling (case detail 15s) may refresh evidence and timelines but must preserve component-owned confirm/update/cancellation/No Action draft state. Booking replacement initializes once from the live Booking projection (including active catalog IDs), while Cancellation starts blank; neither uses Granot evidence as official defaults. `409` refetch preserves unsent values and never auto-resubmits. Booking and Release discriminants, sequences, and timeline entries never collapse. Release command capability follows the server gate; discrepancies remain false.
 
 ## Ownership Boundaries
 

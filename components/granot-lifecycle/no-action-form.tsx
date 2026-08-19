@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import {
   GranotLifecycleApiError,
   resolveGranotBookingNoAction,
+  resolveGranotReleaseNoAction,
   type BookingNoActionBody,
   type BookingNoActionReasonCode,
   type GranotLifecycleCaseDetail,
@@ -27,7 +28,7 @@ const REASONS: Array<{ value: BookingNoActionReasonCode; label: string }> = [
   { value: "other", label: "Other" },
 ];
 
-export function NoActionForm({ detail }: { detail: GranotLifecycleCaseDetail }) {
+export function NoActionForm({ detail, release = false }: { detail: GranotLifecycleCaseDetail; release?: boolean }) {
   const queryClient = useQueryClient();
   const [reasonCode, setReasonCode] = useState<BookingNoActionReasonCode | "">("");
   const [reasonText, setReasonText] = useState("");
@@ -62,7 +63,7 @@ export function NoActionForm({ detail }: { detail: GranotLifecycleCaseDetail }) 
     setSubmitting(true);
     setNotice(undefined);
     try {
-      await resolveGranotBookingNoAction(detail.case_id, body, attempt.key);
+      await (release ? resolveGranotReleaseNoAction : resolveGranotBookingNoAction)(detail.case_id, body, attempt.key);
       lastAttempt.current = undefined;
       setReviewing(false);
       setNotice("Case resolved with No Action. No official aggregate was changed.");
@@ -93,7 +94,7 @@ export function NoActionForm({ detail }: { detail: GranotLifecycleCaseDetail }) 
 
   return (
     <Card>
-      <CardHeader><CardTitle>No Action</CardTitle><CardDescription>Resolve this standard Booking case without changing a Lead, Booking, Cancellation, or Sheet Sync work.</CardDescription></CardHeader>
+      <CardHeader><CardTitle>No Action</CardTitle><CardDescription>Resolve this {release ? "Release" : "standard Booking"} case without changing a Lead, Booking, Cancellation, or Sheet Sync work.</CardDescription></CardHeader>
       <CardContent className="space-y-4">
         {notice ? <FeedbackMessage>{notice}</FeedbackMessage> : null}
         {errors.length ? <div ref={errorRef} role="alert" tabIndex={-1} className="rounded-md border border-destructive p-3"><strong>Review the following:</strong><ul className="mt-2 list-disc pl-5">{errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}

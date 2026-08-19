@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BookingCommandForm } from "../components/granot-lifecycle/booking-command-form";
 import { BookingOwnerActions } from "../components/granot-lifecycle/booking-owner-actions";
+import { ReleaseOwnerActions } from "../components/granot-lifecycle/release-owner-actions";
 import { GranotLifecycleCaseList } from "../components/granot-lifecycle/case-list";
 import { CaseDetail } from "../components/granot-lifecycle/case-detail";
 import { GranotNavigationLinks } from "../components/granot-lifecycle/granot-navigation";
@@ -311,6 +312,29 @@ test("[AC-20] create-missing actions show Confirm and No Action while Referral s
   assert.equal(referralMarkup.includes("Confirm Granot Booking"), false);
   assert.equal(referralMarkup.includes("Update Existing Booking"), false);
   assert.equal(referralMarkup.includes("No Action"), false);
+});
+
+test("[AC-25][AC-32] open Release cases expose exactly the three explicit Owner actions", () => {
+  const releaseDetail = detail({
+    kind: "release",
+    mode: "release",
+    capabilities: { commands: true, referral: false, release_cases: true, discrepancies: false },
+    official_current: {
+      booking: {
+        id: "booking-safe-id", normalized_job_no: "SYNTHETIC JOB 1", job_no: "Synthetic Job 1",
+        book_date: "2026-08-17T00:00:00.000Z", customer_name: "Masked Owner Work",
+        source: "Synthetic Source", merchant: "Synthetic Merchant", merchant_id: "merchant-1",
+        deposit_amount: 100.25, total_binder_amount: 200.5,
+        agent_allocations: [{ agent_id: "agent-1", agent_name: "Synthetic Agent", binder_amount: 200.5 }],
+        domain_revision: 4,
+      },
+    },
+  });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient }, createElement(ReleaseOwnerActions, { detail: releaseDetail })));
+  for (const value of ["Create Cancellation", "Review Cancellation", "Update Existing Booking", "Review Booking Update", "No Action", "Review No Action", "Granot evidence is context only"]) assert.match(markup, new RegExp(value));
+  assert.equal(markup.includes("Confirm Granot Booking"), false);
+  assert.equal(markup.includes("Attach Lead"), false);
 });
 
 test("[AC-20] evidence-only refetch architecture keeps the candidate draft slot while counts change", () => {

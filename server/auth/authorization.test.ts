@@ -434,6 +434,14 @@ test("[AC-32] exact Granot Booking command paths are Owner-only at the proxy", (
   }
 });
 
+test("[AC-32] exact Granot Release command paths are Owner-only at the proxy", () => {
+  for (const action of ["confirm-cancellation", "update-booking", "no-action"]) {
+    const path = `api/v1/admin/granot-lifecycle/release-cases/case-1/${action}`;
+    assert.equal(canProxyVantagePath({ role: "owner", method: "POST", path }), true);
+    assert.equal(canProxyVantagePath({ role: "admin", method: "POST", path }), false);
+  }
+});
+
 test("Granot lifecycle pages remain owner-only in the Admin UI", () => {
   assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle"), false);
   assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle/cases/case-1"), false);

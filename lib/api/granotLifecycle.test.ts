@@ -9,6 +9,9 @@ import {
   confirmGranotBooking,
   updateGranotBooking,
   resolveGranotBookingNoAction,
+  confirmGranotCancellation,
+  updateGranotReleaseBooking,
+  resolveGranotReleaseNoAction,
   GranotLifecycleApiError,
 } from "./granotLifecycle";
 
@@ -116,6 +119,39 @@ test("[AC-21][AC-24][AC-32] update and No Action use only their exact authentica
   assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/booking-cases/case%2Fone/no-action");
   assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit25-no-action-key");
   assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), noActionBody);
+});
+
+test("[AC-21][AC-25][AC-32] Release commands use exact proxy paths, bodies, and idempotency keys", async () => {
+  const response = { ok: true, data: {
+    case_id: "case-1", case_state: "resolved", case_revision: 2,
+    outcome: "cancellation_created", command_execution_id: "command-1", decision_id: "decision-1",
+    booking_ref: { id: "booking-1", domain_revision: 2 },
+    cancellation_ref: { id: "cancellation-1", domain_revision: 1 }, entity_refs: [], replayed: false,
+  } };
+  let calls = mockFetch(response, 201);
+  const cancellationBody = {
+    expected_case_revision: 1,
+    expected_booking_revision: 1,
+    official_cancellation_details: { cancel_date: "2026-08-19", refund_amount: 12.34, reason: "Synthetic reason" },
+  };
+  await confirmGranotCancellation("case/one", cancellationBody, "unit27-cancel-key");
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/release-cases/case%2Fone/confirm-cancellation");
+  assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit27-cancel-key");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), cancellationBody);
+
+  calls = mockFetch(response);
+  const updateBody = {
+    expected_case_revision: 1, expected_booking_revision: 1,
+    official_booking_details: { book_date: "2026-08-19", agent_allocations: [{ agent_id: "b".repeat(24), binder_amount: 10 }], total_binder_amount: 10, deposit_amount: 5, merchant_id: "c".repeat(24) },
+  };
+  await updateGranotReleaseBooking("case/one", updateBody, "unit27-update-key");
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/release-cases/case%2Fone/update-booking");
+  assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit27-update-key");
+
+  calls = mockFetch(response);
+  await resolveGranotReleaseNoAction("case/one", { expected_case_revision: 1, reason_code: "other" }, "unit27-no-action-key");
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/release-cases/case%2Fone/no-action");
+  assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit27-no-action-key");
 });
 
 test("case list unwraps a nested proxy envelope and missing items without throwing", async () => {

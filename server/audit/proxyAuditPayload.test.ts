@@ -140,6 +140,36 @@ test("[AC-24][AC-32] Granot update and No Action audits retain only bounded meta
   assertProxyAuditPayloadSafe(noAction, ["Sensitive owner prose"]);
 });
 
+test("[AC-25][AC-32] Granot Release audits exclude official values and owner prose", () => {
+  const cancellation = buildProxyAuditRequestPayload({
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/release-cases/case-1/confirm-cancellation",
+    body: { expected_case_revision: 4, expected_booking_revision: 8, official_cancellation_details: { cancel_date: "2026-08-19", refund_amount: 12.34, reason: "Sensitive reason", notes: "Sensitive notes", cancelled_by: "Sensitive actor" } },
+  });
+  assert.deepEqual(cancellation, {
+    method: "POST", path: "api/v1/admin/granot-lifecycle/release-cases/case-1/confirm-cancellation",
+    operation: "granot_release_confirm_cancellation", case_id: "case-1",
+    expected_case_revision: 4, expected_booking_revision: 8, official_details_present: true,
+  });
+  assertProxyAuditPayloadSafe(cancellation, ["12.34", "Sensitive reason", "Sensitive notes", "Sensitive actor"]);
+
+  const update = buildProxyAuditRequestPayload({
+    method: "POST", path: "api/v1/admin/granot-lifecycle/release-cases/case-1/update-booking",
+    body: { expected_case_revision: 4, expected_booking_revision: 8, official_booking_details: { merchant_id: "merchant-secret", agent_allocations: [{ agent_id: "agent-secret", binder_amount: 50 }] } },
+  });
+  assert.equal(update.operation, "granot_release_update_booking");
+  assert.equal(update.allocation_count, 1);
+  assertProxyAuditPayloadSafe(update, ["merchant-secret", "agent-secret"]);
+
+  const noAction = buildProxyAuditRequestPayload({
+    method: "POST", path: "api/v1/admin/granot-lifecycle/release-cases/case-1/no-action",
+    body: { expected_case_revision: 4, reason_code: "other", reason_text: "Sensitive owner prose" },
+  });
+  assert.equal(noAction.operation, "granot_release_no_action");
+  assert.equal(noAction.reason_text_present, true);
+  assertProxyAuditPayloadSafe(noAction, ["Sensitive owner prose"]);
+});
+
 test("reporting preview and save audits exclude draft free text and PII-bearing fields", () => {
   const payloads = [
     buildProxyAuditRequestPayload({

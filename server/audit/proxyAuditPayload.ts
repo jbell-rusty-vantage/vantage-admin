@@ -517,6 +517,35 @@ function sanitizeGranotLifecycleAuditBody(
       reason_text_present: hasValue(record.reason_text),
     };
   }
+  if (method === "POST" && /\/release-cases\/[^/]+\/confirm-cancellation$/.test(normalized)) {
+    return {
+      operation: "granot_release_confirm_cancellation",
+      case_id: pathSegment(path, "release-cases"),
+      expected_case_revision: record.expected_case_revision,
+      expected_booking_revision: record.expected_booking_revision,
+      official_details_present: hasValue(record.official_cancellation_details),
+    };
+  }
+  if (method === "POST" && /\/release-cases\/[^/]+\/update-booking$/.test(normalized)) {
+    const official = asRecord(record.official_booking_details);
+    return {
+      operation: "granot_release_update_booking",
+      case_id: pathSegment(path, "release-cases"),
+      expected_case_revision: record.expected_case_revision,
+      expected_booking_revision: record.expected_booking_revision,
+      allocation_count: Array.isArray(official.agent_allocations) ? official.agent_allocations.length : 0,
+      official_details_present: hasValue(record.official_booking_details),
+    };
+  }
+  if (method === "POST" && /\/release-cases\/[^/]+\/no-action$/.test(normalized)) {
+    return {
+      operation: "granot_release_no_action",
+      case_id: pathSegment(path, "release-cases"),
+      expected_case_revision: record.expected_case_revision,
+      reason_code: readString(record.reason_code),
+      reason_text_present: hasValue(record.reason_text),
+    };
+  }
   return { operation: "granot_lifecycle_mutation", path: proxyAuditPathname(path) };
 }
 

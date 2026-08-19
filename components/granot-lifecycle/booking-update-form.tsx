@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import {
   GranotLifecycleApiError,
   updateGranotBooking,
+  updateGranotReleaseBooking,
   type GranotLifecycleCaseDetail,
   type UpdateGranotBookingBody,
 } from "@/lib/api/granotLifecycle";
@@ -23,7 +24,7 @@ function amount(value: string): number | undefined {
   return MONEY.test(value) ? Number(value) : undefined;
 }
 
-export function BookingUpdateForm({ detail }: { detail: GranotLifecycleCaseDetail }) {
+export function BookingUpdateForm({ detail, release = false }: { detail: GranotLifecycleCaseDetail; release?: boolean }) {
   const booking = detail.official_current.booking;
   const queryClient = useQueryClient();
   const catalog = useCatalogOptions();
@@ -92,7 +93,7 @@ export function BookingUpdateForm({ detail }: { detail: GranotLifecycleCaseDetai
     setSubmitting(true);
     setNotice(undefined);
     try {
-      const result = await updateGranotBooking(detail.case_id, body, attempt.key);
+      const result = await (release ? updateGranotReleaseBooking : updateGranotBooking)(detail.case_id, body, attempt.key);
       lastAttempt.current = undefined;
       setReviewing(false);
       setNotice(result.outcome === "booking_updated"
@@ -129,7 +130,7 @@ export function BookingUpdateForm({ detail }: { detail: GranotLifecycleCaseDetai
     <Card>
       <CardHeader>
         <CardTitle>Update Existing Booking</CardTitle>
-        <CardDescription>Full replacement initialized once from live official Vantage values—not Granot evidence.</CardDescription>
+        <CardDescription>Full replacement initialized once from live official Vantage values—not Granot evidence.{release ? " This Release case remains authoritative only after explicit review." : ""}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         {notice ? <FeedbackMessage>{notice}</FeedbackMessage> : null}
