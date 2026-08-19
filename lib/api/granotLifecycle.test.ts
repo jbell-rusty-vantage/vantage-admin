@@ -14,7 +14,34 @@ import {
   updateGranotReleaseBooking,
   resolveGranotReleaseNoAction,
   GranotLifecycleApiError,
+  fetchGranotLifecycleDiscrepancies,
+  fetchGranotLifecycleDiscrepancy,
+  reEvaluateGranotDiscrepancy,
+  correctGranotRecordLink,
+  resolveGranotDiscrepancyNoAction,
 } from "./granotLifecycle";
+
+test("[AC-23][AC-35][AC-36] discrepancy reads and commands use exact encoded proxy paths", async () => {
+  let calls = mockFetch({ ok: true, data: { items: [], next_cursor: null } });
+  await fetchGranotLifecycleDiscrepancies({ kind: "release", state: "open", reason_code: "release_record_link_conflict" });
+  assert.equal(new URL(String(calls[0]?.input), "https://admin.test").pathname, "/api/proxy/api/v1/admin/granot-lifecycle/discrepancies");
+
+  calls = mockFetch({ ok: true, data: { discrepancy_id: "d/1" } });
+  await fetchGranotLifecycleDiscrepancy("d/1");
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/discrepancies/d%2F1");
+
+  const success = { ok: true, data: { discrepancy_id: "d/1", discrepancy_kind: "booking", state: "open", revision: 1, evidence_revision: 1, outcome: "still_conflicting", command_execution_id: "command", replayed: false } };
+  for (const [action, invoke] of [
+    ["re-evaluate", () => reEvaluateGranotDiscrepancy("d/1", { expected_revision: 1 }, "unit29-key")],
+    ["correct-record-link", () => correctGranotRecordLink("d/1", { expected_revision: 1, expected_link_revision: 2, selected_lead: { lead_model: "FormLead", lead_id: "a".repeat(24) }, reason_text: "Owner reviewed correction" }, "unit29-key")],
+    ["no-action", () => resolveGranotDiscrepancyNoAction("d/1", { expected_revision: 1 }, "unit29-key")],
+  ] as const) {
+    calls = mockFetch(success);
+    await invoke();
+    assert.equal(calls[0]?.input, `/api/proxy/api/v1/admin/granot-lifecycle/discrepancies/d%2F1/${action}`);
+    assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit29-key");
+  }
+});
 
 type FetchCall = { input: string | URL | Request; init?: RequestInit };
 

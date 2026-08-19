@@ -442,6 +442,16 @@ test("[AC-32] exact Granot Release command paths are Owner-only at the proxy", (
   }
 });
 
+test("[AC-35][AC-36] discrepancy reads allow Admin and exact commands remain Owner-only", () => {
+  assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path: "api/v1/admin/granot-lifecycle/discrepancies?state=open" }), true);
+  assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path: "api/v1/admin/granot-lifecycle/discrepancies/discrepancy-1" }), true);
+  for (const action of ["re-evaluate", "correct-record-link", "no-action"]) {
+    const path = `api/v1/admin/granot-lifecycle/discrepancies/discrepancy-1/${action}`;
+    assert.equal(canProxyVantagePath({ role: "owner", method: "POST", path }), true);
+    assert.equal(canProxyVantagePath({ role: "admin", method: "POST", path }), false);
+  }
+});
+
 test("Granot lifecycle pages remain owner-only in the Admin UI", () => {
   assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle"), false);
   assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle/cases/case-1"), false);

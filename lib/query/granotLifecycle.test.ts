@@ -3,7 +3,7 @@ import test from "node:test";
 import type { QueryClient } from "@tanstack/react-query";
 import { invalidateGranotLifecycleCommandViews } from "./granotLifecycle";
 
-test("future command invalidation covers lifecycle, official lists, Lead detail, and analytics", async () => {
+test("[AC-23][AC-36] command invalidation covers discrepancy, timelines, link-derived facts, and official views", async () => {
   const keys: readonly unknown[][] = [];
   const queryClient = {
     invalidateQueries(input: { queryKey: readonly unknown[] }) {
@@ -18,6 +18,7 @@ test("future command invalidation covers lifecycle, official lists, Lead detail,
     lead: { model: "FormLead", id: "lead-1" },
     previousLead: { model: "CallLead", id: "lead-0" },
     bookingId: "booking-1",
+    discrepancyId: "discrepancy-1",
   });
 
   assert.deepEqual(keys, [
@@ -28,6 +29,8 @@ test("future command invalidation covers lifecycle, official lists, Lead detail,
     ["catalog"],
     ["granot-lifecycle", "cases", "detail", "case-1"],
     ["granot-lifecycle", "cases", "case-1", "candidates"],
+    ["granot-lifecycle", "discrepancies"],
+    ["granot-lifecycle", "discrepancies", "detail", "discrepancy-1"],
     ["granot-lifecycle", "jobs", "JOB 1"],
     ["granot-lifecycle", "leads", "FormLead", "lead-1"],
     ["details", "form-leads", "lead-1", "production", {}],

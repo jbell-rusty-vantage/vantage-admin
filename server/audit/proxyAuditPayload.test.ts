@@ -284,6 +284,23 @@ test("google picker bootstrap audit excludes access token fields", () => {
   assertProxyAuditPayloadSafe(redactPayload(payload), ["ya29.access-token-example"]);
 });
 
+test("[AC-23][AC-35] discrepancy audit masks refs and omits Owner reason text", () => {
+  const discrepancyId = "507f1f77bcf86cd799439011";
+  const leadId = "507f1f77bcf86cd799439012";
+  const reason = "Distinctive owner correction reason must not persist";
+  const payload = buildProxyAuditRequestPayload({
+    method: "POST",
+    path: `api/v1/admin/granot-lifecycle/discrepancies/${discrepancyId}/correct-record-link`,
+    body: { expected_revision: 2, expected_link_revision: 3, selected_lead: { lead_model: "FormLead", lead_id: leadId }, reason_text: reason },
+  });
+  const serialized = JSON.stringify(payload);
+  assert.equal(serialized.includes(discrepancyId), false);
+  assert.equal(serialized.includes(leadId), false);
+  assert.equal(serialized.includes(reason), false);
+  assert.equal(payload.path, "api/v1/admin/granot-lifecycle/discrepancies/:discrepancy/correct-record-link");
+  assert.equal(payload.reason_present, true);
+});
+
 test("destination create audit uses presence flags instead of free-form names", () => {
   const payload = buildProxyAuditRequestPayload({
     method: "POST",

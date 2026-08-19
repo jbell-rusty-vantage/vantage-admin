@@ -59,7 +59,11 @@ export function normalizeProxyAuditPath(path: string): string {
 
 export function proxyAuditPathname(path: string): string {
   const withoutQuery = path.split("?")[0] ?? "";
-  return withoutQuery.startsWith("/") ? withoutQuery.slice(1) : withoutQuery;
+  const normalized = withoutQuery.startsWith("/") ? withoutQuery.slice(1) : withoutQuery;
+  return normalized.replace(
+    /^(api\/v1\/admin\/granot-lifecycle\/discrepancies\/)[^/]+(\/.*)?$/,
+    "$1:discrepancy$2",
+  );
 }
 
 function parseProxyAuditQuery(path: string): URLSearchParams {
@@ -483,6 +487,19 @@ function sanitizeGranotLifecycleAuditBody(
 ): Record<string, unknown> {
   const normalized = normalizeProxyAuditPath(path);
   const record = asRecord(body);
+  if (method === "POST" && /\/discrepancies\/[^/]+\/(?:re-evaluate|correct-record-link|no-action)$/.test(normalized)) {
+    const action = normalized.split("/").at(-1);
+    const selectedLead = asRecord(record.selected_lead);
+    return {
+      operation: `granot_discrepancy_${action?.replaceAll("-", "_") ?? "command"}`,
+      discrepancy_ref: secretFingerprint(pathSegment(path, "discrepancies")),
+      expected_revision: record.expected_revision,
+      expected_link_revision: record.expected_link_revision,
+      selected_lead_model: readString(selectedLead.lead_model),
+      selected_lead_ref: secretFingerprint(selectedLead.lead_id),
+      reason_present: hasValue(record.reason_text) || hasValue(record.reason_code),
+    };
+  }
   if (method === "POST" && /\/booking-cases\/[^/]+\/confirm-booking$/.test(normalized)) {
     const selectedLead = asRecord(record.selected_lead);
     const official = asRecord(record.official_booking_details);

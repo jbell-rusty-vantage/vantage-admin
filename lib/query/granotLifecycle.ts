@@ -7,6 +7,7 @@ export type GranotLifecycleInvalidationContext = {
   lead?: { model: "FormLead" | "CallLead"; id: string };
   previousLead?: { model: "FormLead" | "CallLead"; id: string };
   bookingId?: string;
+  discrepancyId?: string;
 };
 
 /**
@@ -41,6 +42,14 @@ export async function invalidateGranotLifecycleCommandViews(
         ],
       }),
     );
+  }
+  invalidations.push(queryClient.invalidateQueries({
+    queryKey: [...queryKeys.granotLifecycle.all, "discrepancies"],
+  }));
+  if (context.discrepancyId) {
+    invalidations.push(queryClient.invalidateQueries({
+      queryKey: queryKeys.granotLifecycle.discrepancyDetail(context.discrepancyId),
+    }));
   }
   if (context.jobNo) {
     invalidations.push(

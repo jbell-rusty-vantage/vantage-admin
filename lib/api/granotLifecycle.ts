@@ -9,7 +9,9 @@ export type GranotEntityRef = {
     | "CancelledLead"
     | "GranotRecordLink"
     | "GranotBookingReconciliationCase"
-    | "GranotReleaseReconciliationCase";
+    | "GranotReleaseReconciliationCase"
+    | "GranotBookingDiscrepancy"
+    | "GranotReleaseDiscrepancy";
   id: string;
 };
 
@@ -373,6 +375,33 @@ export type ReleaseOwnerCommandResult = {
   replayed: boolean;
 };
 
+export type GranotDiscrepancyListFilters = Omit<GranotLifecycleCaseListFilters, "mode"> & { reason_code?: string };
+export type GranotDiscrepancyListItem = {
+  discrepancy_id: string; kind: "booking" | "release"; state: "open" | "resolved";
+  reason_code: string; normalized_job_no: string; masked_contact_label: string;
+  evidence_count: number; revision: number; evidence_revision: number;
+  opened_at: string; last_evidence_at: string; resolved_at?: string;
+};
+export type GranotDiscrepancyListPage = { items: GranotDiscrepancyListItem[]; next_cursor: string | null };
+export type GranotDiscrepancyDetail = GranotDiscrepancyListItem & {
+  reason_fingerprint: string; record_link?: SafeRecordLinkProjection; lead_ref?: GranotEntityRef;
+  booking_id?: string; cancellation_id?: string;
+  evidence: Array<{ observation_id: string; decision_id: string; captured_at: string; action: "priority_5" | "booked" | "release" }>;
+  candidates: Array<{ lead_ref: { model: GranotLeadModel; id: string }; confidence: "high" | "medium"; match_method: string; reason_codes: string[]; suggested: boolean }>;
+  resolution?: { outcome: "re_evaluated" | "record_link_corrected" | "no_action"; resolved_at: string; reason_code?: string; reason_text?: string };
+  capabilities: { re_evaluate: boolean; correct_record_link: boolean; no_action: boolean };
+};
+export type ReEvaluateDiscrepancyBody = { expected_revision: number };
+export type CorrectRecordLinkBody = { expected_revision: number; expected_link_revision: number; selected_lead: { lead_model: GranotLeadModel; lead_id: string }; reason_text: string };
+export type DiscrepancyNoActionBody = { expected_revision: number; reason_code?: BookingNoActionReasonCode; reason_text?: string };
+export type DiscrepancyOwnerCommandResult = {
+  discrepancy_id: string; discrepancy_kind: "booking" | "release"; state: "open" | "resolved";
+  revision: number; evidence_revision: number; outcome: "still_conflicting" | "re_evaluated" | "record_link_corrected" | "no_action";
+  command_execution_id: string; replacement_record_link_id?: string;
+  opened_case_ref?: { model: "GranotBookingReconciliationCase" | "GranotReleaseReconciliationCase"; id: string };
+  replayed: boolean;
+};
+
 export class GranotLifecycleApiError extends Error {
   readonly status: number;
   readonly code?: string;
@@ -678,4 +707,28 @@ export function resolveGranotReleaseNoAction(
       body: JSON.stringify(body),
     },
   );
+}
+
+export function fetchGranotLifecycleDiscrepancies(filters: GranotDiscrepancyListFilters = {}): Promise<GranotDiscrepancyListPage> {
+  return requestJson<GranotDiscrepancyListPage>(proxyUrl("api/v1/admin/granot-lifecycle/discrepancies", filters as SerializableFilters));
+}
+
+export function fetchGranotLifecycleDiscrepancy(id: string): Promise<GranotDiscrepancyDetail> {
+  return requestJson<GranotDiscrepancyDetail>(proxyUrl(`api/v1/admin/granot-lifecycle/discrepancies/${encodeURIComponent(id)}`));
+}
+
+function discrepancyCommand<TBody>(id: string, action: string, body: TBody, idempotencyKey: string): Promise<DiscrepancyOwnerCommandResult> {
+  return requestJson(proxyUrl(`api/v1/admin/granot-lifecycle/discrepancies/${encodeURIComponent(id)}/${action}`), {
+    method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify(body),
+  });
+}
+
+export function reEvaluateGranotDiscrepancy(id: string, body: ReEvaluateDiscrepancyBody, key: string) {
+  return discrepancyCommand(id, "re-evaluate", body, key);
+}
+export function correctGranotRecordLink(id: string, body: CorrectRecordLinkBody, key: string) {
+  return discrepancyCommand(id, "correct-record-link", body, key);
+}
+export function resolveGranotDiscrepancyNoAction(id: string, body: DiscrepancyNoActionBody, key: string) {
+  return discrepancyCommand(id, "no-action", body, key);
 }

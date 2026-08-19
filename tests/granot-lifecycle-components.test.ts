@@ -7,6 +7,7 @@ import { BookingCommandForm } from "../components/granot-lifecycle/booking-comma
 import { BookingOwnerActions } from "../components/granot-lifecycle/booking-owner-actions";
 import { ReleaseOwnerActions } from "../components/granot-lifecycle/release-owner-actions";
 import { GranotLifecycleCaseList } from "../components/granot-lifecycle/case-list";
+import { DiscrepancyList } from "../components/granot-lifecycle/discrepancy-list";
 import { CaseDetail } from "../components/granot-lifecycle/case-detail";
 import { GranotNavigationLinks } from "../components/granot-lifecycle/granot-navigation";
 import { JobTimeline } from "../components/granot-lifecycle/job-timeline";
@@ -385,6 +386,19 @@ test("timeline preserves server order and individual Booking/Release discriminan
   assert.ok(markup.indexOf("Booking action") < markup.indexOf("release opened"));
   assert.match(markup, /Evidence is never collapsed/);
   assert.match(markup, /Release cases/);
+});
+
+test("[AC-35][AC-36] discrepancy queue renders masked explicit review links without bulk actions", () => {
+  const markup = renderToStaticMarkup(createElement(DiscrepancyList, { items: [{
+    discrepancy_id: "discrepancy-1", kind: "booking", state: "open",
+    reason_code: "booked_record_link_conflict", normalized_job_no: "SYNTHETIC JOB 29",
+    masked_contact_label: "A•••", evidence_count: 2, revision: 1, evidence_revision: 2,
+    opened_at: "2026-08-19T12:00:00.000Z", last_evidence_at: "2026-08-19T13:00:00.000Z",
+  }] }));
+  assert.match(markup, /booked record link conflict/);
+  assert.match(markup, /A•••/);
+  assert.match(markup, /discrepancies\/discrepancy-1/);
+  assert.equal(markup.includes("Bulk"), false);
 });
 
 test("default queue and URL parser preserve all filters and opaque cursor", () => {

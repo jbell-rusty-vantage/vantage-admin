@@ -159,8 +159,10 @@ export const queryKeys = {
         "timeline",
         stableFilters(filters),
       ] as const,
-    discrepancies: (filters?: QueryFilters) =>
-      [...queryKeys.granotLifecycle.all, "discrepancies", stableFilters(filters)] as const,
+      discrepancies: (filters?: QueryFilters) =>
+        [...queryKeys.granotLifecycle.all, "discrepancies", stableFilters(filters)] as const,
+      discrepancyDetail: (discrepancyId: string) =>
+        [...queryKeys.granotLifecycle.all, "discrepancies", "detail", discrepancyId] as const,
     health: () => [...queryKeys.granotLifecycle.all, "health"] as const,
   },
   operationsRegistry: {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { GranotLifecycleCaseList } from "./case-list";
@@ -149,6 +150,7 @@ export function LifecycleDashboard() {
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
           Review immutable Granot evidence beside current Vantage facts. This workflow has no mutation controls.
         </p>
+        <Link className="mt-3 inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted" href="/ingestion/granot/lifecycle/discrepancies">Review discrepancies</Link>
       </header>
 
       <Card>
