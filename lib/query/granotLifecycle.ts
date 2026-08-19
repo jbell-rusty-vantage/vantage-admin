@@ -5,6 +5,8 @@ export type GranotLifecycleInvalidationContext = {
   caseId?: string;
   jobNo?: string;
   lead?: { model: "FormLead" | "CallLead"; id: string };
+  previousLead?: { model: "FormLead" | "CallLead"; id: string };
+  bookingId?: string;
 };
 
 /**
@@ -22,6 +24,7 @@ export async function invalidateGranotLifecycleCommandViews(
     queryClient.invalidateQueries({ queryKey: [...queryKeys.lists.all, "bookings"] }),
     queryClient.invalidateQueries({ queryKey: [...queryKeys.lists.all, "cancellations"] }),
     queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.catalog.all }),
   ];
 
   if (context.caseId) {
@@ -63,6 +66,24 @@ export async function invalidateGranotLifecycleCommandViews(
         ),
       }),
     );
+  }
+  if (context.previousLead && (
+    context.previousLead.model !== context.lead?.model || context.previousLead.id !== context.lead?.id
+  )) {
+    invalidations.push(
+      queryClient.invalidateQueries({ queryKey: [
+        ...queryKeys.granotLifecycle.all, "leads", context.previousLead.model, context.previousLead.id,
+      ] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.details.resource(
+        context.previousLead.model === "FormLead" ? "form-leads" : "call-leads",
+        context.previousLead.id,
+      ) }),
+    );
+  }
+  if (context.bookingId) {
+    invalidations.push(queryClient.invalidateQueries({
+      queryKey: queryKeys.details.resource("booked-leads", context.bookingId),
+    }));
   }
 
   await Promise.all(invalidations);

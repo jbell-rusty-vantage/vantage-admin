@@ -14,7 +14,15 @@ import {
 } from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
 
-export function LeadCandidateResults({ items }: { items?: GranotLifecycleCandidateItem[] }) {
+export function LeadCandidateResults({
+  items,
+  selected,
+  onSelect,
+}: {
+  items?: GranotLifecycleCandidateItem[];
+  selected?: GranotLifecycleCandidateItem;
+  onSelect?: (item: GranotLifecycleCandidateItem) => void;
+}) {
   const rows = items ?? [];
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">No eligible candidates match this search.</p>;
@@ -23,6 +31,17 @@ export function LeadCandidateResults({ items }: { items?: GranotLifecycleCandida
     <ul className="space-y-3" aria-label="Eligible Lead candidates">
       {rows.map((item) => (
         <li key={`${item.lead_ref.model}:${item.lead_ref.id}`} className="rounded-md border p-3">
+          {onSelect ? (
+            <label className="mb-3 flex cursor-pointer items-center gap-2 font-medium">
+              <input
+                type="radio"
+                name="selected-granot-lead"
+                checked={selected?.lead_ref.model === item.lead_ref.model && selected.lead_ref.id === item.lead_ref.id}
+                onChange={() => onSelect(item)}
+              />
+              Select this eligible Lead
+            </label>
+          ) : null}
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="font-semibold">{item.masked_contact_label || "Masked Lead"}</p>
@@ -60,7 +79,15 @@ export function LeadCandidateResults({ items }: { items?: GranotLifecycleCandida
   );
 }
 
-export function LeadCandidateBrowser({ caseId }: { caseId: string }) {
+export function LeadCandidateBrowser({
+  caseId,
+  selected,
+  onSelect,
+}: {
+  caseId: string;
+  selected?: GranotLifecycleCandidateItem;
+  onSelect?: (item: GranotLifecycleCandidateItem) => void;
+}) {
   const [draftQuery, setDraftQuery] = useState("");
   const [draftScope, setDraftScope] = useState<"source" | "all">("source");
   const [draftLeadModel, setDraftLeadModel] = useState<GranotLeadModel | "">("");
@@ -144,7 +171,7 @@ export function LeadCandidateBrowser({ caseId }: { caseId: string }) {
           {query.error instanceof Error ? query.error.message : "Unable to load candidates."}
         </FeedbackMessage>
       ) : null}
-      {query.data ? <LeadCandidateResults items={query.data.items ?? []} /> : null}
+      {query.data ? <LeadCandidateResults items={query.data.items ?? []} selected={selected} onSelect={onSelect} /> : null}
       {query.data?.next_cursor ? (
         <Button
           type="button"
@@ -157,4 +184,3 @@ export function LeadCandidateBrowser({ caseId }: { caseId: string }) {
     </section>
   );
 }
-

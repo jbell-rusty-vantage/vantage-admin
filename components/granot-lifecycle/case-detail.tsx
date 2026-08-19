@@ -15,6 +15,7 @@ import {
 import { queryKeys } from "@/lib/query/keys";
 import { JobTimeline } from "./job-timeline";
 import { LeadCandidateBrowser } from "./lead-candidate-browser";
+import { BookingCommandForm } from "./booking-command-form";
 
 function ContactBlock({
   title,
@@ -52,9 +53,11 @@ const EMPTY_TIMELINE: GranotTimelinePage = {
 export function CaseDetail({
   detail,
   candidateBrowser,
+  commandForm,
 }: {
   detail: GranotLifecycleCaseDetail;
   candidateBrowser?: ReactNode;
+  commandForm?: ReactNode;
 }) {
   const official = detail.official_current ?? {};
   const booking = official.booking;
@@ -203,7 +206,9 @@ export function CaseDetail({
       ) : null}
 
       <JobTimeline page={timeline} />
-      {candidateSearch.available && !capabilities.referral ? candidateBrowser : null}
+      {candidateSearch.available && !capabilities.referral
+        ? (capabilities.commands ? commandForm : candidateBrowser)
+        : null}
     </div>
   );
 }
@@ -222,6 +227,9 @@ export function GranotLifecycleCasePage({ caseId }: { caseId: string }) {
   if (!query.data) {
     return <FeedbackMessage tone="error">Unable to load lifecycle case.</FeedbackMessage>;
   }
-  return <CaseDetail detail={query.data} candidateBrowser={<LeadCandidateBrowser caseId={caseId} />} />;
+  return <CaseDetail
+    detail={query.data}
+    candidateBrowser={<LeadCandidateBrowser caseId={caseId} />}
+    commandForm={<BookingCommandForm detail={query.data} />}
+  />;
 }
-

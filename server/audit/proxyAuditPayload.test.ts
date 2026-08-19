@@ -69,6 +69,35 @@ test("reporting run confirm audit keeps only allowlisted operation evidence", ()
   assertProxyAuditPayloadSafe(redactPayload(payload), [confirmationToken, idempotencyKey]);
 });
 
+test("[AC-32] Granot booking confirm audit excludes money, catalog IDs, and override prose", () => {
+  const payload = buildProxyAuditRequestPayload({
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/booking-cases/case-1/confirm-booking",
+    body: {
+      expected_case_revision: 4,
+      selected_lead: { lead_model: "FormLead", lead_id: "lead-1" },
+      out_of_scope_override_reason: "Sensitive correction prose must not persist",
+      official_booking_details: {
+        book_date: "2026-08-19", deposit_amount: 12.34, total_binder_amount: 50,
+        merchant_id: "merchant-secret", agent_allocations: [{ agent_id: "agent-secret", binder_amount: 50 }],
+      },
+    },
+  });
+  assert.deepEqual(payload, {
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/booking-cases/case-1/confirm-booking",
+    operation: "granot_booking_confirm",
+    case_id: "case-1",
+    expected_case_revision: 4,
+    selected_lead_model: "FormLead",
+    selected_lead_id: "lead-1",
+    allocation_count: 1,
+    override_reason_present: true,
+    official_details_present: true,
+  });
+  assertProxyAuditPayloadSafe(payload, ["Sensitive correction prose", "merchant-secret", "agent-secret"]);
+});
+
 test("reporting preview and save audits exclude draft free text and PII-bearing fields", () => {
   const payloads = [
     buildProxyAuditRequestPayload({

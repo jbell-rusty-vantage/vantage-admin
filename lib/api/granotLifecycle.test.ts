@@ -6,6 +6,7 @@ import {
   fetchGranotLifecycleCandidates,
   fetchGranotLifecycleCase,
   fetchGranotLifecycleCases,
+  confirmGranotBooking,
   GranotLifecycleApiError,
 } from "./granotLifecycle";
 
@@ -53,6 +54,32 @@ test("[AC-18][AC-20] case list sends every URL-backed filter and opaque cursor",
   assert.equal(url.searchParams.get("limit"), "50");
   assert.equal(calls[0]?.init?.credentials, "include");
   assert.equal(result.next_cursor, "next-opaque");
+});
+
+test("[AC-21][AC-22] confirm uses the authenticated proxy and forwards one idempotency key", async () => {
+  const calls = mockFetch({ ok: true, data: {
+    case_id: "case-1", case_state: "resolved", case_revision: 2,
+    outcome: "booking_created", command_execution_id: "command-1", decision_id: "decision-1",
+    booking_ref: { id: "booking-1", domain_revision: 1 },
+    record_link_ref: { id: "link-1", domain_revision: 1 }, entity_refs: [], replayed: false,
+  } }, 201);
+  const body = {
+    expected_case_revision: 1,
+    selected_lead: { lead_model: "FormLead" as const, lead_id: "aaaaaaaaaaaaaaaaaaaaaaaa" },
+    official_booking_details: {
+      book_date: "2026-08-19",
+      agent_allocations: [{ agent_id: "bbbbbbbbbbbbbbbbbbbbbbbb", binder_amount: 10 }],
+      total_binder_amount: 10,
+      deposit_amount: 5,
+      merchant_id: "cccccccccccccccccccccccc",
+    },
+  };
+  const result = await confirmGranotBooking("case/one", body, "unit24-key");
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/booking-cases/case%2Fone/confirm-booking");
+  assert.equal(calls[0]?.init?.method, "POST");
+  assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit24-key");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), body);
+  assert.equal(result.booking_ref.id, "booking-1");
 });
 
 test("case list unwraps a nested proxy envelope and missing items without throwing", async () => {
@@ -152,4 +179,3 @@ test("safe proxy failures preserve status, stable code, request id, and issues",
     },
   );
 });
-

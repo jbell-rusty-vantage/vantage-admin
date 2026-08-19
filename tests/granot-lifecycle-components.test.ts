@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BookingCommandForm } from "../components/granot-lifecycle/booking-command-form";
 import { GranotLifecycleCaseList } from "../components/granot-lifecycle/case-list";
 import { CaseDetail } from "../components/granot-lifecycle/case-detail";
 import { GranotNavigationLinks } from "../components/granot-lifecycle/granot-navigation";
@@ -161,6 +163,29 @@ test("[AC-20][AC-35] detail separates Granot evidence, contacts, and blank offic
   for (const forbidden of ["Confirm Booking", "Create Booking", "Attach Lead", "No Action", "Resolve case"]) {
     assert.equal(markup.includes(forbidden), false);
   }
+});
+
+test("[AC-22][AC-32] enabled Owner command renders blank labeled fields and an explicit review step", () => {
+  const commandDetail = detail({
+    capabilities: { commands: true, referral: false, release_cases: false, discrepancies: false },
+  });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const form = createElement(QueryClientProvider, { client: queryClient },
+    createElement(BookingCommandForm, { detail: commandDetail }));
+  const formMarkup = renderToStaticMarkup(form);
+  for (const label of ["Confirm Granot Booking", "Book Date", "Deposit Amount", "Total Binder Amount", "Active Merchant", "Active Agent 1", "Binder Amount 1", "Review Booking"]) {
+    assert.match(formMarkup, new RegExp(label));
+  }
+  assert.match(formMarkup, /value=""/);
+  assert.equal(formMarkup.includes("$synthetic"), false);
+
+  const detailMarkup = renderToStaticMarkup(createElement(CaseDetail, {
+    detail: commandDetail,
+    candidateBrowser: createElement("span", null, "READ ONLY BROWSER"),
+    commandForm: createElement("span", null, "OWNER COMMAND FORM"),
+  }));
+  assert.match(detailMarkup, /OWNER COMMAND FORM/);
+  assert.equal(detailMarkup.includes("READ ONLY BROWSER"), false);
 });
 
 test("[AC-19][AC-39] review detail shows deterministic official Booking and Employee delegation separately", () => {

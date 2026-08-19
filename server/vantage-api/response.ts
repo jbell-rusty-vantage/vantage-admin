@@ -31,6 +31,7 @@ type BackendEnvelope<T> =
       ok: false;
       error?: string;
       issues?: unknown;
+      code?: string;
       registry_code?: string;
       remediation?: unknown;
       request_id?: string;
@@ -127,7 +128,7 @@ export async function parseVantageApiResponse<T = unknown>(
           backendError: envelope.error,
           issues: envelope.issues,
           requestId: envelope.request_id ?? requestId,
-          registryCode: envelope.registry_code,
+          registryCode: envelope.registry_code ?? envelope.code,
           remediation: envelope.remediation,
           responseType: contentType ?? undefined,
           path,

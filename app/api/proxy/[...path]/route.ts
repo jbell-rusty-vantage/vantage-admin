@@ -105,6 +105,11 @@ function getForwardHeaders(
     headers.set("content-type", contentType);
   }
 
+  if (/^api\/v1\/admin\/granot-lifecycle\/booking-cases\/[^/?]+\/confirm-booking(?:\?|$)/.test(backendPath)) {
+    const idempotencyKey = request.headers.get("idempotency-key");
+    if (idempotencyKey) headers.set("idempotency-key", idempotencyKey);
+  }
+
   const { requestId } = setTrustedAdminHeaders(headers, admin, {
     method,
     path: backendPath,

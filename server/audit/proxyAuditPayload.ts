@@ -6,6 +6,7 @@ import { redactPayload } from "@/server/audit/auditLog";
 const REPORTING_PREFIX = "/api/v1/admin/reporting";
 const GOOGLE_DRIVE_PREFIX = "/api/v1/admin/google-drive";
 const GRANOT_AUTOMATION_PREFIX = "/api/v1/admin/granot-automation";
+const GRANOT_LIFECYCLE_PREFIX = "/api/v1/admin/granot-lifecycle";
 
 const FORBIDDEN_AUDIT_KEYS = new Set([
   "confirmationToken",
@@ -475,6 +476,30 @@ function sanitizeGenericProxyAuditBody(
   };
 }
 
+function sanitizeGranotLifecycleAuditBody(
+  method: VantageApiMethod,
+  path: string,
+  body: unknown,
+): Record<string, unknown> {
+  const normalized = normalizeProxyAuditPath(path);
+  const record = asRecord(body);
+  if (method === "POST" && /\/booking-cases\/[^/]+\/confirm-booking$/.test(normalized)) {
+    const selectedLead = asRecord(record.selected_lead);
+    const official = asRecord(record.official_booking_details);
+    return {
+      operation: "granot_booking_confirm",
+      case_id: pathSegment(path, "booking-cases"),
+      expected_case_revision: record.expected_case_revision,
+      selected_lead_model: readString(selectedLead.lead_model),
+      selected_lead_id: readString(selectedLead.lead_id),
+      allocation_count: Array.isArray(official.agent_allocations) ? official.agent_allocations.length : 0,
+      override_reason_present: hasValue(record.out_of_scope_override_reason),
+      official_details_present: hasValue(record.official_booking_details),
+    };
+  }
+  return { operation: "granot_lifecycle_mutation", path: proxyAuditPathname(path) };
+}
+
 export function buildProxyAuditRequestPayload(input: {
   method: VantageApiMethod;
   path: string;
@@ -511,6 +536,10 @@ export function buildProxyAuditRequestPayload(input: {
       ...base,
       ...sanitizeGranotAutomationAuditBody(input.method, input.path, input.body),
     };
+  }
+
+  if (normalized === GRANOT_LIFECYCLE_PREFIX || normalized.startsWith(`${GRANOT_LIFECYCLE_PREFIX}/`)) {
+    return { ...base, ...sanitizeGranotLifecycleAuditBody(input.method, input.path, input.body) };
   }
 
   return {

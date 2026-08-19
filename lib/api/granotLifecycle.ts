@@ -247,7 +247,7 @@ export type GranotLifecycleCaseDetail = {
   };
   timeline: GranotTimelinePage;
   capabilities: {
-    commands: false;
+    commands: boolean;
     referral: boolean;
     release_cases: boolean;
     discrepancies: boolean;
@@ -265,7 +265,7 @@ export type GranotLifecycleCandidateFilters = {
 };
 
 export type GranotLifecycleCandidateItem = {
-  lead_ref: GranotEntityRef;
+  lead_ref: { model: GranotLeadModel; id: string };
   masked_contact_label: string;
   job_no?: string;
   reference?: string;
@@ -290,6 +290,32 @@ export type GranotLifecycleCandidatePage = {
 };
 
 export type GranotTimelineFilters = { cursor?: string; limit?: number };
+
+export type ConfirmGranotBookingBody = {
+  expected_case_revision: number;
+  selected_lead: { lead_model: GranotLeadModel; lead_id: string };
+  out_of_scope_override_reason?: string;
+  official_booking_details: {
+    book_date: string;
+    agent_allocations: Array<{ agent_id: string; binder_amount: number }>;
+    total_binder_amount: number;
+    deposit_amount: number;
+    merchant_id: string;
+  };
+};
+
+export type BookingOwnerCommandResult = {
+  case_id: string;
+  case_state: "resolved";
+  case_revision: number;
+  outcome: "booking_created" | "already_satisfied";
+  command_execution_id: string;
+  decision_id: string;
+  booking_ref: { id: string; domain_revision: number };
+  record_link_ref: { id: string; domain_revision: number };
+  entity_refs: Array<{ model: string; id: string }>;
+  replayed: boolean;
+};
 
 export class GranotLifecycleApiError extends Error {
   readonly status: number;
@@ -318,8 +344,15 @@ function proxyUrl(path: string, filters?: SerializableFilters): string {
   return `/api/proxy/${normalized}${filters ? filtersToQueryString(filters) : ""}`;
 }
 
-async function requestJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { credentials: "include" });
+async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    credentials: "include",
+    headers: {
+      ...(init?.body ? { "content-type": "application/json" } : {}),
+      ...init?.headers,
+    },
+  });
   let payload: (ApiResponse<T> & { code?: string }) | undefined;
   try {
     payload = (await response.json()) as ApiResponse<T> & { code?: string };
@@ -484,4 +517,19 @@ export function fetchGranotLeadTimeline(
       filters as SerializableFilters,
     ),
   ).then(asGranotTimelinePage);
+}
+
+export function confirmGranotBooking(
+  caseId: string,
+  body: ConfirmGranotBookingBody,
+  idempotencyKey: string,
+): Promise<BookingOwnerCommandResult> {
+  return requestJson(
+    proxyUrl(`api/v1/admin/granot-lifecycle/booking-cases/${encodeURIComponent(caseId)}/confirm-booking`),
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(body),
+    },
+  );
 }

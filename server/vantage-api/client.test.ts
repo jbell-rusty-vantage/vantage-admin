@@ -37,6 +37,19 @@ test("parseVantageApiResponse throws typed errors for failed envelopes", async (
   );
 });
 
+test("lifecycle error codes survive the backend parser for 409 recovery", async () => {
+  await assert.rejects(
+    parseVantageApiResponse(new Response(JSON.stringify({
+      ok: false, code: "GRANOT_CASE_REVISION_CONFLICT", error: "Case changed",
+    }), { status: 409, headers: { "content-type": "application/json" } })),
+    (error) => {
+      assert.ok(error instanceof VantageApiError);
+      assert.equal(error.registryCode, "GRANOT_CASE_REVISION_CONFLICT");
+      return true;
+    },
+  );
+});
+
 test("parseVantageApiResponse fails closed on Vercel deployment-protection JSON", async () => {
   await assert.rejects(
     parseVantageApiResponse(
