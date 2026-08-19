@@ -391,3 +391,43 @@ test("Granot automation plans and mutations are owner-only", () => {
     assert.equal(canProxyVantagePath({ role: "owner", method, path }), true);
   }
 });
+
+test("Granot lifecycle standard reads allow admin while candidates and all writes stay owner-only", () => {
+  for (const path of [
+    "api/v1/admin/granot-lifecycle/cases?state=open",
+    "api/v1/admin/granot-lifecycle/cases/case-1",
+    "api/v1/admin/granot-lifecycle/jobs/SYNTHETIC%20JOB",
+  ]) {
+    assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path }), true);
+  }
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "GET",
+      path: "api/v1/admin/granot-lifecycle/cases/case-1/candidates?scope=source",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "owner",
+      method: "GET",
+      path: "api/v1/admin/granot-lifecycle/cases/case-1/candidates?scope=all",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/granot-lifecycle/cases/case-1",
+    }),
+    false,
+  );
+});
+
+test("Granot lifecycle pages remain owner-only in the Admin UI", () => {
+  assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle"), false);
+  assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle/cases/case-1"), false);
+  assert.equal(canAccessDashboardPath("owner", "/ingestion/granot/lifecycle"), true);
+});

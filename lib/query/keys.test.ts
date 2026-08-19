@@ -177,3 +177,26 @@ test("Granot automation keys isolate run history and detail", () => {
     "run-1",
   ]);
 });
+
+test("[AC-20] Granot lifecycle keys isolate stable case, candidate, Job, and Lead reads", () => {
+  const first = queryKeys.granotLifecycle.cases({ state: "open", cursor: "opaque", q: "" });
+  const second = queryKeys.granotLifecycle.cases({ q: "", cursor: "opaque", state: "open" });
+  assert.deepEqual(first, second);
+  assert.deepEqual(first, ["granot-lifecycle", "cases", { cursor: "opaque", state: "open" }]);
+  assert.deepEqual(queryKeys.granotLifecycle.caseDetail("case-1"), [
+    "granot-lifecycle", "cases", "detail", "case-1",
+  ]);
+  assert.deepEqual(queryKeys.granotLifecycle.candidates("case-1", { scope: "source" }), [
+    "granot-lifecycle", "cases", "case-1", "candidates", { scope: "source" },
+  ]);
+  assert.deepEqual(queryKeys.granotLifecycle.jobTimeline("JOB 1", { limit: 100 }), [
+    "granot-lifecycle", "jobs", "JOB 1", "timeline", { limit: 100 },
+  ]);
+  assert.deepEqual(queryKeys.granotLifecycle.leadTimeline("FormLead", "lead-1"), [
+    "granot-lifecycle", "leads", "FormLead", "lead-1", "timeline", {},
+  ]);
+  assert.deepEqual(queryKeys.granotLifecycle.discrepancies(), [
+    "granot-lifecycle", "discrepancies", {},
+  ]);
+  assert.deepEqual(queryKeys.granotLifecycle.health(), ["granot-lifecycle", "health"]);
+});

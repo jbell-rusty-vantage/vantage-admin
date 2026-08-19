@@ -128,6 +128,41 @@ export const queryKeys = {
       [...queryKeys.granotAutomation.all, "run-groups", id] as const,
     run: (id: string) => [...queryKeys.granotAutomation.all, "runs", "detail", id] as const,
   },
+  granotLifecycle: {
+    all: ["granot-lifecycle"] as const,
+    cases: (filters?: QueryFilters) =>
+      [...queryKeys.granotLifecycle.all, "cases", stableFilters(filters)] as const,
+    caseDetail: (caseId: string) =>
+      [...queryKeys.granotLifecycle.all, "cases", "detail", caseId] as const,
+    candidates: (caseId: string, filters?: QueryFilters) =>
+      [
+        ...queryKeys.granotLifecycle.all,
+        "cases",
+        caseId,
+        "candidates",
+        stableFilters(filters),
+      ] as const,
+    jobTimeline: (jobNo: string, filters?: QueryFilters) =>
+      [
+        ...queryKeys.granotLifecycle.all,
+        "jobs",
+        jobNo,
+        "timeline",
+        stableFilters(filters),
+      ] as const,
+    leadTimeline: (leadModel: string, leadId: string, filters?: QueryFilters) =>
+      [
+        ...queryKeys.granotLifecycle.all,
+        "leads",
+        leadModel,
+        leadId,
+        "timeline",
+        stableFilters(filters),
+      ] as const,
+    discrepancies: (filters?: QueryFilters) =>
+      [...queryKeys.granotLifecycle.all, "discrepancies", stableFilters(filters)] as const,
+    health: () => [...queryKeys.granotLifecycle.all, "health"] as const,
+  },
   operationsRegistry: {
     all: ["operations-registry"] as const,
     overview: () => [...queryKeys.operationsRegistry.all, "overview"] as const,

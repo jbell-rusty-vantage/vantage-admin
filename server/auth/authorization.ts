@@ -50,6 +50,7 @@ const REGISTRY_READ_PREVIEW_POST_PATHS = new Set([
 const REPORTING_PREFIX = "/api/v1/admin/reporting";
 const GOOGLE_DRIVE_PREFIX = "/api/v1/admin/google-drive";
 const GRANOT_AUTOMATION_PREFIX = "/api/v1/admin/granot-automation";
+const GRANOT_LIFECYCLE_PREFIX = "/api/v1/admin/granot-lifecycle";
 
 export function canAccessDashboardPath(role: AdminRole, pathname: string): boolean {
   if (role === "owner") {
@@ -95,6 +96,17 @@ export function canProxyVantagePath(input: {
     path.startsWith(`${GRANOT_AUTOMATION_PREFIX}/`)
   ) {
     return false;
+  }
+  if (
+    path === GRANOT_LIFECYCLE_PREFIX ||
+    path.startsWith(`${GRANOT_LIFECYCLE_PREFIX}/`)
+  ) {
+    // Standard lifecycle reads are available to signed Owner/Admin actors.
+    // Candidate browsing exposes normalized owner-work contact and is Owner-only.
+    if (/\/cases\/[^/]+\/candidates$/.test(path)) {
+      return false;
+    }
+    return input.method === "GET";
   }
   if (input.method === "DELETE") {
     return false;
