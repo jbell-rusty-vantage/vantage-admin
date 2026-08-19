@@ -55,6 +55,23 @@ test("[AC-18][AC-20] case list sends every URL-backed filter and opaque cursor",
   assert.equal(result.next_cursor, "next-opaque");
 });
 
+test("case list unwraps a nested proxy envelope and missing items without throwing", async () => {
+  mockFetch({
+    ok: true,
+    data: { ok: true, data: { next_cursor: null } },
+  });
+  const nested = await fetchGranotLifecycleCases();
+  assert.deepEqual(nested, { items: [], next_cursor: null });
+
+  mockFetch({
+    ok: true,
+    data: { cases: [{ case_id: "case-1" }], next_cursor: "cursor-1" },
+  });
+  const aliased = await fetchGranotLifecycleCases();
+  assert.deepEqual(aliased.items, [{ case_id: "case-1" }]);
+  assert.equal(aliased.next_cursor, "cursor-1");
+});
+
 test("[AC-35] case detail uses an encoded case identity through the authenticated proxy", async () => {
   const calls = mockFetch({ ok: true, data: { case_id: "case/one" } });
   await fetchGranotLifecycleCase("case/one");

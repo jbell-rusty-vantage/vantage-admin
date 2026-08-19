@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { GranotJobTimelinePage } from "@/components/granot-lifecycle/job-timeline";
 
 export default async function GranotLifecycleJobPage({
@@ -6,6 +7,10 @@ export default async function GranotLifecycleJobPage({
   params: Promise<{ jobNo: string }>;
 }) {
   const { jobNo } = await params;
-  return <GranotJobTimelinePage jobNo={jobNo} />;
+  return (
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Loading Job timeline…</p>}>
+      <GranotJobTimelinePage jobNo={jobNo} />
+    </Suspense>
+  );
 }
 

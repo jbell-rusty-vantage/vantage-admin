@@ -337,7 +337,41 @@ async function requestJson<T>(url: string): Promise<T> {
       issues: failure?.issues,
     });
   }
-  return payload.data;
+  return unwrapEnvelope(payload.data);
+}
+
+function unwrapEnvelope<T>(value: unknown): T {
+  let current = value;
+  for (let depth = 0; depth < 2; depth += 1) {
+    if (
+      current &&
+      typeof current === "object" &&
+      "ok" in current &&
+      (current as { ok: unknown }).ok === true &&
+      "data" in current
+    ) {
+      current = (current as { data: unknown }).data;
+      continue;
+    }
+    break;
+  }
+  return current as T;
+}
+
+export function asGranotLifecycleCaseListPage(data: unknown): GranotLifecycleCaseListPage {
+  const page = unwrapEnvelope(data);
+  if (Array.isArray(page)) {
+    return { items: page as GranotLifecycleCaseListItem[], next_cursor: null };
+  }
+  if (page && typeof page === "object") {
+    const record = page as Partial<GranotLifecycleCaseListPage> & { cases?: unknown };
+    const items = record.items ?? record.cases;
+    return {
+      items: Array.isArray(items) ? items : [],
+      next_cursor: typeof record.next_cursor === "string" ? record.next_cursor : null,
+    };
+  }
+  return { items: [], next_cursor: null };
 }
 
 export function fetchGranotLifecycleCases(
@@ -345,7 +379,7 @@ export function fetchGranotLifecycleCases(
 ): Promise<GranotLifecycleCaseListPage> {
   return requestJson(
     proxyUrl("api/v1/admin/granot-lifecycle/cases", filters as SerializableFilters),
-  );
+  ).then(asGranotLifecycleCaseListPage);
 }
 
 export function fetchGranotLifecycleCase(caseId: string): Promise<GranotLifecycleCaseDetail> {

@@ -240,6 +240,16 @@ test("queue loading, error, and empty states are explicit", () => {
   assert.match(renderToStaticMarkup(createElement(LifecycleDashboardView, { data: { items: [], next_cursor: null } })), /No lifecycle cases match/);
 });
 
+test("queue stays mounted when the list page omits items instead of throwing on .length", () => {
+  let markup = "";
+  assert.doesNotThrow(() => {
+    markup = renderToStaticMarkup(createElement(LifecycleDashboardView, {
+      data: { next_cursor: null } as { items?: typeof bookingCase[]; next_cursor: null },
+    }));
+  });
+  assert.match(markup, /No lifecycle cases match/);
+});
+
 test("Granot navigation keeps Automation and Lifecycle distinct", () => {
   const lifecycleMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/ingestion/granot/lifecycle/cases/case-1" }));
   assert.match(lifecycleMarkup, />Automation</);

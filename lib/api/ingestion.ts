@@ -51,6 +51,41 @@ export type IngestionInspection = {
 const proxy = (path: string) =>
   `/api/proxy/api/v1/admin/ingestion/${path}`;
 
+function unwrapEnvelope<T>(value: unknown): T {
+  let current = value;
+  for (let depth = 0; depth < 2; depth += 1) {
+    if (
+      current &&
+      typeof current === "object" &&
+      "ok" in current &&
+      (current as { ok: unknown }).ok === true &&
+      "data" in current
+    ) {
+      current = (current as { data: unknown }).data;
+      continue;
+    }
+    break;
+  }
+  return current as T;
+}
+
+export function asIngestionList<T>(data: unknown): T[] {
+  const page = unwrapEnvelope(data);
+  if (Array.isArray(page)) {
+    return page as T[];
+  }
+  if (page && typeof page === "object") {
+    const record = page as Record<string, unknown>;
+    for (const key of ["items", "runs", "conflicts"] as const) {
+      const candidate = record[key];
+      if (Array.isArray(candidate)) {
+        return candidate as T[];
+      }
+    }
+  }
+  return [];
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(proxy(path), {
     ...init,
@@ -66,7 +101,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       envelope.ok ? `Request failed (${response.status})` : envelope.error,
     );
   }
-  return envelope.data;
+  return unwrapEnvelope(envelope.data);
 }
 
 export function fetchBestRelocationConnection(): Promise<IngestionConnection> {
@@ -110,7 +145,7 @@ export function approveBestRelocationRun(input: {
 }
 
 export function fetchIngestionRuns(): Promise<IngestionRun[]> {
-  return request("runs?limit=50");
+  return request("runs?limit=50").then((data) => asIngestionList<IngestionRun>(data));
 }
 
 export function retryIngestionRun(
@@ -123,7 +158,9 @@ export function retryIngestionRun(
 }
 
 export function fetchIngestionConflicts(): Promise<IngestionConflict[]> {
-  return request("conflicts?status=open");
+  return request("conflicts?status=open").then((data) =>
+    asIngestionList<IngestionConflict>(data),
+  );
 }
 
 export function dismissIngestionConflict(

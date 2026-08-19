@@ -15,10 +15,11 @@ export function GranotLifecycleCaseList({
   items,
   now,
 }: {
-  items: GranotLifecycleCaseListItem[];
+  items?: GranotLifecycleCaseListItem[];
   now?: number;
 }) {
-  if (items.length === 0) {
+  const rows = items ?? [];
+  if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">No lifecycle cases match these filters.</p>;
   }
 
@@ -36,7 +37,7 @@ export function GranotLifecycleCaseList({
           </tr>
         </thead>
         <tbody className="divide-y">
-          {items.map((item) => (
+          {rows.map((item) => (
             <tr key={`${item.kind}:${item.case_id}`}>
               <td className="px-3 py-3 align-top">
                 <Link
@@ -49,7 +50,7 @@ export function GranotLifecycleCaseList({
                   <StatusBadge tone={item.state === "open" ? "warning" : "muted"}>
                     {item.state}
                   </StatusBadge>
-                  <StatusBadge>{item.mode.replaceAll("_", " ")}</StatusBadge>
+                  <StatusBadge>{String(item.mode ?? "").replaceAll("_", " ")}</StatusBadge>
                 </div>
               </td>
               <td className="px-3 py-3 align-top">
@@ -70,7 +71,7 @@ export function GranotLifecycleCaseList({
               <td className="px-3 py-3 align-top">
                 <strong>{item.evidence_count}</strong>
                 <p className="text-xs text-muted-foreground">
-                  latest: {item.latest_action.replaceAll("_", " ")}
+                  latest: {String(item.latest_action ?? "").replaceAll("_", " ")}
                 </p>
               </td>
               <td className="px-3 py-3 align-top">

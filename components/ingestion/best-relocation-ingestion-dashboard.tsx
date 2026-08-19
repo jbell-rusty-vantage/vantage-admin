@@ -174,7 +174,7 @@ export function BestRelocationIngestionDashboard() {
             Latest source inspection
           </h2>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
-            {inspect.data.checks.map((check) => (
+            {(Array.isArray(inspect.data.checks) ? inspect.data.checks : []).map((check) => (
               <div
                 key={check.key}
                 className="rounded-md border border-steel-100 px-3 py-2"
@@ -269,7 +269,7 @@ export function BestRelocationIngestionDashboard() {
               </tr>
             </thead>
             <tbody>
-              {(runs.data ?? []).map((run) => (
+              {(Array.isArray(runs.data) ? runs.data : []).map((run) => (
                 <tr key={run._id} className="border-t border-steel-100">
                   <td className="py-3">{new Date(run.createdAt).toLocaleString()}</td>
                   <td>{run.trigger}</td>
@@ -319,10 +319,10 @@ export function BestRelocationIngestionDashboard() {
 
       <section className="rounded-lg border border-steel-200 bg-white p-5 shadow-sm">
         <h2 className="font-heading text-lg font-semibold text-navy">
-          Open conflicts ({conflicts.data?.length ?? 0})
+          Open conflicts ({Array.isArray(conflicts.data) ? conflicts.data.length : 0})
         </h2>
         <div className="mt-4 space-y-2">
-          {(conflicts.data ?? []).map((conflict) => (
+          {(Array.isArray(conflicts.data) ? conflicts.data : []).map((conflict) => (
             <div
               key={conflict._id}
               className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-steel-100 px-4 py-3"
@@ -354,7 +354,7 @@ export function BestRelocationIngestionDashboard() {
               </div>
             </div>
           ))}
-          {conflicts.data?.length === 0 ? (
+          {Array.isArray(conflicts.data) && conflicts.data.length === 0 ? (
             <p className="text-sm text-steel">No open ingestion conflicts.</p>
           ) : null}
         </div>

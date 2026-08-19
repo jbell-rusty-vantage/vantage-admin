@@ -92,7 +92,7 @@ export function LifecycleDashboardView({
       <CardContent>
         {loading ? <p role="status" className="text-sm text-muted-foreground">Loading lifecycle cases…</p> : null}
         {error ? <FeedbackMessage tone="error">{error}</FeedbackMessage> : null}
-        {data ? <GranotLifecycleCaseList items={data.items} /> : null}
+        {data ? <GranotLifecycleCaseList items={data.items ?? []} /> : null}
       </CardContent>
     </Card>
   );
@@ -103,7 +103,7 @@ export function LifecycleDashboard() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const filters = useMemo(
-    () => parseGranotLifecycleUrlFilters(new URLSearchParams(searchParams.toString())),
+    () => parseGranotLifecycleUrlFilters(new URLSearchParams(searchParams?.toString() ?? "")),
     [searchParams],
   );
   const [draft, setDraft] = useState<LifecycleFilterDraft>(() => ({

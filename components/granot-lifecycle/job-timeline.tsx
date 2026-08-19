@@ -30,7 +30,7 @@ const typeLabels: Record<GranotTimelineEntry["type"], string> = {
 function entrySummary(entry: GranotTimelineEntry): string {
   switch (entry.type) {
     case "observation":
-      return `${entry.data.normalization_result}; ${entry.data.issue_codes.length} issue(s)`;
+      return `${entry.data.normalization_result}; ${(entry.data.issue_codes ?? []).length} issue(s)`;
     case "priority_effect":
       return `Priority ${entry.data.canonical_priority}`;
     case "booking_action":
