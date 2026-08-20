@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { GranotLifecycleCasePage } from "@/components/granot-lifecycle/case-detail";
 import {
   fetchGranotLifecycleCases,
   type GranotLifecycleCaseListItem,
@@ -50,12 +51,14 @@ function buildIntakesHref(input: {
   state: IntakeState;
   job?: string;
   cursor?: string;
+  caseId?: string;
 }): string {
   const params = new URLSearchParams();
   if (input.tab === "cancellation") params.set("tab", "cancellations");
   if (input.state === "resolved") params.set("state", "resolved");
   if (input.job?.trim()) params.set("job", input.job.trim());
   if (input.cursor) params.set("cursor", input.cursor);
+  if (input.caseId) params.set("case", input.caseId);
   const query = params.toString();
   return query ? `${INTAKES_HREF}?${query}` : INTAKES_HREF;
 }
@@ -81,8 +84,9 @@ export function IntakesHeader({
         <h1 className="text-2xl font-semibold text-navy">Intakes</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           This is the waiting room for Granot booking and cancellation work. A case appears when
-          Granot sets a lead to priority 5, records a booking, or cancels a job. Granot is not
-          creating the official Vantage booking or cancellation — you still review each case.
+          Granot sets a lead to priority 5, records a booking, or cancels a job. Choose a case,
+          then enter official binder, deposit, agents, and merchant from the same catalog as a
+          normal booking. Granot is not creating those official records for you.
         </p>
       </div>
       <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -110,17 +114,21 @@ export function IntakesDashboardView({
   data,
   loading,
   error,
+  selectedCaseId,
+  job,
 }: {
   kind: IntakeKind;
   state: IntakeState;
   data?: { items?: GranotLifecycleCaseListItem[] };
   loading?: boolean;
   error?: string;
+  selectedCaseId?: string;
+  job?: string;
 }) {
   const title = kind === "cancellation" ? "Cancellation intakes" : "Booking intakes";
   const description = kind === "cancellation"
-    ? "Jobs Granot cancelled. Review them here before they become an official Vantage cancellation."
-    : "Jobs Granot marked booked. Review them here before they become an official Vantage booking.";
+    ? "Choose a cancelled job, then finish official cancellation details."
+    : "Choose a booked job, then finish the official booking: lead, binder, deposit, agents, and merchant.";
 
   return (
     <Card>
@@ -136,6 +144,8 @@ export function IntakesDashboardView({
             kind={kind}
             items={data?.items ?? []}
             emptyMessage={intakeEmptyMessage(kind, state)}
+            selectedCaseId={selectedCaseId}
+            listQuery={{ state, job }}
           />
         ) : null}
       </CardContent>
@@ -150,6 +160,7 @@ export function IntakesDashboard() {
   const state = parseState(searchParams?.get("state") ?? null);
   const job = searchParams?.get("job") ?? "";
   const cursor = searchParams?.get("cursor") ?? undefined;
+  const selectedCaseId = searchParams?.get("case") ?? "";
   const [jobDraft, setJobDraft] = useState(job);
 
   const filters = useMemo(() => ({
@@ -167,12 +178,13 @@ export function IntakesDashboard() {
     queryFn: () => fetchGranotLifecycleCases(filters),
   });
 
-  function go(next: { tab?: IntakeKind; state?: IntakeState; job?: string; cursor?: string }) {
+  function go(next: { tab?: IntakeKind; state?: IntakeState; job?: string; cursor?: string; caseId?: string }) {
     const href = buildIntakesHref({
       tab: next.tab ?? tab,
       state: next.state ?? state,
       job: next.job ?? job,
       cursor: next.cursor,
+      caseId: next.caseId,
     });
     router.push(href);
   }
@@ -210,6 +222,9 @@ export function IntakesDashboard() {
       </div>
       <p className="text-sm text-muted-foreground">
         {TABS.find((item) => item.id === tab)?.summary}
+        {tab === "booking"
+          ? " Open a waiting case to enter the official booking form."
+          : " Open a waiting case to enter official cancellation details."}
       </p>
 
       <Card>
@@ -269,23 +284,34 @@ export function IntakesDashboard() {
         </FeedbackMessage>
       ) : null}
 
-      <IntakesDashboardView
-        kind={tab}
-        state={state}
-        data={query.data}
-        loading={query.isPending}
-        error={undefined}
-      />
+      {selectedCaseId ? (
+        <GranotLifecycleCasePage
+          caseId={selectedCaseId}
+          returnTo={buildIntakesHref({ tab, state, job })}
+          backLabel="Back to waiting cases"
+        />
+      ) : (
+        <>
+          <IntakesDashboardView
+            kind={tab}
+            state={state}
+            data={query.data}
+            loading={query.isPending}
+            error={undefined}
+            job={job}
+          />
 
-      {query.data?.next_cursor ? (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => go({ cursor: query.data?.next_cursor ?? undefined })}
-        >
-          Show more
-        </Button>
-      ) : null}
+          {query.data?.next_cursor ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => go({ cursor: query.data?.next_cursor ?? undefined })}
+            >
+              Show more
+            </Button>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

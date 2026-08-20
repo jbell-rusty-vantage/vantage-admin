@@ -83,10 +83,14 @@ export function LeadCandidateBrowser({
   caseId,
   selected,
   onSelect,
+  heading,
+  description,
 }: {
   caseId: string;
   selected?: GranotLifecycleCandidateItem;
   onSelect?: (item: GranotLifecycleCandidateItem) => void;
+  heading?: string;
+  description?: string;
 }) {
   const [draftQuery, setDraftQuery] = useState("");
   const [draftScope, setDraftScope] = useState<"source" | "all">("source");
@@ -106,9 +110,13 @@ export function LeadCandidateBrowser({
   return (
     <section aria-labelledby="candidate-browser-heading" className="space-y-4">
       <div>
-        <h2 id="candidate-browser-heading" className="text-lg font-semibold text-navy">Eligible Lead candidates</h2>
+        <h2 id="candidate-browser-heading" className="text-lg font-semibold text-navy">
+          {heading ?? "Eligible Lead candidates"}
+        </h2>
         <p className="text-sm text-muted-foreground">
-          Read-only server-ranked results. Browsing never selects, attaches, or changes a Lead.
+          {description ?? (onSelect
+            ? "Select the matching lead. This is not official until you review the booking details below."
+            : "Read-only server-ranked results. Browsing never selects, attaches, or changes a Lead.")}
         </p>
       </div>
       <form

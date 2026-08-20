@@ -4,10 +4,13 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   INTAKES_HREF,
+  intakeActionLabel,
   intakeCaseHref,
+  intakeCaseHowToFinish,
   intakeEmptyMessage,
   intakeKindFromCase,
   intakeKindLabel,
+  intakeNextStep,
   intakeStatusLabel,
   intakeWhatVantageHas,
   intakeWhyHere,
@@ -73,9 +76,22 @@ test("owner copy names booking and cancellation intakes without lifecycle jargon
     intakeWhatVantageHas(cancellationCase),
     "Vantage has an official booking on this job",
   );
+  assert.equal(intakeActionLabel("booking"), "Finish booking");
+  assert.equal(intakeActionLabel("cancellation"), "Review cancellation");
+  assert.match(intakeNextStep(bookingCase), /official binder, deposit, agents, and merchant/);
+  assert.match(
+    intakeCaseHowToFinish({
+      kind: "booking",
+      mode: "create_missing_booking",
+      state: "open",
+      commandsAvailable: true,
+    })?.body ?? "",
+    /Operations Registry catalog/,
+  );
   assert.match(intakeEmptyMessage("booking", "open"), /priority 5/);
   assert.match(intakeEmptyMessage("cancellation", "open"), /cancels a job/);
   assert.equal(isAllowedIntakeReturn("/intakes"), true);
+  assert.equal(isAllowedIntakeReturn("/intakes?tab=cancellations"), true);
   assert.equal(isAllowedIntakeReturn("/ingestion/granot/lifecycle"), false);
 });
 
@@ -90,7 +106,9 @@ test("intake list uses owner language and keeps booking and cancellation rows di
   assert.match(bookingMarkup, /Granot set this lead to priority 5 \(booked\)/);
   assert.match(bookingMarkup, /No official Vantage booking yet/);
   assert.match(bookingMarkup, /Waiting for you/);
-  assert.match(bookingMarkup, /return=%2Fintakes/);
+  assert.match(bookingMarkup, /Finish booking/);
+  assert.match(bookingMarkup, /choose a lead and enter official binder/);
+  assert.match(bookingMarkup, /href="\/intakes\?case=case-booking"/);
   assert.equal(bookingMarkup.includes("Synthetic Job 2"), false);
   assert.equal(bookingMarkup.includes("release #"), false);
 
@@ -122,6 +140,14 @@ test("intake queue loading, error, and empty states stay explicit", () => {
       data: { items: [] },
     })),
     /No booking intakes waiting/,
+  );
+  assert.match(
+    renderToStaticMarkup(createElement(IntakesDashboardView, {
+      kind: "booking",
+      state: "open",
+      data: { items: [] },
+    })),
+    /official booking/,
   );
   assert.match(
     renderToStaticMarkup(createElement(IntakesDashboardView, {
@@ -159,5 +185,9 @@ test("intakes URL helpers keep booking and cancellation queues distinct", () => 
     buildIntakesHref({ tab: "cancellation", state: "resolved", job: "JOB 9", cursor: "opaque+1" }),
     "/intakes?tab=cancellations&state=resolved&job=JOB+9&cursor=opaque%2B1",
   );
-  assert.match(intakeCaseHref("case-booking"), /\/ingestion\/granot\/lifecycle\/cases\/case-booking/);
+  assert.equal(intakeCaseHref("case-booking"), "/intakes?case=case-booking");
+  assert.equal(
+    intakeCaseHref("case-release", { tab: "cancellation", state: "resolved" }),
+    "/intakes?tab=cancellations&state=resolved&case=case-release",
+  );
 });

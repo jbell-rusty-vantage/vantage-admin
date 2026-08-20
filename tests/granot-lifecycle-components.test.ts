@@ -157,6 +157,7 @@ test("detail stays mounted when official_current, evidence, contacts, or timelin
   assert.match(markup, /Official current Vantage facts/);
   assert.match(markup, /Official create fields remain blank/);
   assert.match(markup, /Granot evidence — not official Vantage values/);
+  assert.match(markup, /How to finish this booking/);
 });
 
 test("case detail can return to Intakes when opened from that queue", () => {
@@ -225,8 +226,8 @@ test("[AC-22][AC-32] enabled Owner command renders blank labeled fields and an e
   const form = createElement(QueryClientProvider, { client: queryClient },
     createElement(BookingCommandForm, { detail: commandDetail }));
   const formMarkup = renderToStaticMarkup(form);
-  for (const label of ["Confirm Granot Booking", "Book Date", "Deposit Amount", "Total Binder Amount", "Active Merchant", "Active Agent 1", "Binder Amount 1", "Review Booking"]) {
-    assert.match(formMarkup, new RegExp(label));
+  for (const label of ["Confirm Granot Booking", "Book Date", "Deposit Amount", "Total Binder Amount", "Active Merchant", "Active Agent 1", "Binder Amount 1", "Review Booking", "1. Choose the matching lead", "2. Official booking details", "Operations Registry catalog"]) {
+    assert.match(formMarkup, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
   assert.match(formMarkup, /value=""/);
   assert.equal(formMarkup.includes("$synthetic"), false);
@@ -237,6 +238,8 @@ test("[AC-22][AC-32] enabled Owner command renders blank labeled fields and an e
     commandForm: createElement("span", null, "OWNER COMMAND FORM"),
   }));
   assert.match(detailMarkup, /OWNER COMMAND FORM/);
+  assert.match(detailMarkup, /How to finish this booking/);
+  assert.ok(detailMarkup.indexOf("OWNER COMMAND FORM") < detailMarkup.indexOf("Granot evidence"));
   assert.equal(detailMarkup.includes("READ ONLY BROWSER"), false);
 });
 

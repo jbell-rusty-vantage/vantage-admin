@@ -54,6 +54,57 @@ export function intakeWhatVantageHas(item: Pick<
   }
 }
 
+export function intakeActionLabel(kind: IntakeKind): string {
+  return kind === "cancellation" ? "Review cancellation" : "Finish booking";
+}
+
+export function intakeNextStep(item: Pick<GranotLifecycleCaseListItem, "kind" | "mode">): string {
+  if (item.kind === "release") {
+    return "Open this case to review official cancellation details.";
+  }
+  switch (item.mode) {
+    case "create_missing_booking":
+      return "Open this case to choose a lead and enter official binder, deposit, agents, and merchant.";
+    case "review_existing_booking":
+      return "Open this case to review the official booking values.";
+    case "create_referral_booking":
+      return "Open this case to enter official binder, deposit, agents, and merchant.";
+    default:
+      return "Open this case to finish official booking details.";
+  }
+}
+
+export function intakeCaseHowToFinish(input: {
+  kind: GranotLifecycleCaseListItem["kind"];
+  mode: string;
+  state: GranotLifecycleCaseListItem["state"];
+  commandsAvailable: boolean;
+}): { title: string; body: string } | undefined {
+  if (input.state !== "open") return undefined;
+  if (input.kind === "release") {
+    return {
+      title: "How to finish this cancellation",
+      body: input.commandsAvailable
+        ? "Official cancellation and booking fields are below. Granot evidence stays as reference only."
+        : "This case is waiting for official cancellation details. The official form appears here when owner cancellation work is enabled.",
+    };
+  }
+  if (input.mode === "review_existing_booking") {
+    return {
+      title: "How to finish this booking",
+      body: input.commandsAvailable
+        ? "Official booking values are below. Use the same agent and merchant catalog as a normal booking, or leave official records unchanged."
+        : "Vantage already has an official booking on this job. The official form appears here when owner booking work is enabled.",
+    };
+  }
+  return {
+    title: "How to finish this booking",
+    body: input.commandsAvailable
+      ? "Choose the matching lead, then enter official binder, deposit, agents, and merchant. Those lists come from the same Operations Registry catalog as a normal booking. Granot estimate and payment numbers stay as reference only."
+      : "This case is waiting for official binder, deposit, agents, and merchant. The official form appears here when owner booking work is enabled.",
+  };
+}
+
 export function intakeEmptyMessage(kind: IntakeKind, state: "open" | "resolved"): string {
   if (kind === "booking") {
     return state === "open"
@@ -65,14 +116,25 @@ export function intakeEmptyMessage(kind: IntakeKind, state: "open" | "resolved")
     : "No finished cancellation intakes match this view.";
 }
 
-export function intakeCaseHref(caseId: string): string {
-  return `/ingestion/granot/lifecycle/cases/${encodeURIComponent(caseId)}?return=${encodeURIComponent(INTAKE_CASE_RETURN)}`;
+export function intakeCaseHref(
+  caseId: string,
+  options?: { tab?: IntakeKind; state?: "open" | "resolved"; job?: string },
+): string {
+  const params = new URLSearchParams();
+  if (options?.tab === "cancellation") params.set("tab", "cancellations");
+  if (options?.state === "resolved") params.set("state", "resolved");
+  if (options?.job?.trim()) params.set("job", options.job.trim());
+  params.set("case", caseId);
+  return `${INTAKES_HREF}?${params.toString()}`;
 }
 
 export function intakeJobHref(normalizedJobNo: string): string {
   return `/ingestion/granot/lifecycle/jobs/${encodeURIComponent(normalizedJobNo)}`;
 }
 
-export function isAllowedIntakeReturn(value: string | undefined | null): value is typeof INTAKE_CASE_RETURN {
-  return value === INTAKE_CASE_RETURN;
+export function isAllowedIntakeReturn(value: string | undefined | null): value is string {
+  if (!value) return false;
+  if (value === INTAKE_CASE_RETURN) return true;
+  if (!value.startsWith(`${INTAKE_CASE_RETURN}?`)) return false;
+  return !value.includes("://") && !value.includes("//");
 }

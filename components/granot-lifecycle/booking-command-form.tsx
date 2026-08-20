@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FilterField } from "@/components/filters/filter-field";
 import {
   confirmGranotBooking,
   GranotLifecycleApiError,
@@ -40,6 +41,17 @@ export function BookingCommandForm({ detail }: { detail: GranotLifecycleCaseDeta
   const [errors, setErrors] = useState<string[]>([]);
   const [notice, setNotice] = useState<string>();
   const lastAttempt = useRef<{ canonical: string; key: string } | undefined>(undefined);
+  const errorSummary = useRef<HTMLDivElement>(null);
+  const agents = catalog.agents.filter((item) => item.active);
+  const merchants = catalog.merchants.filter((item) => item.active);
+  const selectedMerchant = merchants.find((item) => item.id === merchantId);
+  const selectedAgents = allocations
+    .map((row) => agents.find((item) => item.id === row.agentId)?.name ?? row.agentId)
+    .filter(Boolean);
+
+  useEffect(() => {
+    if (errors.length) errorSummary.current?.focus();
+  }, [errors]);
 
   const buildBody = (): ConfirmGranotBookingBody | undefined => {
     const nextErrors: string[] = [];
@@ -124,26 +136,166 @@ export function BookingCommandForm({ detail }: { detail: GranotLifecycleCaseDeta
   };
 
   return (
-    <Card>
+    <Card id="finish-booking">
       <CardHeader>
         <CardTitle>Confirm Granot Booking</CardTitle>
-        <CardDescription>Owner command. Official fields start blank and are never copied from Granot evidence.</CardDescription>
+        <CardDescription>
+          Official booking form. Choose the matching lead, then enter binder, deposit, agents, and
+          merchant from the same Operations Registry catalog as a normal booking. Official fields
+          start blank and are never copied from Granot evidence.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         {notice ? <FeedbackMessage>{notice}</FeedbackMessage> : null}
-        {errors.length ? <div role="alert" tabIndex={-1} className="rounded-md border border-destructive p-3"><strong>Correct the following:</strong><ul className="mt-2 list-disc pl-5">{errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}
-        <LeadCandidateBrowser caseId={detail.case_id} selected={selected} onSelect={(item) => { setSelected(item); setReviewing(false); }} />
-        {selected?.requires_override_reason ? <div className="space-y-1"><FeedbackMessage tone="warning">This Lead is outside the reviewed Source Scope. A reason is required.</FeedbackMessage><Label htmlFor="granot-override-reason">Out-of-scope override reason</Label><textarea id="granot-override-reason" className="min-h-24 w-full rounded-md border p-2" value={overrideReason} onChange={(event) => setOverrideReason(event.target.value)} maxLength={500} /></div> : null}
-        <fieldset className="grid gap-4 md:grid-cols-3" disabled={reviewing || submitting}>
-          <legend className="mb-3 font-semibold">Blank official Booking details</legend>
-          <div><Label htmlFor="granot-book-date">Book Date</Label><Input id="granot-book-date" type="date" value={bookDate} onChange={(event) => setBookDate(event.target.value)} /></div>
-          <div><Label htmlFor="granot-deposit">Deposit Amount</Label><Input id="granot-deposit" inputMode="decimal" value={deposit} onChange={(event) => setDeposit(event.target.value)} /></div>
-          <div><Label htmlFor="granot-binder-total">Total Binder Amount</Label><Input id="granot-binder-total" inputMode="decimal" value={totalBinder} onChange={(event) => setTotalBinder(event.target.value)} /></div>
-          <div><Label htmlFor="granot-merchant">Active Merchant</Label><select id="granot-merchant" className="h-10 w-full rounded-md border px-3" value={merchantId} onChange={(event) => setMerchantId(event.target.value)}><option value="">Select Merchant</option>{catalog.merchants.filter((item) => item.active).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-        </fieldset>
-        <fieldset className="space-y-3" disabled={reviewing || submitting}><legend className="font-semibold">Agent allocations</legend>{allocations.map((row, index) => <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]" key={index}><div><Label htmlFor={`granot-agent-${index}`}>Active Agent {index + 1}</Label><select id={`granot-agent-${index}`} className="h-10 w-full rounded-md border px-3" value={row.agentId} onChange={(event) => setAllocations((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, agentId: event.target.value } : item))}><option value="">Select Agent</option>{catalog.agents.filter((item) => item.active).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div><div><Label htmlFor={`granot-binder-${index}`}>Binder Amount {index + 1}</Label><Input id={`granot-binder-${index}`} inputMode="decimal" value={row.binderAmount} onChange={(event) => setAllocations((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, binderAmount: event.target.value } : item))} /></div>{allocations.length > 1 ? <Button type="button" variant="outline" className="self-end" onClick={() => setAllocations((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</Button> : null}</div>)}{allocations.length < 20 ? <Button type="button" variant="outline" onClick={() => setAllocations((current) => [...current, { agentId: "", binderAmount: "" }])}>Add Agent</Button> : null}</fieldset>
-        {reviewing ? <section aria-labelledby="granot-booking-review" className="rounded-md border p-4"><h3 id="granot-booking-review" className="font-semibold">Review official Booking</h3><p className="mt-2 text-sm">Lead: {selected?.lead_ref.model} {selected?.lead_ref.id}</p><p className="text-sm">Book Date: {bookDate} · Deposit: {deposit} · Binder: {totalBinder}</p><p className="text-sm">Case revision: {detail.case_revision}</p></section> : null}
-        <div className="flex gap-2">{reviewing ? <Button type="button" variant="outline" onClick={() => setReviewing(false)} disabled={submitting}>Back to edit</Button> : null}<Button type="button" disabled={submitting || catalog.isLoading} onClick={() => reviewing ? void submit() : setReviewing(Boolean(buildBody()))}>{reviewing ? (submitting ? "Creating…" : "Create Booking") : "Review Booking"}</Button></div>
+        {errors.length ? (
+          <div ref={errorSummary} role="alert" tabIndex={-1} className="rounded-md border border-destructive p-3">
+            <strong>Correct the following:</strong>
+            <ul className="mt-2 list-disc pl-5">{errors.map((error) => <li key={error}>{error}</li>)}</ul>
+          </div>
+        ) : null}
+
+        <section className="rounded-lg border bg-background p-4">
+          <h2 className="text-sm font-semibold">1. Choose the matching lead</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pick the Vantage lead for this job. The server may suggest one; you still have to select it.
+          </p>
+          {detail.suggestion ? (
+            <FeedbackMessage className="mt-3">
+              Server suggestion: {detail.suggestion.lead_ref.model} {detail.suggestion.lead_ref.id}
+              {" · "}{detail.suggestion.confidence} confidence via {detail.suggestion.match_method}.
+              Select that row below if it is the right lead.
+            </FeedbackMessage>
+          ) : null}
+          <div className="mt-4">
+            <LeadCandidateBrowser
+              caseId={detail.case_id}
+              selected={selected}
+              onSelect={(item) => { setSelected(item); setReviewing(false); }}
+              heading="Eligible Lead candidates"
+              description="Select the matching lead. This is not official until you review the booking details below."
+            />
+          </div>
+          {selected?.requires_override_reason ? (
+            <div className="mt-4 space-y-1">
+              <FeedbackMessage tone="warning">This Lead is outside the reviewed Source Scope. A reason is required.</FeedbackMessage>
+              <Label htmlFor="granot-override-reason">Out-of-scope override reason</Label>
+              <textarea
+                id="granot-override-reason"
+                className="min-h-24 w-full rounded-md border p-2"
+                value={overrideReason}
+                onChange={(event) => setOverrideReason(event.target.value)}
+                maxLength={500}
+              />
+            </div>
+          ) : null}
+        </section>
+
+        <section className="rounded-lg border bg-background p-4">
+          <h2 className="text-sm font-semibold">2. Official booking details</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Same catalog as the manual booking form: active agents and merchants from Operations Registry.
+            Agent binder amounts must add up to the total binder exactly.
+          </p>
+          <fieldset className="mt-4 grid gap-3 sm:grid-cols-2" disabled={reviewing || submitting}>
+            <legend className="sr-only">Blank official Booking details</legend>
+            <FilterField label="Book Date">
+              <Input id="granot-book-date" type="date" value={bookDate} onChange={(event) => setBookDate(event.target.value)} />
+            </FilterField>
+            <FilterField label="Deposit Amount">
+              <Input id="granot-deposit" inputMode="decimal" value={deposit} onChange={(event) => setDeposit(event.target.value)} />
+            </FilterField>
+            <FilterField label="Total Binder Amount">
+              <Input id="granot-binder-total" inputMode="decimal" value={totalBinder} onChange={(event) => setTotalBinder(event.target.value)} />
+            </FilterField>
+            <FilterField label="Active Merchant">
+              <select
+                id="granot-merchant"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={merchantId}
+                onChange={(event) => setMerchantId(event.target.value)}
+              >
+                <option value="">Choose merchant</option>
+                {merchants.map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </FilterField>
+            {catalog.isLoading ? (
+              <p className="text-sm text-muted-foreground sm:col-span-2">
+                Loading active agents and merchants...
+              </p>
+            ) : null}
+          </fieldset>
+          <fieldset className="mt-4 space-y-3" disabled={reviewing || submitting}>
+            <legend className="text-sm font-semibold">Agent allocations</legend>
+            {allocations.map((row, index) => (
+              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]" key={index}>
+                <FilterField label={`Active Agent ${index + 1}`}>
+                  <select
+                    id={`granot-agent-${index}`}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={row.agentId}
+                    onChange={(event) => setAllocations((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, agentId: event.target.value } : item))}
+                  >
+                    <option value="">Choose agent</option>
+                    {agents.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                </FilterField>
+                <FilterField label={`Binder Amount ${index + 1}`}>
+                  <Input
+                    id={`granot-binder-${index}`}
+                    inputMode="decimal"
+                    value={row.binderAmount}
+                    onChange={(event) => setAllocations((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, binderAmount: event.target.value } : item))}
+                  />
+                </FilterField>
+                {allocations.length > 1 ? (
+                  <Button type="button" variant="outline" className="self-end" onClick={() => setAllocations((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                    Remove
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+            {allocations.length < 20 ? (
+              <Button type="button" variant="outline" onClick={() => setAllocations((current) => [...current, { agentId: "", binderAmount: "" }])}>
+                Add Agent
+              </Button>
+            ) : null}
+          </fieldset>
+        </section>
+
+        {reviewing ? (
+          <section aria-labelledby="granot-booking-review" className="rounded-lg border bg-muted/40 p-4">
+            <h3 id="granot-booking-review" className="font-semibold">Review official Booking</h3>
+            <p className="mt-2 text-sm">Lead: {selected?.lead_ref.model} {selected?.lead_ref.id}</p>
+            <p className="text-sm">Book Date: {bookDate} · Deposit: {deposit} · Binder: {totalBinder}</p>
+            <p className="text-sm">Merchant: {selectedMerchant?.name ?? merchantId}</p>
+            <p className="text-sm">Agents: {selectedAgents.join(", ") || "—"}</p>
+            <p className="text-sm">Case revision: {detail.case_revision}</p>
+          </section>
+        ) : (
+          <section className="rounded-lg border bg-muted/40 p-4 text-sm">
+            Review before submitting: this creates the official Vantage booking for job {detail.job_no}.
+            Granot estimate and payment numbers are not copied into these fields.
+          </section>
+        )}
+
+        <div className="flex gap-2">
+          {reviewing ? (
+            <Button type="button" variant="outline" onClick={() => setReviewing(false)} disabled={submitting}>
+              Back to edit
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            disabled={submitting || catalog.isLoading}
+            onClick={() => reviewing ? void submit() : setReviewing(Boolean(buildBody()))}
+          >
+            {reviewing ? (submitting ? "Creating…" : "Create Booking") : "Review Booking"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
