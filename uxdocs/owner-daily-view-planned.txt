@@ -155,9 +155,9 @@ Legend used below
   narrows only when he has a reason to.
 
   Contact is MASKED in the list (maskContactLabel). Full contact appears in the
-  drawer, to an Owner, only.  
+  drawer, to an Owner, only.
 
-  Owner: Change this. Please show the name he uses it a lot for determining bookings  
+  Owner: Change this. Please show the name he uses it a lot for determining bookings
 
   The Conv. column is the conversation feature's front door:
       🎧 8m02s   summary ready, click to open drawer on the Conversation tab
@@ -323,7 +323,6 @@ Legend used below
 | 2:00    P5562344  Best Relocation  Booked (1)       K•••• W••••  MED    4h12m |
 |                                                                     [Open →]  |
 +------------------------------------------------------------------------------+
-
   [Open →] routes to the EXISTING Unit 23/24 case detail:
       /ingestion/granot/lifecycle/cases/:id?return=/daily?tab=booking-intakes
 
@@ -579,4 +578,3 @@ Legend used below
   no shared memory and an in-process EventEmitter CANNOT work in production
   even though it will appear to work in `next dev`. Ship the 3s cursor poll.
   See spec section 4.
-

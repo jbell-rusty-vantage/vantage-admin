@@ -17,4 +17,3 @@ export default async function GranotLayout({ children }: { children: React.React
     </div>
   );
 }
-

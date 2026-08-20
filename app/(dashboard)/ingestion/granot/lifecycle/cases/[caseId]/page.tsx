@@ -8,4 +8,3 @@ export default async function GranotLifecycleCaseRoute({
   const { caseId } = await params;
   return <GranotLifecycleCasePage caseId={caseId} />;
 }
-

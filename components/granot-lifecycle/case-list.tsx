@@ -10,7 +10,6 @@ function ageLabel(value: string, now = Date.now()): string {
   if (hours < 48) return `${hours}h`;
   return `${Math.floor(hours / 24)}d`;
 }
-
 export function GranotLifecycleCaseList({
   items,
   now,
@@ -87,4 +86,3 @@ export function GranotLifecycleCaseList({
     </div>
   );
 }
-

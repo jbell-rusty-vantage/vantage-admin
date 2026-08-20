@@ -12,6 +12,3 @@ Architected, not implemented: owner-daily-view-planned.txt
     Where the wireframes and the specification disagree, the specification wins.
     The RingCentral conversation pipeline inside it is DEFERRED (spec 5.0).
 
-Proposal only (not shipped): admin-operational-views-ux-proposal.md
-  — infinite scroll, filter rail, and Daily View sketches are not current product.
-
