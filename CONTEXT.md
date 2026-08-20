@@ -1,6 +1,6 @@
 # Vantage Admin Dashboard
 
-Internal web application for lead search, bookings, cancellations, analytics, and Workflow Observational.
+Internal web application for lead search, bookings, cancellations, Granot intakes, analytics, and Workflow Observational.
 
 **Platform domain language:** [`../CONTEXT.md`](../CONTEXT.md)
 

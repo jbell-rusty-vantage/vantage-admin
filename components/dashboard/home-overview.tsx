@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   BarChart3,
+  Inbox,
   PhoneCall,
   PlusCircle,
   RefreshCw,
@@ -49,16 +50,30 @@ function formatPercent(value: number): string {
   return `${(Number.isFinite(value) ? value : 0).toFixed(1)}%`;
 }
 
-const quickLinks = [
+const quickLinks: Array<{
+  href: string;
+  label: string;
+  description: string;
+  icon: typeof Users;
+  ownerOnly?: boolean;
+}> = [
   { href: "/form-leads", label: "Form Leads", description: "Web form submissions", icon: Users },
   { href: "/call-leads", label: "Call Leads", description: "Inbound phone leads", icon: PhoneCall },
   { href: "/bookings", label: "Bookings", description: "Booked deals", icon: PlusCircle },
   { href: "/cancellations", label: "Cancellations", description: "Cancelled deals", icon: XCircle },
   {
+    href: "/intakes",
+    label: "Intakes",
+    description: "Granot booking and cancellation cases waiting for you",
+    icon: Inbox,
+    ownerOnly: true,
+  },
+  {
     href: "/ingestion/granot",
     label: "Granot Automation",
     description: "Preview and enrich CRM leads",
     icon: RefreshCw,
+    ownerOnly: true,
   },
   { href: "/analytics", label: "Analytics", description: "Charts and trends", icon: BarChart3 },
 ];
@@ -462,7 +477,7 @@ export function HomeOverview() {
           <CardContent>
             <div className="space-y-2">
               {quickLinks
-                .filter((link) => link.href !== "/ingestion/granot" || role === "owner")
+                .filter((link) => !link.ownerOnly || role === "owner")
                 .map((link) => {
                   const Icon = link.icon;
                   return (

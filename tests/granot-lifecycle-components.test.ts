@@ -159,6 +159,16 @@ test("detail stays mounted when official_current, evidence, contacts, or timelin
   assert.match(markup, /Granot evidence — not official Vantage values/);
 });
 
+test("case detail can return to Intakes when opened from that queue", () => {
+  const markup = renderToStaticMarkup(createElement(CaseDetail, {
+    detail: detail(),
+    backHref: "/intakes",
+    backLabel: "Back to Intakes",
+  }));
+  assert.match(markup, /Back to Intakes/);
+  assert.match(markup, /href="\/intakes"/);
+});
+
 test("[AC-20][AC-35] detail separates Granot evidence, contacts, and blank official facts with no mutation copy", () => {
   const markup = renderToStaticMarkup(createElement(CaseDetail, {
     detail: detail(),
@@ -437,16 +447,20 @@ test("queue stays mounted when the list page omits items instead of throwing on 
   assert.match(markup, /No lifecycle cases match/);
 });
 
-test("Granot navigation keeps Automation, Lifecycle, and Health distinct", () => {
+test("Granot navigation keeps Automation, Lifecycle, Intakes, and Health distinct", () => {
   const lifecycleMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/ingestion/granot/lifecycle/cases/case-1" }));
   assert.match(lifecycleMarkup, />Automation</);
   assert.match(lifecycleMarkup, />Lifecycle</);
+  assert.match(lifecycleMarkup, />Intakes</);
   assert.match(lifecycleMarkup, />Health</);
   assert.match(lifecycleMarkup, /href="\/ingestion\/granot"/);
+  assert.match(lifecycleMarkup, /href="\/intakes"/);
   assert.match(lifecycleMarkup, /href="\/ingestion\/granot\/lifecycle\/health"/);
   assert.match(lifecycleMarkup, /aria-current="page"[^>]+href="\/ingestion\/granot\/lifecycle"/);
   const healthMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/ingestion/granot/lifecycle/health" }));
   assert.match(healthMarkup, /aria-current="page"[^>]+href="\/ingestion\/granot\/lifecycle\/health"/);
+  const intakesMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/intakes" }));
+  assert.match(intakesMarkup, /aria-current="page"[^>]+href="\/intakes"/);
 });
 
 test("[AC-31][AC-35][AC-38] health view is read-only, unit-labeled, and never renders raw payload", () => {

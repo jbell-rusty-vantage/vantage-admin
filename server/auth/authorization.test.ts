@@ -82,6 +82,7 @@ test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/settings"), false);
   assert.equal(canAccessDashboardPath("admin", "/audit-log"), false);
   assert.equal(canAccessDashboardPath("admin", "/bookings/reconciliation"), false);
+  assert.equal(canAccessDashboardPath("admin", "/intakes"), false);
   assert.equal(canAccessDashboardPath("admin", "/form-leads"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry?tab=cpl"), true);
@@ -458,6 +459,8 @@ test("Granot lifecycle pages remain owner-only in the Admin UI except health", (
   assert.equal(canAccessDashboardPath("owner", "/ingestion/granot/lifecycle"), true);
   assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle/health"), true);
   assert.equal(canAccessDashboardPath("owner", "/ingestion/granot/lifecycle/health"), true);
+  assert.equal(canAccessDashboardPath("admin", "/intakes"), false);
+  assert.equal(canAccessDashboardPath("owner", "/intakes"), true);
 });
 
 test("[AC-31][AC-35] health GET is Owner/Admin at the proxy and remains read-only", () => {

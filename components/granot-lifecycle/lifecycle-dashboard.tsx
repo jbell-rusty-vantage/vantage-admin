@@ -148,13 +148,24 @@ export function LifecycleDashboard() {
         <p className="text-sm font-semibold uppercase tracking-wide text-trust-blue">Owner review</p>
         <h1 className="text-2xl font-semibold text-navy">Granot lifecycle</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Review immutable Granot evidence beside current Vantage facts. This workflow has no mutation controls.
+          Technical processing queue for Granot evidence. Booking and cancellation cases now live in Intakes.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
+          <Link className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-navy" href="/intakes">Open Intakes</Link>
           <Link className="inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted" href="/ingestion/granot/lifecycle/discrepancies">Review discrepancies</Link>
           <Link className="inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted" href="/ingestion/granot/lifecycle/health">Lifecycle health</Link>
         </div>
       </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Booking and cancellation cases moved</CardTitle>
+          <CardDescription>
+            When Granot sets a lead to priority 5, records a booking, or cancels a job, review that work in Intakes.
+            This page stays for the technical queue, discrepancies, and health.
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Queue filters</CardTitle><CardDescription>Filters and the opaque cursor remain in the URL.</CardDescription></CardHeader>

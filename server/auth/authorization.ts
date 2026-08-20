@@ -6,6 +6,7 @@ const OWNER_ONLY_PAGE_PREFIXES = [
   "/settings",
   "/bookings/reconciliation",
   "/ingestion/granot",
+  "/intakes",
 ] as const;
 
 const OPERATIONAL_PATCH_PREFIXES = [

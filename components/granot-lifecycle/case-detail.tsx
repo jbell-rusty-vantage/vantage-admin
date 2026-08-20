@@ -13,6 +13,7 @@ import {
   type GranotTimelinePage,
 } from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
+import { isAllowedIntakeReturn } from "@/components/intakes/intake-copy";
 import { JobTimeline } from "./job-timeline";
 import { LeadCandidateBrowser } from "./lead-candidate-browser";
 import { BookingOwnerActions } from "./booking-owner-actions";
@@ -55,10 +56,14 @@ export function CaseDetail({
   detail,
   candidateBrowser,
   commandForm,
+  backHref,
+  backLabel,
 }: {
   detail: GranotLifecycleCaseDetail;
   candidateBrowser?: ReactNode;
   commandForm?: ReactNode;
+  backHref?: string;
+  backLabel?: string;
 }) {
   const official = detail.official_current ?? {};
   const booking = official.booking;
@@ -83,6 +88,11 @@ export function CaseDetail({
 
   return (
     <div className="space-y-5">
+      {backHref ? (
+        <Link className="inline-flex h-10 items-center text-sm font-medium underline" href={backHref}>
+          {backLabel ?? "Back"}
+        </Link>
+      ) : null}
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">Granot lifecycle case</p>
@@ -218,7 +228,13 @@ export function CaseDetail({
   );
 }
 
-export function GranotLifecycleCasePage({ caseId }: { caseId: string }) {
+export function GranotLifecycleCasePage({
+  caseId,
+  returnTo,
+}: {
+  caseId: string;
+  returnTo?: string;
+}) {
   const query = useQuery({
     queryKey: queryKeys.granotLifecycle.caseDetail(caseId),
     queryFn: () => fetchGranotLifecycleCase(caseId),
@@ -234,6 +250,8 @@ export function GranotLifecycleCasePage({ caseId }: { caseId: string }) {
   }
   return <CaseDetail
     detail={query.data}
+    backHref={isAllowedIntakeReturn(returnTo) ? returnTo : undefined}
+    backLabel={isAllowedIntakeReturn(returnTo) ? "Back to Intakes" : undefined}
     candidateBrowser={<LeadCandidateBrowser caseId={caseId} />}
     commandForm={query.data.kind === "release"
       ? <ReleaseOwnerActions detail={query.data} />
