@@ -56,6 +56,12 @@ export function canAccessDashboardPath(role: AdminRole, pathname: string): boole
   if (role === "owner") {
     return true;
   }
+  if (
+    pathname === "/ingestion/granot/lifecycle/health"
+    || pathname.startsWith("/ingestion/granot/lifecycle/health/")
+  ) {
+    return true;
+  }
   // Operations Registry is readable by authenticated admin roles.
   if (pathname === "/operations-registry" || pathname.startsWith("/operations-registry/")) {
     return true;

@@ -150,7 +150,10 @@ export function LifecycleDashboard() {
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
           Review immutable Granot evidence beside current Vantage facts. This workflow has no mutation controls.
         </p>
-        <Link className="mt-3 inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted" href="/ingestion/granot/lifecycle/discrepancies">Review discrepancies</Link>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link className="inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted" href="/ingestion/granot/lifecycle/discrepancies">Review discrepancies</Link>
+          <Link className="inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted" href="/ingestion/granot/lifecycle/health">Lifecycle health</Link>
+        </div>
       </header>
 
       <Card>

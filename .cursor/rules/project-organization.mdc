@@ -28,10 +28,10 @@ alwaysApply: true
 | `components/forms/` | Booking + cancellation create workflows |
 | `components/dashboard/` | Home overview |
 | `components/analytics/`, `reports/` | Analytics + agent-sales report UI |
-| `components/observational/` | Observability tabs (events/incidents/reports/notifications/sheet-sync) |
+| `components/observational/` | Observability tabs (events/incidents/reports/notifications/sheet-sync); overview links to Granot lifecycle health |
 | `components/operations-registry/` | Registry shell: agents, merchants, sources, Granot sources, CPL, RingCentral, changes |
 | `components/ingestion/` | Best Relocation + Granot automation dashboards |
-| `components/granot-lifecycle/` | Mixed Booking/Release lifecycle queue/detail/timeline plus standard Booking candidate UI and gated Booking/Referral/Release Owner forms (`booking-owner-actions`, `release-owner-actions`, booking/referral/update/cancellation/no-action forms) |
+| `components/granot-lifecycle/` | Mixed Booking/Release lifecycle queue/detail/timeline plus standard Booking candidate UI, gated Booking/Referral/Release Owner forms, and the Owner/Admin read-only health view (`lifecycle-health`) |
 | `components/reporting/` | Report definitions, destinations, runs, Google settings |
 | `components/reconciliation/` | Booking-lead reconciliation dashboard |
 | `components/employee-booking/` | Public employee booking form |
@@ -52,9 +52,9 @@ alwaysApply: true
 
 - `proxy.ts` → cookie presence check → redirect to `/login`. Dashboard layout re-verifies JWT.
 - Public: `/login`, `/api/*`, `/employee-booking`, legal pages, static assets.
-- **Owner-only pages:** `/audit-log`, `/settings`, `/bookings/reconciliation`, `/ingestion/granot` (Automation + Lifecycle, including case/job detail).
+- **Owner-only pages:** `/audit-log`, `/settings`, `/bookings/reconciliation`, `/ingestion/granot` (Automation + Lifecycle, including case/job detail). Exception: `/ingestion/granot/lifecycle/health` is Owner/Admin because the server health GET is Owner/Admin and Workflow Observational links here.
 - Proxy flow: require admin session → validate relative path → `canProxyVantagePath(role, method, path)` → strip browser `x-api-secret`/`authorization`/`cookie` → set `x-vantage-admin-{user-id,email,role}` (+ optional HMAC via `VANTAGE_ADMIN_PROXY_SIGNING_SECRET`) → `server/vantage-api/client.ts` attaches `x-api-secret`.
-- Non-owners: blocked from reconciliation, Granot automation, Granot lifecycle **pages** / candidates / Booking commands, Google Drive, reporting mutations (GET reporting OK), registry mutations (some read-preview POSTs OK), DELETE, observability deletes. Allowed: operational PATCH/POST, sheet-sync retry, incident status, observability report run, standard Granot lifecycle **GET** (cases/jobs, not candidates).
+- Non-owners: blocked from reconciliation, Granot automation, Granot lifecycle **pages** / candidates / Booking commands, Google Drive, reporting mutations (GET reporting OK), registry mutations (some read-preview POSTs OK), DELETE, observability deletes. Allowed: operational PATCH/POST, sheet-sync retry, incident status, observability report run, standard Granot lifecycle **GET** (cases/jobs/health, not candidates).
 - Never expose `VANTAGE_API_SECRET` or signing secrets to client / `NEXT_PUBLIC_*`.
 
 ## Frontend Route Surface
@@ -63,7 +63,7 @@ alwaysApply: true
 
 **Insight:** `/analytics`, `/reports/agent-sales`
 
-**Ops:** `/observational` (`?tab=overview|events|incidents|reports|notifications|sheet-sync`), `/operations-registry` (`?tab=overview|agents|merchants|sources|granot-sources|ringcentral|cpl|changes`), `/ingestion` (Best Relocation), `/ingestion/granot` (owner), `/ingestion/granot/lifecycle` (owner queue), `/ingestion/granot/lifecycle/cases/[caseId]`, `/ingestion/granot/lifecycle/jobs/[jobNo]`, `/reporting`, `/reporting/[id]`, `/reporting/destinations`, `/reporting/destinations/[id]`, `/reporting/runs/[id]`
+**Ops:** `/observational` (`?tab=overview|events|incidents|reports|notifications|sheet-sync`), `/operations-registry` (`?tab=overview|agents|merchants|sources|granot-sources|ringcentral|cpl|changes`), `/ingestion` (Best Relocation), `/ingestion/granot` (owner), `/ingestion/granot/lifecycle` (owner queue), `/ingestion/granot/lifecycle/health` (Owner/Admin read-only), `/ingestion/granot/lifecycle/cases/[caseId]`, `/ingestion/granot/lifecycle/jobs/[jobNo]`, `/reporting`, `/reporting/[id]`, `/reporting/destinations`, `/reporting/destinations/[id]`, `/reporting/runs/[id]`
 
 **Support:** `/search`, `/exports`, `/audit-log` (owner), `/settings` (owner)
 
@@ -85,7 +85,7 @@ All operational/admin data goes through `/api/proxy/...` except local audit + pu
 | `registryRequest.ts` | Shared registry JSON helper + `RegistryApiError` |
 | `ingestion.ts` | `/api/v1/admin/ingestion/*` (Best Relocation) |
 | `granotAutomation.ts` | `/api/v1/admin/granot-automation/*` (additive compatibility projection; apply receipts show lifecycle IDs / pending / bounded outcome only) |
-| `granotLifecycle.ts` | `/api/v1/admin/granot-lifecycle/*` masked read DTOs plus Owner standard/Referral create, update, cancellation, and No Action POSTs; candidate browsing and commands are Owner-only |
+| `granotLifecycle.ts` | `/api/v1/admin/granot-lifecycle/*` masked read DTOs plus Owner standard/Referral create, update, cancellation, and No Action POSTs; candidate browsing and commands are Owner-only; `operations/health` is a policy-free Owner/Admin GET |
 | `registryGranotCrmSources.ts` | `/api/v1/admin/granot-crm-sources` list/detail/update/activation |
 | `reporting.ts`, `reportingDestinations.ts` | `/api/v1/admin/reporting/*` |
 | `googleDrive.ts` | `/api/v1/admin/google-drive/*` (owner) |
@@ -97,10 +97,10 @@ Use `lib/api/filters.ts` + `url-state.ts` for URL-synced filters; `lib/query/key
 
 ### Granot lifecycle reads and Booking/Release commands
 
-- Owner-only pages live under `/ingestion/granot/lifecycle` (queue + `cases/[caseId]` + `jobs/[jobNo]`). `/ingestion/granot` remains Automation. Nested layout tabs: Automation vs Lifecycle.
-- Browser code always uses the signed `/api/proxy/api/v1/...` boundary. Standard lifecycle GETs are Owner/Admin at the proxy; candidates and every command are Owner-only. Only the exact standard/Referral create, update, cancellation, and No Action paths forward `Idempotency-Key`; browser secrets and actor headers are stripped before trusted headers are minted.
-- Server DTOs remain semantic authority for source scope, matching, candidate eligibility, masking, and timeline ordering. Admin components render those DTOs and never open operational Mongo.
-- `queryKeys.granotLifecycle` is isolated from Employee Booking reconciliation and Granot Automation. `invalidateGranotLifecycleCommandViews` is invoked after Confirm Granot Booking, Update Existing Booking, and No Action (success and `409` refetch).
+- Owner-only pages live under `/ingestion/granot/lifecycle` (queue + `cases/[caseId]` + `jobs/[jobNo]`). `/ingestion/granot` remains Automation. Nested layout tabs: Automation, Lifecycle, and Health. `/ingestion/granot/lifecycle/health` is Owner/Admin read-only (`queryKeys.granotLifecycle.health()`), linked from the lifecycle dashboard and Workflow Observational overview.
+- Browser code always uses the signed `/api/proxy/api/v1/...` boundary. Standard lifecycle GETs (including `operations/health`) are Owner/Admin at the proxy; candidates and every command are Owner-only. Only the exact standard/Referral create, update, cancellation, and No Action paths forward `Idempotency-Key`; browser secrets and actor headers are stripped before trusted headers are minted.
+- Server DTOs remain semantic authority for source scope, matching, candidate eligibility, masking, timeline ordering, and operations health. Admin components render those DTOs and never open operational Mongo or recompute due work, p95, rates, or alerts.
+- `queryKeys.granotLifecycle` is isolated from Employee Booking reconciliation and Granot Automation. `invalidateGranotLifecycleCommandViews` is invoked after Confirm Granot Booking, Update Existing Booking, and No Action (success and `409` refetch). Health uses `queryKeys.granotLifecycle.health()` and is not part of that command invalidation set.
 - Live Owner command UI: open standard and Referral Booking cases use `booking-owner-actions`; Referral create starts with blank official fields and never shows candidate/attach controls. Open `kind:"release"`, `mode:"release"` cases use `release-owner-actions` for Create Cancellation, full Update Existing Booking, and No Action. All surfaces require server capabilities and explicit review before submit.
 - Polling (case detail 15s) may refresh evidence and timelines but must preserve component-owned confirm/update/cancellation/No Action draft state. Booking replacement initializes once from the live Booking projection (including active catalog IDs), while Cancellation starts blank; neither uses Granot evidence as official defaults. `409` refetch preserves unsent values and never auto-resubmits. Booking and Release discriminants, sequences, and timeline entries never collapse. Release command capability follows the server gate; discrepancies remain false.
 

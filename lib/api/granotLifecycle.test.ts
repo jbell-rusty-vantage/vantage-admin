@@ -19,6 +19,9 @@ import {
   reEvaluateGranotDiscrepancy,
   correctGranotRecordLink,
   resolveGranotDiscrepancyNoAction,
+  asGranotLifecycleHealth,
+  fetchGranotLifecycleHealth,
+  GRANOT_LIFECYCLE_FLAG_NAMES,
 } from "./granotLifecycle";
 
 test("[AC-23][AC-35][AC-36] discrepancy reads and commands use exact encoded proxy paths", async () => {
@@ -280,6 +283,40 @@ test("[AC-35] Job and Lead timelines encode identities and keep cursor paginatio
   calls = mockFetch({ ok: true, data: { items: [], next_cursor: null, current: {}, capabilities: { booking_cases: true, release_cases: false, discrepancies: false, official_facts: true } } });
   await fetchGranotLeadTimeline("FormLead", "lead/id", { limit: 100 });
   assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/leads/FormLead/lead%2Fid/lifecycle?limit=100");
+});
+
+test("[AC-31][AC-35] health client uses the exact GET path and ignores raw payload keys", async () => {
+  const calls = mockFetch({
+    ok: true,
+    data: {
+      generated_at: "2026-08-19T16:00:00.000Z",
+      flags: Object.fromEntries(GRANOT_LIFECYCLE_FLAG_NAMES.map((name) => [name, name === "GRANOT_LIFECYCLE_SHADOW_MODE"])),
+      activation: { present: true, id: "aaaaaa...bbbb", activated_at: "2026-08-19T12:00:00.000Z", processor_version: "unit-30" },
+      receipts: { due_count: 2, dead_letter_count: 1, oldest_due_age_ms: 1000, claimed_count: 0, expired_claim_count: 0, by_work_state: { pending: 2 } },
+      decisions_last_24h: [{ execution_mode: "historical_shadow", outcome: "already_current", reason_code: "desired_state_already_current", count: 3 }],
+      open_cases: [{ kind: "booking", mode: "create_missing_booking", count: 1 }],
+      open_discrepancies: [],
+      command_conflicts_last_24h: [],
+      record_links: { active: 0, disputed: 0 },
+      last_queue_run: null,
+      last_cron_run: null,
+      ringcentral: { state_present: false, last_run_at: null, last_run_status: null, cursor_to: null, lease: { held: false, acquired_at: null, expires_at: null, age_ms: null, expired: false }, last_runtime_ms: null, last_adopted_count: null, last_adoption_conflict_count: null, last_throttled_count: null },
+      alerts: [{ code: "dead_letter_present", state: "firing", observed_value: 1, threshold: 0, unit: "count" }],
+      payload: { email: "owner@example.invalid" },
+    },
+  });
+  const health = await fetchGranotLifecycleHealth();
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/operations/health");
+  assert.equal(calls[0]?.init?.method ?? "GET", "GET");
+  assert.equal(health.flags.GRANOT_LIFECYCLE_SHADOW_MODE, true);
+  assert.equal(health.flags.GRANOT_LIFECYCLE_BOOKING_COMMANDS_ENABLED, false);
+  assert.equal(health.decisions_last_24h[0]?.execution_mode, "historical_shadow");
+  assert.equal(health.alerts[0]?.state, "firing");
+  assert.equal("payload" in health, false);
+  assert.throws(
+    () => asGranotLifecycleHealth({ ok: true, data: { generated_at: "2026-08-19T16:00:00.000Z" } }),
+    /malformed/,
+  );
 });
 
 test("safe proxy failures preserve status, stable code, request id, and issues", async () => {

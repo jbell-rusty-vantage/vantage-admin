@@ -18,6 +18,13 @@ import {
   buildGranotLifecycleQueueHref,
   parseGranotLifecycleUrlFilters,
 } from "../components/granot-lifecycle/lifecycle-dashboard";
+import {
+  GRANOT_LIFECYCLE_HEALTH_HREF,
+  LifecycleHealthView,
+  formatAlertState,
+  formatHealthUnit,
+} from "../components/granot-lifecycle/lifecycle-health";
+import type { GranotLifecycleHealth } from "../lib/api/granotLifecycle";
 import type {
   GranotLifecycleCaseDetail,
   GranotLifecycleCaseListItem,
@@ -430,10 +437,91 @@ test("queue stays mounted when the list page omits items instead of throwing on 
   assert.match(markup, /No lifecycle cases match/);
 });
 
-test("Granot navigation keeps Automation and Lifecycle distinct", () => {
+test("Granot navigation keeps Automation, Lifecycle, and Health distinct", () => {
   const lifecycleMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/ingestion/granot/lifecycle/cases/case-1" }));
   assert.match(lifecycleMarkup, />Automation</);
   assert.match(lifecycleMarkup, />Lifecycle</);
+  assert.match(lifecycleMarkup, />Health</);
   assert.match(lifecycleMarkup, /href="\/ingestion\/granot"/);
+  assert.match(lifecycleMarkup, /href="\/ingestion\/granot\/lifecycle\/health"/);
   assert.match(lifecycleMarkup, /aria-current="page"[^>]+href="\/ingestion\/granot\/lifecycle"/);
+  const healthMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/ingestion/granot/lifecycle/health" }));
+  assert.match(healthMarkup, /aria-current="page"[^>]+href="\/ingestion\/granot\/lifecycle\/health"/);
+});
+
+test("[AC-31][AC-35][AC-38] health view is read-only, unit-labeled, and never renders raw payload", () => {
+  const health: GranotLifecycleHealth = {
+    generated_at: "2026-08-19T16:00:00.000Z",
+    flags: {
+      GRANOT_LIFECYCLE_PROCESSING_ENABLED: true,
+      GRANOT_LIFECYCLE_SHADOW_MODE: true,
+      GRANOT_LIFECYCLE_LEAD_WRITES_ENABLED: false,
+      GRANOT_LIFECYCLE_LEAD_CREATION_ENABLED: false,
+      GRANOT_LIFECYCLE_BOOKING_CASES_ENABLED: false,
+      GRANOT_LIFECYCLE_BOOKING_COMMANDS_ENABLED: false,
+      GRANOT_LIFECYCLE_RELEASE_CASES_ENABLED: false,
+      GRANOT_LIFECYCLE_RELEASE_COMMANDS_ENABLED: false,
+      GRANOT_LIFECYCLE_REFERRAL_BOOKING_ENABLED: false,
+      GRANOT_LIFECYCLE_EMAIL_ENABLED: false,
+    },
+    activation: { present: true, id: "aaaaaa...bbbb", processor_version: "unit-30", activated_at: "2026-08-19T12:00:00.000Z" },
+    receipts: {
+      by_work_state: { pending: 1, dead_letter: 1 },
+      due_count: 1,
+      oldest_due_at: "2026-08-19T15:00:00.000Z",
+      oldest_due_age_ms: 3_600_000,
+      claimed_count: 0,
+      expired_claim_count: 0,
+      dead_letter_count: 1,
+    },
+    decisions_last_24h: [
+      { execution_mode: "historical_shadow", outcome: "policy_blocked", reason_code: "source_policy_blocked", count: 2 },
+    ],
+    open_cases: [{ kind: "booking", mode: "create_missing_booking", count: 1 }],
+    open_discrepancies: [{ kind: "release", reason_code: "release_record_link_conflict", count: 1 }],
+    command_conflicts_last_24h: [],
+    record_links: { active: 0, disputed: 0 },
+    last_queue_run: { at: "2026-08-19T15:30:00.000Z", status: "completed" },
+    last_cron_run: null,
+    ringcentral: {
+      state_present: true,
+      last_run_at: "2026-08-19T15:00:00.000Z",
+      last_run_status: "success",
+      cursor_to: "2026-08-19T14:30:00.000Z",
+      lease: { held: false, acquired_at: null, expires_at: null, age_ms: 0, expired: false },
+      last_runtime_ms: 1200,
+      last_adopted_count: 0,
+      last_adoption_conflict_count: 0,
+      last_throttled_count: 0,
+    },
+    alerts: [
+      { code: "source_ambiguity_policy_blocked_rate", scope_ref: "aaaaaa...bbbb", state: "firing", observed_value: 0.2, threshold: 0.05, unit: "ratio" },
+    ],
+  };
+  const markup = renderToStaticMarkup(createElement(LifecycleHealthView, {
+    data: health,
+    stale: true,
+    refreshing: true,
+    error: "synthetic health error",
+    onRefresh: () => undefined,
+  }));
+  assert.match(markup, /historical_shadow/);
+  assert.match(markup, /not promoted when off/);
+  assert.match(markup, /Firing/);
+  assert.match(markup, /20\.00%/);
+  assert.match(markup, /3600000 ms/);
+  assert.match(markup, /Refresh/);
+  assert.match(markup, /Refreshing lifecycle health/);
+  assert.match(markup, /stale/);
+  for (const telemetry of ["Claimed", "Oldest due at", "Command conflicts", "Record links", "Lease acquired", "Lease expires", "Last run status", "Last adopted", "Last adoption conflicts", "Last throttled"]) {
+    assert.match(markup, new RegExp(telemetry));
+  }
+  assert.doesNotMatch(markup, /confirm-booking|no-action|correct-record-link/);
+  assert.doesNotMatch(markup, /owner@example\.invalid|5550001234|payload/);
+  assert.equal(formatAlertState("insufficient_data"), "Insufficient data");
+  assert.equal(formatHealthUnit("ratio", 0.05), "5.00%");
+});
+
+test("[AC-31] health URL stays stable for dashboard and observational links", () => {
+  assert.equal(GRANOT_LIFECYCLE_HEALTH_HREF, "/ingestion/granot/lifecycle/health");
 });

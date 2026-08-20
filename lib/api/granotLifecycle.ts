@@ -732,3 +732,250 @@ export function correctGranotRecordLink(id: string, body: CorrectRecordLinkBody,
 export function resolveGranotDiscrepancyNoAction(id: string, body: DiscrepancyNoActionBody, key: string) {
   return discrepancyCommand(id, "no-action", body, key);
 }
+
+export const GRANOT_LIFECYCLE_FLAG_NAMES = [
+  "GRANOT_LIFECYCLE_PROCESSING_ENABLED",
+  "GRANOT_LIFECYCLE_SHADOW_MODE",
+  "GRANOT_LIFECYCLE_LEAD_WRITES_ENABLED",
+  "GRANOT_LIFECYCLE_LEAD_CREATION_ENABLED",
+  "GRANOT_LIFECYCLE_BOOKING_CASES_ENABLED",
+  "GRANOT_LIFECYCLE_BOOKING_COMMANDS_ENABLED",
+  "GRANOT_LIFECYCLE_RELEASE_CASES_ENABLED",
+  "GRANOT_LIFECYCLE_RELEASE_COMMANDS_ENABLED",
+  "GRANOT_LIFECYCLE_REFERRAL_BOOKING_ENABLED",
+  "GRANOT_LIFECYCLE_EMAIL_ENABLED",
+] as const;
+
+export type GranotLifecycleFlagName = (typeof GRANOT_LIFECYCLE_FLAG_NAMES)[number];
+export type GranotLifecycleAlertState = "ok" | "firing" | "insufficient_data";
+export type GranotLifecycleAlertUnit = "count" | "milliseconds" | "ratio";
+
+export type GranotLifecycleHealthAlert = {
+  code: string;
+  scope_ref?: string;
+  state: GranotLifecycleAlertState;
+  observed_value: number | null;
+  threshold: number;
+  unit: GranotLifecycleAlertUnit;
+  since?: string;
+};
+
+export type GranotLifecycleHealth = {
+  generated_at: string;
+  flags: Record<GranotLifecycleFlagName, boolean>;
+  activation: { present: boolean; id?: string; activated_at?: string; processor_version?: string };
+  receipts: {
+    by_work_state: Record<string, number>;
+    due_count: number;
+    oldest_due_at: string | null;
+    oldest_due_age_ms: number | null;
+    claimed_count: number;
+    expired_claim_count: number;
+    dead_letter_count: number;
+  };
+  decisions_last_24h: Array<{
+    execution_mode: string;
+    outcome: string;
+    reason_code: string;
+    count: number;
+  }>;
+  open_cases: Array<{ kind: "booking" | "release"; mode: string; count: number }>;
+  open_discrepancies: Array<{ kind: "booking" | "release"; reason_code: string; count: number }>;
+  command_conflicts_last_24h: Array<{ code: string; count: number }>;
+  record_links: { active: number; disputed: number };
+  last_queue_run: { at: string; status: "completed" | "failed" } | null;
+  last_cron_run: { at: string; status: "completed" | "failed" } | null;
+  ringcentral: {
+    state_present: boolean;
+    last_run_at: string | null;
+    last_run_status: "success" | "error" | null;
+    cursor_to: string | null;
+    lease: {
+      held: boolean;
+      acquired_at: string | null;
+      expires_at: string | null;
+      age_ms: number | null;
+      expired: boolean;
+    };
+    last_runtime_ms: number | null;
+    last_adopted_count: number | null;
+    last_adoption_conflict_count: number | null;
+    last_throttled_count: number | null;
+  };
+  alerts: GranotLifecycleHealthAlert[];
+};
+
+const ALERT_STATES = new Set<GranotLifecycleAlertState>(["ok", "firing", "insufficient_data"]);
+const ALERT_UNITS = new Set<GranotLifecycleAlertUnit>(["count", "milliseconds", "ratio"]);
+
+function asNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function asNullableNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+export function asGranotLifecycleHealth(data: unknown): GranotLifecycleHealth {
+  const record = unwrapEnvelope(data);
+  if (!record || typeof record !== "object" || Array.isArray(record)) throw invalidHealthProjection();
+  const raw = record as Record<string, unknown>;
+  for (const key of ["flags", "activation", "receipts", "record_links", "ringcentral"] as const) {
+    if (!raw[key] || typeof raw[key] !== "object" || Array.isArray(raw[key])) throw invalidHealthProjection();
+  }
+  for (const key of ["decisions_last_24h", "open_cases", "open_discrepancies", "command_conflicts_last_24h", "alerts"] as const) {
+    if (!Array.isArray(raw[key])) throw invalidHealthProjection();
+  }
+  if (!asString(raw.generated_at) || Number.isNaN(Date.parse(String(raw.generated_at)))) throw invalidHealthProjection();
+  const flagsRaw = raw.flags && typeof raw.flags === "object" ? raw.flags as Record<string, unknown> : {};
+  if (GRANOT_LIFECYCLE_FLAG_NAMES.some((name) => typeof flagsRaw[name] !== "boolean")) throw invalidHealthProjection();
+  const flags = Object.fromEntries(
+    GRANOT_LIFECYCLE_FLAG_NAMES.map((name) => [name, flagsRaw[name] === true]),
+  ) as Record<GranotLifecycleFlagName, boolean>;
+  const activationRaw = raw.activation && typeof raw.activation === "object"
+    ? raw.activation as Record<string, unknown>
+    : {};
+  const receiptsRaw = raw.receipts && typeof raw.receipts === "object"
+    ? raw.receipts as Record<string, unknown>
+    : {};
+  const workStates = receiptsRaw.by_work_state && typeof receiptsRaw.by_work_state === "object"
+    ? receiptsRaw.by_work_state as Record<string, unknown>
+    : {};
+  const ringRaw = raw.ringcentral && typeof raw.ringcentral === "object"
+    ? raw.ringcentral as Record<string, unknown>
+    : {};
+  const leaseRaw = ringRaw.lease && typeof ringRaw.lease === "object"
+    ? ringRaw.lease as Record<string, unknown>
+    : {};
+  const linksRaw = raw.record_links && typeof raw.record_links === "object"
+    ? raw.record_links as Record<string, unknown>
+    : {};
+  return {
+    generated_at: asString(raw.generated_at) ?? "",
+    flags,
+    activation: {
+      present: activationRaw.present === true,
+      id: asString(activationRaw.id),
+      activated_at: asString(activationRaw.activated_at),
+      processor_version: asString(activationRaw.processor_version),
+    },
+    receipts: {
+      by_work_state: Object.fromEntries(
+        Object.entries(workStates).map(([state, count]) => [state, asNumber(count)]),
+      ),
+      due_count: asNumber(receiptsRaw.due_count),
+      oldest_due_at: asString(receiptsRaw.oldest_due_at) ?? null,
+      oldest_due_age_ms: asNullableNumber(receiptsRaw.oldest_due_age_ms),
+      claimed_count: asNumber(receiptsRaw.claimed_count),
+      expired_claim_count: asNumber(receiptsRaw.expired_claim_count),
+      dead_letter_count: asNumber(receiptsRaw.dead_letter_count),
+    },
+    decisions_last_24h: Array.isArray(raw.decisions_last_24h)
+      ? raw.decisions_last_24h.flatMap((row) => {
+          if (!row || typeof row !== "object") return [];
+          const item = row as Record<string, unknown>;
+          return [{
+            execution_mode: asString(item.execution_mode) ?? "",
+            outcome: asString(item.outcome) ?? "",
+            reason_code: asString(item.reason_code) ?? "",
+            count: asNumber(item.count),
+          }];
+        })
+      : [],
+    open_cases: Array.isArray(raw.open_cases)
+      ? raw.open_cases.flatMap((row) => {
+          if (!row || typeof row !== "object") return [];
+          const item = row as Record<string, unknown>;
+          const kind = item.kind === "release" ? "release" as const : item.kind === "booking" ? "booking" as const : null;
+          if (!kind) return [];
+          return [{ kind, mode: asString(item.mode) ?? "", count: asNumber(item.count) }];
+        })
+      : [],
+    open_discrepancies: Array.isArray(raw.open_discrepancies)
+      ? raw.open_discrepancies.flatMap((row) => {
+          if (!row || typeof row !== "object") return [];
+          const item = row as Record<string, unknown>;
+          const kind = item.kind === "release" ? "release" as const : item.kind === "booking" ? "booking" as const : null;
+          if (!kind) return [];
+          return [{ kind, reason_code: asString(item.reason_code) ?? "", count: asNumber(item.count) }];
+        })
+      : [],
+    command_conflicts_last_24h: Array.isArray(raw.command_conflicts_last_24h)
+      ? raw.command_conflicts_last_24h.flatMap((row) => {
+          if (!row || typeof row !== "object") return [];
+          const item = row as Record<string, unknown>;
+          const code = asString(item.code);
+          return code ? [{ code, count: asNumber(item.count) }] : [];
+        })
+      : [],
+    record_links: { active: asNumber(linksRaw.active), disputed: asNumber(linksRaw.disputed) },
+    last_queue_run: asLastRun(raw.last_queue_run),
+    last_cron_run: asLastRun(raw.last_cron_run),
+    ringcentral: {
+      state_present: ringRaw.state_present === true,
+      last_run_at: asString(ringRaw.last_run_at) ?? null,
+      last_run_status: ringRaw.last_run_status === "success" || ringRaw.last_run_status === "error"
+        ? ringRaw.last_run_status
+        : null,
+      cursor_to: asString(ringRaw.cursor_to) ?? null,
+      lease: {
+        held: leaseRaw.held === true,
+        acquired_at: asString(leaseRaw.acquired_at) ?? null,
+        expires_at: asString(leaseRaw.expires_at) ?? null,
+        age_ms: asNullableNumber(leaseRaw.age_ms),
+        expired: leaseRaw.expired === true,
+      },
+      last_runtime_ms: asNullableNumber(ringRaw.last_runtime_ms),
+      last_adopted_count: asNullableNumber(ringRaw.last_adopted_count),
+      last_adoption_conflict_count: asNullableNumber(ringRaw.last_adoption_conflict_count),
+      last_throttled_count: asNullableNumber(ringRaw.last_throttled_count),
+    },
+    alerts: Array.isArray(raw.alerts)
+      ? raw.alerts.flatMap((row) => {
+          if (!row || typeof row !== "object") return [];
+          const item = row as Record<string, unknown>;
+          const state = ALERT_STATES.has(item.state as GranotLifecycleAlertState)
+            ? item.state as GranotLifecycleAlertState
+            : "insufficient_data";
+          const unit = ALERT_UNITS.has(item.unit as GranotLifecycleAlertUnit)
+            ? item.unit as GranotLifecycleAlertUnit
+            : "count";
+          const code = asString(item.code);
+          if (!code) return [];
+          return [{
+            code,
+            scope_ref: asString(item.scope_ref),
+            state,
+            observed_value: asNullableNumber(item.observed_value),
+            threshold: asNumber(item.threshold),
+            unit,
+            since: asString(item.since),
+          }];
+        })
+      : [],
+  };
+}
+
+function invalidHealthProjection(): GranotLifecycleApiError {
+  return new GranotLifecycleApiError({
+    message: "Lifecycle health response was malformed; no health state was inferred.",
+    status: 502,
+    code: "GRANOT_HEALTH_PROJECTION_INVALID",
+  });
+}
+
+function asLastRun(value: unknown): { at: string; status: "completed" | "failed" } | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const at = asString(record.at);
+  if (!at) return null;
+  return { at, status: record.status === "failed" ? "failed" : "completed" };
+}
+
+export function fetchGranotLifecycleHealth(): Promise<GranotLifecycleHealth> {
+  return requestJson(proxyUrl("api/v1/admin/granot-lifecycle/operations/health")).then(asGranotLifecycleHealth);
+}

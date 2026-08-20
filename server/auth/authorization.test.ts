@@ -452,8 +452,23 @@ test("[AC-35][AC-36] discrepancy reads allow Admin and exact commands remain Own
   }
 });
 
-test("Granot lifecycle pages remain owner-only in the Admin UI", () => {
+test("Granot lifecycle pages remain owner-only in the Admin UI except health", () => {
   assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle"), false);
   assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle/cases/case-1"), false);
   assert.equal(canAccessDashboardPath("owner", "/ingestion/granot/lifecycle"), true);
+  assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle/health"), true);
+  assert.equal(canAccessDashboardPath("owner", "/ingestion/granot/lifecycle/health"), true);
+});
+
+test("[AC-31][AC-35] health GET is Owner/Admin at the proxy and remains read-only", () => {
+  assert.equal(canProxyVantagePath({
+    role: "admin",
+    method: "GET",
+    path: "api/v1/admin/granot-lifecycle/operations/health",
+  }), true);
+  assert.equal(canProxyVantagePath({
+    role: "admin",
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/operations/health",
+  }), false);
 });

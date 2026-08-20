@@ -179,6 +179,12 @@ export function ObservationalOverview() {
             Export events CSV
           </Button>
           <Link
+            href="/ingestion/granot/lifecycle/health"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-steel-200 bg-white px-4 py-2 font-heading text-sm font-bold uppercase tracking-wide text-navy shadow-sm transition-all hover:border-trust-blue/30 hover:bg-steel-100"
+          >
+            Granot lifecycle health
+          </Link>
+          <Link
             href="/observational?tab=reports&report_key=daily-owner-operational-summary"
             className="inline-flex h-10 items-center justify-center rounded-md border border-steel-200 bg-white px-4 py-2 font-heading text-sm font-bold uppercase tracking-wide text-navy shadow-sm transition-all hover:border-trust-blue/30 hover:bg-steel-100"
           >
