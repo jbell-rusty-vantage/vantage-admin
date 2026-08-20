@@ -84,7 +84,6 @@ export type SafeCancellationProjection = {
   id: string;
   booking_id: string;
   cancel_date: string;
-  reason?: string;
   refund_amount: number;
   domain_revision: number;
 };
@@ -259,6 +258,22 @@ export type GranotLifecycleCaseDetail = {
 };
 
 export type SafeContact = { name?: string; phone_number?: string; email?: string };
+
+function maskSafeContact(value: SafeContact | undefined): SafeContact | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const name = typeof value.name === "string" && value.name.trim()
+    ? `${value.name.trim().slice(0, 1).toUpperCase()}•••`
+    : undefined;
+  const digits = typeof value.phone_number === "string" ? value.phone_number.replace(/\D/g, "") : "";
+  const phone_number = digits ? `•••${digits.slice(-4)}` : undefined;
+  const [local, domain] = typeof value.email === "string" ? value.email.trim().split("@") : [];
+  const email = domain ? `${local?.slice(0, 1).toLowerCase() || "•"}•••@${domain.toLowerCase()}` : undefined;
+  return name || phone_number || email ? { name, phone_number, email } : undefined;
+}
+
+function maskSafeName(value: string | null | undefined): string | null {
+  return typeof value === "string" && value.trim() ? `${value.trim().slice(0, 1).toUpperCase()}•••` : null;
+}
 
 export type GranotLifecycleCandidateFilters = {
   scope?: "source" | "all";
@@ -526,15 +541,25 @@ export function asGranotLifecycleCaseDetail(data: unknown): GranotLifecycleCaseD
       code: "GRANOT_CASE_PROJECTION_MISSING",
     });
   }
+  const officialCurrent = record.official_current ?? {};
+  const observedContext = record.observed_context ?? {
+    section_label: "Granot evidence — not official Vantage values" as const,
+  };
   return {
     ...record,
-    official_current: record.official_current ?? {},
+    official_current: {
+      ...officialCurrent,
+      ...(officialCurrent.booking ? {
+        booking: { ...officialCurrent.booking, customer_name: maskSafeName(officialCurrent.booking.customer_name) },
+      } : {}),
+    },
     official_draft: record.official_draft ?? {},
     evidence: record.evidence ?? [],
-    contacts: record.contacts ?? {},
-    observed_context: record.observed_context ?? {
-      section_label: "Granot evidence — not official Vantage values",
+    contacts: {
+      submitted_or_ingested: maskSafeContact(record.contacts?.submitted_or_ingested),
+      accepted_granot: maskSafeContact(record.contacts?.accepted_granot),
     },
+    observed_context: { ...observedContext, contact: maskSafeContact(observedContext.contact) },
     candidate_search: record.candidate_search ?? {
       available: false,
       default_scope: "source",

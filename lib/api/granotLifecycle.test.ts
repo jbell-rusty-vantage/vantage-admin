@@ -20,6 +20,7 @@ import {
   correctGranotRecordLink,
   resolveGranotDiscrepancyNoAction,
   asGranotLifecycleHealth,
+  asGranotLifecycleCaseDetail,
   fetchGranotLifecycleHealth,
   GRANOT_LIFECYCLE_FLAG_NAMES,
 } from "./granotLifecycle";
@@ -256,6 +257,22 @@ test("[AC-35] case detail uses an encoded case identity through the authenticate
     calls[0]?.input,
     "/api/proxy/api/v1/admin/granot-lifecycle/cases/case%2Fone",
   );
+});
+
+test("[AC-35] case detail adapter masks raw contact drift before rendering", () => {
+  const detail = asGranotLifecycleCaseDetail({
+    case_id: "case-private",
+    observed_context: {
+      section_label: "Granot evidence — not official Vantage values",
+      contact: { name: "Privacy Canary", phone_number: "+1 212 555 0199", email: "unit31-private-canary@example.invalid" },
+    },
+    contacts: { accepted_granot: { name: "Private Customer", phone_number: "2125550198", email: "private@example.invalid" } },
+    official_current: { booking: { customer_name: "Private Customer" } },
+  });
+  assert.equal(JSON.stringify(detail).includes("Privacy Canary"), false);
+  assert.equal(JSON.stringify(detail).includes("unit31-private-canary"), false);
+  assert.deepEqual(detail.observed_context.contact, { name: "P•••", phone_number: "•••0199", email: "u•••@example.invalid" });
+  assert.equal(detail.official_current.booking?.customer_name, "P•••");
 });
 
 test("[AC-20] candidate search omits a whitespace query and preserves server paging", async () => {
