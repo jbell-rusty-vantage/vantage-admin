@@ -451,7 +451,8 @@ test("Granot navigation keeps Automation, Lifecycle, Intakes, and Health distinc
   const lifecycleMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/ingestion/granot/lifecycle/cases/case-1" }));
   assert.match(lifecycleMarkup, />Automation</);
   assert.match(lifecycleMarkup, />Lifecycle</);
-  assert.match(lifecycleMarkup, />Intakes</);
+  assert.match(lifecycleMarkup, /Intakes/);
+  assert.match(lifecycleMarkup, />New</);
   assert.match(lifecycleMarkup, />Health</);
   assert.match(lifecycleMarkup, /href="\/ingestion\/granot"/);
   assert.match(lifecycleMarkup, /href="\/intakes"/);

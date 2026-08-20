@@ -14,6 +14,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { NewFeatureBadge } from "@/components/ui/new-badge";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import {
   SourceCompanyHierarchyTable,
@@ -77,6 +78,29 @@ const quickLinks: Array<{
   },
   { href: "/analytics", label: "Analytics", description: "Charts and trends", icon: BarChart3 },
 ];
+
+export function OverviewIntakesLink() {
+  return (
+    <Link
+      href="/intakes"
+      className="group flex items-center justify-between rounded-md border border-gold/50 bg-pale-gold/70 p-5 text-navy shadow-sm transition-all hover:-translate-y-0.5 hover:border-gold hover:bg-pale-gold"
+    >
+      <div className="flex items-center gap-3">
+        <Inbox className="h-6 w-6 shrink-0" aria-hidden="true" />
+        <div>
+          <p className="flex items-center gap-2 text-base font-semibold">
+            Intakes
+            <NewFeatureBadge />
+          </p>
+          <p className="text-sm text-navy/70">
+            Open Granot booking and cancellation cases waiting for you this morning.
+          </p>
+        </div>
+      </div>
+      <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+    </Link>
+  );
+}
 
 function MetricCard({
   label,
@@ -323,6 +347,7 @@ export function HomeOverview() {
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">All Time</h2>
+        {role === "owner" ? <OverviewIntakesLink /> : null}
         <TotalsCards
           totals={totals}
           loading={loading}
@@ -490,7 +515,10 @@ export function HomeOverview() {
                         <Icon className="h-4 w-4" aria-hidden="true" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium">{link.label}</span>
+                        <span className="flex items-center gap-2 text-sm font-medium">
+                          {link.label}
+                          {link.href === "/intakes" ? <NewFeatureBadge /> : null}
+                        </span>
                         <span className="block truncate text-xs text-muted-foreground">{link.description}</span>
                       </span>
                       <ArrowRight

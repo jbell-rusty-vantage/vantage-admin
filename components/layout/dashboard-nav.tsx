@@ -23,6 +23,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { NewFeatureBadge } from "@/components/ui/new-badge";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -30,6 +31,7 @@ type NavItem = {
   href: string;
   icon: LucideIcon;
   ownerOnly?: boolean;
+  isNew?: boolean;
 };
 
 const navigation: NavItem[] = [
@@ -40,7 +42,7 @@ const navigation: NavItem[] = [
   { label: "Duplicate Call Leads", href: "/duplicate-call-leads", icon: FileClock },
   { label: "Bookings", href: "/bookings", icon: BookOpenCheck },
   { label: "Cancellations", href: "/cancellations", icon: ClipboardX },
-  { label: "Intakes", href: "/intakes", icon: Inbox, ownerOnly: true },
+  { label: "Intakes", href: "/intakes", icon: Inbox, ownerOnly: true, isNew: true },
   { label: "Customers", href: "/customers", icon: Users },
   { label: "Testimonials", href: "/testimonials", icon: MessageSquareQuote },
   { label: "Agents", href: "/agents", icon: ShieldCheck },
@@ -95,8 +97,16 @@ export function DashboardNav({
                 : "border-transparent text-steel hover:border-steel-200 hover:bg-steel-100 hover:text-navy",
             )}
           >
-            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span className={collapsed ? "sr-only" : undefined}>{item.label}</span>
+            <span className="relative">
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {item.isNew && collapsed ? (
+                <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-gold" aria-hidden="true" />
+              ) : null}
+            </span>
+            <span className={cn("flex min-w-0 items-center gap-2", collapsed ? "sr-only" : undefined)}>
+              {item.label}
+              {item.isNew ? <NewFeatureBadge /> : null}
+            </span>
           </Link>
         );
       })}
