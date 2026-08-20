@@ -11,7 +11,12 @@ import { DiscrepancyList } from "../components/granot-lifecycle/discrepancy-list
 import { CaseDetail } from "../components/granot-lifecycle/case-detail";
 import { GranotNavigationLinks } from "../components/granot-lifecycle/granot-navigation";
 import { JobTimeline } from "../components/granot-lifecycle/job-timeline";
-import { LeadCandidateResults } from "../components/granot-lifecycle/lead-candidate-browser";
+import {
+  LeadCandidateResults,
+  pickBestCandidate,
+} from "../components/granot-lifecycle/lead-candidate-browser";
+import { SelectedLeadCard } from "../components/granot-lifecycle/selected-lead-card";
+import { queryKeys } from "../lib/query/keys";
 import {
   DEFAULT_GRANOT_LIFECYCLE_FILTERS,
   LifecycleDashboardView,
@@ -26,6 +31,7 @@ import {
 } from "../components/granot-lifecycle/lifecycle-health";
 import type { GranotLifecycleHealth } from "../lib/api/granotLifecycle";
 import type {
+  GranotLifecycleCandidateItem,
   GranotLifecycleCaseDetail,
   GranotLifecycleCaseListItem,
   GranotTimelinePage,
@@ -398,6 +404,108 @@ test("candidate rows show scope and warning metadata without selection controls"
   assert.match(markup, /require an override reason in a later command workflow/);
   assert.equal(markup.includes("Select"), false);
   assert.equal(markup.includes("Attach"), false);
+});
+
+const ownerWorkCandidate: GranotLifecycleCandidateItem = {
+  lead_ref: { model: "CallLead", id: "lead-owner-work" },
+  masked_contact_label: "S•••",
+  contact: {
+    name: "Synthetic Owner Work",
+    phone_number: "(305) 555-0142",
+    email: "synthetic.owner@example.invalid",
+  },
+  job_no: "P5557206",
+  reference: "DT_syntheticRef",
+  source: { source_company_label: "Synthetic Source", source_granularity_label: "Synthetic Inbounds" },
+  confidence: "high",
+  reason_codes: ["candidate_job_compatible"],
+  match_method: "call_job_no_exact",
+  in_source_scope: true,
+  eligibility: "eligible",
+  suggested: true,
+  requires_override_reason: false,
+};
+
+test("pre-selection prefers the suggested Lead, then high confidence, then Source Scope", () => {
+  const candidate = (
+    overrides: Partial<GranotLifecycleCandidateItem>,
+  ): GranotLifecycleCandidateItem => ({ ...ownerWorkCandidate, suggested: false, ...overrides });
+  const suggested = candidate({ lead_ref: { model: "CallLead", id: "suggested" }, suggested: true, confidence: "medium" });
+  const high = candidate({ lead_ref: { model: "CallLead", id: "high" }, confidence: "high" });
+  const inScope = candidate({ lead_ref: { model: "CallLead", id: "scoped" }, confidence: "medium" });
+  const outOfScope = candidate({ lead_ref: { model: "CallLead", id: "outside" }, confidence: "medium", in_source_scope: false });
+
+  assert.equal(pickBestCandidate([outOfScope, inScope, high, suggested])?.lead_ref.id, "suggested");
+  assert.equal(pickBestCandidate([outOfScope, inScope, high])?.lead_ref.id, "high");
+  assert.equal(pickBestCandidate([outOfScope, inScope])?.lead_ref.id, "scoped");
+  assert.equal(pickBestCandidate([]), undefined);
+  assert.equal(pickBestCandidate(undefined), undefined);
+});
+
+test("the selected Lead card shows the full owner-work contact, Job, and reference", () => {
+  const markup = renderToStaticMarkup(createElement(SelectedLeadCard, {
+    selected: ownerWorkCandidate,
+    autoSelected: true,
+  }));
+  for (const value of [
+    "This booking will be created for",
+    "Synthetic Owner Work",
+    "\\(305\\) 555-0142",
+    "synthetic.owner@example.invalid",
+    "P5557206",
+    "DT_syntheticRef",
+    "Call lead",
+    "Pre-selected best match",
+    "High confidence",
+  ]) assert.match(markup, new RegExp(value));
+});
+
+test("the empty selected Lead card explains that nothing is attached yet", () => {
+  const markup = renderToStaticMarkup(createElement(SelectedLeadCard, { selected: undefined }));
+  assert.match(markup, /No lead is attached to this booking yet/);
+  assert.equal(markup.includes("This booking will be created for"), false);
+});
+
+test("selectable candidate rows show full Lead data and mark the row already in the form", () => {
+  const other: GranotLifecycleCandidateItem = {
+    ...ownerWorkCandidate,
+    lead_ref: { model: "FormLead", id: "lead-other" },
+    contact: { name: "Synthetic Other", phone_number: "(305) 555-0199", email: "other@example.invalid" },
+    suggested: false,
+  };
+  const markup = renderToStaticMarkup(createElement(LeadCandidateResults, {
+    items: [ownerWorkCandidate, other],
+    selected: ownerWorkCandidate,
+    onSelect: () => {},
+  }));
+  for (const value of [
+    "Synthetic Owner Work",
+    "synthetic.owner@example.invalid",
+    "Synthetic Other",
+    "other@example.invalid",
+    "In the booking form",
+    "Use this lead instead",
+    "Call lead job number matches exactly",
+  ]) assert.match(markup, new RegExp(value));
+});
+
+test("the booking form pre-selects a Lead and keeps Lead search collapsed beside the form", () => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const commandDetail = detail({
+    mode: "create_missing_booking",
+    capabilities: { commands: true, referral: false, release_cases: false, discrepancies: false },
+  });
+  queryClient.setQueryData(
+    queryKeys.granotLifecycle.candidates(commandDetail.case_id, { scope: "source" }),
+    { items: [ownerWorkCandidate], next_cursor: null },
+  );
+  const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
+    createElement(BookingCommandForm, { detail: commandDetail })));
+  assert.match(markup, /Lead search/);
+  assert.match(markup, /Only needed when the pre-selected lead is wrong/);
+  assert.match(markup, /aria-expanded="false"/);
+  assert.equal(markup.includes("Search by name, phone, email, job, or reference"), false);
+  assert.ok(markup.indexOf("1. Choose the matching lead") < markup.indexOf("2. Official booking details"));
 });
 
 test("timeline preserves server order and individual Booking/Release discriminants", () => {

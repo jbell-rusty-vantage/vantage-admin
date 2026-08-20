@@ -286,7 +286,9 @@ export type GranotLifecycleCandidateFilters = {
 export type GranotLifecycleCandidateItem = {
   lead_ref: { model: GranotLeadModel; id: string };
   masked_contact_label: string;
+  contact?: SafeContact;
   job_no?: string;
+  normalized_job_no?: string;
   reference?: string;
   source: {
     lead_source_company?: string;

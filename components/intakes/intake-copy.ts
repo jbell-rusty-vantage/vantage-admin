@@ -100,7 +100,7 @@ export function intakeCaseHowToFinish(input: {
   return {
     title: "How to finish this booking",
     body: input.commandsAvailable
-      ? "Choose the matching lead, then enter official binder, deposit, agents, and merchant. Those lists come from the same Operations Registry catalog as a normal booking. Granot estimate and payment numbers stay as reference only."
+      ? "The matching lead is already filled in below — check the name, phone, email, job number, and reference. If it is the wrong customer, use the lead search beside the form. Then enter official binder, deposit, agents, and merchant from the same Operations Registry catalog as a normal booking. Granot estimate and payment numbers stay as reference only."
       : "This case is waiting for official binder, deposit, agents, and merchant. The official form appears here when owner booking work is enabled.",
   };
 }

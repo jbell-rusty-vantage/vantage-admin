@@ -13,6 +13,39 @@ import {
   type GranotLifecycleCandidateItem,
 } from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
+import { cn } from "@/lib/utils";
+import {
+  CandidateConfidenceBadges,
+  CandidateLeadFacts,
+  candidateLeadName,
+  candidateLeadTypeLabel,
+} from "./candidate-lead-facts";
+
+export function isSameCandidate(
+  left: GranotLifecycleCandidateItem | undefined,
+  right: GranotLifecycleCandidateItem | undefined,
+): boolean {
+  return Boolean(
+    left && right &&
+    left.lead_ref.model === right.lead_ref.model &&
+    left.lead_ref.id === right.lead_ref.id,
+  );
+}
+
+/**
+ * Server order already ranks identity matches first; this only breaks ties the
+ * same way the server does so a reordered page cannot change the pre-selection.
+ */
+export function pickBestCandidate(
+  items: readonly GranotLifecycleCandidateItem[] | undefined,
+): GranotLifecycleCandidateItem | undefined {
+  const rank = (item: GranotLifecycleCandidateItem) =>
+    item.suggested ? 0 : item.confidence === "high" ? 1 : item.in_source_scope ? 2 : 3;
+  return (items ?? []).reduce<GranotLifecycleCandidateItem | undefined>(
+    (best, item) => (!best || rank(item) < rank(best) ? item : best),
+    undefined,
+  );
+}
 
 export function LeadCandidateResults({
   items,
@@ -29,52 +62,62 @@ export function LeadCandidateResults({
   }
   return (
     <ul className="space-y-3" aria-label="Eligible Lead candidates">
-      {rows.map((item) => (
-        <li key={`${item.lead_ref.model}:${item.lead_ref.id}`} className="rounded-md border p-3">
-          {onSelect ? (
-            <label className="mb-3 flex cursor-pointer items-center gap-2 font-medium">
-              <input
-                type="radio"
-                name="selected-granot-lead"
-                checked={selected?.lead_ref.model === item.lead_ref.model && selected.lead_ref.id === item.lead_ref.id}
-                onChange={() => onSelect(item)}
-              />
-              Select this eligible Lead
-            </label>
-          ) : null}
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <p className="font-semibold">{item.masked_contact_label || "Masked Lead"}</p>
-              <p className="font-mono text-xs text-muted-foreground">
-                {item.lead_ref.model} · {item.lead_ref.id}
+      {rows.map((item) => {
+        const isSelected = isSameCandidate(selected, item);
+        const body = (
+          <>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-semibold text-navy">{candidateLeadName(item)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {candidateLeadTypeLabel(item.lead_ref.model)}
+                  {item.job_no ? ` · job ${item.job_no}` : ""}
+                  {item.reference ? ` · ref ${item.reference}` : ""}
+                </p>
+              </div>
+              {isSelected ? <StatusBadge tone="success">In the booking form</StatusBadge> : null}
+            </div>
+            <CandidateConfidenceBadges item={item} />
+            <CandidateLeadFacts item={item} className="sm:grid-cols-2" />
+            {(item.reason_codes ?? []).length > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Reasons: {item.reason_codes.join(", ")}
               </p>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              <StatusBadge tone={item.confidence === "high" ? "success" : "warning"}>
-                {item.confidence} confidence
-              </StatusBadge>
-              {item.suggested ? <StatusBadge>Server suggestion</StatusBadge> : null}
-              <StatusBadge tone={item.in_source_scope ? "success" : "warning"}>
-                {item.in_source_scope ? "In Source Scope" : "Outside Source Scope"}
-              </StatusBadge>
-            </div>
-          </div>
-          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-            <div><dt className="text-xs text-muted-foreground">Match method</dt><dd>{item.match_method}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">Job / reference</dt><dd>{item.job_no ?? item.reference ?? "—"}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">Source Company</dt><dd>{item.source?.source_company_label ?? item.source?.lead_source_company ?? "—"}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">Source Granularity</dt><dd>{item.source?.source_granularity_label ?? item.source?.source_granularity_id ?? "—"}</dd></div>
-          </dl>
-          {(item.reason_codes ?? []).length > 0 ? (
-            <p className="mt-2 text-xs text-muted-foreground">Reasons: {item.reason_codes.join(", ")}</p>
-          ) : null}
-          {item.requires_override_reason ? (
-            <FeedbackMessage tone="warning" className="mt-3">
-              This all-scope result is outside Source Scope and would require an override reason in a later command workflow.
-            </FeedbackMessage>
-          ) : null}
-        </li>
-      ))}
+            ) : null}
+            {item.requires_override_reason ? (
+              <FeedbackMessage tone="warning">
+                {onSelect
+                  ? "This lead is outside the reviewed source scope. Choosing it requires a written reason."
+                  : "This all-scope result is outside Source Scope and would require an override reason in a later command workflow."}
+              </FeedbackMessage>
+            ) : null}
+          </>
+        );
+        const shell = cn(
+          "space-y-3 rounded-md border p-3",
+          isSelected && "border-trust-blue bg-trust-blue/5 ring-1 ring-trust-blue",
+        );
+        return (
+          <li key={`${item.lead_ref.model}:${item.lead_ref.id}`}>
+            {onSelect ? (
+              <label className={cn(shell, "block cursor-pointer")}>
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  <input
+                    type="radio"
+                    name="selected-granot-lead"
+                    checked={isSelected}
+                    onChange={() => onSelect(item)}
+                  />
+                  {isSelected ? "Using this lead" : "Use this lead instead"}
+                </span>
+                {body}
+              </label>
+            ) : (
+              <div className={shell}>{body}</div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -85,12 +128,14 @@ export function LeadCandidateBrowser({
   onSelect,
   heading,
   description,
+  layout = "wide",
 }: {
   caseId: string;
   selected?: GranotLifecycleCandidateItem;
   onSelect?: (item: GranotLifecycleCandidateItem) => void;
   heading?: string;
   description?: string;
+  layout?: "wide" | "narrow";
 }) {
   const [draftQuery, setDraftQuery] = useState("");
   const [draftScope, setDraftScope] = useState<"source" | "all">("source");
@@ -110,17 +155,22 @@ export function LeadCandidateBrowser({
   return (
     <section aria-labelledby="candidate-browser-heading" className="space-y-4">
       <div>
-        <h2 id="candidate-browser-heading" className="text-lg font-semibold text-navy">
+        <h2 id="candidate-browser-heading" className="text-base font-semibold text-navy">
           {heading ?? "Eligible Lead candidates"}
         </h2>
         <p className="text-sm text-muted-foreground">
           {description ?? (onSelect
-            ? "Select the matching lead. This is not official until you review the booking details below."
+            ? "Search only if the pre-selected lead is wrong. Choosing a row replaces the lead in the booking form."
             : "Read-only server-ranked results. Browsing never selects, attaches, or changes a Lead.")}
         </p>
       </div>
       <form
-        className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px_auto]"
+        className={cn(
+          "grid gap-3",
+          layout === "narrow"
+            ? "grid-cols-1"
+            : "md:grid-cols-[minmax(0,1fr)_180px_180px_auto]",
+        )}
         onSubmit={(event) => {
           event.preventDefault();
           setApplied({
@@ -131,13 +181,13 @@ export function LeadCandidateBrowser({
         }}
       >
         <div className="space-y-1">
-          <Label htmlFor="candidate-query">Search eligible Leads</Label>
+          <Label htmlFor="candidate-query">Search by name, phone, email, job, or reference</Label>
           <Input
             id="candidate-query"
             maxLength={100}
             value={draftQuery}
             onChange={(event) => setDraftQuery(event.target.value)}
-            placeholder="Job, ref, or normalized owner-work contact"
+            placeholder="Name, phone, email, job, or ref"
           />
         </div>
         <div className="space-y-1">
@@ -165,7 +215,7 @@ export function LeadCandidateBrowser({
             <option value="CallLead">Call Lead</option>
           </select>
         </div>
-        <Button className="self-end" type="submit">Search</Button>
+        <Button className={layout === "narrow" ? undefined : "self-end"} type="submit">Search</Button>
       </form>
 
       {applied.scope === "all" ? (
