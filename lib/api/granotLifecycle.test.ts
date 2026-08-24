@@ -280,20 +280,25 @@ test("[AC-35] case detail uses an encoded case identity through the authenticate
   );
 });
 
-test("[AC-35] case detail adapter masks raw contact drift before rendering", () => {
+test("case detail adapter hands the Owner the contact the server sent, unchanged", () => {
+  const contact = {
+    name: "Synthetic Customer",
+    phone_number: "+1 212 555 0199",
+    email: "synthetic-customer@example.invalid",
+  };
   const detail = asGranotLifecycleCaseDetail({
-    case_id: "case-private",
+    case_id: "case-owner-work",
     observed_context: {
       section_label: "Granot evidence — not official Vantage values",
-      contact: { name: "Privacy Canary", phone_number: "+1 212 555 0199", email: "unit31-private-canary@example.invalid" },
+      contact,
     },
-    contacts: { accepted_granot: { name: "Private Customer", phone_number: "2125550198", email: "private@example.invalid" } },
-    official_current: { booking: { customer_name: "Private Customer" } },
+    contacts: { accepted_granot: contact },
+    official_current: { booking: { customer_name: "Synthetic Customer" } },
   });
-  assert.equal(JSON.stringify(detail).includes("Privacy Canary"), false);
-  assert.equal(JSON.stringify(detail).includes("unit31-private-canary"), false);
-  assert.deepEqual(detail.observed_context.contact, { name: "P•••", phone_number: "•••0199", email: "u•••@example.invalid" });
-  assert.equal(detail.official_current.booking?.customer_name, "P•••");
+  assert.deepEqual(detail.observed_context.contact, contact);
+  assert.deepEqual(detail.contacts.accepted_granot, contact);
+  assert.equal(detail.official_current.booking?.customer_name, "Synthetic Customer");
+  assert.equal(JSON.stringify(detail).includes("•••"), false);
 });
 
 test("[AC-20] candidate search omits a whitespace query and preserves server paging", async () => {

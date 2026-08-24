@@ -15,8 +15,7 @@ import {
   LeadCandidateResults,
   pickBestCandidate,
 } from "../components/granot-lifecycle/lead-candidate-browser";
-import { SelectedLeadCard } from "../components/granot-lifecycle/selected-lead-card";
-import { queryKeys } from "../lib/query/keys";
+import { MatchedLeadPanel } from "../components/intakes/matched-lead-panel";
 import {
   DEFAULT_GRANOT_LIFECYCLE_FILTERS,
   LifecycleDashboardView,
@@ -46,7 +45,7 @@ const bookingCase: GranotLifecycleCaseListItem = {
   normalized_job_no: "SYNTHETIC JOB 1",
   job_no: "Synthetic Job 1",
   source: { id: "source-1", label: "Synthetic Source" },
-  masked_contact_label: "A*** · ***1111",
+  customer_label: "Synthetic Queue Customer",
   latest_action: "booked",
   evidence_count: 2,
   case_revision: 1,
@@ -131,16 +130,15 @@ function detail(overrides: Partial<GranotLifecycleCaseDetail> = {}): GranotLifec
   };
 }
 
-test("[AC-18][AC-20][AC-40] queue renders masked Booking and Release rows without collapse", () => {
+test("[AC-18][AC-20][AC-40] queue renders Booking and Release rows without collapse", () => {
   const markup = renderToStaticMarkup(createElement(GranotLifecycleCaseList, {
     items: [bookingCase, releaseCase],
     now: new Date("2026-08-18T12:00:00.000Z").getTime(),
   }));
   assert.match(markup, /booking #1/);
   assert.match(markup, /release #2/);
-  assert.match(markup, /A\*\*\* · \*\*\*1111/);
+  assert.match(markup, /Synthetic Queue Customer/);
   assert.match(markup, /Synthetic Source/);
-  assert.equal(markup.includes("5550001111"), false);
   assert.equal((markup.match(/case-booking/g) ?? []).length, 1);
   assert.equal((markup.match(/case-release/g) ?? []).length, 1);
 });
@@ -166,10 +164,10 @@ test("detail stays mounted when official_current, evidence, contacts, or timelin
   assert.match(markup, /How to finish this booking/);
 });
 
-test("booking case detail can render the creating observation accordion", () => {
+test("booking case detail can render the Granot statement it was given", () => {
   const markup = renderToStaticMarkup(createElement(CaseDetail, {
     detail: detail(),
-    creatingObservation: createElement("div", null, "Granot Booked payload"),
+    granotStatement: createElement("div", null, "Granot Booked payload"),
   }));
   assert.match(markup, /Granot Booked payload/);
   const releaseMarkup = renderToStaticMarkup(createElement(CaseDetail, {
@@ -193,9 +191,8 @@ test("booking case detail shows Priority pairing without opening raw JSON", () =
       },
     }),
   }));
-  assert.match(markup, /Priority pairing/);
-  assert.match(markup, /Booked without Priority 5/);
-  assert.match(markup, /observation-booked/);
+  assert.match(markup, /Priority history/);
+  assert.match(markup, /without ever flagging it a priority 5/);
 });
 
 test("booking case detail shows best-case Priority 5 then Booked pairing", () => {
@@ -221,9 +218,8 @@ test("booking case detail shows best-case Priority 5 then Booked pairing", () =>
       },
     }),
   }));
-  assert.match(markup, /Priority pairing/);
-  assert.match(markup, /Priority 5 then Booked/);
-  assert.match(markup, /observation-priority/);
+  assert.match(markup, /Priority history/);
+  assert.match(markup, /flagged this job a priority 5 first, then marked it booked/);
 });
 
 test("case detail can return to Intakes when opened from that queue", () => {
@@ -239,7 +235,7 @@ test("case detail can return to Intakes when opened from that queue", () => {
 test("[AC-20][AC-35] detail separates Granot evidence, contacts, and blank official facts with no mutation copy", () => {
   const markup = renderToStaticMarkup(createElement(CaseDetail, {
     detail: detail(),
-    candidateBrowser: createElement("div", { "data-draft": "preserved" }, "Candidate draft remains mounted"),
+    ownerWork: createElement("div", { "data-draft": "preserved" }, "Candidate draft remains mounted"),
   }));
   assert.match(markup, /Granot evidence — not official Vantage values/);
   assert.match(markup, /Official current Vantage facts/);
@@ -269,16 +265,16 @@ test("[AC-25][AC-35][AC-40] Release detail is visibly distinct and exposes no ca
     candidate_search: { available: false, default_scope: "source", all_scope_warning: false },
     capabilities: { commands: false, referral: false, release_cases: true, discrepancies: false },
   });
-  const markup = renderToStaticMarkup(createElement(CaseDetail, {
-    detail: releaseDetail,
-    candidateBrowser: createElement("span", null, "FORBIDDEN CANDIDATE BROWSER"),
-    commandForm: createElement("span", null, "FORBIDDEN RELEASE COMMAND"),
-  }));
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
+    createElement(CaseDetail, {
+      detail: releaseDetail,
+      ownerWork: createElement(ReleaseOwnerActions, { detail: releaseDetail }),
+    })));
   assert.match(markup, /release #2/);
   assert.match(markup, /Current Booking|No official Booking exists/);
   assert.match(markup, /release opened; sequence 2/);
-  assert.equal(markup.includes("FORBIDDEN CANDIDATE BROWSER"), false);
-  assert.equal(markup.includes("FORBIDDEN RELEASE COMMAND"), false);
+  // Release commands are switched off in this fixture, so the owner actions self-gate to nothing.
   for (const forbidden of ["Confirm Booking", "Create Booking", "Attach Lead", "No Action", "Resolve case"]) {
     assert.equal(markup.includes(forbidden), false);
   }
@@ -292,21 +288,22 @@ test("[AC-22][AC-32] enabled Owner command renders blank labeled fields and an e
   const form = createElement(QueryClientProvider, { client: queryClient },
     createElement(BookingCommandForm, { detail: commandDetail }));
   const formMarkup = renderToStaticMarkup(form);
-  for (const label of ["Confirm Granot Booking", "Book Date", "Deposit Amount", "Binder amount", "Active Merchant", "Primary Agent", "Secondary Agent", "Review Booking", "1. Choose the matching lead", "2. Official booking details", "Operations Registry catalog"]) {
+  for (const label of ["Finish the booking", "Book Date", "Deposit Amount", "Binder amount", "Active Merchant", "Primary Agent", "Secondary Agent", "Review Booking"]) {
     assert.match(formMarkup, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
   assert.match(formMarkup, /value=""/);
   assert.equal(formMarkup.includes("$synthetic"), false);
+  // Who the booking is for is settled above this card, so the form only asks for the numbers.
+  assert.match(formMarkup, /No customer is attached yet/);
+  assert.equal(formMarkup.includes("Search by name, phone, email, job number, or reference"), false);
 
   const detailMarkup = renderToStaticMarkup(createElement(CaseDetail, {
     detail: commandDetail,
-    candidateBrowser: createElement("span", null, "READ ONLY BROWSER"),
-    commandForm: createElement("span", null, "OWNER COMMAND FORM"),
+    ownerWork: createElement("span", null, "OWNER COMMAND FORM"),
   }));
   assert.match(detailMarkup, /OWNER COMMAND FORM/);
   assert.match(detailMarkup, /How to finish this booking/);
   assert.ok(detailMarkup.indexOf("OWNER COMMAND FORM") < detailMarkup.indexOf("Granot evidence"));
-  assert.equal(detailMarkup.includes("READ ONLY BROWSER"), false);
 });
 
 test("[AC-19][AC-39] review detail shows deterministic official Booking and Employee delegation separately", () => {
@@ -376,8 +373,7 @@ test("[AC-20][AC-24][AC-32] review-existing actions initialize from live values 
     "No Action",
     "Review No Action",
   ]) assert.match(markup, new RegExp(value));
-  assert.equal(markup.includes("Confirm Granot Booking"), false);
-  assert.equal(markup.includes("LeadCandidateBrowser"), false);
+  assert.equal(markup.includes("Finish the booking"), false);
 });
 
 test("[AC-20][AC-28] create-missing and Referral expose only their explicit Owner actions", () => {
@@ -387,7 +383,7 @@ test("[AC-20][AC-28] create-missing and Referral expose only their explicit Owne
       mode: "create_missing_booking",
       capabilities: { commands: true, referral: false, release_cases: false, discrepancies: false },
     }) })));
-  assert.match(createMarkup, /Confirm Granot Booking/);
+  assert.match(createMarkup, /Finish the booking/);
   assert.match(createMarkup, /No Action/);
   assert.equal(createMarkup.includes("Update Existing Booking"), false);
 
@@ -396,13 +392,12 @@ test("[AC-20][AC-28] create-missing and Referral expose only their explicit Owne
       mode: "create_referral_booking",
       capabilities: { commands: true, referral: true, release_cases: false, discrepancies: false },
     }) })));
-  assert.equal(referralMarkup.includes("Confirm Granot Booking"), false);
+  assert.equal(referralMarkup.includes("Finish the booking"), false);
   assert.equal(referralMarkup.includes("Update Existing Booking"), false);
   assert.match(referralMarkup, /Create Referral Booking/);
   assert.match(referralMarkup, /Review Booking/);
   assert.match(referralMarkup, /No Action/);
-  assert.equal(referralMarkup.includes("Select one eligible Lead"), false);
-  assert.equal(referralMarkup.includes("LeadCandidateBrowser"), false);
+  assert.equal(referralMarkup.includes("Who this booking is for"), false);
 });
 
 test("[AC-25][AC-32] open Release cases expose exactly the three explicit Owner actions", () => {
@@ -424,32 +419,24 @@ test("[AC-25][AC-32] open Release cases expose exactly the three explicit Owner 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient }, createElement(ReleaseOwnerActions, { detail: releaseDetail })));
   for (const value of ["Create Cancellation", "Review Cancellation", "Update Existing Booking", "Review Booking Update", "No Action", "Review No Action", "Granot evidence is context only"]) assert.match(markup, new RegExp(value));
-  assert.equal(markup.includes("Confirm Granot Booking"), false);
+  assert.equal(markup.includes("Finish the booking"), false);
   assert.equal(markup.includes("Attach Lead"), false);
 });
 
 test("[AC-20] evidence-only refetch architecture keeps the candidate draft slot while counts change", () => {
   const draft = createElement("textarea", { defaultValue: "unfinished owner note", "aria-label": "Future draft" });
-  const before = renderToStaticMarkup(createElement(CaseDetail, { detail: detail({ evidence_revision: 2 }), candidateBrowser: draft }));
-  const after = renderToStaticMarkup(createElement(CaseDetail, { detail: detail({ evidence_revision: 3, evidence: [...detail().evidence, { observation_id: "observation-3", decision_id: "decision-3", captured_at: "2026-08-18T12:00:00.000Z", action: "booked" }] }), candidateBrowser: draft }));
+  const before = renderToStaticMarkup(createElement(CaseDetail, { detail: detail({ evidence_revision: 2 }), ownerWork: draft }));
+  const after = renderToStaticMarkup(createElement(CaseDetail, { detail: detail({ evidence_revision: 3, evidence: [...detail().evidence, { observation_id: "observation-3", decision_id: "decision-3", captured_at: "2026-08-18T12:00:00.000Z", action: "booked" }] }), ownerWork: draft }));
   assert.match(before, /unfinished owner note/);
   assert.match(after, /unfinished owner note/);
   assert.match(before, /Evidence history \(2\)/);
   assert.match(after, /Evidence history \(3\)/);
 });
 
-test("referral-shaped detail hides the Lead browser foundation", () => {
-  const markup = renderToStaticMarkup(createElement(CaseDetail, {
-    detail: detail({ capabilities: { commands: false, referral: true, release_cases: false, discrepancies: false } }),
-    candidateBrowser: createElement("span", null, "MUST NOT RENDER"),
-  }));
-  assert.equal(markup.includes("MUST NOT RENDER"), false);
-});
-
-test("candidate rows show scope and warning metadata without selection controls", () => {
+test("candidate rows show where a customer came from, without selection controls", () => {
   const markup = renderToStaticMarkup(createElement(LeadCandidateResults, { items: [{
     lead_ref: { model: "FormLead", id: "lead-1" },
-    masked_contact_label: "L*** · ***3333",
+    customer_label: "Synthetic Other Source Customer",
     job_no: "Synthetic Job 1",
     source: { source_company_label: "Other Synthetic Source", source_granularity_label: "Other Form" },
     confidence: "medium",
@@ -460,15 +447,14 @@ test("candidate rows show scope and warning metadata without selection controls"
     suggested: false,
     requires_override_reason: true,
   }] }));
-  assert.match(markup, /Outside Source Scope/);
-  assert.match(markup, /require an override reason in a later command workflow/);
-  assert.equal(markup.includes("Select"), false);
-  assert.equal(markup.includes("Attach"), false);
+  assert.match(markup, /Different lead source/);
+  assert.match(markup, /came in through a different lead source than this job/);
+  assert.equal(markup.includes("Use this customer instead"), false);
 });
 
 const ownerWorkCandidate: GranotLifecycleCandidateItem = {
   lead_ref: { model: "CallLead", id: "lead-owner-work" },
-  masked_contact_label: "S•••",
+  customer_label: "Synthetic Owner Work",
   contact: {
     name: "Synthetic Owner Work",
     phone_number: "(305) 555-0142",
@@ -502,31 +488,41 @@ test("pre-selection prefers the suggested Lead, then high confidence, then Sourc
   assert.equal(pickBestCandidate(undefined), undefined);
 });
 
-test("the selected Lead card shows the full owner-work contact, Job, and reference", () => {
-  const markup = renderToStaticMarkup(createElement(SelectedLeadCard, {
-    selected: ownerWorkCandidate,
-    autoSelected: true,
+test("the matched customer panel names the customer, how sure Vantage is, and why", () => {
+  const markup = renderToStaticMarkup(createElement(MatchedLeadPanel, {
+    matched: {
+      lead: ownerWorkCandidate,
+      origin: "vantage_matched",
+      stillSearching: false,
+      chooseLead: () => {},
+    },
   }));
   for (const value of [
-    "This booking will be created for",
+    "Who this booking is for",
     "Synthetic Owner Work",
     "\\(305\\) 555-0142",
     "synthetic.owner@example.invalid",
     "P5557206",
     "DT_syntheticRef",
-    "Call lead",
-    "Pre-selected best match",
-    "High confidence",
+    "Strong match",
+    "Vantage matched this customer",
+    "Everything on this customer",
+    "The job number on this phone lead matches exactly",
   ]) assert.match(markup, new RegExp(value));
+  assert.equal(markup.includes("•••"), false);
 });
 
-test("the empty selected Lead card explains that nothing is attached yet", () => {
-  const markup = renderToStaticMarkup(createElement(SelectedLeadCard, { selected: undefined }));
-  assert.match(markup, /No lead is attached to this booking yet/);
-  assert.equal(markup.includes("This booking will be created for"), false);
+test("the matched customer panel says plainly when nobody is attached yet", () => {
+  const markup = renderToStaticMarkup(createElement(MatchedLeadPanel, {
+    matched: { origin: "none", stillSearching: false, chooseLead: () => {} },
+    onFindDifferentCustomer: () => {},
+  }));
+  assert.match(markup, /No customer is attached to this booking yet/);
+  assert.match(markup, /Search for the customer/);
+  assert.equal(markup.includes("Strong match"), false);
 });
 
-test("selectable candidate rows show full Lead data and mark the row already in the form", () => {
+test("selectable candidate rows show full Lead data and mark the row already on the booking", () => {
   const other: GranotLifecycleCandidateItem = {
     ...ownerWorkCandidate,
     lead_ref: { model: "FormLead", id: "lead-other" },
@@ -543,29 +539,27 @@ test("selectable candidate rows show full Lead data and mark the row already in 
     "synthetic.owner@example.invalid",
     "Synthetic Other",
     "other@example.invalid",
-    "In the booking form",
-    "Use this lead instead",
-    "Call lead job number matches exactly",
+    "On this booking",
+    "Use this customer instead",
+    "The job number on this phone lead matches exactly",
   ]) assert.match(markup, new RegExp(value));
 });
 
-test("the booking form pre-selects a Lead and keeps Lead search collapsed beside the form", () => {
+test("the booking form files under the customer settled above it and never asks for one", () => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const commandDetail = detail({
     mode: "create_missing_booking",
     capabilities: { commands: true, referral: false, release_cases: false, discrepancies: false },
   });
-  queryClient.setQueryData(
-    queryKeys.granotLifecycle.candidates(commandDetail.case_id, { scope: "source" }),
-    { items: [ownerWorkCandidate], next_cursor: null },
-  );
   const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
-    createElement(BookingCommandForm, { detail: commandDetail })));
-  assert.match(markup, /Lead search/);
-  assert.match(markup, /Only needed when the pre-selected lead is wrong/);
-  assert.match(markup, /aria-expanded="false"/);
-  assert.equal(markup.includes("Search by name, phone, email, job, or reference"), false);
-  assert.ok(markup.indexOf("1. Choose the matching lead") < markup.indexOf("2. Official booking details"));
+    createElement(BookingCommandForm, {
+      detail: commandDetail,
+      matchedLead: ownerWorkCandidate,
+    })));
+  assert.match(markup, /Filing this booking under/);
+  assert.match(markup, /Synthetic Owner Work/);
+  assert.equal(markup.includes("Who this booking is for"), false);
+  assert.equal(markup.includes("Find the right customer"), false);
 });
 
 test("timeline preserves server order and individual Booking/Release discriminants", () => {

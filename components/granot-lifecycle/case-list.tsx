@@ -65,7 +65,7 @@ export function GranotLifecycleCaseList({
                     : "not present"}
                 </p>
               </td>
-              <td className="px-3 py-3 align-top">{item.masked_contact_label || "—"}</td>
+              <td className="px-3 py-3 align-top">{item.customer_label || "—"}</td>
               <td className="px-3 py-3 align-top">{item.source.label ?? item.source.id ?? "—"}</td>
               <td className="px-3 py-3 align-top">
                 <strong>{item.evidence_count}</strong>

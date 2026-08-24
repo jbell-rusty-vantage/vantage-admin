@@ -143,7 +143,53 @@ export type OverviewReportResponse = {
   } | null;
 };
 
+export type FilterCatalogOrigin = "registry" | "historical_distinct";
+
+export type FilterCatalogCompany = {
+  id: string;
+  company_slug: string;
+  owner_label: string;
+  active: boolean;
+  origin: FilterCatalogOrigin;
+};
+
+export type FilterCatalogGranularity = {
+  id: string;
+  source_company_id: string;
+  company_slug: string;
+  company_owner_label: string;
+  granularity_key: string;
+  channel?: "form" | "call";
+  owner_label: string;
+  crm_label?: string;
+  local?: "local" | "long_distance";
+  active: boolean;
+  origin: FilterCatalogOrigin;
+};
+
+export type FilterCatalogAgent = {
+  id: string;
+  name: string;
+  active: boolean;
+  origin: FilterCatalogOrigin;
+};
+
+export type FilterCatalogMerchant = {
+  id: string;
+  name: string;
+  active: boolean;
+  origin: FilterCatalogOrigin;
+};
+
+export type FilterCatalog = {
+  source_companies: FilterCatalogCompany[];
+  source_granularities: FilterCatalogGranularity[];
+  agents: FilterCatalogAgent[];
+  merchants: FilterCatalogMerchant[];
+};
+
 export type AdminFacets = {
+  catalog?: FilterCatalog;
   agents: string[];
   source_companies: string[];
   source_granularities?: string[];

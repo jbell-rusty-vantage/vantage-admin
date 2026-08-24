@@ -73,7 +73,7 @@ export type GranotLifecycleCaseListItem = {
   normalized_job_no: string;
   job_no: string;
   source: { id?: string; label?: string };
-  masked_contact_label: string;
+  customer_label: string;
   latest_action: "priority_5" | "booked" | "release";
   evidence_count: number;
   case_revision: number;
@@ -338,22 +338,6 @@ export type BookingIntakeCreatingObservation = {
 
 export type SafeContact = { name?: string; phone_number?: string; email?: string };
 
-function maskSafeContact(value: SafeContact | undefined): SafeContact | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  const name = typeof value.name === "string" && value.name.trim()
-    ? `${value.name.trim().slice(0, 1).toUpperCase()}•••`
-    : undefined;
-  const digits = typeof value.phone_number === "string" ? value.phone_number.replace(/\D/g, "") : "";
-  const phone_number = digits ? `•••${digits.slice(-4)}` : undefined;
-  const [local, domain] = typeof value.email === "string" ? value.email.trim().split("@") : [];
-  const email = domain ? `${local?.slice(0, 1).toLowerCase() || "•"}•••@${domain.toLowerCase()}` : undefined;
-  return name || phone_number || email ? { name, phone_number, email } : undefined;
-}
-
-function maskSafeName(value: string | null | undefined): string | null {
-  return typeof value === "string" && value.trim() ? `${value.trim().slice(0, 1).toUpperCase()}•••` : null;
-}
-
 export type GranotLifecycleCandidateFilters = {
   scope?: "source" | "all";
   lead_model?: GranotLeadModel;
@@ -364,7 +348,7 @@ export type GranotLifecycleCandidateFilters = {
 
 export type GranotLifecycleCandidateItem = {
   lead_ref: { model: GranotLeadModel; id: string };
-  masked_contact_label: string;
+  customer_label: string;
   contact?: SafeContact;
   job_no?: string;
   normalized_job_no?: string;
@@ -629,19 +613,11 @@ export function asGranotLifecycleCaseDetail(data: unknown): GranotLifecycleCaseD
   };
   return {
     ...record,
-    official_current: {
-      ...officialCurrent,
-      ...(officialCurrent.booking ? {
-        booking: { ...officialCurrent.booking, customer_name: maskSafeName(officialCurrent.booking.customer_name) },
-      } : {}),
-    },
+    official_current: officialCurrent,
     official_draft: record.official_draft ?? {},
     evidence: record.evidence ?? [],
-    contacts: {
-      submitted_or_ingested: maskSafeContact(record.contacts?.submitted_or_ingested),
-      accepted_granot: maskSafeContact(record.contacts?.accepted_granot),
-    },
-    observed_context: { ...observedContext, contact: maskSafeContact(observedContext.contact) },
+    contacts: record.contacts ?? {},
+    observed_context: observedContext,
     candidate_search: record.candidate_search ?? {
       available: false,
       default_scope: "source",

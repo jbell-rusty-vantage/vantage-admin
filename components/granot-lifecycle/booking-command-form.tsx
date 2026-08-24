@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { FilterField } from "@/components/filters/filter-field";
 import {
   confirmGranotBooking,
-  fetchGranotLifecycleCandidates,
   GranotLifecycleApiError,
   type ConfirmGranotBookingBody,
   type GranotLifecycleCandidateItem,
@@ -18,20 +17,24 @@ import {
 } from "@/lib/api/granotLifecycle";
 import { useCatalogOptions } from "@/lib/api/use-catalog-options";
 import { parseOfficialBookingDetails } from "@/lib/booking/officialBookingDetails";
-import { queryKeys } from "@/lib/query/keys";
 import { invalidateGranotLifecycleCommandViews } from "@/lib/query/granotLifecycle";
 import { OfficialBinderAgentsFields } from "./official-binder-agents-fields";
-import { LeadCandidateBrowser, pickBestCandidate } from "./lead-candidate-browser";
-import { SelectedLeadCard } from "./selected-lead-card";
 import { candidateLeadName } from "./candidate-lead-facts";
 
-const DEFAULT_CANDIDATE_FILTERS = { scope: "source" as const };
-
-export function BookingCommandForm({ detail }: { detail: GranotLifecycleCaseDetail }) {
+/**
+ * The act where the Owner writes the official numbers. Who the booking is for
+ * was settled above this card, so this one only asks for what Granot never
+ * sends: binder, agents, deposit, and merchant.
+ */
+export function BookingCommandForm({
+  detail,
+  matchedLead,
+}: {
+  detail: GranotLifecycleCaseDetail;
+  matchedLead?: GranotLifecycleCandidateItem;
+}) {
   const queryClient = useQueryClient();
   const catalog = useCatalogOptions();
-  const [chosenLead, setChosenLead] = useState<GranotLifecycleCandidateItem>();
-  const [searchOpen, setSearchOpen] = useState(false);
   const [bookDate, setBookDate] = useState("");
   const [deposit, setDeposit] = useState("");
   const [totalBinder, setTotalBinder] = useState("");
@@ -47,30 +50,14 @@ export function BookingCommandForm({ detail }: { detail: GranotLifecycleCaseDeta
   const errorSummary = useRef<HTMLDivElement>(null);
   const agents = catalog.agents.filter((item) => item.active);
   const merchants = catalog.merchants.filter((item) => item.active);
-  const selectedMerchant = merchants.find((item) => item.id === merchantId);
-  const selectedAgents = [primaryAgentId, secondaryAgentId]
+  const chosenMerchant = merchants.find((item) => item.id === merchantId);
+  const chosenAgents = [primaryAgentId, secondaryAgentId]
     .map((id) => agents.find((item) => item.id === id)?.name)
     .filter(Boolean);
-
-  // Shares its cache entry with the side search so pre-selection costs no extra request.
-  const rankedCandidates = useQuery({
-    queryKey: queryKeys.granotLifecycle.candidates(detail.case_id, DEFAULT_CANDIDATE_FILTERS),
-    queryFn: () => fetchGranotLifecycleCandidates(detail.case_id, { ...DEFAULT_CANDIDATE_FILTERS, limit: 25 }),
-  });
-
-  // The strongest server-ranked match stands in until the owner picks a different lead.
-  const bestCandidate = pickBestCandidate(rankedCandidates.data?.items);
-  const selected = chosenLead ?? bestCandidate;
-  const autoSelected = !chosenLead && Boolean(bestCandidate);
 
   useEffect(() => {
     if (errors.length) errorSummary.current?.focus();
   }, [errors]);
-
-  const chooseLead = (item: GranotLifecycleCandidateItem) => {
-    setChosenLead(item);
-    setReviewing(false);
-  };
 
   const buildBody = (): ConfirmGranotBookingBody | undefined => {
     const parsed = parseOfficialBookingDetails({
@@ -82,16 +69,18 @@ export function BookingCommandForm({ detail }: { detail: GranotLifecycleCaseDeta
       secondaryAgentId,
     });
     const nextErrors = [...parsed.errors];
-    if (!selected) nextErrors.push("Select one eligible Lead.");
-    if (selected?.requires_override_reason && (overrideReason.trim().length < 10 || overrideReason.trim().length > 500)) {
-      nextErrors.push("Explain the out-of-scope selection in 10–500 characters.");
+    if (!matchedLead) {
+      nextErrors.push("Choose the customer this booking belongs to before you file it.");
+    }
+    if (matchedLead?.requires_override_reason && (overrideReason.trim().length < 10 || overrideReason.trim().length > 500)) {
+      nextErrors.push("Write 10 to 500 characters explaining why this customer belongs on this job.");
     }
     setErrors(nextErrors);
-    if (nextErrors.length || !selected || !parsed.details) return undefined;
+    if (nextErrors.length || !matchedLead || !parsed.details) return undefined;
     return {
       expected_case_revision: detail.case_revision,
-      selected_lead: { lead_model: selected.lead_ref.model, lead_id: selected.lead_ref.id },
-      ...(selected.requires_override_reason ? { out_of_scope_override_reason: overrideReason.trim() } : {}),
+      selected_lead: { lead_model: matchedLead.lead_ref.model, lead_id: matchedLead.lead_ref.id },
+      ...(matchedLead.requires_override_reason ? { out_of_scope_override_reason: overrideReason.trim() } : {}),
       official_booking_details: parsed.details,
     };
   };
@@ -140,11 +129,10 @@ export function BookingCommandForm({ detail }: { detail: GranotLifecycleCaseDeta
   return (
     <Card id="finish-booking">
       <CardHeader>
-        <CardTitle>Confirm Granot Booking</CardTitle>
+        <CardTitle>Finish the booking</CardTitle>
         <CardDescription>
-          Official booking form. The matching lead is filled in for you; check it, then enter
-          binder, deposit, agents, and merchant from the same Operations Registry catalog as a
-          normal booking. Official fields start blank and are never copied from Granot evidence.
+          One binder amount, up to two agents, deposit, and merchant — the same catalog as a normal
+          booking. Two agents split the binder evenly. Nothing here is filled in from Granot.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -156,162 +144,108 @@ export function BookingCommandForm({ detail }: { detail: GranotLifecycleCaseDeta
           </div>
         ) : null}
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
-          <div className="space-y-5">
-            <section className="rounded-lg border bg-background p-4">
-              <h2 className="text-sm font-semibold">1. Choose the matching lead</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                This is the lead the booking will be attached to. If it is wrong, open the lead
-                search on the side and pick a different one.
-              </p>
-              <div className="mt-4">
-                <SelectedLeadCard
-                  selected={selected}
-                  loading={rankedCandidates.isPending}
-                  autoSelected={autoSelected}
-                  onChangeLead={searchOpen ? undefined : () => setSearchOpen(true)}
-                />
-              </div>
-              {rankedCandidates.isError ? (
-                <FeedbackMessage tone="error" className="mt-3">
-                  {rankedCandidates.error instanceof Error
-                    ? rankedCandidates.error.message
-                    : "Unable to load matching leads."}
-                </FeedbackMessage>
-              ) : null}
-              {selected?.requires_override_reason ? (
-                <div className="mt-4 space-y-1">
-                  <FeedbackMessage tone="warning">This Lead is outside the reviewed Source Scope. A reason is required.</FeedbackMessage>
-                  <Label htmlFor="granot-override-reason">Out-of-scope override reason</Label>
-                  <textarea
-                    id="granot-override-reason"
-                    className="min-h-24 w-full rounded-md border p-2"
-                    value={overrideReason}
-                    onChange={(event) => setOverrideReason(event.target.value)}
-                    maxLength={500}
-                  />
-                </div>
-              ) : null}
-            </section>
+        {matchedLead ? (
+          <p className="text-sm text-muted-foreground">
+            Filing this booking under <span className="font-semibold text-navy">{candidateLeadName(matchedLead)}</span>.
+          </p>
+        ) : (
+          <FeedbackMessage tone="warning">
+            No customer is attached yet. Pick one above before you file this booking.
+          </FeedbackMessage>
+        )}
 
-            <section className="rounded-lg border bg-background p-4">
-              <h2 className="text-sm font-semibold">2. Official booking details</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Same catalog as the manual booking form: one binder amount and up to two agents from Operations Registry.
-                Two agents split the binder evenly.
-              </p>
-              <fieldset className="mt-4 grid gap-3 sm:grid-cols-2" disabled={reviewing || submitting}>
-                <legend className="sr-only">Blank official Booking details</legend>
-                <FilterField label="Book Date">
-                  <Input id="granot-book-date" type="date" value={bookDate} onChange={(event) => setBookDate(event.target.value)} />
-                </FilterField>
-                <FilterField label="Deposit Amount">
-                  <Input id="granot-deposit" inputMode="decimal" value={deposit} onChange={(event) => setDeposit(event.target.value)} />
-                </FilterField>
-                <OfficialBinderAgentsFields
-                  idPrefix="granot"
-                  binder={totalBinder}
-                  onBinderChange={setTotalBinder}
-                  primaryAgentId={primaryAgentId}
-                  secondaryAgentId={secondaryAgentId}
-                  onPrimaryAgentChange={setPrimaryAgentId}
-                  onSecondaryAgentChange={setSecondaryAgentId}
-                  agents={agents}
-                />
-                <FilterField label="Active Merchant">
-                  <select
-                    id="granot-merchant"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={merchantId}
-                    onChange={(event) => setMerchantId(event.target.value)}
-                  >
-                    <option value="">Choose merchant</option>
-                    {merchants.map((item) => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                  </select>
-                </FilterField>
-                {catalog.isLoading ? (
-                  <p className="text-sm text-muted-foreground sm:col-span-2">
-                    Loading active agents and merchants...
-                  </p>
-                ) : null}
-              </fieldset>
-            </section>
-
-            {reviewing ? (
-              <section aria-labelledby="granot-booking-review" className="rounded-lg border bg-muted/40 p-4">
-                <h3 id="granot-booking-review" className="font-semibold">Review official Booking</h3>
-                <p className="mt-2 text-sm">
-                  Lead: {selected ? candidateLeadName(selected) : "—"}
-                  {selected?.job_no ? ` · job ${selected.job_no}` : ""}
-                  {selected?.reference ? ` · ref ${selected.reference}` : ""}
-                </p>
-                <p className="text-sm">
-                  {selected?.contact?.phone_number ?? "no phone"} · {selected?.contact?.email ?? "no email"}
-                </p>
-                <p className="font-mono text-xs text-muted-foreground">
-                  {selected?.lead_ref.model} {selected?.lead_ref.id}
-                </p>
-                <p className="mt-2 text-sm">Book Date: {bookDate} · Deposit: {deposit} · Binder: {totalBinder}</p>
-                <p className="text-sm">Merchant: {selectedMerchant?.name ?? merchantId}</p>
-                <p className="text-sm">Agents: {selectedAgents.join(", ") || "—"}</p>
-                <p className="text-sm">Case revision: {detail.case_revision}</p>
-              </section>
-            ) : (
-              <section className="rounded-lg border bg-muted/40 p-4 text-sm">
-                Review before submitting: this creates the official Vantage booking for job {detail.job_no}.
-                Granot estimate and payment numbers are not copied into these fields.
-              </section>
-            )}
-
-            <div className="flex gap-2">
-              {reviewing ? (
-                <Button type="button" variant="outline" onClick={() => setReviewing(false)} disabled={submitting}>
-                  Back to edit
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                disabled={submitting || catalog.isLoading}
-                onClick={() => reviewing ? void submit() : setReviewing(Boolean(buildBody()))}
-              >
-                {reviewing ? (submitting ? "Creating…" : "Create Booking") : "Review Booking"}
-              </Button>
-            </div>
+        {matchedLead?.requires_override_reason ? (
+          <div className="space-y-1">
+            <Label htmlFor="granot-override-reason">
+              Why this customer belongs on this job
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              This customer came in through a different lead source than the job did. Write down what
+              makes them the same person.
+            </p>
+            <textarea
+              id="granot-override-reason"
+              className="min-h-24 w-full rounded-md border p-2"
+              value={overrideReason}
+              onChange={(event) => setOverrideReason(event.target.value)}
+              maxLength={500}
+            />
           </div>
+        ) : null}
 
-          <aside className="rounded-lg border bg-muted/20">
-            <div className="flex items-start justify-between gap-2 p-4">
-              <div>
-                <h2 className="text-sm font-semibold">Lead search</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Only needed when the pre-selected lead is wrong.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                aria-expanded={searchOpen}
-                aria-controls="granot-lead-search-panel"
-                onClick={() => setSearchOpen((current) => !current)}
-              >
-                {searchOpen ? "Hide" : "Open"}
-              </Button>
-            </div>
-            {searchOpen ? (
-              <div id="granot-lead-search-panel" className="border-t p-4">
-                <LeadCandidateBrowser
-                  caseId={detail.case_id}
-                  selected={selected}
-                  onSelect={chooseLead}
-                  layout="narrow"
-                  heading="Search eligible leads"
-                  description="Every row shows the full lead. Choosing one replaces the lead in the booking form."
-                />
-              </div>
-            ) : null}
-          </aside>
+        <fieldset className="grid gap-3 sm:grid-cols-2" disabled={reviewing || submitting}>
+          <legend className="sr-only">Official booking details</legend>
+          <FilterField label="Book Date">
+            <Input id="granot-book-date" type="date" value={bookDate} onChange={(event) => setBookDate(event.target.value)} />
+          </FilterField>
+          <FilterField label="Deposit Amount">
+            <Input id="granot-deposit" inputMode="decimal" value={deposit} onChange={(event) => setDeposit(event.target.value)} />
+          </FilterField>
+          <OfficialBinderAgentsFields
+            idPrefix="granot"
+            binder={totalBinder}
+            onBinderChange={setTotalBinder}
+            primaryAgentId={primaryAgentId}
+            secondaryAgentId={secondaryAgentId}
+            onPrimaryAgentChange={setPrimaryAgentId}
+            onSecondaryAgentChange={setSecondaryAgentId}
+            agents={agents}
+          />
+          <FilterField label="Active Merchant">
+            <select
+              id="granot-merchant"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={merchantId}
+              onChange={(event) => setMerchantId(event.target.value)}
+            >
+              <option value="">Choose merchant</option>
+              {merchants.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </FilterField>
+          {catalog.isLoading ? (
+            <p className="text-sm text-muted-foreground sm:col-span-2">
+              Loading active agents and merchants...
+            </p>
+          ) : null}
+        </fieldset>
+
+        {reviewing ? (
+          <section aria-labelledby="granot-booking-review" className="rounded-lg border bg-muted/40 p-4">
+            <h3 id="granot-booking-review" className="font-semibold">Check this before you file it</h3>
+            <p className="mt-2 text-sm">
+              Customer: {matchedLead ? candidateLeadName(matchedLead) : "—"}
+              {matchedLead?.job_no ? ` · job ${matchedLead.job_no}` : ""}
+              {matchedLead?.reference ? ` · reference ${matchedLead.reference}` : ""}
+            </p>
+            <p className="text-sm">
+              {matchedLead?.contact?.phone_number ?? "no phone"} · {matchedLead?.contact?.email ?? "no email"}
+            </p>
+            <p className="mt-2 text-sm">Book Date: {bookDate} · Deposit: {deposit} · Binder: {totalBinder}</p>
+            <p className="text-sm">Merchant: {chosenMerchant?.name ?? merchantId}</p>
+            <p className="text-sm">Agents: {chosenAgents.join(", ") || "—"}</p>
+          </section>
+        ) : (
+          <section className="rounded-lg border bg-muted/40 p-4 text-sm">
+            This creates the official Vantage booking for job {detail.job_no}. Granot&apos;s estimate and
+            payment numbers are not copied into it.
+          </section>
+        )}
+
+        <div className="flex gap-2">
+          {reviewing ? (
+            <Button type="button" variant="outline" onClick={() => setReviewing(false)} disabled={submitting}>
+              Back to edit
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            disabled={submitting || catalog.isLoading}
+            onClick={() => reviewing ? void submit() : setReviewing(Boolean(buildBody()))}
+          >
+            {reviewing ? (submitting ? "Creating…" : "Create Booking") : "Review Booking"}
+          </Button>
         </div>
       </CardContent>
     </Card>

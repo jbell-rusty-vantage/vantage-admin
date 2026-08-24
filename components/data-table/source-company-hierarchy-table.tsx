@@ -51,7 +51,9 @@ export function hasSourceGranularities(row: SourceCompanyMetricRow): boolean {
 export function isSourceCompanyHierarchyReport(report: string): boolean {
   return (
     report === "source-company-performance" ||
-    report === "source-company-funnel"
+    report === "source-company-funnel" ||
+    report === "booking-cancellation-ratio" ||
+    report === "lead-source-performance"
   );
 }
 
@@ -94,15 +96,34 @@ export function sourceCompanyChartLabel(
 export function sourceCompanyChartRows(
   rows: Record<string, unknown>[],
 ): Record<string, unknown>[] {
-  return rows.map((row) => {
+  const chartRows: Record<string, unknown>[] = [];
+  for (const row of rows) {
+    const children = Array.isArray(row.granularities) ? row.granularities : [];
+    if (children.length > 0) {
+      for (const child of children) {
+        if (!child || typeof child !== "object" || Array.isArray(child)) continue;
+        const leaf = child as SourceGranularityMetricRow;
+        const chartRow = Object.fromEntries(
+          Object.entries(leaf).filter(([key]) => key !== "granularities"),
+        );
+        const leafLabel = sourceGranularityRowLabel(leaf);
+        chartRows.push({
+          ...chartRow,
+          source_company_label: leafLabel,
+          source_granularity_label: leafLabel,
+        });
+      }
+      continue;
+    }
     const chartRow = Object.fromEntries(
       Object.entries(row).filter(([key]) => key !== "granularities"),
     );
-    return {
+    chartRows.push({
       ...chartRow,
       source_company_label: sourceCompanyChartLabel(row),
-    };
-  });
+    });
+  }
+  return chartRows;
 }
 
 export function SourceCompanyHierarchyTable({

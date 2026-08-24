@@ -4,8 +4,9 @@ import { formatDateTime } from "@/components/data-table/formatters";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import type { GranotLifecycleCaseListItem } from "@/lib/api/granotLifecycle";
 import { cn } from "@/lib/utils";
-import { CreatingObservationAccordion } from "./creating-observation-accordion";
+import { GranotBookingStatementAccordion } from "./granot-booking-statement";
 import {
+  granotUpdateCountLine,
   intakeActionLabel,
   intakeCaseHref,
   intakeJobHref,
@@ -116,14 +117,12 @@ export function IntakeList({
                     );
                   })()}
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {item.evidence_count === 1
-                      ? "1 Granot update on this job"
-                      : `${item.evidence_count} Granot updates on this job`}
+                    {granotUpdateCountLine(item.evidence_count)} on this job
                   </p>
                 </td>
                 <td className="px-3 py-3 align-top">{intakeWhatVantageHas(item)}</td>
                 <td className="px-3 py-3 align-top">{intakeNextStep(item)}</td>
-                <td className="px-3 py-3 align-top">{item.masked_contact_label || "—"}</td>
+                <td className="px-3 py-3 align-top">{item.customer_label || "—"}</td>
                 <td className="px-3 py-3 align-top">{item.source.label ?? item.source.id ?? "—"}</td>
                 <td className="px-3 py-3 align-top">
                   <span aria-label={`Age ${ageLabel(item.last_evidence_at, now)}`}>
@@ -135,7 +134,7 @@ export function IntakeList({
               {kind === "booking" ? (
                 <tr className={cn(selected && "bg-steel-100")}>
                   <td className="px-3 pb-4 pt-0" colSpan={7}>
-                    <CreatingObservationAccordion caseId={item.case_id} />
+                    <GranotBookingStatementAccordion caseId={item.case_id} />
                   </td>
                 </tr>
               ) : null}

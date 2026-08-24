@@ -52,14 +52,10 @@ import { useDatabaseScope } from "@/lib/state/database-scope";
 import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-local-storage-boolean";
 import type { DatabaseScope, SelectOption, SortDirection, TableQueryParams } from "@/lib/api/types";
 import {
-  CALL_LEAD_SOURCE_LABEL_OPTIONS,
   CANCELLATION_REASON_OPTIONS,
   FORM_LEAD_BAD_LEAD_LABELS,
   FORM_LEAD_BAD_LEAD_REASON_OPTIONS,
   type FormLeadBadLeadReason,
-  FORM_LEAD_SOURCE_LABEL_OPTIONS,
-  getCallLeadSourceLabel,
-  getFormLeadSourceLabel,
   LOCAL_TYPE_OPTIONS,
   MOVE_SIZE_OPTIONS,
   SOURCE_COMPANY_OPTIONS,
@@ -150,8 +146,7 @@ const formLeadColumns: ColumnConfig[] = [
 ];
 
 const formLeadFilters: FilterConfig[] = [
-  { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
-  { key: "source_granularity_key", label: "Source granularity", type: "select" },
+  { key: "source_granularity_key", label: "Source Company", type: "select" },
   { key: "receiver_agent", label: "Receiver agent", type: "select" },
   { key: "name", label: "Name", type: "text" },
   { key: "email", label: "Email", type: "text" },
@@ -175,10 +170,9 @@ const formLeadEditFields: EditFieldConfig[] = [
     type: "select",
   },
   {
-    key: "source_company",
-    label: "Source company",
+    key: "source_granularity_key",
+    label: "Source Company",
     type: "select",
-    options: FORM_LEAD_SOURCE_LABEL_OPTIONS,
   },
   { key: "name", label: "Name", type: "text" },
   { key: "first_name", label: "First name", type: "text" },
@@ -216,8 +210,7 @@ const callLeadColumns: ColumnConfig[] = [
 ];
 
 const callLeadFilters: FilterConfig[] = [
-  { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
-  { key: "source_granularity_key", label: "Source granularity", type: "select" },
+  { key: "source_granularity_key", label: "Source Company", type: "select" },
   { key: "receiver_agent", label: "Receiver agent", type: "select" },
   { key: "name", label: "Name", type: "text" },
   { key: "email", label: "Email", type: "text" },
@@ -235,10 +228,9 @@ const callLeadEditFields: EditFieldConfig[] = [
     type: "select",
   },
   {
-    key: "source_company",
-    label: "Source company",
+    key: "source_granularity_key",
+    label: "Source Company",
     type: "select",
-    options: CALL_LEAD_SOURCE_LABEL_OPTIONS,
   },
   { key: "timestamp", label: "Created", type: "date" },
   { key: "job_no", label: "Job number", type: "text" },
@@ -616,10 +608,16 @@ function customerName(record: AdminRecord): string {
   return stringValue(getValue(record, "full_name")) ?? stringValue(getValue(record, "name")) ?? "";
 }
 
-function formatSourceDisplay(record: AdminRecord, fallback: unknown): string {
+function formatSourceDisplay(
+  record: AdminRecord,
+  fallback: unknown,
+  granularityLabelByKey?: ReadonlyMap<string, string>,
+): string {
+  const storedKey = stringValue(getValue(record, "source_granularity_key"));
   return (
-    stringValue(getValue(record, "crm_source_label_snapshot")) ??
     stringValue(getValue(record, "source_granularity_label_snapshot")) ??
+    stringValue(getValue(record, "crm_source_label_snapshot")) ??
+    (storedKey ? granularityLabelByKey?.get(storedKey.toLowerCase()) : undefined) ??
     stringValue(getValue(record, "source_company_label_snapshot")) ??
     stringValue(fallback) ??
     "-"
@@ -630,7 +628,11 @@ function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function formatCell(record: AdminRecord, column: ColumnConfig) {
+function formatCell(
+  record: AdminRecord,
+  column: ColumnConfig,
+  granularityLabelByKey?: ReadonlyMap<string, string>,
+) {
   let value = getValue(record, column.path);
   if (column.path === "booking_count") {
     value = optionalRelationCount(record, "related_bookings", "booking_count");
@@ -645,7 +647,7 @@ function formatCell(record: AdminRecord, column: ColumnConfig) {
     return formatBadLead(value) || "-";
   }
   if (column.key === "source" && isLeadRecordWithSourceMetadata(record)) {
-    return formatSourceDisplay(record, value);
+    return formatSourceDisplay(record, value, granularityLabelByKey);
   }
   if (column.format === "date") {
     return formatDate(value);
@@ -793,36 +795,22 @@ function formatSalesRep(record: AdminRecord): string {
 function resolveEditFieldValue(
   record: AdminRecord,
   field: EditFieldConfig,
-  uiResource: UiResource,
+  granularityKeyById?: ReadonlyMap<string, string>,
 ): string {
   if (field.key === "receiver_agent") {
     return resolveReceiverAgentId(record);
   }
-  if (field.key === "source_company") {
-    const crmSourceSnapshot = getValue(record, "crm_source_label_snapshot");
-    if (typeof crmSourceSnapshot === "string" && crmSourceSnapshot.trim()) {
-      return crmSourceSnapshot;
+  if (field.key === "source_granularity_key") {
+    const storedKey = getValue(record, "source_granularity_key");
+    if (typeof storedKey === "string" && storedKey.trim()) {
+      return storedKey.trim();
     }
-    const granularitySnapshot = getValue(record, "source_granularity_label_snapshot");
-    if (typeof granularitySnapshot === "string" && granularitySnapshot.trim()) {
-      return granularitySnapshot;
+    const storedId = getValue(record, "source_granularity_id");
+    if (storedId != null) {
+      const mapped = granularityKeyById?.get(String(storedId));
+      if (mapped) return mapped;
     }
-    const companySnapshot = getValue(record, "source_company_label_snapshot");
-    if (typeof companySnapshot === "string" && companySnapshot.trim()) {
-      return companySnapshot;
-    }
-    const storedSourceCompany = getValue(record, "source_company");
-    if (uiResource === "form-leads" || uiResource === "duplicate-form-leads") {
-      return getFormLeadSourceLabel(
-        storedSourceCompany == null ? undefined : String(storedSourceCompany),
-        getValue(record, "local") == null ? undefined : String(getValue(record, "local")),
-      );
-    }
-    if (uiResource === "call-leads" || uiResource === "duplicate-call-leads") {
-      return getCallLeadSourceLabel(
-        storedSourceCompany == null ? undefined : String(storedSourceCompany),
-      );
-    }
+    return "";
   }
   return toInputValue(getValue(record, field.key), field.type);
 }
@@ -872,25 +860,12 @@ function withFacetOptions(config: ResourceConfig, options: {
     if (field.key === "merchant") {
       return { ...field, options: options.merchantOptions } as TField;
     }
-    if (field.key === "source_company") {
-      if (hasOption(field, "tbm_leads")) {
-        return { ...field, options: withOptionFallback(options.sourceCompanyOptions, field.options) } as TField;
-      }
-      if (hasOption(field, "Main Site Forms")) {
-        return { ...field, options: withOptionFallback(options.formSourceOptions, field.options) } as TField;
-      }
-      if (hasOption(field, "Main Site Inbounds")) {
-        return { ...field, options: withOptionFallback(options.callSourceOptions, field.options) } as TField;
-      }
-    }
     if (field.key === "source_granularity_key") {
-      return { ...field, options: withOptionFallback(options.sourceGranularityOptions, field.options) } as TField;
-    }
-    if (field.key === "source" && field.label === "Source") {
-      return { ...field, options: withOptionFallback(options.sourceCompanyOptions, field.options) } as TField;
-    }
-    if (field.key === "source" && field.label === "Source label") {
-      return { ...field, options: withOptionFallback(options.sourceOptions, field.options) } as TField;
+      const channelOptions =
+        config.uiResource === "call-leads" || config.uiResource === "duplicate-call-leads"
+          ? options.callSourceOptions
+          : options.formSourceOptions;
+      return { ...field, options: channelOptions } as TField;
     }
     return field;
   };
@@ -901,23 +876,6 @@ function withFacetOptions(config: ResourceConfig, options: {
       .map(applyOptions),
     editFields: config.editFields.map(applyOptions),
   };
-}
-
-function hasOption(
-  field: FilterConfig | EditFieldConfig,
-  value: string,
-): boolean {
-  return field.options?.some((option) => option.value === value) ?? false;
-}
-
-function withOptionFallback(
-  preferred: readonly SelectOption[],
-  fallback: readonly SelectOption[] | undefined,
-): readonly SelectOption[] {
-  if (preferred.length > 0) {
-    return preferred;
-  }
-  return fallback ?? [];
 }
 
 function getBookingQuery(resource: UiResource, record: AdminRecord) {
@@ -1038,7 +996,13 @@ function FilterFields({
           <FilterInput
             filter={filter}
             value={String(filters[filter.key] ?? "")}
-            onChange={(value) => update({ [filter.key]: value })}
+            onChange={(value) =>
+              update(
+                filter.key === "source_granularity_key"
+                  ? { source_granularity_key: value, source_company: null }
+                  : { [filter.key]: value },
+              )
+            }
           />
         </FilterField>
       ))}
@@ -1231,7 +1195,6 @@ function EditForm({
   config,
   record,
   resource,
-  uiResource,
   onSaved,
 }: {
   config: ResourceConfig;
@@ -1241,6 +1204,8 @@ function EditForm({
   onSaved: () => void;
 }) {
   const queryClient = useQueryClient();
+  const { scope } = useDatabaseScope();
+  const facetOptions = useFacetOptions(scope);
   const [message, setMessage] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
@@ -1273,7 +1238,11 @@ function EditForm({
       {message ? <FeedbackMessage tone={mutation.isError ? "error" : "success"}>{message}</FeedbackMessage> : null}
       <div className="grid gap-3 sm:grid-cols-2">
         {config.editFields.map((field) => {
-          const value = resolveEditFieldValue(record, field, uiResource);
+          const value = resolveEditFieldValue(
+            record,
+            field,
+            facetOptions.granularityKeyById,
+          );
           return (
             <FilterField key={field.key} label={field.label}>
               {field.type === "select" && field.options ? (
@@ -1858,6 +1827,7 @@ function DetailPanel({
     enabled: Boolean(id),
   });
   const record = detailQuery.data ?? (selectedIsUrlPlaceholder ? null : selected);
+  const facetOptions = useFacetOptions(scope);
   const isProduction = effectiveScope === "production";
   const editableResource =
     readOnly || resource === "agents" || isReferralBooking(record) ? null : resource;
@@ -1881,7 +1851,11 @@ function DetailPanel({
           <DetailSection title="Summary">
             <DetailGrid>
               {config.columns.map((column) => (
-                <DetailItem key={column.key} label={column.label} value={formatCell(record, column)} />
+                <DetailItem
+                  key={column.key}
+                  label={column.label}
+                  value={formatCell(record, column, facetOptions.granularityLabelByKey)}
+                />
               ))}
               {isLeadResource(uiResource) ? (
                 <DetailItem label="Sales Rep" value={formatSalesRep(record)} />
@@ -2039,6 +2013,7 @@ function buildColumns(
   options: {
     canDelete: boolean;
     onRequestDelete: (target: DeleteTarget) => void;
+    granularityLabelByKey?: ReadonlyMap<string, string>;
   },
 ): DataTableColumn<AdminRecord>[] {
   const hiddenColumns = hiddenTableColumnsByResource[resource];
@@ -2057,7 +2032,7 @@ function buildColumns(
       ) : (
         column.label
       ),
-      cell: (item) => formatCell(item, column),
+      cell: (item) => formatCell(item, column, options.granularityLabelByKey),
       truncate: truncateTableColumns.has(column.key),
       className: getTableColumnClassName(column),
     }));
@@ -2399,6 +2374,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
       buildColumns(config, filters, setSort, resource, isProduction, {
         canDelete,
         onRequestDelete: requestDelete,
+        granularityLabelByKey: facetOptions.granularityLabelByKey,
       }),
     [config, filters, setSort, resource, isProduction, canDelete, requestDelete],
   );

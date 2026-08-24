@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GranotLifecycleCasePage } from "@/components/granot-lifecycle/case-detail";
+import { IntakeCasePage } from "./intake-case-page";
 import {
   fetchGranotLifecycleCases,
   type GranotLifecycleCaseListItem,
@@ -387,10 +387,10 @@ export function IntakesDashboard() {
       ) : null}
 
       {selectedCaseId ? (
-        <GranotLifecycleCasePage
+        <IntakeCasePage
           caseId={selectedCaseId}
           returnTo={buildIntakesHref({ tab, state, job, cursor, cursors: cursorHistory })}
-          backLabel="Back to waiting cases"
+          backLabel="Back to waiting intakes"
         />
       ) : (
         <IntakesDashboardView

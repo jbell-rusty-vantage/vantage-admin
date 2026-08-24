@@ -58,10 +58,10 @@ export function LeadCandidateResults({
 }) {
   const rows = items ?? [];
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">No eligible candidates match this search.</p>;
+    return <p className="text-sm text-muted-foreground">No customers match this search.</p>;
   }
   return (
-    <ul className="space-y-3" aria-label="Eligible Lead candidates">
+    <ul className="space-y-3" aria-label="Customers you can attach">
       {rows.map((item) => {
         const isSelected = isSameCandidate(selected, item);
         const body = (
@@ -72,23 +72,18 @@ export function LeadCandidateResults({
                 <p className="text-xs text-muted-foreground">
                   {candidateLeadTypeLabel(item.lead_ref.model)}
                   {item.job_no ? ` · job ${item.job_no}` : ""}
-                  {item.reference ? ` · ref ${item.reference}` : ""}
+                  {item.reference ? ` · reference ${item.reference}` : ""}
                 </p>
               </div>
-              {isSelected ? <StatusBadge tone="success">In the booking form</StatusBadge> : null}
+              {isSelected ? <StatusBadge tone="success">On this booking</StatusBadge> : null}
             </div>
             <CandidateConfidenceBadges item={item} />
             <CandidateLeadFacts item={item} className="sm:grid-cols-2" />
-            {(item.reason_codes ?? []).length > 0 ? (
-              <p className="text-xs text-muted-foreground">
-                Reasons: {item.reason_codes.join(", ")}
-              </p>
-            ) : null}
             {item.requires_override_reason ? (
               <FeedbackMessage tone="warning">
                 {onSelect
-                  ? "This lead is outside the reviewed source scope. Choosing it requires a written reason."
-                  : "This all-scope result is outside Source Scope and would require an override reason in a later command workflow."}
+                  ? "This customer came in through a different lead source than this job. Picking them means writing down why."
+                  : "This customer came in through a different lead source than this job."}
               </FeedbackMessage>
             ) : null}
           </>
@@ -108,7 +103,7 @@ export function LeadCandidateResults({
                     checked={isSelected}
                     onChange={() => onSelect(item)}
                   />
-                  {isSelected ? "Using this lead" : "Use this lead instead"}
+                  {isSelected ? "This booking is for them" : "Use this customer instead"}
                 </span>
                 {body}
               </label>
@@ -156,12 +151,12 @@ export function LeadCandidateBrowser({
     <section aria-labelledby="candidate-browser-heading" className="space-y-4">
       <div>
         <h2 id="candidate-browser-heading" className="text-base font-semibold text-navy">
-          {heading ?? "Eligible Lead candidates"}
+          {heading ?? "Find the right customer"}
         </h2>
         <p className="text-sm text-muted-foreground">
           {description ?? (onSelect
-            ? "Search only if the pre-selected lead is wrong. Choosing a row replaces the lead in the booking form."
-            : "Read-only server-ranked results. Browsing never selects, attaches, or changes a Lead.")}
+            ? "Search only if the customer above is wrong. Picking someone here replaces them on the booking."
+            : "Search results only. Nothing here changes the booking.")}
         </p>
       </div>
       <form
@@ -169,7 +164,7 @@ export function LeadCandidateBrowser({
           "grid gap-3",
           layout === "narrow"
             ? "grid-cols-1"
-            : "md:grid-cols-[minmax(0,1fr)_180px_180px_auto]",
+            : "md:grid-cols-[minmax(0,1fr)_200px_180px_auto]",
         )}
         onSubmit={(event) => {
           event.preventDefault();
@@ -181,38 +176,38 @@ export function LeadCandidateBrowser({
         }}
       >
         <div className="space-y-1">
-          <Label htmlFor="candidate-query">Search by name, phone, email, job, or reference</Label>
+          <Label htmlFor="candidate-query">Search by name, phone, email, job number, or reference</Label>
           <Input
             id="candidate-query"
             maxLength={100}
             value={draftQuery}
             onChange={(event) => setDraftQuery(event.target.value)}
-            placeholder="Name, phone, email, job, or ref"
+            placeholder="Name, phone, email, job, or reference"
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="candidate-scope">Scope</Label>
+          <Label htmlFor="candidate-scope">Where to look</Label>
           <select
             id="candidate-scope"
             className="h-10 w-full rounded-md border bg-background px-3 text-sm"
             value={draftScope}
             onChange={(event) => setDraftScope(event.target.value as "source" | "all")}
           >
-            <option value="source">Source Scope</option>
-            <option value="all">All eligible Leads</option>
+            <option value="source">This job&apos;s lead source</option>
+            <option value="all">Every lead source</option>
           </select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="candidate-lead-model">Lead type</Label>
+          <Label htmlFor="candidate-lead-model">How they came in</Label>
           <select
             id="candidate-lead-model"
             className="h-10 w-full rounded-md border bg-background px-3 text-sm"
             value={draftLeadModel}
             onChange={(event) => setDraftLeadModel(event.target.value as GranotLeadModel | "")}
           >
-            <option value="">All Lead types</option>
-            <option value="FormLead">Form Lead</option>
-            <option value="CallLead">Call Lead</option>
+            <option value="">Any way</option>
+            <option value="FormLead">Web form</option>
+            <option value="CallLead">Phone call</option>
           </select>
         </div>
         <Button className={layout === "narrow" ? undefined : "self-end"} type="submit">Search</Button>
@@ -220,13 +215,14 @@ export function LeadCandidateBrowser({
 
       {applied.scope === "all" ? (
         <FeedbackMessage tone="warning">
-          All-scope browsing may show eligible Leads outside Source Scope. Those rows are clearly marked and remain read-only.
+          You are looking outside this job&apos;s lead source. Anyone you pick from here needs a written
+          reason before the booking can be filed.
         </FeedbackMessage>
       ) : null}
-      {query.isPending ? <p role="status" className="text-sm text-muted-foreground">Loading eligible candidates…</p> : null}
+      {query.isPending ? <p role="status" className="text-sm text-muted-foreground">Searching customers…</p> : null}
       {query.isError ? (
         <FeedbackMessage tone="error">
-          {query.error instanceof Error ? query.error.message : "Unable to load candidates."}
+          {query.error instanceof Error ? query.error.message : "Unable to search customers."}
         </FeedbackMessage>
       ) : null}
       {query.data ? <LeadCandidateResults items={query.data.items ?? []} selected={selected} onSelect={onSelect} /> : null}
@@ -236,7 +232,7 @@ export function LeadCandidateBrowser({
           variant="outline"
           onClick={() => setApplied((current) => ({ ...current, cursor: query.data?.next_cursor ?? undefined }))}
         >
-          Load next candidate page
+          Show more customers
         </Button>
       ) : null}
     </section>

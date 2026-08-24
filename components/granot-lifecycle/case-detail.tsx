@@ -14,14 +14,15 @@ import {
 } from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
 import {
-  CreatingObservationAccordion,
-  PriorityPairingSection,
-} from "@/components/intakes/creating-observation-accordion";
+  GranotBookingStatementAccordion,
+  PriorityPairingStory,
+} from "@/components/intakes/granot-booking-statement";
+import { MatchedCustomerSection } from "@/components/intakes/matched-lead-panel";
 import { intakeCaseHowToFinish, isAllowedIntakeReturn } from "@/components/intakes/intake-copy";
 import { JobTimeline } from "./job-timeline";
-import { LeadCandidateBrowser } from "./lead-candidate-browser";
 import { BookingOwnerActions } from "./booking-owner-actions";
 import { ReleaseOwnerActions } from "./release-owner-actions";
+import { useMatchedLead } from "./use-matched-lead";
 
 function ContactBlock({
   title,
@@ -80,16 +81,16 @@ function ReferenceSection({
 
 export function CaseDetail({
   detail,
-  candidateBrowser,
-  commandForm,
-  creatingObservation,
+  ownerWork,
+  granotStatement,
   backHref,
   backLabel,
 }: {
   detail: GranotLifecycleCaseDetail;
-  candidateBrowser?: ReactNode;
-  commandForm?: ReactNode;
-  creatingObservation?: ReactNode;
+  /** Whatever the Owner can do about this case, composed by the page that owns it. */
+  ownerWork?: ReactNode;
+  /** The Granot update that opened this case; booking cases only. */
+  granotStatement?: ReactNode;
   backHref?: string;
   backLabel?: string;
 }) {
@@ -102,22 +103,12 @@ export function CaseDetail({
   const contacts = detail.contacts ?? {};
   const evidence = detail.evidence ?? [];
   const timeline = detail.timeline ?? EMPTY_TIMELINE;
-  const candidateSearch = detail.candidate_search ?? {
-    available: false,
-    default_scope: "source" as const,
-    all_scope_warning: false,
-  };
   const capabilities = detail.capabilities ?? {
     commands: false as const,
     referral: false,
     release_cases: false,
     discrepancies: false,
   };
-  const ownerAction = capabilities.commands
-    ? commandForm
-    : candidateSearch.available && !capabilities.referral
-      ? candidateBrowser
-      : null;
   const howToFinish = intakeCaseHowToFinish({
     kind: detail.kind,
     mode: detail.mode,
@@ -161,16 +152,16 @@ export function CaseDetail({
         </Card>
       ) : null}
 
-      {ownerAction}
+      {ownerWork}
 
       {detail.kind === "booking" && detail.priority_pairing ? (
         <Card>
           <CardHeader>
-            <CardTitle>Priority pairing</CardTitle>
-            <CardDescription>Audit of the creating Booked Observation and any Priority 5 on this job.</CardDescription>
+            <CardTitle>Priority history</CardTitle>
+            <CardDescription>How the Booked update and any Priority 5 on this job line up.</CardDescription>
           </CardHeader>
           <CardContent>
-            <PriorityPairingSection
+            <PriorityPairingStory
               pairing={detail.priority_pairing}
               normalizedJobNo={detail.normalized_job_no}
             />
@@ -178,7 +169,7 @@ export function CaseDetail({
         </Card>
       ) : null}
 
-      {creatingObservation}
+      {granotStatement}
 
       {detail.employee_booking_lead_reconciliation ? (
         <FeedbackMessage tone="warning">
@@ -296,6 +287,20 @@ export function CaseDetail({
   );
 }
 
+/** Everything the Owner can do about one booking case: pick the customer, then file it. */
+function BookingCaseOwnerWork({ detail }: { detail: GranotLifecycleCaseDetail }) {
+  const askable = Boolean(detail.candidate_search?.available);
+  const matched = useMatchedLead(detail.case_id, { askable });
+  return (
+    <div className="space-y-5">
+      {askable ? (
+        <MatchedCustomerSection caseId={detail.case_id} matched={matched} />
+      ) : null}
+      <BookingOwnerActions detail={detail} matchedLead={matched.lead} />
+    </div>
+  );
+}
+
 export function GranotLifecycleCasePage({
   caseId,
   returnTo,
@@ -318,16 +323,16 @@ export function GranotLifecycleCasePage({
   if (!query.data) {
     return <FeedbackMessage tone="error">Unable to load lifecycle case.</FeedbackMessage>;
   }
+  const detail = query.data;
   return <CaseDetail
-    detail={query.data}
+    detail={detail}
     backHref={isAllowedIntakeReturn(returnTo) ? returnTo : undefined}
     backLabel={isAllowedIntakeReturn(returnTo) ? (backLabel ?? "Back to Intakes") : undefined}
-    creatingObservation={query.data.kind === "booking"
-      ? <CreatingObservationAccordion caseId={caseId} loadOn="mount" />
+    granotStatement={detail.kind === "booking"
+      ? <GranotBookingStatementAccordion caseId={caseId} />
       : undefined}
-    candidateBrowser={<LeadCandidateBrowser caseId={caseId} />}
-    commandForm={query.data.kind === "release"
-      ? <ReleaseOwnerActions detail={query.data} />
-      : <BookingOwnerActions detail={query.data} />}
+    ownerWork={detail.kind === "release"
+      ? <ReleaseOwnerActions detail={detail} />
+      : <BookingCaseOwnerWork detail={detail} />}
   />;
 }

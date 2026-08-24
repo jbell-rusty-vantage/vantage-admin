@@ -3,18 +3,18 @@ import type { GranotLifecycleCandidateItem } from "@/lib/api/granotLifecycle";
 import { cn } from "@/lib/utils";
 
 const MATCH_METHOD_LABELS: Record<string, string> = {
-  call_job_no_exact: "Call lead job number matches exactly",
-  form_job_no_exact: "Form lead job number matches exactly",
-  form_ref_no_exact: "Form lead reference matches exactly",
-  form_mongo_id_compatibility: "Form lead id compatibility match",
-  source_scoped_contact: "Name, phone, or email match inside the source",
-  candidate_browse_match: "Found by browsing this source",
+  call_job_no_exact: "The job number on this phone lead matches exactly",
+  form_job_no_exact: "The job number on this web lead matches exactly",
+  form_ref_no_exact: "The reference on this web lead matches exactly",
+  form_mongo_id_compatibility: "An older Vantage identifier on this web lead matches",
+  source_scoped_contact: "The name, phone, or email matches inside this lead source",
+  candidate_browse_match: "Found by searching this lead source",
 };
 
 export function candidateLeadName(item: GranotLifecycleCandidateItem): string {
   const name = item.contact?.name?.trim();
   if (name) return name;
-  return item.masked_contact_label || "Name not on this lead";
+  return item.customer_label || "No name on this lead";
 }
 
 export function candidateMatchLabel(matchMethod: string): string {
@@ -22,7 +22,7 @@ export function candidateMatchLabel(matchMethod: string): string {
 }
 
 export function candidateLeadTypeLabel(model: GranotLifecycleCandidateItem["lead_ref"]["model"]): string {
-  return model === "CallLead" ? "Call lead" : "Form lead";
+  return model === "CallLead" ? "Came in by phone" : "Came in by web form";
 }
 
 export function CandidateConfidenceBadges({
@@ -35,11 +35,11 @@ export function CandidateConfidenceBadges({
   return (
     <div className="flex flex-wrap gap-1">
       <StatusBadge tone={item.confidence === "high" ? "success" : "warning"}>
-        {item.confidence === "high" ? "High confidence" : "Medium confidence"}
+        {item.confidence === "high" ? "Strong match" : "Possible match"}
       </StatusBadge>
       {showSuggested && item.suggested ? <StatusBadge>Best match</StatusBadge> : null}
       <StatusBadge tone={item.in_source_scope ? "success" : "warning"}>
-        {item.in_source_scope ? "In Source Scope" : "Outside Source Scope"}
+        {item.in_source_scope ? "Same lead source as this job" : "Different lead source"}
       </StatusBadge>
     </div>
   );
@@ -71,18 +71,18 @@ export function CandidateLeadFacts({
       <Fact label="Phone" value={item.contact?.phone_number} />
       <Fact label="Email" value={item.contact?.email} />
       <Fact label="Job number" value={item.job_no} />
-      <Fact label="Reference (ref no)" value={item.reference} />
-      <Fact label="Lead type" value={candidateLeadTypeLabel(item.lead_ref.model)} />
-      <Fact label="Lead ID" value={item.lead_ref.id} mono />
+      <Fact label="Reference" value={item.reference} />
+      <Fact label="How they came in" value={candidateLeadTypeLabel(item.lead_ref.model)} />
       <Fact label="Why it matched" value={candidateMatchLabel(item.match_method)} />
+      <Fact label="Lead ID for support" value={item.lead_ref.id} mono />
       {includeSource ? (
         <>
           <Fact
-            label="Source company"
+            label="Lead source"
             value={item.source?.source_company_label ?? item.source?.lead_source_company}
           />
           <Fact
-            label="Source granularity"
+            label="Where in that source"
             value={item.source?.source_granularity_label ?? item.source?.source_granularity_id}
           />
         </>

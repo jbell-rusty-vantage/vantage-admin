@@ -1,4 +1,9 @@
-import type { GranotLifecycleCaseListItem } from "@/lib/api/granotLifecycle";
+import type { MatchedLeadOrigin } from "@/components/granot-lifecycle/use-matched-lead";
+import type {
+  BookingIntakeCreatingObservation,
+  GranotLifecycleCandidateItem,
+  GranotLifecycleCaseListItem,
+} from "@/lib/api/granotLifecycle";
 
 export const INTAKES_HREF = "/intakes";
 export const INTAKE_CASE_RETURN = "/intakes";
@@ -100,7 +105,7 @@ export function intakeCaseHowToFinish(input: {
   return {
     title: "How to finish this booking",
     body: input.commandsAvailable
-        ? "The matching lead is already filled in below — check the name, phone, email, job number, and reference. If it is the wrong customer, use the lead search beside the form. Then enter one binder amount, up to two agents, deposit, and merchant from the same Operations Registry catalog as a normal booking. Two agents split the binder evenly. Granot estimate and payment numbers stay as reference only."
+        ? "Read what Granot sent, check the customer Vantage matched, then enter one binder amount, up to two agents, deposit, and merchant from the same Operations Registry catalog as a normal booking. Two agents split the binder evenly. If the customer is wrong, search for the right one before you file it. Granot estimate and payment numbers stay as reference only."
         : "This case is waiting for one binder amount, up to two agents, deposit, and merchant. The official form appears here when owner booking work is enabled.",
   };
 }
@@ -174,6 +179,157 @@ export function intakePairingClassLabel(
     case "booked_without_priority_5":
       return "Booked without Priority 5";
   }
+}
+
+/**
+ * A booking intake is read top to bottom as one story: what Granot sent, who it
+ * is for, what you do about it, and — underneath — the paper trail. These are
+ * the words that name each part of that story on screen.
+ */
+export const BOOKING_INTAKE_STORY = {
+  whatGranotSent: {
+    title: "What Granot sent us",
+    hint: "The update that opened this booking, exactly as Granot reported it.",
+  },
+  whoThisIsFor: {
+    title: "Who this booking is for",
+    hint: "The customer the booking will be filed under. Change it if it is the wrong person.",
+  },
+  findAnotherCustomer: {
+    title: "Find the right customer",
+    hint: "Search by name, phone, email, job number, or reference. Picking someone replaces the customer above.",
+  },
+  finishTheBooking: {
+    title: "Finish the booking",
+    hint: "Enter one binder amount, up to two agents, deposit, and merchant.",
+  },
+  whatVantageAlreadyHas: {
+    title: "What Vantage already has on this job",
+    hint: "The live Vantage booking and cancellation, if either one exists yet.",
+  },
+  granotUpdateHistory: {
+    title: "Every update Granot sent on this job",
+    hint: "One line per update. Nothing is merged or dropped.",
+  },
+  jobLifecycleTimeline: {
+    title: "How this job got here",
+    hint: "The full history behind this job, in order. Open it only if you need it.",
+  },
+} as const;
+
+/** One sentence naming what Granot did and when, for the top of the intake. */
+export function granotStatementHeadline(input: {
+  jobNo?: string;
+  whatGranotCalledIt?: string;
+  capturedAt?: string;
+}): string {
+  const job = input.jobNo?.trim();
+  const subject = job ? `job ${job}` : "this job";
+  const when = input.capturedAt ? ` on ${new Date(input.capturedAt).toLocaleString()}` : "";
+  const called = input.whatGranotCalledIt?.trim();
+  if (!called) return `Granot sent an update on ${subject}${when}.`;
+  if (called.toLowerCase() === "booked") return `Granot marked ${subject} booked${when}.`;
+  return `Granot sent a “${called}” update on ${subject}${when}.`;
+}
+
+export function granotStatementEmptyMessage(): string {
+  return "Granot sent this update with no customer, move, or money details on it. The exact message it sent is below.";
+}
+
+/** The Priority 5 audit, said the way the Owner would say it out loud. */
+export function priorityPairingStory(
+  pairing: NonNullable<GranotLifecycleCaseListItem["priority_pairing"]>["pairing"],
+): { sentence: string; tone: "quiet" | "warning" } {
+  switch (pairing) {
+    case "priority_5_then_booked":
+      return {
+        sentence: "Granot flagged this job a priority 5 first, then marked it booked.",
+        tone: "quiet",
+      };
+    case "booked_carries_priority_5":
+      return {
+        sentence: "Granot marked this job booked and sent priority 5 in the same update.",
+        tone: "quiet",
+      };
+    case "booked_without_priority_5":
+      return {
+        sentence: "Granot marked this job booked without ever flagging it a priority 5.",
+        tone: "warning",
+      };
+  }
+}
+
+export function matchedCustomerOriginLabel(origin: MatchedLeadOrigin): string {
+  switch (origin) {
+    case "vantage_matched":
+      return "Vantage matched this customer";
+    case "owner_chose":
+      return "You chose this customer";
+    case "none":
+      return "No customer matched yet";
+  }
+}
+
+export function matchConfidenceLabel(
+  confidence: GranotLifecycleCandidateItem["confidence"],
+): string {
+  return confidence === "high" ? "Strong match" : "Possible match";
+}
+
+export function matchConfidenceHint(
+  confidence: GranotLifecycleCandidateItem["confidence"],
+): string {
+  return confidence === "high"
+    ? "Everything Granot sent lines up with this customer."
+    : "Some of what Granot sent lines up with this customer. Check the name and phone before you file it.";
+}
+
+export function noMatchedCustomerMessage(searching: boolean): string {
+  return searching
+    ? "Looking for the customer this job belongs to…"
+    : "No customer matched this job automatically. Search below and pick the person this booking belongs to.";
+}
+
+export function granotUpdateActionLabel(
+  action: GranotLifecycleCaseListItem["latest_action"],
+): string {
+  switch (action) {
+    case "booked":
+      return "Granot marked the job booked";
+    case "release":
+      return "Granot cancelled the job";
+    case "priority_5":
+      return "Granot flagged the job a priority 5";
+  }
+}
+
+export function granotUpdateReadingLabel(
+  result: "valid" | "valid_with_issues" | "invalid" | "unsupported" | undefined,
+): string {
+  switch (result) {
+    case "valid":
+      return "Vantage read it cleanly";
+    case "valid_with_issues":
+      return "Vantage read it, but some fields looked wrong";
+    case "invalid":
+      return "Vantage could not read it";
+    case "unsupported":
+      return "Vantage does not act on this kind of update";
+    default:
+      return "Vantage has not recorded how it read this one";
+  }
+}
+
+export function granotUpdateCountLine(count: number): string {
+  return count === 1 ? "1 update from Granot" : `${count} updates from Granot`;
+}
+
+export function creatingObservationSelectionHint(
+  selection: BookingIntakeCreatingObservation["selection"],
+): string {
+  return selection === "latest_creating"
+    ? "Granot never sent a Booked update on this job, so this is the most recent update it did send."
+    : "This is the Booked update Granot sent. It is what opened this booking.";
 }
 
 export function isAllowedIntakeReturn(value: string | undefined | null): value is string {

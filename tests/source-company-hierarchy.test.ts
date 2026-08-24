@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   formatSourceHierarchyLabel,
   hasSourceGranularities,
+  isSourceCompanyHierarchyReport,
   shouldUseSourceCompanyHierarchy,
   sourceCompanyChartLabel,
   sourceCompanyChartRows,
@@ -72,6 +73,12 @@ test("historical source reports use hierarchy rows with stable unique keys", () 
 
   assert.equal(
     shouldUseSourceCompanyHierarchy("source-company-performance", rows),
+    true,
+  );
+  assert.equal(isSourceCompanyHierarchyReport("booking-cancellation-ratio"), true);
+  assert.equal(isSourceCompanyHierarchyReport("lead-source-performance"), true);
+  assert.equal(
+    shouldUseSourceCompanyHierarchy("booking-cancellation-ratio", rows),
     true,
   );
   assert.equal(
@@ -150,7 +157,7 @@ test("source hierarchy uses native table disclosure semantics", () => {
   assert.match(collapsedMarkup, /<tr[^>]*hidden=""/);
 });
 
-test("source chart labels prefer canonical company labels and stay parent-only", () => {
+test("source charts use leaf owner_label spellings when children exist", () => {
   const rows = sourceCompanyChartRows([
     {
       source_company: "tbm_prime_leads",
@@ -172,7 +179,9 @@ test("source chart labels prefer canonical company labels and stay parent-only",
   assert.equal(rows.length, 2);
   assert.equal("granularities" in rows[0], false);
   assert.equal("granularities" in rows[1], false);
-  assert.equal(sourceCompanyChartLabel(rows[0]), "TBM Prime Leads");
+  assert.equal(rows[0].source_company_label, "TBM Prime Forms");
+  assert.equal(rows[0].source_granularity_label, "TBM Prime Forms");
+  assert.equal(sourceCompanyChartLabel(rows[0]), "TBM Prime Forms");
   assert.equal(rows[1].source_company_label, "Main Site");
   assert.equal(sourceCompanyChartLabel(rows[1]), "Main Site");
   assert.equal(

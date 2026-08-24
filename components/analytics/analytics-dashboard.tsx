@@ -42,7 +42,12 @@ import {
   type AnalyticsSourceCompanyRow,
 } from "@/lib/api/admin";
 import { downloadCsvFromProxy } from "@/lib/api/csv";
-import { useFacetOptions, type FacetOptions } from "@/lib/api/facets";
+import {
+  selectedSourceGranularityKey,
+  sourceCompanyOptionsForLeadType,
+  useFacetOptions,
+  type FacetOptions,
+} from "@/lib/api/facets";
 import type { SerializableFilters } from "@/lib/api/filters";
 import { useUrlTableState } from "@/lib/api/url-state";
 import type { DatabaseScope, SelectOption } from "@/lib/api/types";
@@ -66,12 +71,10 @@ const LEAD_TYPE_OPTIONS: SelectOption[] = [
 type AnalyticsView = "visualization" | "table";
 type AnalyticsTabId = "overview" | "sales" | "lead-sources" | "receiver-agents" | "geography" | "cancellations";
 type FilterControl =
-  | "source_company"
   | "source_granularity_key"
   | "agent"
   | "receiver_agent"
   | "merchant"
-  | "source"
   | "local"
   | "lead_type"
   | "granularity";
@@ -98,7 +101,7 @@ const TAB_CONFIGS: TabConfig[] = [
     label: "Overview",
     description: "Executive summary across leads, bookings, revenue, cancellations, cost, and receiver attribution.",
     primaryReport: "summary",
-    filters: ["source_company", "source_granularity_key"],
+    filters: ["source_granularity_key"],
     reports: [
       { id: "summary", label: "Executive Summary", description: "Top-level business totals for the selected period.", kind: "bar" },
       { id: "source-company-performance", label: "Deposit Mix", description: "Deposit amount by source company.", kind: "pie" },
@@ -110,7 +113,7 @@ const TAB_CONFIGS: TabConfig[] = [
     label: "Sales",
     description: "Revenue, closing performance, and booking/cancellation outcomes.",
     primaryReport: "revenue-trend",
-    filters: ["source_company", "source_granularity_key", "agent", "merchant", "source", "granularity"],
+    filters: ["source_granularity_key", "agent", "merchant", "granularity"],
     reports: [
       { id: "revenue-trend", label: "Revenue Trend", description: "Binder and deposit movement over time.", kind: "area" },
       { id: "agent-performance", label: "Agent Sales Performance", description: "Sales allocation performance, not receiver attribution.", kind: "bar" },
@@ -122,11 +125,11 @@ const TAB_CONFIGS: TabConfig[] = [
     label: "Lead Sources",
     description: "Source-company performance, funnel reconciliation, and lead source quality.",
     primaryReport: "source-company-performance",
-    filters: ["source_company", "source_granularity_key", "lead_type", "local"],
+    filters: ["source_granularity_key", "lead_type", "local"],
     reports: [
       { id: "source-company-performance", label: "Source Company Performance", description: "Bookings and revenue by source company.", kind: "bar" },
       { id: "source-company-funnel", label: "Source Company Funnel", description: "Lead volume and booking reconciliation by source company.", kind: "bar" },
-      { id: "lead-source-performance", label: "Lead Source Performance", description: "Booked-lead performance by CRM source label.", kind: "bar" },
+      { id: "lead-source-performance", label: "Lead Source Performance", description: "Booked-lead performance by Source Granularity.", kind: "bar" },
     ],
   },
   {
@@ -134,7 +137,7 @@ const TAB_CONFIGS: TabConfig[] = [
     label: "Receiver Agents",
     description: "Received-lead workload, lead cost, and downstream booking/cancellation outcomes.",
     primaryReport: "receiver-agent-performance",
-    filters: ["source_company", "source_granularity_key", "receiver_agent", "lead_type", "granularity"],
+    filters: ["source_granularity_key", "receiver_agent", "lead_type", "granularity"],
     reports: [
       { id: "receiver-agent-performance", label: "Performance", description: "Received, billable, booked, cancelled, and cost metrics by receiver agent.", kind: "bar" },
       { id: "receiver-agent-trend", label: "Trend", description: "Received lead volume over time by receiver agent.", kind: "area" },
@@ -146,7 +149,7 @@ const TAB_CONFIGS: TabConfig[] = [
     label: "Geography",
     description: "Pickup, delivery, lane, and local-vs-long-distance performance.",
     primaryReport: "pickup-state-performance",
-    filters: ["source_company", "source_granularity_key", "lead_type", "local"],
+    filters: ["source_granularity_key", "lead_type", "local"],
     reports: [
       { id: "pickup-state-performance", label: "Pickup State", description: "Lead and booking performance by pickup state.", kind: "bar" },
       { id: "delivery-state-performance", label: "Delivery State", description: "Lead and booking performance by delivery state.", kind: "bar" },
@@ -159,7 +162,7 @@ const TAB_CONFIGS: TabConfig[] = [
     label: "Cancellations",
     description: "Cancellation reasons, cancellation rate, and refund impact.",
     primaryReport: "cancellation-reasons",
-    filters: ["source_company", "source_granularity_key", "merchant", "source"],
+    filters: ["source_granularity_key", "merchant"],
     reports: [
       { id: "cancellation-reasons", label: "Cancellation Reasons", description: "Refund and cancellation impact by reason.", kind: "bar" },
       { id: "booking-cancellation-ratio", label: "Booking And Cancellation Ratio", description: "Booked, cancelled, and active booked leads.", kind: "bar" },
@@ -167,7 +170,7 @@ const TAB_CONFIGS: TabConfig[] = [
   },
 ];
 
-const TAB_SPECIFIC_FILTERS = ["source_granularity_key", "agent", "receiver_agent", "merchant", "source", "local", "lead_type", "granularity", "report"] as const;
+const TAB_SPECIFIC_FILTERS = ["agent", "receiver_agent", "merchant", "local", "lead_type", "granularity", "report"] as const;
 const SOURCE_HIERARCHY_IDENTITY_KEYS = new Set([
   "_id",
   "source_company",
@@ -335,7 +338,14 @@ function buildFilters(filters: Record<string, unknown>, scope: DatabaseScope, ta
     from: str(filters.from),
     to: str(filters.to),
   };
-  for (const key of ["source_company", "source_granularity_key", "agent", "receiver_agent", "merchant", "source", "local", "lead_type", "granularity"] as const) {
+  const granularity = str(filters.source_granularity_key);
+  if (granularity) {
+    next.source_granularity_key = granularity;
+  } else {
+    const leftoverCompany = str(filters.source_company);
+    if (leftoverCompany) next.source_company = leftoverCompany;
+  }
+  for (const key of ["agent", "receiver_agent", "merchant", "local", "lead_type", "granularity"] as const) {
     if (supported.has(key) && typeof filters[key] === "string" && filters[key] !== "") {
       next[key] = filters[key];
     }
@@ -652,19 +662,36 @@ function AnalyticsFilterPanel({
       <FilterField label="Date range">
         <DateRangeFilter from={str(filters.from)} to={str(filters.to)} onChange={(range) => update(range)} />
       </FilterField>
-      {has("source_company") ? (
-        <FilterField label="Source company">
-          <SelectFilter value={str(filters.source_company) ?? ""} options={facetOptions.sourceCompanyOptions} placeholder="All sources" onChange={(value) => update({ source_company: value })} />
-        </FilterField>
-      ) : null}
-      {has("source_granularity_key") && facetOptions.sourceGranularityOptions.length > 0 ? (
-        <FilterField label="Source granularity">
-          <SelectFilter value={str(filters.source_granularity_key) ?? ""} options={facetOptions.sourceGranularityOptions} placeholder="All granularities" onChange={(value) => update({ source_granularity_key: value })} />
+      {has("source_granularity_key") ? (
+        <FilterField label="Source Company">
+          <SelectFilter
+            value={str(filters.source_granularity_key) ?? ""}
+            options={sourceCompanyOptionsForLeadType(facetOptions.catalog?.source_granularities, str(filters.lead_type))}
+            placeholder="All sources"
+            onChange={(value) => update({ source_granularity_key: value, source_company: null })}
+          />
         </FilterField>
       ) : null}
       {has("lead_type") ? (
         <FilterField label="Lead type">
-          <SelectFilter value={str(filters.lead_type) ?? ""} options={LEAD_TYPE_OPTIONS} placeholder="All lead types" onChange={(value) => update({ lead_type: value })} />
+          <SelectFilter
+            value={str(filters.lead_type) ?? ""}
+            options={LEAD_TYPE_OPTIONS}
+            placeholder="All lead types"
+            onChange={(value) => {
+              const nextLeadType = value || null;
+              const selected = str(filters.source_granularity_key);
+              update({
+                lead_type: nextLeadType,
+                source_granularity_key:
+                  selectedSourceGranularityKey(
+                    selected,
+                    facetOptions.catalog?.source_granularities,
+                    nextLeadType ?? undefined,
+                  ) ?? null,
+              });
+            }}
+          />
         </FilterField>
       ) : null}
       {has("receiver_agent") ? (
@@ -680,11 +707,6 @@ function AnalyticsFilterPanel({
       {has("merchant") ? (
         <FilterField label="Merchant">
           <SelectFilter value={str(filters.merchant) ?? ""} options={facetOptions.merchantOptions} placeholder="All merchants" onChange={(value) => update({ merchant: value })} />
-        </FilterField>
-      ) : null}
-      {has("source") ? (
-        <FilterField label="Source">
-          <SelectFilter value={str(filters.source) ?? ""} options={facetOptions.sourceOptions} placeholder="All source labels" onChange={(value) => update({ source: value })} />
         </FilterField>
       ) : null}
       {has("local") ? (
@@ -719,6 +741,20 @@ export function AnalyticsDashboard() {
       update({ report: null }, { resetPage: false });
     }
   }, [activeTab, filters.report, update]);
+
+  useEffect(() => {
+    const selected = str(filters.source_granularity_key);
+    if (!selected || !facetOptions.catalog) return;
+    if (
+      !selectedSourceGranularityKey(
+        selected,
+        facetOptions.catalog.source_granularities,
+        str(filters.lead_type),
+      )
+    ) {
+      update({ source_granularity_key: null }, { resetPage: false });
+    }
+  }, [facetOptions.catalog, filters.lead_type, filters.source_granularity_key, update]);
 
   function selectTab(tabId: AnalyticsTabId) {
     const next: Record<string, string | null> = { tab: tabId === "overview" ? null : tabId };
