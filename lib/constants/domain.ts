@@ -16,6 +16,7 @@ export const SOURCE_COMPANIES = [
   "best_relocation_leads",
   "get_movers_leads",
   "main_site",
+  "paid_overflow",
   "not_provided",
   "referral",
 ] as const;
@@ -29,6 +30,7 @@ export const SOURCE_COMPANY_LABELS = {
   best_relocation_leads: "Best Relocation Leads",
   get_movers_leads: "GetMovers Leads",
   main_site: "main site",
+  paid_overflow: "Paid Overflow",
   not_provided: "not provided",
   referral: "Referral",
 } as const satisfies Record<SourceCompany, string>;
@@ -42,6 +44,7 @@ export const FORM_LEAD_SOURCE_LABELS = [
   "Best Relocation Forms",
   "Best Relocation Locals",
   "GetMovers Forms",
+  "Paid Overflow",
 ] as const;
 
 export type FormLeadSourceLabel = (typeof FORM_LEAD_SOURCE_LABELS)[number];
@@ -160,6 +163,7 @@ export const SOURCE_LABEL_TO_COMPANY = {
   "BestRelocation Forms": "best_relocation_leads",
   "BestRelocation Locals": "best_relocation_leads",
   "BestRelocation Inbounds": "best_relocation_leads",
+  "Paid Overflow": "paid_overflow",
 } as const satisfies Record<string, SourceCompany>;
 
 export const CANCELLATION_REASONS = [
@@ -282,6 +286,8 @@ export function getFormLeadSourceLabel(
       return local === "local" ? "Best Relocation Locals" : "Best Relocation Forms";
     case "get_movers_leads":
       return "GetMovers Forms";
+    case "paid_overflow":
+      return "Paid Overflow";
     case "main_site":
     case "not_provided":
     default:
@@ -303,6 +309,8 @@ export function getCallLeadSourceLabel(sourceCompany?: string | null): CallLeadS
       return "Best Relocation Inbounds";
     case "get_movers_leads":
       return "GetMovers Inbounds";
+    case "paid_overflow":
+      return "Paid Overflow" as CallLeadSourceLabel;
     case "main_site":
     case "not_provided":
     default:

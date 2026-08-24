@@ -6,6 +6,8 @@ import {
   CREATE_IF_MISSING_COPY,
   GRANOT_ROUTE_TEMPLATES,
   GranotCrmSourceEditor,
+  GranotCrmSourceSmsCard,
+  renderGranotLeadSmsPreview,
 } from "../components/operations-registry/granot-crm-sources-manager";
 import type { GranotCrmSourceItem } from "../lib/api/registryGranotCrmSources";
 
@@ -92,8 +94,9 @@ test("Granot source editor exposes review, policy, and accessibility labels", ()
   assert.match(markup, /Lead created policy/);
   assert.match(markup, /Operational CSV enabled/);
   assert.match(markup, /Lifecycle activation/);
-  assert.match(markup, /create_if_missing \(later rollout\)/);
-  assert.match(markup, new RegExp(CREATE_IF_MISSING_COPY.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(markup, /value="create_if_missing"/);
+  assert.match(markup, /Only that policy can text the customer/);
+  assert.equal(CREATE_IF_MISSING_COPY.includes("create the lead if we don't have it"), true);
   assert.match(markup, /best relocation forms/);
   assert.match(markup, /Automation references/);
   assert.equal(
@@ -117,4 +120,40 @@ test("Admin read-only Granot source editor keeps values and hides mutations", ()
   assert.match(markup, /Admin role is read-only/);
   assert.equal(markup.includes("Save reviewed policy"), false);
   assert.equal(markup.includes("Enable lifecycle"), false);
+});
+
+test("stored create_if_missing is not downgraded in the editor", () => {
+  const markup = renderToStaticMarkup(
+    createElement(GranotCrmSourceEditor, {
+      source: { ...source, lead_created_policy: "create_if_missing" },
+      companies: [],
+      granularities: [],
+      readOnly: false,
+      isPending: false,
+      onSave() {},
+      onActivate() {},
+    }),
+  );
+  assert.match(markup, /value="create_if_missing"/);
+});
+
+test("SMS preview matches the server opt-out rule and the blocked card explains create-if-missing", () => {
+  assert.equal(
+    renderGranotLeadSmsPreview({
+      template: "Hi {first_name} from {company}. Reply STOP to opt out.",
+      first_name: "Maria",
+      company: "Best Relocation",
+    }),
+    "Hi Maria from Best Relocation. Reply STOP to opt out.",
+  );
+  const markup = renderToStaticMarkup(
+    createElement(GranotCrmSourceSmsCard, {
+      source,
+      readOnly: true,
+      onSaved() {},
+      onError() {},
+    }),
+  );
+  assert.match(markup, /Text the customer/);
+  assert.match(markup, /does not create leads yet/);
 });

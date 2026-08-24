@@ -16,13 +16,16 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { invalidateRegistryQueries } from "@/lib/api/registryInvalidation";
 import {
+  fetchGranotCrmSourceRecentSms,
   fetchGranotCrmSources,
   setGranotCrmSourceActivation,
+  setGranotCrmSourceOutboundSms,
   updateGranotCrmSource,
   type GranotCrmSourceItem,
   type GranotCrmSourceRoute,
   type GranotLeadCreatedPolicy,
   type GranotLifecycleDisposition,
+  type OutboundSmsConsentBasis,
 } from "@/lib/api/registryGranotCrmSources";
 import {
   fetchSourceCompanies,
@@ -49,7 +52,24 @@ export const GRANOT_ROUTE_TEMPLATES = [
 ] as const;
 
 export const CREATE_IF_MISSING_COPY =
-  "Lead creation remains a later rollout. This editor can only persist link_only or observation_only.";
+  "Match it, and create the lead if we don't have it. Only that policy can text the customer.";
+
+export const DEFAULT_GRANOT_SMS_TEMPLATE =
+  "Hi {first_name}, this is Vantage Movers. We got your request and we'll call you shortly to go over your move.";
+
+export const GRANOT_SMS_OPT_OUT = "Reply STOP to opt out.";
+
+export function renderGranotLeadSmsPreview(input: {
+  template: string;
+  first_name?: string;
+  company: string;
+}): string {
+  const firstName = input.first_name?.trim() || "there";
+  const rendered = input.template
+    .replaceAll("{first_name}", firstName)
+    .replaceAll("{company}", input.company);
+  return `${rendered.replace(/\s*Reply STOP to opt out\.?/gi, "").trimEnd()} ${GRANOT_SMS_OPT_OUT}`;
+}
 
 function matchingGranularities(
   granularities: SourceGranularityItem[],
@@ -182,16 +202,29 @@ export function GranotCrmSourcesManager({ readOnly }: { readOnly: boolean }) {
         {message ? <FeedbackMessage tone="success">{message}</FeedbackMessage> : null}
         {mutationError ? <RegistryApiErrorMessage error={mutationError} /> : null}
         {selected ? (
-          <GranotCrmSourceEditor
-            key={selected.id}
-            source={selected}
-            companies={companiesQuery.data ?? []}
-            granularities={granularitiesQuery.data ?? []}
-            readOnly={readOnly}
-            isPending={updateMutation.isPending || activationMutation.isPending}
-            onSave={(body) => updateMutation.mutate({ id: selected.id, body })}
-            onActivate={(body) => activationMutation.mutate({ id: selected.id, body })}
-          />
+          <>
+            <GranotCrmSourceEditor
+              key={selected.id}
+              source={selected}
+              companies={companiesQuery.data ?? []}
+              granularities={granularitiesQuery.data ?? []}
+              readOnly={readOnly}
+              isPending={updateMutation.isPending || activationMutation.isPending}
+              onSave={(body) => updateMutation.mutate({ id: selected.id, body })}
+              onActivate={(body) => activationMutation.mutate({ id: selected.id, body })}
+            />
+            <GranotCrmSourceSmsCard
+              key={`${selected.id}-sms`}
+              source={selected}
+              readOnly={readOnly}
+              onSaved={() => {
+                setMessage("Customer text settings saved.");
+                setMutationError(null);
+                void invalidateRegistryQueries(queryClient);
+              }}
+              onError={(error) => setMutationError(error)}
+            />
+          </>
         ) : sourcesQuery.isSuccess ? (
           <FeedbackMessage tone="warning">Select a Granot source to inspect.</FeedbackMessage>
         ) : null}
@@ -222,9 +255,7 @@ export function GranotCrmSourceEditor({
   const [disposition, setDisposition] = useState<GranotLifecycleDisposition>(
     source.lifecycle_disposition,
   );
-  const [policy, setPolicy] = useState<GranotLeadCreatedPolicy>(
-    source.lead_created_policy === "create_if_missing" ? "link_only" : source.lead_created_policy,
-  );
+  const [policy, setPolicy] = useState<GranotLeadCreatedPolicy>(source.lead_created_policy);
   const [companyId, setCompanyId] = useState(source.lead_source_company ?? "");
   const [routes, setRoutes] = useState<GranotCrmSourceRoute[]>(source.lifecycle_routes);
   const [reason, setReason] = useState("");
@@ -373,8 +404,8 @@ export function GranotCrmSourceEditor({
             >
               <option value="link_only">link_only</option>
               <option value="observation_only">observation_only</option>
-              <option value="create_if_missing" disabled>
-                create_if_missing (later rollout)
+              <option value="create_if_missing">
+                match it, and create the lead if we don't have it
               </option>
             </select>
           </FilterField>
@@ -520,6 +551,179 @@ export function GranotCrmSourceEditor({
             </Button>
           ) : null}
         </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function GranotCrmSourceSmsCard({
+  source,
+  readOnly,
+  onSaved,
+  onError,
+}: {
+  source: GranotCrmSourceItem;
+  readOnly: boolean;
+  onSaved: () => void;
+  onError: (error: unknown) => void;
+}) {
+  if (source.lead_created_policy !== "create_if_missing") {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Text the customer</CardTitle>
+          <CardDescription>
+            This Granot name does not create leads yet, so there is nothing to text about. Set it
+            to match it, and create the lead if we don't have it first.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+  return (
+    <GranotCrmSourceSmsForm
+      source={source}
+      readOnly={readOnly}
+      onSaved={onSaved}
+      onError={onError}
+    />
+  );
+}
+
+function GranotCrmSourceSmsForm({
+  source,
+  readOnly,
+  onSaved,
+  onError,
+}: {
+  source: GranotCrmSourceItem;
+  readOnly: boolean;
+  onSaved: () => void;
+  onError: (error: unknown) => void;
+}) {
+  const sms = source.outbound_sms;
+  const [enabled, setEnabled] = useState(sms?.enabled === true);
+  const [consentBasis, setConsentBasis] = useState<OutboundSmsConsentBasis>(
+    sms?.consent_basis ?? "not_attested",
+  );
+  const [template, setTemplate] = useState(sms?.body_template ?? DEFAULT_GRANOT_SMS_TEMPLATE);
+  const [reason, setReason] = useState("");
+  const recentQuery = useQuery({
+    queryKey: [...queryKeys.operationsRegistry.granotCrmSources(), source.id, "recent-sms"],
+    queryFn: () => fetchGranotCrmSourceRecentSms(source.id),
+  });
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      setGranotCrmSourceOutboundSms(source.id, {
+        enabled,
+        body_template: template,
+        consent_basis: consentBasis,
+        reason: reason.trim(),
+      }),
+    onSuccess: onSaved,
+    onError,
+  });
+  const preview = renderGranotLeadSmsPreview({
+    template,
+    first_name: "Maria",
+    company: source.lead_source_company_label ?? source.granot_label,
+  });
+  const renderedLength = preview.length;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Text the customer</CardTitle>
+        <CardDescription>
+          When Granot sends us a lead under this name and Vantage creates it, we can text the
+          customer once. Overnight Eastern traffic is held until 8:00 AM.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm font-medium text-navy">{sms?.enabled ? "On" : "Off"}</p>
+        <FilterField label="Why are we allowed to text these people?">
+          <select
+            className={selectClassName}
+            value={consentBasis}
+            disabled={readOnly}
+            onChange={(event) =>
+              setConsentBasis(event.target.value as OutboundSmsConsentBasis)
+            }
+          >
+            <option value="customer_submitted_form">
+              They filled out a form that reached this lead source
+            </option>
+            <option value="existing_relationship">
+              We have an active enquiry or existing business with them
+            </option>
+            <option value="not_attested">Not recorded yet — texting stays off</option>
+          </select>
+        </FilterField>
+        <FilterField label="What should it say?">
+          <textarea
+            className={`${selectClassName} min-h-24`}
+            value={template}
+            maxLength={320}
+            disabled={readOnly}
+            onChange={(event) => setTemplate(event.target.value)}
+          />
+        </FilterField>
+        <p className="text-xs text-muted-foreground">
+          You can use {"{first_name}"} and {"{company}"}. The last line is always added and can't
+          be removed.
+        </p>
+        <div className="rounded-md border border-input bg-background p-3 text-sm text-navy">
+          {preview}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {renderedLength} / 320
+          {renderedLength > 160 ? " · this will be billed as more than one text" : ""}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          We never text between midnight and 7:00 AM Eastern. Anything that would land in that
+          window is held until 8:00 AM.
+        </p>
+        <FilterField label="Why are you changing this?">
+          <Input
+            value={reason}
+            disabled={readOnly}
+            minLength={10}
+            maxLength={1000}
+            onChange={(event) => setReason(event.target.value)}
+          />
+        </FilterField>
+        {!readOnly ? (
+          <label className="flex items-center gap-2 text-sm text-navy">
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(event) => setEnabled(event.target.checked)}
+            />
+            Turn this text on
+          </label>
+        ) : null}
+        {!readOnly ? (
+          <Button
+            type="button"
+            disabled={saveMutation.isPending || reason.trim().length < 10}
+            onClick={() => saveMutation.mutate()}
+          >
+            Save customer text
+          </Button>
+        ) : null}
+        {recentQuery.data && recentQuery.data.length > 0 ? (
+          <div>
+            <h3 className="text-sm font-semibold text-navy">Recent texts</h3>
+            <ul className="mt-2 grid gap-1 text-sm">
+              {recentQuery.data.map((row) => (
+                <li key={row.id} className="text-muted-foreground">
+                  {row.sent_at ? new Date(row.sent_at).toLocaleString() : "queued"} ·{" "}
+                  {row.destination_masked} · {row.status}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

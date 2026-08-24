@@ -7,7 +7,35 @@ export type GranotLifecycleDisposition =
   | "referral_booking"
   | "deferred";
 
-export type GranotLeadCreatedPolicy = "link_only" | "observation_only";
+export type GranotLeadCreatedPolicy =
+  | "link_only"
+  | "observation_only"
+  | "create_if_missing";
+
+export type OutboundSmsConsentBasis =
+  | "not_attested"
+  | "customer_submitted_form"
+  | "existing_relationship";
+
+export type GranotCrmSourceOutboundSms = {
+  granot_crm_source_id: string;
+  enabled: boolean;
+  trigger: "granot_lead_created";
+  body_template: string;
+  template_version: number;
+  consent_basis: OutboundSmsConsentBasis;
+  daily_cap: number;
+};
+
+export type GranotCrmSourceRecentSms = {
+  id: string;
+  sent_at: string | null;
+  status: string;
+  provider_status: string | null;
+  destination_masked: string;
+  purpose: string;
+  template_version: number | null;
+};
 
 export type GranotCrmSourceRoute = {
   route_key: string;
@@ -56,6 +84,7 @@ export type GranotCrmSourceItem = {
     active: boolean;
     compatibility: GranotAutomationCompatibility;
   }>;
+  outbound_sms?: GranotCrmSourceOutboundSms;
   latest_audit?: {
     id: string;
     action: string;
@@ -120,6 +149,34 @@ export async function updateGranotCrmSource(
       body: JSON.stringify(body),
     },
   );
+}
+
+export async function setGranotCrmSourceOutboundSms(
+  id: string,
+  body: {
+    enabled: boolean;
+    body_template: string;
+    consent_basis: OutboundSmsConsentBasis;
+    daily_cap?: number;
+    reason: string;
+  },
+): Promise<GranotCrmSourceOutboundSms> {
+  return registryRequestJson<GranotCrmSourceOutboundSms>(
+    `api/v1/admin/granot-crm-sources/${encodeURIComponent(id)}/outbound-sms`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function fetchGranotCrmSourceRecentSms(
+  id: string,
+): Promise<GranotCrmSourceRecentSms[]> {
+  const data = await registryRequestJson<{ items: GranotCrmSourceRecentSms[] }>(
+    `api/v1/admin/granot-crm-sources/${encodeURIComponent(id)}/outbound-sms/recent`,
+  );
+  return data.items;
 }
 
 export async function setGranotCrmSourceActivation(
