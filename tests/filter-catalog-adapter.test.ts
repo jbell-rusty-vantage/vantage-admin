@@ -116,4 +116,7 @@ test("lead browse and edit submit source_granularity_key as the one Source Compa
   assert.doesNotMatch(analytics, /label="Source granularity"/);
   assert.doesNotMatch(analytics, /label="Source company"/);
   assert.equal((analytics.match(/label="Source Company"/g) ?? []).length, 1);
+  assert.match(analytics, /depositMixSlices/);
+  assert.match(analytics, /receiverSourceBreakdownColumns/);
+  assert.doesNotMatch(analytics, /\.slice\(0, 8\)/);
 });

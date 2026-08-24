@@ -24,7 +24,6 @@ import { StatusBadge } from "@/components/data-table/status-badge";
 import {
   isSourceCompanyHierarchyReport,
   shouldUseSourceCompanyHierarchy,
-  sourceCompanyChartLabel,
   sourceCompanyChartRows,
   SourceCompanyHierarchyTable,
   type SourceCompanyHierarchyColumn,
@@ -42,6 +41,18 @@ import {
   type AnalyticsSourceCompanyRow,
 } from "@/lib/api/admin";
 import { downloadCsvFromProxy } from "@/lib/api/csv";
+import {
+  analyticsMetadataMessage,
+  chartTooltipTitle,
+  DEPOSIT_MIX_VALUE_KEY,
+  depositMixSlices,
+  formatAnalyticsLeadType,
+  genericAnalyticsColumnKeys,
+  isAnalyticsMoneyKey,
+  receiverAgentDisplayName,
+  receiverSourceBreakdownColumns,
+  receiverSourceLabel,
+} from "@/lib/analytics/presentation";
 import {
   selectedSourceGranularityKey,
   sourceCompanyOptionsForLeadType,
@@ -208,7 +219,7 @@ function humanizeKey(value: string): string {
 }
 
 function isMoneyKey(key: string): boolean {
-  return /amount|revenue|deposit|binder|refund|total_lead_cost|cpl|cost/i.test(key);
+  return isAnalyticsMoneyKey(key);
 }
 
 function isRateKey(key: string): boolean {
@@ -227,7 +238,10 @@ function formatCompact(value: number): string {
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
 
-function formatCellValue(key: string, value: unknown): string {
+function formatCellValue(key: string, value: unknown, row?: Record<string, unknown>): string {
+  if (key === "receiver_agent_name" && row) return receiverAgentDisplayName(row);
+  if (key === "source_granularity_label" && row) return receiverSourceLabel(row);
+  if (key === "lead_type") return formatAnalyticsLeadType(value);
   if (value === null || value === undefined || value === "") return "-";
   if (typeof value === "number") {
     if (isRateKey(key)) return `${(value * 100).toFixed(1)}%`;
@@ -316,12 +330,12 @@ function ChartFrame({ children, className }: { children: React.ReactNode; classN
   );
 }
 
-function ChartTooltip({ active, payload, label, valueKey }: { active?: boolean; payload?: { value?: number }[]; label?: string | number; valueKey: string }) {
+function ChartTooltip({ active, payload, label, valueKey }: { active?: boolean; payload?: { name?: string; value?: number }[]; label?: string | number; valueKey: string }) {
   if (!active || !payload?.length) return null;
   const value = Number(payload[0]?.value ?? 0);
   return (
     <div className="rounded-md border bg-background px-3 py-2 text-xs shadow-md">
-      <p className="font-medium">{String(label)}</p>
+      <p className="font-medium">{chartTooltipTitle(payload, label)}</p>
       <p className="text-muted-foreground">{humanizeKey(valueKey)}: {formatCellValue(valueKey, value)}</p>
     </div>
   );
@@ -356,15 +370,19 @@ function buildFilters(filters: Record<string, unknown>, scope: DatabaseScope, ta
   return next;
 }
 
-function columnsForRows(rows: Record<string, unknown>[]): DataTableColumn<Record<string, unknown>>[] {
-  const keys = Object.keys(rows[0] ?? {}).filter(
-    (key) => key !== "_id" && key !== "granularities",
-  );
-  return keys.map((key) => ({
-    key,
-    header: humanizeKey(key),
-    cell: (row) => formatCellValue(key, row[key]),
-    sticky: key === "receiver_agent_name" || key === "label" ? "left" : undefined,
+function columnsForRows(
+  rows: Record<string, unknown>[],
+  reportId?: AnalyticsReport,
+): DataTableColumn<Record<string, unknown>>[] {
+  const specs =
+    reportId === "receiver-agent-source-breakdown"
+      ? receiverSourceBreakdownColumns()
+      : genericAnalyticsColumnKeys(rows).map((key) => ({ key, header: humanizeKey(key) }));
+  return specs.map((column) => ({
+    key: column.key,
+    header: column.header,
+    cell: (row) => formatCellValue(column.key, row[column.key], row),
+    sticky: column.key === "receiver_agent_name" || column.key === "label" ? "left" : undefined,
   }));
 }
 
@@ -474,23 +492,19 @@ function SummaryKpis({ filters }: { filters: SerializableFilters }) {
 
 function ReportChart({ rows, report }: { rows: Record<string, unknown>[]; report: ReportConfig }) {
   if (report.kind === "table") {
-    return <DataTable items={rows.slice(0, 12)} getRowKey={(row) => `${String(row.receiver_agent_id ?? row.label ?? row.period ?? "")}-${String(row.source_label ?? "")}-${String(row.lead_type ?? "")}`} columns={columnsForRows(rows).slice(0, 8)} horizontalControls />;
+    const tableRows = report.id === "receiver-agent-source-breakdown" ? rows : rows.slice(0, 12);
+    return <DataTable items={tableRows} getRowKey={(row) => `${String(row.receiver_agent_id ?? row.label ?? row.period ?? "")}-${String(row.source_granularity_label ?? row.source_label ?? "")}-${String(row.lead_type ?? "")}`} columns={columnsForRows(rows, report.id)} horizontalControls />;
   }
   if (report.kind === "pie") {
-    const { labelKey, valueKey } = chartKeys(rows);
-    const items = rows
-      .map((row) => ({ name: sourceCompanyChartLabel(row, row[labelKey]), value: Number(row.total_deposit_amount ?? row[valueKey] ?? 0) }))
-      .filter((row) => row.value > 0)
-      .sort((left, right) => right.value - left.value)
-      .slice(0, 8);
+    const items = depositMixSlices(rows);
     return (
-      <ChartFrame className="h-80">
+      <ChartFrame className="h-96">
         <PieChart>
           <Pie data={items} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={100} paddingAngle={2}>
             {items.map((_, index) => <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
           </Pie>
-          <Tooltip content={<ChartTooltip valueKey={valueKey} />} />
-          <Legend verticalAlign="bottom" height={36} iconType="circle" />
+          <Tooltip content={<ChartTooltip valueKey={DEPOSIT_MIX_VALUE_KEY} />} />
+          <Legend verticalAlign="bottom" height={72} iconType="circle" />
         </PieChart>
       </ChartFrame>
     );
@@ -541,13 +555,14 @@ function ReportPanel({ report, filters }: { report: ReportConfig; filters: Seria
   const rows = flattenRows(query.data?.data);
   const chartRows = parentCompanyChartRows(rows, report.id);
   const metadata = isRecord(query.data?.data?.metadata) ? query.data.data.metadata : undefined;
+  const metadataMessage = analyticsMetadataMessage(report.id, str(filters.database_scope), metadata);
   return (
     <section className="rounded-lg border bg-background p-4">
       <div className="mb-3">
         <h2 className="text-sm font-semibold">{report.label}</h2>
         <p className="text-xs text-muted-foreground">{report.description}</p>
       </div>
-      {metadata?.message ? <FeedbackMessage className="mb-3">{String(metadata.message)}</FeedbackMessage> : null}
+      {metadataMessage ? <FeedbackMessage className="mb-3">{metadataMessage}</FeedbackMessage> : null}
       {query.isLoading ? <TableLoadingState label="Loading analytics..." /> : null}
       {query.isError ? <TableErrorState error={query.error instanceof Error ? query.error.message : undefined} /> : null}
       {chartRows.length ? <ReportChart rows={chartRows} report={report} /> : query.data ? <FeedbackMessage>No analytics data for these filters.</FeedbackMessage> : null}
@@ -595,6 +610,7 @@ function TableView({ report, filters }: { report: ReportConfig; filters: Seriali
     : [];
   const showHierarchy = shouldUseSourceCompanyHierarchy(report.id, hierarchyRows);
   const metadata = isRecord(query.data?.data?.metadata) ? query.data.data.metadata : undefined;
+  const metadataMessage = analyticsMetadataMessage(report.id, str(filters.database_scope), metadata);
   return (
     <section className="space-y-3 rounded-lg border bg-background p-4">
       <div>
@@ -604,7 +620,7 @@ function TableView({ report, filters }: { report: ReportConfig; filters: Seriali
         </p>
       </div>
       {query.data?.generated_at ? <p className="text-xs text-muted-foreground">Last generated {new Date(query.data.generated_at).toLocaleString()}</p> : null}
-      {metadata?.message ? <FeedbackMessage>{String(metadata.message)}</FeedbackMessage> : null}
+      {metadataMessage ? <FeedbackMessage>{metadataMessage}</FeedbackMessage> : null}
       {query.isLoading ? <TableLoadingState label="Loading table..." /> : null}
       {query.isError ? <TableErrorState error={query.error instanceof Error ? query.error.message : undefined} /> : null}
       {showHierarchy ? (
@@ -615,7 +631,7 @@ function TableView({ report, filters }: { report: ReportConfig; filters: Seriali
           stickyHeader
         />
       ) : rows.length ? (
-        <DataTable items={rows} getRowKey={(row) => `${String(row._id ?? row.receiver_agent_id ?? row.period ?? row.label ?? "")}-${String(row.source_label ?? "")}-${String(row.lead_type ?? "")}`} columns={columnsForRows(rows)} horizontalControls stickyHeader />
+        <DataTable items={rows} getRowKey={(row) => `${String(row._id ?? row.receiver_agent_id ?? row.period ?? row.label ?? "")}-${String(row.source_granularity_label ?? row.source_label ?? "")}-${String(row.lead_type ?? "")}`} columns={columnsForRows(rows, report.id)} horizontalControls stickyHeader />
       ) : query.data ? (
         <FeedbackMessage>No table rows for these filters.</FeedbackMessage>
       ) : null}
