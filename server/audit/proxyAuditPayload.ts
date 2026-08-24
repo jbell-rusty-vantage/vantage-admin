@@ -207,6 +207,13 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function officialAllocationCount(official: Record<string, unknown>): number {
+  if (!hasValue(official.primary_agent_id)) {
+    return 0;
+  }
+  return hasValue(official.secondary_agent_id) ? 2 : 1;
+}
+
 function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
 }
@@ -509,7 +516,7 @@ function sanitizeGranotLifecycleAuditBody(
       expected_case_revision: record.expected_case_revision,
       selected_lead_model: readString(selectedLead.lead_model),
       selected_lead_id: readString(selectedLead.lead_id),
-      allocation_count: Array.isArray(official.agent_allocations) ? official.agent_allocations.length : 0,
+      allocation_count: officialAllocationCount(official),
       override_reason_present: hasValue(record.out_of_scope_override_reason),
       official_details_present: hasValue(record.official_booking_details),
     };
@@ -521,7 +528,7 @@ function sanitizeGranotLifecycleAuditBody(
       case_id: pathSegment(path, "booking-cases"),
       expected_case_revision: record.expected_case_revision,
       expected_booking_revision: record.expected_booking_revision,
-      allocation_count: Array.isArray(official.agent_allocations) ? official.agent_allocations.length : 0,
+      allocation_count: officialAllocationCount(official),
       official_details_present: hasValue(record.official_booking_details),
     };
   }
@@ -558,7 +565,7 @@ function sanitizeGranotLifecycleAuditBody(
       case_id: pathSegment(path, "release-cases"),
       expected_case_revision: record.expected_case_revision,
       expected_booking_revision: record.expected_booking_revision,
-      allocation_count: Array.isArray(official.agent_allocations) ? official.agent_allocations.length : 0,
+      allocation_count: officialAllocationCount(official),
       official_details_present: hasValue(record.official_booking_details),
     };
   }

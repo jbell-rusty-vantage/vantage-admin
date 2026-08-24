@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { IntakeList } from "./intake-list";
 import {
@@ -27,7 +27,7 @@ const TABS = [
   {
     id: "booking" as const,
     label: "Booking intakes",
-    summary: "Granot marked a lead booked (priority 5) or recorded a booking.",
+    summary: "Granot recorded a Booked job.",
   },
   {
     id: "cancellation" as const,
@@ -46,11 +46,14 @@ function parseState(value: string | null): IntakeState {
   return value === "resolved" ? "resolved" : "open";
 }
 
+export const INTAKE_PAGE_SIZE = 10;
+
 function buildIntakesHref(input: {
   tab: IntakeKind;
   state: IntakeState;
   job?: string;
   cursor?: string;
+  cursors?: string[];
   caseId?: string;
 }): string {
   const params = new URLSearchParams();
@@ -58,9 +61,31 @@ function buildIntakesHref(input: {
   if (input.state === "resolved") params.set("state", "resolved");
   if (input.job?.trim()) params.set("job", input.job.trim());
   if (input.cursor) params.set("cursor", input.cursor);
+  if (input.cursors?.length) params.set("cursors", JSON.stringify(input.cursors));
   if (input.caseId) params.set("case", input.caseId);
   const query = params.toString();
   return query ? `${INTAKES_HREF}?${query}` : INTAKES_HREF;
+}
+
+export function parseCursorHistory(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is string => typeof item === "string");
+  } catch {
+    return [];
+  }
+}
+
+export function pushCursorHistory(history: string[], currentCursor?: string): string[] {
+  return [...history, currentCursor ?? ""];
+}
+
+export function popCursorHistory(history: string[]): { cursor?: string; history: string[] } {
+  if (history.length === 0) return { cursor: undefined, history: [] };
+  const cursor = history[history.length - 1];
+  return { cursor: cursor || undefined, history: history.slice(0, -1) };
 }
 
 function formatCheckedAt(timestamp: number | undefined): string {
@@ -84,9 +109,9 @@ export function IntakesHeader({
         <h1 className="text-2xl font-semibold text-navy">Intakes</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           This is the waiting room for Granot booking and cancellation work. A case appears when
-          Granot sets a lead to priority 5, records a booking, or cancels a job. Choose a case,
-          then enter official binder, deposit, agents, and merchant from the same catalog as a
-          normal booking. Granot is not creating those official records for you.
+          Granot records a Booked job or cancels a job. Choose a case, then enter one binder amount,
+          up to two agents, deposit, and merchant from the same catalog as a normal booking. Granot is not
+          creating those official records for you.
         </p>
       </div>
       <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -108,6 +133,48 @@ export function IntakesHeader({
   );
 }
 
+export function IntakesPagination({
+  page,
+  hasPrevious,
+  hasNext,
+  loading,
+  onPrevious,
+  onNext,
+}: {
+  page: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+  loading?: boolean;
+  onPrevious?: () => void;
+  onNext?: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
+      <p className="text-sm text-muted-foreground" role="status">
+        Page {page}
+      </p>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!hasPrevious || loading}
+          onClick={onPrevious}
+        >
+          Previous
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!hasNext || loading}
+          onClick={onNext}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function IntakesDashboardView({
   kind,
   state,
@@ -116,19 +183,31 @@ export function IntakesDashboardView({
   error,
   selectedCaseId,
   job,
+  page = 1,
+  hasNextPage = false,
+  paging,
+  onPrevious,
+  onNext,
 }: {
   kind: IntakeKind;
   state: IntakeState;
-  data?: { items?: GranotLifecycleCaseListItem[] };
+  data?: { items?: GranotLifecycleCaseListItem[]; next_cursor?: string | null };
   loading?: boolean;
   error?: string;
   selectedCaseId?: string;
   job?: string;
+  page?: number;
+  hasNextPage?: boolean;
+  paging?: boolean;
+  onPrevious?: () => void;
+  onNext?: () => void;
 }) {
   const title = kind === "cancellation" ? "Cancellation intakes" : "Booking intakes";
   const description = kind === "cancellation"
     ? "Choose a cancelled job, then finish official cancellation details."
-    : "Choose a booked job, then finish the official booking: lead, binder, deposit, agents, and merchant.";
+    : "Choose a booked job, then finish the official booking: lead, one binder amount, up to two agents, deposit, and merchant.";
+  const itemCount = data?.items?.length ?? 0;
+  const showPager = itemCount > 0 || page > 1;
 
   return (
     <Card>
@@ -140,13 +219,25 @@ export function IntakesDashboardView({
         {loading ? <p role="status" className="text-sm text-muted-foreground">Loading intakes…</p> : null}
         {error ? <FeedbackMessage tone="error">{error}</FeedbackMessage> : null}
         {!loading && !error ? (
-          <IntakeList
-            kind={kind}
-            items={data?.items ?? []}
-            emptyMessage={intakeEmptyMessage(kind, state)}
-            selectedCaseId={selectedCaseId}
-            listQuery={{ state, job }}
-          />
+          <>
+            <IntakeList
+              kind={kind}
+              items={data?.items ?? []}
+              emptyMessage={intakeEmptyMessage(kind, state)}
+              selectedCaseId={selectedCaseId}
+              listQuery={{ state, job }}
+            />
+            {showPager ? (
+              <IntakesPagination
+                page={page}
+                hasPrevious={page > 1}
+                hasNext={hasNextPage}
+                loading={paging}
+                onPrevious={onPrevious}
+                onNext={onNext}
+              />
+            ) : null}
+          </>
         ) : null}
       </CardContent>
     </Card>
@@ -160,8 +251,10 @@ export function IntakesDashboard() {
   const state = parseState(searchParams?.get("state") ?? null);
   const job = searchParams?.get("job") ?? "";
   const cursor = searchParams?.get("cursor") ?? undefined;
+  const cursorHistory = parseCursorHistory(searchParams?.get("cursors") ?? null);
   const selectedCaseId = searchParams?.get("case") ?? "";
   const [jobDraft, setJobDraft] = useState(job);
+  const page = Math.max(cursorHistory.length + 1, cursor ? 2 : 1);
 
   const filters = useMemo(() => ({
     kind: tab === "cancellation" ? "release" as const : "booking" as const,
@@ -169,21 +262,30 @@ export function IntakesDashboard() {
     normalized_job_no: job.trim() || undefined,
     sort: "last_evidence_at" as const,
     order: "desc" as const,
-    limit: 25,
+    limit: INTAKE_PAGE_SIZE,
     cursor,
   }), [tab, state, job, cursor]);
 
   const query = useQuery({
     queryKey: queryKeys.granotLifecycle.cases(filters),
     queryFn: () => fetchGranotLifecycleCases(filters),
+    placeholderData: keepPreviousData,
   });
 
-  function go(next: { tab?: IntakeKind; state?: IntakeState; job?: string; cursor?: string; caseId?: string }) {
+  function go(next: {
+    tab?: IntakeKind;
+    state?: IntakeState;
+    job?: string;
+    cursor?: string;
+    cursors?: string[];
+    caseId?: string;
+  }) {
     const href = buildIntakesHref({
       tab: next.tab ?? tab,
       state: next.state ?? state,
       job: next.job ?? job,
       cursor: next.cursor,
+      cursors: next.cursors,
       caseId: next.caseId,
     });
     router.push(href);
@@ -287,30 +389,36 @@ export function IntakesDashboard() {
       {selectedCaseId ? (
         <GranotLifecycleCasePage
           caseId={selectedCaseId}
-          returnTo={buildIntakesHref({ tab, state, job })}
+          returnTo={buildIntakesHref({ tab, state, job, cursor, cursors: cursorHistory })}
           backLabel="Back to waiting cases"
         />
       ) : (
-        <>
-          <IntakesDashboardView
-            kind={tab}
-            state={state}
-            data={query.data}
-            loading={query.isPending}
-            error={undefined}
-            job={job}
-          />
-
-          {query.data?.next_cursor ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => go({ cursor: query.data?.next_cursor ?? undefined })}
-            >
-              Show more
-            </Button>
-          ) : null}
-        </>
+        <IntakesDashboardView
+          kind={tab}
+          state={state}
+          data={query.data}
+          loading={query.isPending}
+          error={undefined}
+          job={job}
+          page={page}
+          hasNextPage={Boolean(query.data?.next_cursor)}
+          paging={query.isFetching}
+          onPrevious={() => {
+            if (cursorHistory.length === 0) {
+              go({ cursor: undefined, cursors: [] });
+              return;
+            }
+            const previous = popCursorHistory(cursorHistory);
+            go({ cursor: previous.cursor, cursors: previous.history });
+          }}
+          onNext={() => {
+            if (!query.data?.next_cursor) return;
+            go({
+              cursor: query.data.next_cursor,
+              cursors: pushCursorHistory(cursorHistory, cursor),
+            });
+          }}
+        />
       )}
     </div>
   );

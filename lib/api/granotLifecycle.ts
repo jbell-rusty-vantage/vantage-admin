@@ -29,6 +29,41 @@ export type GranotLifecycleCaseListFilters = {
   limit?: number;
 };
 
+export type BookingPriorityPairingClass =
+  | "priority_5_then_booked"
+  | "booked_carries_priority_5"
+  | "booked_without_priority_5";
+
+export type BookingPriorityPairingProjection = {
+  pairing: BookingPriorityPairingClass;
+  creating_booked: {
+    observation_id: string;
+    receipt_id: string;
+    captured_at: string;
+    route_event_class?: string;
+    payload_event_type_raw?: string;
+    priority_canonical?: string;
+    priority_valid: boolean;
+    priority_is_5: boolean;
+  };
+  preceding_priority_5?: {
+    observation_id: string;
+    receipt_id: string;
+    captured_at: string;
+    route_event_class: "priority_updated";
+    payload_event_type_raw?: string;
+    priority_canonical: "5";
+  };
+  later_priority_5?: {
+    observation_id: string;
+    receipt_id: string;
+    captured_at: string;
+    route_event_class: "priority_updated";
+    payload_event_type_raw?: string;
+    priority_canonical: "5";
+  };
+};
+
 export type GranotLifecycleCaseListItem = {
   case_id: string;
   kind: "booking" | "release";
@@ -47,6 +82,12 @@ export type GranotLifecycleCaseListItem = {
   opened_at: string;
   last_evidence_at: string;
   resolved_at?: string;
+  priority_pairing?: {
+    pairing: BookingPriorityPairingClass;
+    creating_booked_priority_is_5: boolean;
+    has_preceding_priority_5: boolean;
+    has_later_priority_5: boolean;
+  };
 };
 
 export type GranotLifecycleCaseListPage = {
@@ -255,6 +296,7 @@ export type GranotLifecycleCaseDetail = {
     release_cases: boolean;
     discrepancies: boolean;
   };
+  priority_pairing?: BookingPriorityPairingProjection | null;
 };
 
 export type CreatingObservationSelection = "preferred_booked" | "latest_creating";
@@ -290,6 +332,8 @@ export type BookingIntakeCreatingObservation = {
     agent_identity?: Record<string, unknown>;
   };
   granot_statement: unknown;
+  priority_pairing?: BookingPriorityPairingProjection | null;
+  paired_priority_5_observation?: BookingIntakeCreatingObservation["observation"];
 };
 
 export type SafeContact = { name?: string; phone_number?: string; email?: string };
@@ -353,10 +397,11 @@ export type ConfirmGranotBookingBody = {
   out_of_scope_override_reason?: string;
   official_booking_details: {
     book_date: string;
-    agent_allocations: Array<{ agent_id: string; binder_amount: number }>;
-    total_binder_amount: number;
     deposit_amount: number;
+    total_binder_amount: number;
     merchant_id: string;
+    primary_agent_id: string;
+    secondary_agent_id?: string;
   };
 };
 
@@ -656,6 +701,8 @@ export function asBookingIntakeCreatingObservation(
       move: {},
     },
     granot_statement: record.granot_statement ?? null,
+    priority_pairing: record.priority_pairing ?? null,
+    paired_priority_5_observation: record.paired_priority_5_observation,
   };
 }
 

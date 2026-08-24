@@ -79,7 +79,7 @@ test("[AC-32] Granot booking confirm audit excludes money, catalog IDs, and over
       out_of_scope_override_reason: "Sensitive correction prose must not persist",
       official_booking_details: {
         book_date: "2026-08-19", deposit_amount: 12.34, total_binder_amount: 50,
-        merchant_id: "merchant-secret", agent_allocations: [{ agent_id: "agent-secret", binder_amount: 50 }],
+        merchant_id: "merchant-secret", primary_agent_id: "agent-secret",
       },
     },
   });
@@ -107,7 +107,7 @@ test("[AC-24][AC-32] Granot update and No Action audits retain only bounded meta
       expected_booking_revision: 8,
       official_booking_details: {
         book_date: "2026-08-19", deposit_amount: 12.34, total_binder_amount: 50,
-        merchant_id: "merchant-secret", agent_allocations: [{ agent_id: "agent-secret", binder_amount: 50 }],
+        merchant_id: "merchant-secret", primary_agent_id: "agent-secret",
       },
     },
   });
@@ -148,7 +148,7 @@ test("[AC-28] Referral create audit excludes contact, Job, money, and catalog ID
       expected_case_revision: 4,
       official_booking_details: {
         book_date: "2026-08-19", deposit_amount: 12.34, total_binder_amount: 50,
-        merchant_id: "merchant-secret", agent_allocations: [{ agent_id: "agent-secret", binder_amount: 50 }],
+        merchant_id: "merchant-secret", primary_agent_id: "agent-secret",
       },
     },
   });
@@ -178,7 +178,7 @@ test("[AC-25][AC-32] Granot Release audits exclude official values and owner pro
 
   const update = buildProxyAuditRequestPayload({
     method: "POST", path: "api/v1/admin/granot-lifecycle/release-cases/case-1/update-booking",
-    body: { expected_case_revision: 4, expected_booking_revision: 8, official_booking_details: { merchant_id: "merchant-secret", agent_allocations: [{ agent_id: "agent-secret", binder_amount: 50 }] } },
+    body: { expected_case_revision: 4, expected_booking_revision: 8, official_booking_details: { merchant_id: "merchant-secret", primary_agent_id: "agent-secret" } },
   });
   assert.equal(update.operation, "granot_release_update_booking");
   assert.equal(update.allocation_count, 1);

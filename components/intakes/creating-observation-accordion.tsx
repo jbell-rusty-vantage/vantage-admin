@@ -7,9 +7,15 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import {
   fetchBookingIntakeCreatingObservation,
   type BookingIntakeCreatingObservation,
+  type BookingPriorityPairingProjection,
 } from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
-import { creatingObservationSummary, creatingObservationTitle } from "./intake-copy";
+import {
+  creatingObservationSummary,
+  creatingObservationTitle,
+  intakeJobHref,
+  intakePairingClassLabel,
+} from "./intake-copy";
 
 function formatJson(value: unknown): string {
   try {
@@ -19,6 +25,64 @@ function formatJson(value: unknown): string {
   }
 }
 
+export function PriorityPairingSection({
+  pairing,
+  normalizedJobNo,
+}: {
+  pairing: BookingPriorityPairingProjection | null | undefined;
+  normalizedJobNo?: string;
+}) {
+  if (!pairing) return null;
+  const warning = pairing.pairing === "booked_without_priority_5";
+  return (
+    <section aria-labelledby="priority-pairing-heading" className="space-y-2">
+      <h3 id="priority-pairing-heading" className="text-sm font-semibold text-navy">
+        Priority pairing
+      </h3>
+      <p className={warning ? "text-sm font-medium text-amber-800" : "text-sm"}>
+        {intakePairingClassLabel(pairing.pairing)}
+      </p>
+      <dl className="grid gap-2 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-xs text-muted-foreground">Creating Booked Priority</dt>
+          <dd>
+            {pairing.creating_booked.priority_valid
+              ? pairing.creating_booked.priority_canonical ?? "—"
+              : "invalid or missing"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Creating Booked Observation</dt>
+          <dd className="break-all font-mono text-xs">{pairing.creating_booked.observation_id}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Preceding Priority 5</dt>
+          <dd>
+            {pairing.preceding_priority_5
+              ? `${formatDateTime(pairing.preceding_priority_5.captured_at)} · ${pairing.preceding_priority_5.observation_id}`
+              : "None"}
+          </dd>
+        </div>
+        {pairing.later_priority_5 ? (
+          <div>
+            <dt className="text-xs text-muted-foreground">Later Priority 5</dt>
+            <dd>
+              {formatDateTime(pairing.later_priority_5.captured_at)} · {pairing.later_priority_5.observation_id}
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+      {normalizedJobNo ? (
+        <p className="text-xs">
+          <a className="text-trust-blue hover:underline" href={intakeJobHref(normalizedJobNo)}>
+            Open job timeline
+          </a>
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export function CreatingObservationView({
   data,
 }: {
@@ -26,6 +90,10 @@ export function CreatingObservationView({
 }) {
   return (
     <div className="space-y-4">
+      <PriorityPairingSection
+        pairing={data.priority_pairing}
+        normalizedJobNo={data.normalized_job_no}
+      />
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-xs text-muted-foreground">Captured</dt>

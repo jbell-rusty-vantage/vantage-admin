@@ -178,6 +178,54 @@ test("booking case detail can render the creating observation accordion", () => 
   assert.equal(releaseMarkup.includes("Granot Booked payload"), false);
 });
 
+test("booking case detail shows Priority pairing without opening raw JSON", () => {
+  const markup = renderToStaticMarkup(createElement(CaseDetail, {
+    detail: detail({
+      priority_pairing: {
+        pairing: "booked_without_priority_5",
+        creating_booked: {
+          observation_id: "observation-booked",
+          receipt_id: "receipt-booked",
+          captured_at: "2026-08-22T15:00:00.000Z",
+          priority_valid: false,
+          priority_is_5: false,
+        },
+      },
+    }),
+  }));
+  assert.match(markup, /Priority pairing/);
+  assert.match(markup, /Booked without Priority 5/);
+  assert.match(markup, /observation-booked/);
+});
+
+test("booking case detail shows best-case Priority 5 then Booked pairing", () => {
+  const markup = renderToStaticMarkup(createElement(CaseDetail, {
+    detail: detail({
+      priority_pairing: {
+        pairing: "priority_5_then_booked",
+        creating_booked: {
+          observation_id: "observation-booked",
+          receipt_id: "receipt-booked",
+          captured_at: "2026-08-22T15:00:00.000Z",
+          priority_valid: true,
+          priority_is_5: true,
+          priority_canonical: "5",
+        },
+        preceding_priority_5: {
+          observation_id: "observation-priority",
+          receipt_id: "receipt-priority",
+          captured_at: "2026-08-22T14:00:00.000Z",
+          route_event_class: "priority_updated",
+          priority_canonical: "5",
+        },
+      },
+    }),
+  }));
+  assert.match(markup, /Priority pairing/);
+  assert.match(markup, /Priority 5 then Booked/);
+  assert.match(markup, /observation-priority/);
+});
+
 test("case detail can return to Intakes when opened from that queue", () => {
   const markup = renderToStaticMarkup(createElement(CaseDetail, {
     detail: detail(),
@@ -244,7 +292,7 @@ test("[AC-22][AC-32] enabled Owner command renders blank labeled fields and an e
   const form = createElement(QueryClientProvider, { client: queryClient },
     createElement(BookingCommandForm, { detail: commandDetail }));
   const formMarkup = renderToStaticMarkup(form);
-  for (const label of ["Confirm Granot Booking", "Book Date", "Deposit Amount", "Total Binder Amount", "Active Merchant", "Active Agent 1", "Binder Amount 1", "Review Booking", "1. Choose the matching lead", "2. Official booking details", "Operations Registry catalog"]) {
+  for (const label of ["Confirm Granot Booking", "Book Date", "Deposit Amount", "Binder amount", "Active Merchant", "Primary Agent", "Secondary Agent", "Review Booking", "1. Choose the matching lead", "2. Official booking details", "Operations Registry catalog"]) {
     assert.match(formMarkup, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
   assert.match(formMarkup, /value=""/);

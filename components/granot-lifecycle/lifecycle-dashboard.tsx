@@ -161,7 +161,7 @@ export function LifecycleDashboard() {
         <CardHeader>
           <CardTitle>Booking and cancellation cases moved</CardTitle>
           <CardDescription>
-            When Granot sets a lead to priority 5, records a booking, or cancels a job, review that work in Intakes.
+            When Granot records a booking or cancels a job, review that work in Intakes.
             This page stays for the technical queue, discrepancies, and health.
           </CardDescription>
         </CardHeader>

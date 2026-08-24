@@ -13,7 +13,10 @@ import {
   type GranotTimelinePage,
 } from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
-import { CreatingObservationAccordion } from "@/components/intakes/creating-observation-accordion";
+import {
+  CreatingObservationAccordion,
+  PriorityPairingSection,
+} from "@/components/intakes/creating-observation-accordion";
 import { intakeCaseHowToFinish, isAllowedIntakeReturn } from "@/components/intakes/intake-copy";
 import { JobTimeline } from "./job-timeline";
 import { LeadCandidateBrowser } from "./lead-candidate-browser";
@@ -159,6 +162,21 @@ export function CaseDetail({
       ) : null}
 
       {ownerAction}
+
+      {detail.kind === "booking" && detail.priority_pairing ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Priority pairing</CardTitle>
+            <CardDescription>Audit of the creating Booked Observation and any Priority 5 on this job.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PriorityPairingSection
+              pairing={detail.priority_pairing}
+              normalizedJobNo={detail.normalized_job_no}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
 
       {creatingObservation}
 

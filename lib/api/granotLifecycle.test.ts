@@ -106,7 +106,7 @@ test("[AC-21][AC-22] confirm uses the authenticated proxy and forwards one idemp
     selected_lead: { lead_model: "FormLead" as const, lead_id: "aaaaaaaaaaaaaaaaaaaaaaaa" },
     official_booking_details: {
       book_date: "2026-08-19",
-      agent_allocations: [{ agent_id: "bbbbbbbbbbbbbbbbbbbbbbbb", binder_amount: 10 }],
+      primary_agent_id: "bbbbbbbbbbbbbbbbbbbbbbbb",
       total_binder_amount: 10,
       deposit_amount: 5,
       merchant_id: "cccccccccccccccccccccccc",
@@ -131,7 +131,7 @@ test("[AC-21][AC-24][AC-32] update and No Action use only their exact authentica
     expected_booking_revision: 1,
     official_booking_details: {
       book_date: "2026-08-19",
-      agent_allocations: [{ agent_id: "b".repeat(24), binder_amount: 10 }],
+      primary_agent_id: "b".repeat(24),
       total_binder_amount: 10,
       deposit_amount: 5,
       merchant_id: "c".repeat(24),
@@ -165,7 +165,7 @@ test("[AC-28] Referral create sends only official details through the exact prox
     expected_case_revision: 1,
     official_booking_details: {
       book_date: "2026-08-19",
-      agent_allocations: [{ agent_id: "b".repeat(24), binder_amount: 10 }],
+      primary_agent_id: "b".repeat(24),
       total_binder_amount: 10,
       deposit_amount: 5,
       merchant_id: "c".repeat(24),
@@ -198,7 +198,7 @@ test("[AC-21][AC-25][AC-32] Release commands use exact proxy paths, bodies, and 
   calls = mockFetch(response);
   const updateBody = {
     expected_case_revision: 1, expected_booking_revision: 1,
-    official_booking_details: { book_date: "2026-08-19", agent_allocations: [{ agent_id: "b".repeat(24), binder_amount: 10 }], total_binder_amount: 10, deposit_amount: 5, merchant_id: "c".repeat(24) },
+    official_booking_details: { book_date: "2026-08-19", primary_agent_id: "b".repeat(24), total_binder_amount: 10, deposit_amount: 5, merchant_id: "c".repeat(24) },
   };
   await updateGranotReleaseBooking("case/one", updateBody, "unit27-update-key");
   assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/release-cases/case%2Fone/update-booking");

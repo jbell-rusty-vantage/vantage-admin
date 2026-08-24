@@ -12,6 +12,7 @@ import {
   intakeKindFromCase,
   intakeKindLabel,
   intakeNextStep,
+  intakePairingLine,
   intakeStatusLabel,
   intakeWhatVantageHas,
   intakeWhyHere,
@@ -102,6 +103,18 @@ export function IntakeList({
                 </td>
                 <td className="px-3 py-3 align-top">
                   <p>{intakeWhyHere(item.latest_action)}</p>
+                  {(() => {
+                    const pairing = intakePairingLine(item.priority_pairing);
+                    if (!pairing) return null;
+                    return (
+                      <p className={cn(
+                        "mt-1 text-xs",
+                        pairing.tone === "warning" ? "font-medium text-amber-800" : "text-muted-foreground",
+                      )}>
+                        {pairing.text}
+                      </p>
+                    );
+                  })()}
                   <p className="mt-1 text-xs text-muted-foreground">
                     {item.evidence_count === 1
                       ? "1 Granot update on this job"
