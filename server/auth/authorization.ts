@@ -109,8 +109,8 @@ export function canProxyVantagePath(input: {
     path.startsWith(`${GRANOT_LIFECYCLE_PREFIX}/`)
   ) {
     // Standard lifecycle reads are available to signed Owner/Admin actors.
-    // Candidate browsing exposes normalized owner-work contact and is Owner-only.
-    if (/\/cases\/[^/]+\/candidates$/.test(path)) {
+    // Candidate browsing and creating-observation statements are Owner-only.
+    if (/\/cases\/[^/]+\/(candidates|creating-observation)$/.test(path)) {
       return false;
     }
     return input.method === "GET";

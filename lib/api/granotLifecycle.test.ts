@@ -4,6 +4,7 @@ import {
   fetchGranotJobTimeline,
   fetchGranotLeadTimeline,
   fetchGranotLifecycleCandidates,
+  fetchBookingIntakeCreatingObservation,
   fetchGranotLifecycleCase,
   fetchGranotLifecycleCases,
   confirmGranotBooking,
@@ -248,6 +249,26 @@ test("case detail fails closed when the proxy body has no case_id", async () => 
       return true;
     },
   );
+});
+
+test("creating observation uses an encoded booking-case identity through the authenticated proxy", async () => {
+  const calls = mockFetch({
+    ok: true,
+    data: {
+      case_id: "case/one",
+      observation_id: "obs-1",
+      receipt_id: "receipt-1",
+      selection: "preferred_booked",
+      granot_statement: { event_type: "Booked" },
+    },
+  });
+  const result = await fetchBookingIntakeCreatingObservation("case/one");
+  assert.equal(
+    calls[0]?.input,
+    "/api/proxy/api/v1/admin/granot-lifecycle/cases/case%2Fone/creating-observation",
+  );
+  assert.equal(result.selection, "preferred_booked");
+  assert.deepEqual(result.granot_statement, { event_type: "Booked" });
 });
 
 test("[AC-35] case detail uses an encoded case identity through the authenticated proxy", async () => {

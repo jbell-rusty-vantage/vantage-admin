@@ -128,6 +128,25 @@ export function intakeCaseHref(
   return `${INTAKES_HREF}?${params.toString()}`;
 }
 
+export function creatingObservationTitle(
+  selection?: "preferred_booked" | "latest_creating",
+): string {
+  return selection === "latest_creating"
+    ? "Latest Granot payload that created this intake"
+    : "Granot Booked payload";
+}
+
+export function creatingObservationSummary(input: {
+  route_event_class?: string;
+  payload_event_type_raw?: string;
+  booking_action?: string;
+}): string {
+  const route = input.route_event_class?.replaceAll("_", " ") ?? "Granot observation";
+  const action = input.payload_event_type_raw
+    ?? (input.booking_action === "booked" ? "Booked" : input.booking_action);
+  return action ? `${route} · ${action}` : route;
+}
+
 export function intakeJobHref(normalizedJobNo: string): string {
   return `/ingestion/granot/lifecycle/jobs/${encodeURIComponent(normalizedJobNo)}`;
 }

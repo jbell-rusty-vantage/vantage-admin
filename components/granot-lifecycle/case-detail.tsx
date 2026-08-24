@@ -13,6 +13,7 @@ import {
   type GranotTimelinePage,
 } from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
+import { CreatingObservationAccordion } from "@/components/intakes/creating-observation-accordion";
 import { intakeCaseHowToFinish, isAllowedIntakeReturn } from "@/components/intakes/intake-copy";
 import { JobTimeline } from "./job-timeline";
 import { LeadCandidateBrowser } from "./lead-candidate-browser";
@@ -78,12 +79,14 @@ export function CaseDetail({
   detail,
   candidateBrowser,
   commandForm,
+  creatingObservation,
   backHref,
   backLabel,
 }: {
   detail: GranotLifecycleCaseDetail;
   candidateBrowser?: ReactNode;
   commandForm?: ReactNode;
+  creatingObservation?: ReactNode;
   backHref?: string;
   backLabel?: string;
 }) {
@@ -156,6 +159,8 @@ export function CaseDetail({
       ) : null}
 
       {ownerAction}
+
+      {creatingObservation}
 
       {detail.employee_booking_lead_reconciliation ? (
         <FeedbackMessage tone="warning">
@@ -299,6 +304,9 @@ export function GranotLifecycleCasePage({
     detail={query.data}
     backHref={isAllowedIntakeReturn(returnTo) ? returnTo : undefined}
     backLabel={isAllowedIntakeReturn(returnTo) ? (backLabel ?? "Back to Intakes") : undefined}
+    creatingObservation={query.data.kind === "booking"
+      ? <CreatingObservationAccordion caseId={caseId} loadOn="mount" />
+      : undefined}
     candidateBrowser={<LeadCandidateBrowser caseId={caseId} />}
     commandForm={query.data.kind === "release"
       ? <ReleaseOwnerActions detail={query.data} />

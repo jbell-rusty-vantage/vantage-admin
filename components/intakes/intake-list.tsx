@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { formatDateTime } from "@/components/data-table/formatters";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import type { GranotLifecycleCaseListItem } from "@/lib/api/granotLifecycle";
 import { cn } from "@/lib/utils";
+import { CreatingObservationAccordion } from "./creating-observation-accordion";
 import {
   intakeActionLabel,
   intakeCaseHref,
@@ -67,8 +69,8 @@ export function IntakeList({
             });
             const selected = selectedCaseId === item.case_id;
             return (
+              <Fragment key={`${item.kind}:${item.case_id}`}>
               <tr
-                key={`${item.kind}:${item.case_id}`}
                 className={cn(selected && "bg-steel-100")}
               >
                 <td className="px-3 py-3 align-top">
@@ -117,6 +119,14 @@ export function IntakeList({
                   <p className="text-xs text-muted-foreground">{ageLabel(item.last_evidence_at, now)} ago</p>
                 </td>
               </tr>
+              {kind === "booking" ? (
+                <tr className={cn(selected && "bg-steel-100")}>
+                  <td className="px-3 pb-4 pt-0" colSpan={7}>
+                    <CreatingObservationAccordion caseId={item.case_id} />
+                  </td>
+                </tr>
+              ) : null}
+              </Fragment>
             );
           })}
         </tbody>

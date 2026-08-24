@@ -257,6 +257,41 @@ export type GranotLifecycleCaseDetail = {
   };
 };
 
+export type CreatingObservationSelection = "preferred_booked" | "latest_creating";
+
+export type BookingIntakeCreatingObservation = {
+  case_id: string;
+  job_no: string;
+  normalized_job_no: string;
+  observation_id: string;
+  receipt_id: string;
+  captured_at: string;
+  route_event_class?: "lead_created" | "priority_updated" | "booking_status_changed";
+  payload_event_type_raw?: string;
+  booking_action?: "booked" | "release";
+  evidence_action: "priority_5" | "booked" | "release";
+  selection: CreatingObservationSelection;
+  observation: {
+    observation_id: string;
+    receipt_id: string;
+    kind?: string;
+    normalization_result?: "valid" | "valid_with_issues" | "invalid" | "unsupported";
+    route_event_class?: "lead_created" | "priority_updated" | "booking_status_changed";
+    payload_event_type_raw?: string;
+    captured_at: string;
+    source_label_raw?: string;
+    normalized_source_label?: string;
+    identity: Record<string, unknown>;
+    contact: Record<string, unknown>;
+    move: Record<string, unknown>;
+    priority?: { raw?: unknown; canonical?: string; valid?: boolean };
+    booking_action?: { raw?: string; normalized?: "booked" | "release" };
+    display_money?: Record<string, unknown>;
+    agent_identity?: Record<string, unknown>;
+  };
+  granot_statement: unknown;
+};
+
 export type SafeContact = { name?: string; phone_number?: string; email?: string };
 
 function maskSafeContact(value: SafeContact | undefined): SafeContact | undefined {
@@ -581,6 +616,57 @@ export function fetchGranotLifecycleCase(caseId: string): Promise<GranotLifecycl
   return requestJson(
     proxyUrl(`api/v1/admin/granot-lifecycle/cases/${encodeURIComponent(caseId)}`),
   ).then(asGranotLifecycleCaseDetail);
+}
+
+export function asBookingIntakeCreatingObservation(
+  data: unknown,
+): BookingIntakeCreatingObservation {
+  const record = unwrapEnvelope(data) as Partial<BookingIntakeCreatingObservation> | undefined;
+  if (
+    !record ||
+    typeof record.case_id !== "string" ||
+    record.case_id.trim() === "" ||
+    typeof record.observation_id !== "string" ||
+    typeof record.receipt_id !== "string"
+  ) {
+    throw new GranotLifecycleApiError({
+      message: "Creating observation response was empty.",
+      status: 502,
+      code: "GRANOT_CREATING_OBSERVATION_MISSING",
+    });
+  }
+  return {
+    case_id: record.case_id,
+    job_no: typeof record.job_no === "string" ? record.job_no : "",
+    normalized_job_no: typeof record.normalized_job_no === "string" ? record.normalized_job_no : "",
+    observation_id: record.observation_id,
+    receipt_id: record.receipt_id,
+    captured_at: typeof record.captured_at === "string" ? record.captured_at : "",
+    route_event_class: record.route_event_class,
+    payload_event_type_raw: record.payload_event_type_raw,
+    booking_action: record.booking_action,
+    evidence_action: record.evidence_action ?? "booked",
+    selection: record.selection === "latest_creating" ? "latest_creating" : "preferred_booked",
+    observation: record.observation ?? {
+      observation_id: record.observation_id,
+      receipt_id: record.receipt_id,
+      captured_at: typeof record.captured_at === "string" ? record.captured_at : "",
+      identity: {},
+      contact: {},
+      move: {},
+    },
+    granot_statement: record.granot_statement ?? null,
+  };
+}
+
+export function fetchBookingIntakeCreatingObservation(
+  caseId: string,
+): Promise<BookingIntakeCreatingObservation> {
+  return requestJson(
+    proxyUrl(
+      `api/v1/admin/granot-lifecycle/cases/${encodeURIComponent(caseId)}/creating-observation`,
+    ),
+  ).then(asBookingIntakeCreatingObservation);
 }
 
 export function fetchGranotLifecycleCandidates(

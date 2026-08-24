@@ -186,6 +186,9 @@ test("[AC-20] Granot lifecycle keys isolate stable case, candidate, Job, and Lea
   assert.deepEqual(queryKeys.granotLifecycle.caseDetail("case-1"), [
     "granot-lifecycle", "cases", "detail", "case-1",
   ]);
+  assert.deepEqual(queryKeys.granotLifecycle.creatingObservation("case-1"), [
+    "granot-lifecycle", "cases", "case-1", "creating-observation",
+  ]);
   assert.deepEqual(queryKeys.granotLifecycle.candidates("case-1", { scope: "source" }), [
     "granot-lifecycle", "cases", "case-1", "candidates", { scope: "source" },
   ]);

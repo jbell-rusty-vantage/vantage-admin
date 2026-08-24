@@ -134,6 +134,8 @@ export const queryKeys = {
       [...queryKeys.granotLifecycle.all, "cases", stableFilters(filters)] as const,
     caseDetail: (caseId: string) =>
       [...queryKeys.granotLifecycle.all, "cases", "detail", caseId] as const,
+    creatingObservation: (caseId: string) =>
+      [...queryKeys.granotLifecycle.all, "cases", caseId, "creating-observation"] as const,
     candidates: (caseId: string, filters?: QueryFilters) =>
       [
         ...queryKeys.granotLifecycle.all,

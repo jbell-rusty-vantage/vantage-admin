@@ -166,6 +166,18 @@ test("detail stays mounted when official_current, evidence, contacts, or timelin
   assert.match(markup, /How to finish this booking/);
 });
 
+test("booking case detail can render the creating observation accordion", () => {
+  const markup = renderToStaticMarkup(createElement(CaseDetail, {
+    detail: detail(),
+    creatingObservation: createElement("div", null, "Granot Booked payload"),
+  }));
+  assert.match(markup, /Granot Booked payload/);
+  const releaseMarkup = renderToStaticMarkup(createElement(CaseDetail, {
+    detail: detail({ kind: "release", mode: "release" }),
+  }));
+  assert.equal(releaseMarkup.includes("Granot Booked payload"), false);
+});
+
 test("case detail can return to Intakes when opened from that queue", () => {
   const markup = renderToStaticMarkup(createElement(CaseDetail, {
     detail: detail(),

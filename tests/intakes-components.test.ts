@@ -2,8 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  CreatingObservationView,
+} from "../components/intakes/creating-observation-accordion";
 import {
   INTAKES_HREF,
+  creatingObservationSummary,
+  creatingObservationTitle,
   intakeActionLabel,
   intakeCaseHref,
   intakeCaseHowToFinish,
@@ -44,6 +50,13 @@ const bookingCase: GranotLifecycleCaseListItem = {
   opened_at: "2026-08-18T10:00:00.000Z",
   last_evidence_at: "2026-08-18T11:00:00.000Z",
 };
+
+function renderIntakeList(props: Parameters<typeof IntakeList>[0]): string {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return renderToStaticMarkup(
+    createElement(QueryClientProvider, { client: queryClient }, createElement(IntakeList, props)),
+  );
+}
 
 const cancellationCase: GranotLifecycleCaseListItem = {
   ...bookingCase,
@@ -96,12 +109,12 @@ test("owner copy names booking and cancellation intakes without lifecycle jargon
 });
 
 test("intake list uses owner language and keeps booking and cancellation rows distinct", () => {
-  const bookingMarkup = renderToStaticMarkup(createElement(IntakeList, {
+  const bookingMarkup = renderIntakeList({
     items: [bookingCase, cancellationCase],
     kind: "booking",
     emptyMessage: "none",
     now: new Date("2026-08-18T12:00:00.000Z").getTime(),
-  }));
+  });
   assert.match(bookingMarkup, /Synthetic Job 1/);
   assert.match(bookingMarkup, /Granot set this lead to priority 5 \(booked\)/);
   assert.match(bookingMarkup, /No official Vantage booking yet/);
@@ -112,12 +125,12 @@ test("intake list uses owner language and keeps booking and cancellation rows di
   assert.equal(bookingMarkup.includes("Synthetic Job 2"), false);
   assert.equal(bookingMarkup.includes("release #"), false);
 
-  const cancellationMarkup = renderToStaticMarkup(createElement(IntakeList, {
+  const cancellationMarkup = renderIntakeList({
     items: [bookingCase, cancellationCase],
     kind: "cancellation",
     emptyMessage: "none",
     now: new Date("2026-08-18T12:00:00.000Z").getTime(),
-  }));
+  });
   assert.match(cancellationMarkup, /Synthetic Job 2/);
   assert.match(cancellationMarkup, /Granot recorded a cancellation/);
   assert.match(cancellationMarkup, /Vantage has an official booking on this job/);
@@ -190,4 +203,65 @@ test("intakes URL helpers keep booking and cancellation queues distinct", () => 
     intakeCaseHref("case-release", { tab: "cancellation", state: "resolved" }),
     "/intakes?tab=cancellations&state=resolved&case=case-release",
   );
+});
+
+test("booking intake list exposes a per-booking Granot payload accordion", () => {
+  const bookingMarkup = renderIntakeList({
+    items: [bookingCase, cancellationCase],
+    kind: "booking",
+    emptyMessage: "none",
+  });
+  assert.match(bookingMarkup, /Granot Booked payload/);
+  assert.match(bookingMarkup, /Latest payload that created this booking intake/);
+  assert.equal(bookingMarkup.includes("Synthetic Job 2"), false);
+
+  const cancellationMarkup = renderIntakeList({
+    items: [bookingCase, cancellationCase],
+    kind: "cancellation",
+    emptyMessage: "none",
+  });
+  assert.equal(cancellationMarkup.includes("Granot Booked payload"), false);
+});
+
+test("creating observation accordion shows the Booked statement and normalized observation", () => {
+  assert.equal(creatingObservationTitle("preferred_booked"), "Granot Booked payload");
+  assert.equal(
+    creatingObservationTitle("latest_creating"),
+    "Latest Granot payload that created this intake",
+  );
+  assert.equal(
+    creatingObservationSummary({
+      route_event_class: "booking_status_changed",
+      payload_event_type_raw: "Booked",
+    }),
+    "booking status changed · Booked",
+  );
+  const markup = renderToStaticMarkup(createElement(CreatingObservationView, {
+    data: {
+      case_id: "case-booking",
+      job_no: "Synthetic Job 1",
+      normalized_job_no: "SYNTHETIC JOB 1",
+      observation_id: "observation-booked",
+      receipt_id: "receipt-booked",
+      captured_at: "2026-08-22T15:00:00.000Z",
+      route_event_class: "booking_status_changed",
+      payload_event_type_raw: "Booked",
+      booking_action: "booked",
+      evidence_action: "booked",
+      selection: "preferred_booked",
+      observation: {
+        observation_id: "observation-booked",
+        receipt_id: "receipt-booked",
+        captured_at: "2026-08-22T15:00:00.000Z",
+        identity: { job_no_raw: "Synthetic Job 1" },
+        contact: {},
+        move: {},
+      },
+      granot_statement: { event_type: "Booked", job_no: "Synthetic Job 1", estimate: "1200" },
+    },
+  }));
+  assert.match(markup, /Granot statement/);
+  assert.match(markup, /Normalized Granot Observation/);
+  assert.match(markup, /&quot;event_type&quot;: &quot;Booked&quot;/);
+  assert.match(markup, /observation-booked/);
 });

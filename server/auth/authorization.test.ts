@@ -420,6 +420,22 @@ test("Granot lifecycle standard reads allow admin while candidates and all write
   assert.equal(
     canProxyVantagePath({
       role: "admin",
+      method: "GET",
+      path: "api/v1/admin/granot-lifecycle/cases/case-1/creating-observation",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "owner",
+      method: "GET",
+      path: "api/v1/admin/granot-lifecycle/cases/case-1/creating-observation",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
       method: "POST",
       path: "api/v1/admin/granot-lifecycle/cases/case-1",
     }),
