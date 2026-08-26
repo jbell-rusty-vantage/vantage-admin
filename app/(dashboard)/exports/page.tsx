@@ -18,6 +18,7 @@ const analyticsReports = [
   ["Receiver agent performance", "/analytics?tab=receiver-agents&view=table&report=receiver-agent-performance"],
   ["Receiver agent trend", "/analytics?tab=receiver-agents&view=table&report=receiver-agent-trend"],
   ["Receiver agent source breakdown", "/analytics?tab=receiver-agents&view=table&report=receiver-agent-source-breakdown"],
+  ["Texted leads booked", "/analytics?tab=text-to-booked&view=table&report=sms-successfully-sent-then-booked"],
   ["Cancellation reasons", "/analytics?tab=cancellations&view=table&report=cancellation-reasons"],
   ["Geographic lanes", "/analytics?tab=geography&view=table&report=geographic-lanes"],
 ] as const;

@@ -66,6 +66,7 @@ import { DATABASE_SCOPE_LABELS, LOCAL_TYPE_OPTIONS } from "@/lib/constants/domai
 import { queryKeys } from "@/lib/query/keys";
 import { useDatabaseScope } from "@/lib/state/database-scope";
 import { cn } from "@/lib/utils";
+import { TextToBookedPanel } from "@/components/analytics/text-to-booked-panel";
 
 const CHART_COLORS = ["#2563eb", "#16a34a", "#db2777", "#d97706", "#7c3aed", "#0891b2", "#dc2626", "#65a30d"];
 
@@ -80,7 +81,14 @@ const LEAD_TYPE_OPTIONS: SelectOption[] = [
 ];
 
 type AnalyticsView = "visualization" | "table";
-type AnalyticsTabId = "overview" | "sales" | "lead-sources" | "receiver-agents" | "geography" | "cancellations";
+type AnalyticsTabId =
+  | "overview"
+  | "sales"
+  | "lead-sources"
+  | "receiver-agents"
+  | "text-to-booked"
+  | "geography"
+  | "cancellations";
 type FilterControl =
   | "source_granularity_key"
   | "agent"
@@ -153,6 +161,21 @@ const TAB_CONFIGS: TabConfig[] = [
       { id: "receiver-agent-performance", label: "Performance", description: "Received, billable, booked, cancelled, and cost metrics by receiver agent.", kind: "bar" },
       { id: "receiver-agent-trend", label: "Trend", description: "Received lead volume over time by receiver agent.", kind: "area" },
       { id: "receiver-agent-source-breakdown", label: "Source Breakdown", description: "Source mix and quality by receiver agent and lead type.", kind: "table" },
+    ],
+  },
+  {
+    id: "text-to-booked",
+    label: "Text to booked",
+    description: "Among production Leads that successfully received a confirmation text, what share became booked.",
+    primaryReport: "sms-successfully-sent-then-booked",
+    filters: ["source_granularity_key", "lead_type"],
+    reports: [
+      {
+        id: "sms-successfully-sent-then-booked",
+        label: "Texted leads booked",
+        description: "Booked share of distinct Leads whose confirmation text was accepted, sent, or delivered.",
+        kind: "pie",
+      },
     ],
   },
   {
@@ -750,7 +773,9 @@ export function AnalyticsDashboard() {
   const facetOptions = useFacetOptions(effectiveScope);
   const activeReport = activeTab.reports.find((report) => report.id === filters.report) ?? activeTab.reports.find((report) => report.id === activeTab.primaryReport) ?? activeTab.reports[0];
   const reportFilters = useMemo(() => buildFilters(filters, effectiveScope, activeTab), [activeTab, effectiveScope, filters]);
-  const receiverHistoricalUnsupported = activeTab.id === "receiver-agents" && effectiveScope === "historical";
+  const productionOnlyHistoricalUnsupported =
+    (activeTab.id === "receiver-agents" || activeTab.id === "text-to-booked") &&
+    effectiveScope === "historical";
 
   useEffect(() => {
     if (!activeTab.reports.some((report) => report.id === filters.report) && filters.report) {
@@ -830,9 +855,11 @@ export function AnalyticsDashboard() {
 
       <AnalyticsFilterPanel tab={activeTab} filters={filters} update={update} reset={resetFilters} facetOptions={facetOptions} />
 
-      {receiverHistoricalUnsupported ? (
+      {productionOnlyHistoricalUnsupported ? (
         <FeedbackMessage>
-          Historical lead records do not include receiver_agent attribution. Switch to Production or Combined to view receiver-agent analytics.
+          {activeTab.id === "text-to-booked"
+            ? "Lead Messages live on production only. Switch to Production or Combined to view the texted-lead booking rate."
+            : "Historical lead records do not include receiver_agent attribution. Switch to Production or Combined to view receiver-agent analytics."}
         </FeedbackMessage>
       ) : null}
 
@@ -849,7 +876,14 @@ export function AnalyticsDashboard() {
 
       {activeTab.id === "overview" && view === "table" ? <OverviewTable filters={reportFilters} /> : null}
 
-      {activeTab.id !== "overview" && view === "visualization" && !receiverHistoricalUnsupported ? (
+      {activeTab.id === "text-to-booked" && view === "visualization" && !productionOnlyHistoricalUnsupported ? (
+        <TextToBookedPanel filters={reportFilters} />
+      ) : null}
+
+      {activeTab.id !== "overview" &&
+      activeTab.id !== "text-to-booked" &&
+      view === "visualization" &&
+      !productionOnlyHistoricalUnsupported ? (
         <div className="grid gap-5 xl:grid-cols-2">
           {activeTab.reports.map((report) => (
             <ReportPanel key={report.id} report={report} filters={reportFilters} />
@@ -857,7 +891,7 @@ export function AnalyticsDashboard() {
         </div>
       ) : null}
 
-      {activeTab.id !== "overview" && view === "table" && !receiverHistoricalUnsupported ? (
+      {activeTab.id !== "overview" && view === "table" && !productionOnlyHistoricalUnsupported ? (
         <div className="space-y-3">
           {activeTab.reports.length > 1 ? (
             <div className="max-w-sm">

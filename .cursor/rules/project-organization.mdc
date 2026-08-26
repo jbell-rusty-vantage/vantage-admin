@@ -63,7 +63,7 @@ alwaysApply: true
 
 **Operational:** `/` (`HomeOverview` — live home; not the planned Daily View), `/form-leads`, `/duplicate-form-leads`, `/call-leads`, `/duplicate-call-leads`, `/bookings`, `/bookings/new`, `/bookings/reconciliation` (owner), `/cancellations`, `/cancellations/new`, `/intakes` (owner Booking/Cancellation Granot cases), `/customers`, `/agents`, `/testimonials`
 
-**Insight:** `/analytics`, `/reports/agent-sales`
+**Insight:** `/analytics` (`?tab=overview|sales|lead-sources|receiver-agents|text-to-booked|geography|cancellations`), `/reports/agent-sales`
 
 **Ops:** `/observational` (`?tab=overview|events|incidents|reports|notifications|sheet-sync`), `/operations-registry` (`?tab=overview|agents|merchants|sources|granot-sources|ringcentral|cpl|changes`), `/ingestion` (Best Relocation), `/ingestion/granot` (owner), `/ingestion/granot/lifecycle` (owner technical queue), `/intakes` (owner Booking/Cancellation cases), `/ingestion/granot/lifecycle/health` (Owner/Admin read-only), `/ingestion/granot/lifecycle/cases/[caseId]`, `/ingestion/granot/lifecycle/jobs/[jobNo]`, `/reporting`, `/reporting/[id]`, `/reporting/destinations`, `/reporting/destinations/[id]`, `/reporting/runs/[id]`
 

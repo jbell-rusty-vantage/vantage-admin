@@ -47,7 +47,8 @@ export type AnalyticsReport =
   | "delivery-state-performance"
   | "receiver-agent-performance"
   | "receiver-agent-trend"
-  | "receiver-agent-source-breakdown";
+  | "receiver-agent-source-breakdown"
+  | "sms-successfully-sent-then-booked";
 
 export type SourceGranularityMetricRow = Record<string, unknown> & {
   source_granularity_key?: string;

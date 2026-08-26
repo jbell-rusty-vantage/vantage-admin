@@ -34,7 +34,28 @@ const HIDDEN_GENERIC_TABLE_KEYS = new Set([
   "_id",
   "granularities",
   "receiver_agent_id",
+  "origin",
 ]);
+
+export type TextToBookedSlice = {
+  name: string;
+  value: number;
+};
+
+export function textToBookedSlices(rows: Record<string, unknown>[]): TextToBookedSlice[] {
+  const overall = rows.find((row) => row.origin === "all" || row.label === "All") ?? rows[0];
+  if (!overall) return [];
+  const booked = Number(overall.booked_leads ?? 0);
+  const notBooked = Number(overall.not_booked_leads ?? Math.max(Number(overall.texted_leads ?? 0) - booked, 0));
+  return [
+    { name: "Booked", value: booked },
+    { name: "Not booked", value: notBooked },
+  ].filter((slice) => slice.value > 0);
+}
+
+export function textToBookedOriginRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  return rows.filter((row) => row.origin !== "all" && row.label !== "All");
+}
 
 function usableText(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -78,6 +99,9 @@ export function analyticsMetadataMessage(
   const message = usableText(metadata?.message);
   if (!message) return undefined;
   if (reportId.startsWith("receiver-agent") && scope === "production") {
+    return undefined;
+  }
+  if (reportId === "sms-successfully-sent-then-booked" && scope === "production") {
     return undefined;
   }
   return message;
