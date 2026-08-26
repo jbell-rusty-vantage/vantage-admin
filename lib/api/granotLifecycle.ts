@@ -299,7 +299,10 @@ export type GranotLifecycleCaseDetail = {
   priority_pairing?: BookingPriorityPairingProjection | null;
 };
 
-export type CreatingObservationSelection = "preferred_booked" | "latest_creating";
+export type CreatingObservationSelection =
+  | "preferred_booked"
+  | "preferred_release"
+  | "latest_creating";
 
 export type BookingIntakeCreatingObservation = {
   case_id: string;
@@ -667,7 +670,10 @@ export function asBookingIntakeCreatingObservation(
     payload_event_type_raw: record.payload_event_type_raw,
     booking_action: record.booking_action,
     evidence_action: record.evidence_action ?? "booked",
-    selection: record.selection === "latest_creating" ? "latest_creating" : "preferred_booked",
+    selection:
+      record.selection === "latest_creating" || record.selection === "preferred_release"
+        ? record.selection
+        : "preferred_booked",
     observation: record.observation ?? {
       observation_id: record.observation_id,
       receipt_id: record.receipt_id,

@@ -89,7 +89,7 @@ export function CaseDetail({
   detail: GranotLifecycleCaseDetail;
   /** Whatever the Owner can do about this case, composed by the page that owns it. */
   ownerWork?: ReactNode;
-  /** The Granot update that opened this case; booking cases only. */
+  /** The Granot update that opened this case. */
   granotStatement?: ReactNode;
   backHref?: string;
   backLabel?: string;
@@ -328,9 +328,12 @@ export function GranotLifecycleCasePage({
     detail={detail}
     backHref={isAllowedIntakeReturn(returnTo) ? returnTo : undefined}
     backLabel={isAllowedIntakeReturn(returnTo) ? (backLabel ?? "Back to Intakes") : undefined}
-    granotStatement={detail.kind === "booking"
-      ? <GranotBookingStatementAccordion caseId={caseId} />
-      : undefined}
+    granotStatement={
+      <GranotBookingStatementAccordion
+        caseId={caseId}
+        kind={detail.kind === "release" ? "cancellation" : "booking"}
+      />
+    }
     ownerWork={detail.kind === "release"
       ? <ReleaseOwnerActions detail={detail} />
       : <BookingCaseOwnerWork detail={detail} />}

@@ -12,11 +12,14 @@ import {
   readGranotStatement,
 } from "../components/intakes/granot-statement-reading";
 import { BookingIntakeWorkbench } from "../components/intakes/booking-intake-workbench";
+import { CancellationIntakeWorkbench } from "../components/intakes/cancellation-intake-workbench";
 import { IntakeReferenceDrawers } from "../components/intakes/intake-reference";
 import {
   INTAKES_HREF,
+  creatingObservationListHint,
   creatingObservationSummary,
   creatingObservationTitle,
+  granotStatementHeadline,
   intakeActionLabel,
   intakeCaseHref,
   intakeCaseHowToFinish,
@@ -270,7 +273,7 @@ test("intake queue pages ten cases at a time with next and previous", () => {
   assert.match(laterPage, /Next/);
 });
 
-test("booking intake list exposes a per-booking Granot payload accordion", () => {
+test("booking and cancellation intake lists expose a Granot payload accordion", () => {
   const bookingMarkup = renderIntakeList({
     items: [bookingCase, cancellationCase],
     kind: "booking",
@@ -285,7 +288,10 @@ test("booking intake list exposes a per-booking Granot payload accordion", () =>
     kind: "cancellation",
     emptyMessage: "none",
   });
+  assert.match(cancellationMarkup, /Granot cancellation payload/);
+  assert.match(cancellationMarkup, /Latest payload that created this cancellation intake/);
   assert.equal(cancellationMarkup.includes("Granot Booked payload"), false);
+  assert.equal(cancellationMarkup.includes("Synthetic Job 1"), false);
 });
 
 const bookedStatement: BookingIntakeCreatingObservation = {
@@ -377,9 +383,27 @@ test("the Granot statement is read into the facts an owner recognizes", () => {
 
 test("the Granot statement panel shows plain facts first and the raw message behind a drawer", () => {
   assert.equal(creatingObservationTitle("preferred_booked"), "Granot Booked payload");
+  assert.equal(creatingObservationTitle("preferred_release"), "Granot cancellation payload");
+  assert.equal(creatingObservationTitle(undefined, "cancellation"), "Granot cancellation payload");
   assert.equal(
     creatingObservationTitle("latest_creating"),
     "Latest Granot payload that created this intake",
+  );
+  assert.equal(
+    creatingObservationListHint("booking"),
+    "Latest payload that created this booking intake",
+  );
+  assert.equal(
+    creatingObservationListHint("cancellation"),
+    "Latest payload that created this cancellation intake",
+  );
+  assert.match(
+    granotStatementHeadline({
+      jobNo: "Synthetic Job 2",
+      whatGranotCalledIt: "Release",
+      capturedAt: "2026-08-24T16:00:00.000Z",
+    }),
+    /Granot cancelled job Synthetic Job 2/,
   );
   assert.equal(
     creatingObservationSummary({
@@ -406,6 +430,48 @@ test("the Granot statement panel shows plain facts first and the raw message beh
   assert.match(markup, /How Vantage read that message/);
   assert.match(markup, /&quot;event_type&quot;: &quot;Booked&quot;/);
   assert.equal(markup.includes("•••"), false);
+});
+
+const releasedStatement: BookingIntakeCreatingObservation = {
+  ...bookedStatement,
+  case_id: "case-release",
+  job_no: "Synthetic Job 2",
+  normalized_job_no: "SYNTHETIC JOB 2",
+  observation_id: "observation-release",
+  receipt_id: "receipt-release",
+  captured_at: "2026-08-24T16:00:00.000Z",
+  payload_event_type_raw: "Release",
+  booking_action: "release",
+  evidence_action: "release",
+  selection: "preferred_release",
+  observation: {
+    ...bookedStatement.observation,
+    observation_id: "observation-release",
+    receipt_id: "receipt-release",
+    captured_at: "2026-08-24T16:00:00.000Z",
+    payload_event_type_raw: "Release",
+    booking_action: { raw: "Release", normalized: "release" },
+  },
+  granot_statement: { event_type: "Release", job_no: "Synthetic Job 2", estimate: "4200" },
+  priority_pairing: null,
+};
+
+test("the cancellation statement shows the same evidence cards and the exact Granot payload", () => {
+  const markup = renderToStaticMarkup(createElement(GranotBookingStatementView, {
+    data: releasedStatement,
+  }));
+  assert.match(markup, /Granot cancelled job Synthetic Job 2/);
+  assert.match(markup, /This is the cancellation update Granot sent/);
+  for (const fact of [
+    "Synthetic Customer",
+    "\\(305\\) 555-0142",
+    "synthetic.customer@example.invalid",
+    "Miami, FL 33101",
+    "Austin, TX",
+    "\\$4,200",
+  ]) assert.match(markup, new RegExp(fact));
+  assert.match(markup, /The exact message Granot sent/);
+  assert.match(markup, /&quot;event_type&quot;: &quot;Release&quot;/);
 });
 
 test("the priority story warns when Granot booked a job it never flagged", () => {
@@ -555,6 +621,88 @@ test("a booking intake that needs no customer never asks for one", () => {
   const markup = renderWorkbench(referral);
   assert.equal(markup.includes("Who this booking is for"), false);
   assert.match(markup, /Create Referral Booking/);
+});
+
+function cancellationIntakeDetail(
+  overrides: Partial<GranotLifecycleCaseDetail> = {},
+): GranotLifecycleCaseDetail {
+  return bookingIntakeDetail({
+    case_id: "case-release",
+    kind: "release",
+    mode: "release",
+    job_no: "Synthetic Job 2",
+    normalized_job_no: "SYNTHETIC JOB 2",
+    evidence: [
+      {
+        observation_id: "observation-release",
+        decision_id: "decision-release",
+        captured_at: "2026-08-24T16:00:00.000Z",
+        action: "release",
+        normalization_result: "valid",
+      },
+    ],
+    official_current: {
+      booking: {
+        id: "booking-2",
+        normalized_job_no: "SYNTHETIC JOB 2",
+        job_no: "Synthetic Job 2",
+        domain_revision: 1,
+        book_date: "2026-08-22T15:00:00.000Z",
+        customer_name: "Synthetic Customer",
+        source: "Synthetic Source",
+        merchant: "Synthetic Merchant",
+        deposit_amount: 500,
+        total_binder_amount: 200,
+        agent_allocations: [],
+      },
+    },
+    candidate_search: { available: false, default_scope: "source", all_scope_warning: false },
+    capabilities: { commands: true, referral: false, release_cases: true, discrepancies: false },
+    ...overrides,
+  });
+}
+
+function renderCancellationWorkbench(detail: GranotLifecycleCaseDetail): string {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return renderToStaticMarkup(createElement(
+    QueryClientProvider,
+    { client: queryClient },
+    createElement(CancellationIntakeWorkbench, {
+      detail,
+      backHref: "/intakes?tab=cancellations",
+      backLabel: "Back to waiting intakes",
+    }),
+  ));
+}
+
+test("the cancellation intake reads as one story: Granot, then the work, then the record", () => {
+  const markup = renderCancellationWorkbench(cancellationIntakeDetail());
+  const actInOrder = [
+    "Back to waiting intakes",
+    "Cancellation intake",
+    "Job Synthetic Job 2",
+    "How to finish this cancellation",
+    "What Granot sent us",
+    "What Vantage already has on this job",
+    "Every update Granot sent on this job",
+    "How this job got here",
+  ];
+  let readSoFar = -1;
+  for (const act of actInOrder) {
+    const at = markup.indexOf(act);
+    assert.ok(at > readSoFar, `${act} is out of order in the cancellation intake story`);
+    readSoFar = at;
+  }
+  assert.equal(markup.includes("Who this booking is for"), false);
+});
+
+test("a cancellation intake nobody can finish yet says so and opens the record instead", () => {
+  const markup = renderCancellationWorkbench(cancellationIntakeDetail({
+    capabilities: { commands: false, referral: false, release_cases: true, discrepancies: false },
+  }));
+  assert.match(markup, /Vantage is not ready to file cancellations from this screen yet/);
+  assert.match(markup, /Nothing is being lost/);
+  assert.match(markup, /open=""/);
 });
 
 test("a booking intake nobody can finish yet says so and opens the record instead", () => {

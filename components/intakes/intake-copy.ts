@@ -134,11 +134,19 @@ export function intakeCaseHref(
 }
 
 export function creatingObservationTitle(
-  selection?: "preferred_booked" | "latest_creating",
+  selection?: "preferred_booked" | "preferred_release" | "latest_creating",
+  kind: IntakeKind = "booking",
 ): string {
-  return selection === "latest_creating"
-    ? "Latest Granot payload that created this intake"
-    : "Granot Booked payload";
+  if (selection === "preferred_release") return "Granot cancellation payload";
+  if (selection === "latest_creating") return "Latest Granot payload that created this intake";
+  if (selection === "preferred_booked") return "Granot Booked payload";
+  return kind === "cancellation" ? "Granot cancellation payload" : "Granot Booked payload";
+}
+
+export function creatingObservationListHint(kind: IntakeKind): string {
+  return kind === "cancellation"
+    ? "Latest payload that created this cancellation intake"
+    : "Latest payload that created this booking intake";
 }
 
 export function creatingObservationSummary(input: {
@@ -186,6 +194,29 @@ export function intakePairingClassLabel(
  * is for, what you do about it, and — underneath — the paper trail. These are
  * the words that name each part of that story on screen.
  */
+export const CANCELLATION_INTAKE_STORY = {
+  whatGranotSent: {
+    title: "What Granot sent us",
+    hint: "The update that opened this cancellation, exactly as Granot reported it.",
+  },
+  finishTheCancellation: {
+    title: "Finish the cancellation",
+    hint: "Enter official cancel date and refund. Granot numbers stay as reference only.",
+  },
+  whatVantageAlreadyHas: {
+    title: "What Vantage already has on this job",
+    hint: "The live Vantage booking and cancellation, if either one exists yet.",
+  },
+  granotUpdateHistory: {
+    title: "Every update Granot sent on this job",
+    hint: "One line per update. Nothing is merged or dropped.",
+  },
+  jobLifecycleTimeline: {
+    title: "How this job got here",
+    hint: "The full history behind this job, in order. Open it only if you need it.",
+  },
+} as const;
+
 export const BOOKING_INTAKE_STORY = {
   whatGranotSent: {
     title: "What Granot sent us",
@@ -229,6 +260,9 @@ export function granotStatementHeadline(input: {
   const called = input.whatGranotCalledIt?.trim();
   if (!called) return `Granot sent an update on ${subject}${when}.`;
   if (called.toLowerCase() === "booked") return `Granot marked ${subject} booked${when}.`;
+  if (called.toLowerCase() === "release" || called.toLowerCase() === "cancelled") {
+    return `Granot cancelled ${subject}${when}.`;
+  }
   return `Granot sent a “${called}” update on ${subject}${when}.`;
 }
 
@@ -327,6 +361,9 @@ export function granotUpdateCountLine(count: number): string {
 export function creatingObservationSelectionHint(
   selection: BookingIntakeCreatingObservation["selection"],
 ): string {
+  if (selection === "preferred_release") {
+    return "This is the cancellation update Granot sent. It is what opened this intake.";
+  }
   return selection === "latest_creating"
     ? "Granot never sent a Booked update on this job, so this is the most recent update it did send."
     : "This is the Booked update Granot sent. It is what opened this booking.";

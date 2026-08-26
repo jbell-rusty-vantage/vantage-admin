@@ -2,19 +2,17 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { FeedbackMessage } from "@/components/ui/feedback";
-import { CaseDetail } from "@/components/granot-lifecycle/case-detail";
-import { ReleaseOwnerActions } from "@/components/granot-lifecycle/release-owner-actions";
 import { fetchGranotLifecycleCase } from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
 import { BookingIntakeWorkbench } from "./booking-intake-workbench";
+import { CancellationIntakeWorkbench } from "./cancellation-intake-workbench";
 import { isAllowedIntakeReturn } from "./intake-copy";
 
 const REFRESH_WHILE_OPEN_MS = 15_000;
 
 /**
- * One intake, opened in place from the waiting list. A booking intake gets the
- * owner workbench; a cancellation intake keeps the shared case view until it
- * gets a story of its own.
+ * One intake, opened in place from the waiting list. Booking and cancellation
+ * intakes each get their own owner workbench.
  */
 export function IntakeCasePage({
   caseId,
@@ -50,11 +48,6 @@ export function IntakeCasePage({
   }
 
   return (
-    <CaseDetail
-      detail={intake.data}
-      backHref={backHref}
-      backLabel={backTo}
-      ownerWork={<ReleaseOwnerActions detail={intake.data} />}
-    />
+    <CancellationIntakeWorkbench detail={intake.data} backHref={backHref} backLabel={backTo} />
   );
 }

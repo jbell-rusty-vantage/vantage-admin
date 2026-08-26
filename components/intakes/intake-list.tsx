@@ -131,13 +131,11 @@ export function IntakeList({
                   <p className="text-xs text-muted-foreground">{ageLabel(item.last_evidence_at, now)} ago</p>
                 </td>
               </tr>
-              {kind === "booking" ? (
-                <tr className={cn(selected && "bg-steel-100")}>
-                  <td className="px-3 pb-4 pt-0" colSpan={7}>
-                    <GranotBookingStatementAccordion caseId={item.case_id} />
-                  </td>
-                </tr>
-              ) : null}
+              <tr className={cn(selected && "bg-steel-100")}>
+                <td className="px-3 pb-4 pt-0" colSpan={7}>
+                  <GranotBookingStatementAccordion caseId={item.case_id} kind={kind} />
+                </td>
+              </tr>
               </Fragment>
             );
           })}

@@ -19,6 +19,8 @@ import {
 } from "./granot-statement-reading";
 import {
   BOOKING_INTAKE_STORY,
+  CANCELLATION_INTAKE_STORY,
+  creatingObservationListHint,
   creatingObservationSelectionHint,
   creatingObservationSummary,
   creatingObservationTitle,
@@ -26,6 +28,7 @@ import {
   granotStatementHeadline,
   intakeJobHref,
   priorityPairingStory,
+  type IntakeKind,
 } from "./intake-copy";
 
 function asPrettyJson(value: unknown): string {
@@ -230,14 +233,21 @@ function StatementLoadingOrError({
   return null;
 }
 
-/** Act one of the intake: the update that opened this booking. */
-export function GranotBookingStatementCard({ caseId }: { caseId: string }) {
+/** Act one of the intake: the update that opened this booking or cancellation. */
+export function GranotBookingStatementCard({
+  caseId,
+  kind = "booking",
+}: {
+  caseId: string;
+  kind?: IntakeKind;
+}) {
   const statement = useGranotBookingStatement(caseId, true);
+  const story = kind === "cancellation" ? CANCELLATION_INTAKE_STORY : BOOKING_INTAKE_STORY;
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{BOOKING_INTAKE_STORY.whatGranotSent.title}</CardTitle>
-        <CardDescription>{BOOKING_INTAKE_STORY.whatGranotSent.hint}</CardDescription>
+        <CardTitle>{story.whatGranotSent.title}</CardTitle>
+        <CardDescription>{story.whatGranotSent.hint}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <StatementLoadingOrError pending={statement.isPending} error={statement.error} />
@@ -251,13 +261,19 @@ export function GranotBookingStatementCard({ caseId }: { caseId: string }) {
  * The same update, folded into one row of the waiting list. It stays closed —
  * and unfetched — until the Owner asks for it.
  */
-export function GranotBookingStatementAccordion({ caseId }: { caseId: string }) {
+export function GranotBookingStatementAccordion({
+  caseId,
+  kind = "booking",
+}: {
+  caseId: string;
+  kind?: IntakeKind;
+}) {
   const [opened, setOpened] = useState(false);
   const statement = useGranotBookingStatement(caseId, opened);
-  const title = creatingObservationTitle(statement.data?.selection);
+  const title = creatingObservationTitle(statement.data?.selection, kind);
   const summary = statement.data
     ? creatingObservationSummary(statement.data)
-    : "Latest payload that created this booking intake";
+    : creatingObservationListHint(kind);
 
   return (
     <details

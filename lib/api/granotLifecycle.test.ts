@@ -251,6 +251,27 @@ test("case detail fails closed when the proxy body has no case_id", async () => 
   );
 });
 
+test("creating observation keeps a Release selection for a cancellation intake", async () => {
+  const calls = mockFetch({
+    ok: true,
+    data: {
+      case_id: "case/release",
+      observation_id: "obs-release",
+      receipt_id: "receipt-release",
+      selection: "preferred_release",
+      booking_action: "release",
+      granot_statement: { event_type: "Release" },
+    },
+  });
+  const result = await fetchBookingIntakeCreatingObservation("case/release");
+  assert.equal(
+    calls[0]?.input,
+    "/api/proxy/api/v1/admin/granot-lifecycle/cases/case%2Frelease/creating-observation",
+  );
+  assert.equal(result.selection, "preferred_release");
+  assert.deepEqual(result.granot_statement, { event_type: "Release" });
+});
+
 test("creating observation uses an encoded booking-case identity through the authenticated proxy", async () => {
   const calls = mockFetch({
     ok: true,
