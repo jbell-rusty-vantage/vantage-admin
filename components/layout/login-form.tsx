@@ -29,7 +29,12 @@ export function LoginForm() {
 
     if (!response.ok) {
       setIsSubmitting(false);
-      setError("Invalid email or password.");
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      setError(
+        response.status >= 500
+          ? (body?.error ?? "Unable to sign in.")
+          : (body?.error ?? "Invalid email or password."),
+      );
       return;
     }
 
