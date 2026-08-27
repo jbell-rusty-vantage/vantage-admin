@@ -480,6 +480,20 @@ test("Granot lifecycle pages remain owner-only in the Admin UI except health", (
   assert.equal(canAccessDashboardPath("owner", "/intakes"), true);
   assert.equal(canAccessDashboardPath("admin", "/job-timeline"), false);
   assert.equal(canAccessDashboardPath("owner", "/job-timeline"), true);
+  assert.equal(canAccessDashboardPath("admin", "/conversations"), false);
+  assert.equal(canAccessDashboardPath("owner", "/conversations"), true);
+});
+
+test("conversation proxy reads are Owner-only", () => {
+  for (const path of [
+    "api/v1/admin/conversations",
+    "api/v1/admin/conversations/abc",
+    "api/v1/admin/conversations/abc/audio-url",
+    "api/v1/admin/conversations/by-lead/CallLead/abc",
+  ]) {
+    assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path }), false);
+    assert.equal(canProxyVantagePath({ role: "owner", method: "GET", path }), true);
+  }
 });
 
 test("Job Number timeline proxy read is Owner-only", () => {

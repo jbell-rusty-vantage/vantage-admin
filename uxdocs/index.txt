@@ -2,6 +2,12 @@ Write text wireframes and ui / ux suggestions in this directory !
 
 These files are suggestions unless a doc says the surface is live.
 
+Live: Lead Conversations tab at /conversations
+  — Owner-only example card for the seeded inbound Call Lead conversation.
+    Contract: lead-conversations-tab-specification.md (wins on conflict).
+    HANDOFF-conversations-example-tab.md is post-ship notes. Do not rebuild
+    the tab, add a second seed, or treat AI Gateway as live.
+
 Start here for Daily View work: HANDOFF-owner-daily-view.md
   — orientation for an agent picking up the Owner Daily View in this repo.
     Points at the spec, the nine unit contracts, and the wireframes.

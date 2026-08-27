@@ -172,6 +172,11 @@ export const queryKeys = {
     page: (jobNo: string, filters?: QueryFilters) =>
       [...queryKeys.jobNumberTimeline.all, "page", jobNo, stableFilters(filters)] as const,
   },
+  conversations: {
+    all: ["conversations"] as const,
+    list: () => [...queryKeys.conversations.all, "list"] as const,
+    detail: (id: string) => [...queryKeys.conversations.all, "detail", id] as const,
+  },
   operationsRegistry: {
     all: ["operations-registry"] as const,
     overview: () => [...queryKeys.operationsRegistry.all, "overview"] as const,

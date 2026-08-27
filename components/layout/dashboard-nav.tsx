@@ -11,6 +11,7 @@ import {
   Download,
   FileClock,
   FileText,
+  Headphones,
   History,
   Home,
   Inbox,
@@ -27,7 +28,7 @@ import {
 import { NewFeatureBadge } from "@/components/ui/new-badge";
 import { cn } from "@/lib/utils";
 
-type NavItem = {
+export type DashboardNavItem = {
   label: string;
   href: string;
   icon: LucideIcon;
@@ -35,8 +36,9 @@ type NavItem = {
   isNew?: boolean;
 };
 
-const navigation: NavItem[] = [
+export const dashboardNavigation: DashboardNavItem[] = [
   { label: "Overview", href: "/", icon: Home },
+  { label: "Lead Conversations", href: "/conversations", icon: Headphones, ownerOnly: true, isNew: true },
   { label: "Form Leads", href: "/form-leads", icon: FileText },
   { label: "Duplicate Form Leads", href: "/duplicate-form-leads", icon: FileClock },
   { label: "Call Leads", href: "/call-leads", icon: Phone },
@@ -59,6 +61,10 @@ const navigation: NavItem[] = [
   { label: "Settings", href: "/settings", icon: Settings, ownerOnly: true },
 ];
 
+export function visibleDashboardNav(adminRole: "owner" | "admin"): DashboardNavItem[] {
+  return dashboardNavigation.filter((item) => adminRole === "owner" || !item.ownerOnly);
+}
+
 function isActivePath(pathname: string, href: string): boolean {
   if (href === "/") {
     return pathname === "/";
@@ -80,7 +86,7 @@ export function DashboardNav({
 
   return (
     <nav className="space-y-1">
-      {navigation.filter((item) => adminRole === "owner" || !item.ownerOnly).map((item) => {
+      {visibleDashboardNav(adminRole).map((item) => {
         const active = isActivePath(pathname, item.href);
         const Icon = item.icon;
 

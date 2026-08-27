@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   BarChart3,
+  Headphones,
   History,
   Inbox,
   PhoneCall,
@@ -79,6 +80,27 @@ const quickLinks: Array<{
   },
   { href: "/analytics", label: "Analytics", description: "Charts and trends", icon: BarChart3 },
 ];
+
+export function OverviewConversationsLink() {
+  return (
+    <Link
+      href="/conversations"
+      className="group flex items-center justify-between rounded-md border border-gold/50 bg-pale-gold/70 p-5 text-navy shadow-sm transition-all hover:-translate-y-0.5 hover:border-gold hover:bg-pale-gold"
+    >
+      <div className="flex items-center gap-3">
+        <Headphones className="h-6 w-6 shrink-0" aria-hidden="true" />
+        <div>
+          <p className="flex items-center gap-2 text-base font-semibold">
+            Lead Conversations
+            <NewFeatureBadge />
+          </p>
+          <p className="text-sm text-navy/70">Hear and read the call that happened.</p>
+        </div>
+      </div>
+      <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+    </Link>
+  );
+}
 
 export function OverviewIntakesLink() {
   return (
@@ -372,7 +394,8 @@ export function HomeOverview() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">All Time</h2>
         {role === "owner" ? (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <OverviewConversationsLink />
             <OverviewIntakesLink />
             <OverviewJobTimelineLink />
           </div>

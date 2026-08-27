@@ -1,7 +1,10 @@
 # Handoff — Owner Daily View (vantage-admin)
 
 **For:** the next agent picking up Daily View work in `vantage-admin`.
-**Status:** architected, not implemented. Nothing in this feature exists in code yet.
+**Status:** architected, not implemented. `/daily` does not exist.
+A separate Owner-only Lead Conversations example tab is already live at
+`/conversations` (see [lead-conversations-tab-specification.md](./lead-conversations-tab-specification.md)).
+That tab is not Daily View and not ODV-E.
 **Written:** 2026-08-19.
 
 Read this first, then the specification. This file orients you; it decides nothing.
@@ -167,7 +170,7 @@ components/daily/
   intake-list.tsx                   ODV-G
 
 lib/api/ownerDaily.ts               ODV-A, extended by B/F/G
-lib/api/conversations.ts            ODV-E
+lib/api/conversations.ts            already exists for `/conversations`; ODV-E extends, does not recreate
 lib/query/ownerDailyFeed.ts         ODV-C   useDailyFeed() — the transport seam
 lib/query/keys.ts                   ODV-A   add queryKeys.ownerDaily.*
 ```

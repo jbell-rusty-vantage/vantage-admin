@@ -8,6 +8,7 @@ const OWNER_ONLY_PAGE_PREFIXES = [
   "/ingestion/granot",
   "/intakes",
   "/job-timeline",
+  "/conversations",
 ] as const;
 
 const OPERATIONAL_PATCH_PREFIXES = [
@@ -99,6 +100,12 @@ export function canProxyVantagePath(input: {
   if (
     path === "/api/v1/admin/job-number-timeline" ||
     path.startsWith("/api/v1/admin/job-number-timeline/")
+  ) {
+    return false;
+  }
+  if (
+    path === "/api/v1/admin/conversations" ||
+    path.startsWith("/api/v1/admin/conversations/")
   ) {
     return false;
   }
