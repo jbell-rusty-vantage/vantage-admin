@@ -12,4 +12,6 @@ Internal web application for lead search, bookings, cancellations, Granot intake
 
 **Lead Conversations tab (admin-local pointer):** shipped Owner-only `/conversations` example surface. One seeded Lead Conversation. Vercel AI Gateway automation is not authorized and is not live. Contract: [`uxdocs/lead-conversations-tab-specification.md`](uxdocs/lead-conversations-tab-specification.md). Domain words stay in the root glossary.
 
+**Job Timeline Enhancement (admin-local pointer):** live `/job-timeline` is still the v1 coverage-chip page. Enhanced UI is JTE-04 after the server pack reaches JTE-03. Orientation: [`uxdocs/HANDOFF-job-timeline-enhancement.md`](uxdocs/HANDOFF-job-timeline-enhancement.md). Contract: [`../vantage-main-server/docs/job-number-timeline/README.md`](../vantage-main-server/docs/job-number-timeline/README.md).
+
 Shared vocabulary always defers to the root glossary.

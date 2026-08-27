@@ -1,0 +1,35 @@
+---
+description: Enhanced Owner Job timeline — render server v2 fields, no catalog, no client-side evaluation
+globs: app/(dashboard)/job-timeline/**/*,components/job-number-timeline/**/*,lib/api/jobNumberTimeline.ts,lib/api/jobNumberTimeline.test.ts,tests/job-number-timeline.test.ts,uxdocs/HANDOFF-job-timeline-enhancement.md
+alwaysApply: false
+---
+
+# Job Number timeline (Admin)
+
+Owner-only `/job-timeline?job=`. Typed search. No Job Number catalog.
+
+## Workspace
+
+Do not start Admin enhancement until JTE-03 is `complete`.
+Orientation: [`uxdocs/HANDOFF-job-timeline-enhancement.md`](../../uxdocs/HANDOFF-job-timeline-enhancement.md).
+Issues live in `vantage-main-server/docs/job-number-timeline/`.
+
+## Render, do not evaluate
+
+Display `current_outcome`, `stage_assessments`, `attention`, and
+`limitations` from the server. Density filters hide rows only. Activity
+groups must not drop events. Official Booking and official Cancellation
+stay independently visible.
+
+This folder mounts `JobTimelinePage` from
+`GET /api/v1/admin/job-number-timeline`. Do not mount forensic
+`components/granot-lifecycle/job-timeline.tsx` here.
+
+## Invariants
+
+- Keep `buildJobTimelineHref` / `?job=` as shareable state.
+- Keep `queryKeys.jobNumberTimeline` isolated from `granotLifecycle`.
+- v1 fixtures remain renderable while `schema_version` is absent.
+- Locked headlines stay locked. No raw JSON. No contact.
+- Sheet `synced` is never “Google verified”.
+- Owner-only at `OWNER_ONLY_PAGE_PREFIXES` and `canProxyVantagePath`.
