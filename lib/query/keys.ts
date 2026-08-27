@@ -167,6 +167,11 @@ export const queryKeys = {
         [...queryKeys.granotLifecycle.all, "discrepancies", "detail", discrepancyId] as const,
     health: () => [...queryKeys.granotLifecycle.all, "health"] as const,
   },
+  jobNumberTimeline: {
+    all: ["job-number-timeline"] as const,
+    page: (jobNo: string, filters?: QueryFilters) =>
+      [...queryKeys.jobNumberTimeline.all, "page", jobNo, stableFilters(filters)] as const,
+  },
   operationsRegistry: {
     all: ["operations-registry"] as const,
     overview: () => [...queryKeys.operationsRegistry.all, "overview"] as const,

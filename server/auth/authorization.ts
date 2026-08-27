@@ -7,6 +7,7 @@ const OWNER_ONLY_PAGE_PREFIXES = [
   "/bookings/reconciliation",
   "/ingestion/granot",
   "/intakes",
+  "/job-timeline",
 ] as const;
 
 const OPERATIONAL_PATCH_PREFIXES = [
@@ -95,6 +96,12 @@ export function canProxyVantagePath(input: {
   }
 
   const path = normalizeProxyPath(input.path);
+  if (
+    path === "/api/v1/admin/job-number-timeline" ||
+    path.startsWith("/api/v1/admin/job-number-timeline/")
+  ) {
+    return false;
+  }
   if (path.startsWith("/api/v1/admin/booking-lead-reconciliations")) {
     return false;
   }

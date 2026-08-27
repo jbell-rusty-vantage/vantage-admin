@@ -203,3 +203,23 @@ test("[AC-20] Granot lifecycle keys isolate stable case, candidate, Job, and Lea
   ]);
   assert.deepEqual(queryKeys.granotLifecycle.health(), ["granot-lifecycle", "health"]);
 });
+
+test("Job Number timeline keys live in their own namespace", () => {
+  const first = queryKeys.jobNumberTimeline.page("5562924", {
+    source_granularity_id: "g1",
+    empty: "",
+  });
+  const second = queryKeys.jobNumberTimeline.page("5562924", {
+    empty: "",
+    source_granularity_id: "g1",
+  });
+  assert.deepEqual(first, second);
+  assert.deepEqual(first, [
+    "job-number-timeline",
+    "page",
+    "5562924",
+    { source_granularity_id: "g1" },
+  ]);
+  assert.equal(queryKeys.jobNumberTimeline.all[0], "job-number-timeline");
+  assert.notEqual(queryKeys.jobNumberTimeline.all[0], queryKeys.granotLifecycle.all[0]);
+});

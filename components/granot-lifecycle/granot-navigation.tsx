@@ -9,6 +9,7 @@ const tabs = [
   { href: "/ingestion/granot", label: "Automation" },
   { href: "/ingestion/granot/lifecycle", label: "Lifecycle" },
   { href: "/intakes", label: "Intakes", isNew: true },
+  { href: "/job-timeline", label: "Job timeline", isNew: true },
   { href: "/ingestion/granot/lifecycle/health", label: "Health" },
 ] as const;
 
@@ -27,7 +28,7 @@ export function GranotNavigationLinks({ pathname }: { pathname: string }) {
             : tab.href === "/ingestion/granot/lifecycle"
               ? (pathname === tab.href || pathname.startsWith(`${tab.href}/`))
                 && !pathname.startsWith("/ingestion/granot/lifecycle/health")
-              : tab.href === "/intakes"
+              : tab.href === "/intakes" || tab.href === "/job-timeline"
                 ? pathname === tab.href || pathname.startsWith(`${tab.href}/`)
               : pathname === tab.href || pathname.startsWith(`${tab.href}/`);
           return (

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { OverviewIntakesLink } from "../components/dashboard/home-overview";
+import { OverviewIntakesLink, OverviewJobTimelineLink } from "../components/dashboard/home-overview";
 
 test("overview places an Intakes link the owner can open from the first metrics", () => {
   const markup = renderToStaticMarkup(createElement(OverviewIntakesLink));
@@ -10,4 +10,12 @@ test("overview places an Intakes link the owner can open from the first metrics"
   assert.match(markup, />Intakes</);
   assert.match(markup, />New</);
   assert.match(markup, /this morning/);
+});
+
+test("overview places a Job timeline link as a new feature card", () => {
+  const markup = renderToStaticMarkup(createElement(OverviewJobTimelineLink));
+  assert.match(markup, /href="\/job-timeline"/);
+  assert.match(markup, />Job timeline</);
+  assert.match(markup, />New</);
+  assert.match(markup, /Job Number/);
 });

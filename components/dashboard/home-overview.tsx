@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   BarChart3,
+  History,
   Inbox,
   PhoneCall,
   PlusCircle,
@@ -94,6 +95,29 @@ export function OverviewIntakesLink() {
           </p>
           <p className="text-sm text-navy/70">
             Open Granot booking and cancellation cases waiting for you this morning.
+          </p>
+        </div>
+      </div>
+      <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+    </Link>
+  );
+}
+
+export function OverviewJobTimelineLink() {
+  return (
+    <Link
+      href="/job-timeline"
+      className="group flex items-center justify-between rounded-md border border-gold/50 bg-pale-gold/70 p-5 text-navy shadow-sm transition-all hover:-translate-y-0.5 hover:border-gold hover:bg-pale-gold"
+    >
+      <div className="flex items-center gap-3">
+        <History className="h-6 w-6 shrink-0" aria-hidden="true" />
+        <div>
+          <p className="flex items-center gap-2 text-base font-semibold">
+            Job timeline
+            <NewFeatureBadge />
+          </p>
+          <p className="text-sm text-navy/70">
+            Type a Job Number to read the owner-facing chain, including events before the Job Number arrived.
           </p>
         </div>
       </div>
@@ -347,7 +371,12 @@ export function HomeOverview() {
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">All Time</h2>
-        {role === "owner" ? <OverviewIntakesLink /> : null}
+        {role === "owner" ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            <OverviewIntakesLink />
+            <OverviewJobTimelineLink />
+          </div>
+        ) : null}
         <TotalsCards
           totals={totals}
           loading={loading}

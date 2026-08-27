@@ -83,6 +83,7 @@ test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/audit-log"), false);
   assert.equal(canAccessDashboardPath("admin", "/bookings/reconciliation"), false);
   assert.equal(canAccessDashboardPath("admin", "/intakes"), false);
+  assert.equal(canAccessDashboardPath("admin", "/job-timeline"), false);
   assert.equal(canAccessDashboardPath("admin", "/form-leads"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry?tab=cpl"), true);
@@ -477,6 +478,21 @@ test("Granot lifecycle pages remain owner-only in the Admin UI except health", (
   assert.equal(canAccessDashboardPath("owner", "/ingestion/granot/lifecycle/health"), true);
   assert.equal(canAccessDashboardPath("admin", "/intakes"), false);
   assert.equal(canAccessDashboardPath("owner", "/intakes"), true);
+  assert.equal(canAccessDashboardPath("admin", "/job-timeline"), false);
+  assert.equal(canAccessDashboardPath("owner", "/job-timeline"), true);
+});
+
+test("Job Number timeline proxy read is Owner-only", () => {
+  assert.equal(canProxyVantagePath({
+    role: "owner",
+    method: "GET",
+    path: "api/v1/admin/job-number-timeline?job_no=5562924",
+  }), true);
+  assert.equal(canProxyVantagePath({
+    role: "admin",
+    method: "GET",
+    path: "api/v1/admin/job-number-timeline?job_no=5562924",
+  }), false);
 });
 
 test("[AC-31][AC-35] health GET is Owner/Admin at the proxy and remains read-only", () => {
