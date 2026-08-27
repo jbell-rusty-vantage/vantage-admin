@@ -1,10 +1,10 @@
 # Handoff — Job Timeline Enhancement (vantage-admin)
 
-**For:** the agent picking up JTE-04 or JTE-05 in `vantage-admin`.
-**Status:** server enhancement not started. Live `/job-timeline` still
-renders the v1 coverage-chip page. Daily View and Daily Assurance are
-not this work.
-**Written:** 2026-08-27.
+**For:** the agent picking up JTE-05 in `vantage-admin`.
+**Status:** JTE-04 shipped. Live `/job-timeline?job=` renders the
+server-evaluated v2 hierarchy. Live proof and deep links are not
+shipped. Daily View and Daily Assurance are not this work.
+**Written:** 2026-08-27. Updated after JTE-04.
 
 Read this first, then the specification, then your issue. This file
 orients you; it decides nothing.
@@ -13,10 +13,12 @@ orients you; it decides nothing.
 
 ## 1. What you are building
 
-The same Owner-only page — `/job-timeline?job=` — with a clearer
-lifecycle story and expandable proof. Typed search only. No catalog.
+The same Owner-only page — `/job-timeline?job=` — already has the
+clearer lifecycle story. JTE-05 certifies that page on a live read and
+adds deep links from surfaces that already show a Job Number.
 
-You are **not** building `/daily`, notifications, or Google verification.
+You are **not** rebuilding the v2 hierarchy, evaluators, or `/daily`.
+You are **not** building notifications or Google verification.
 
 ---
 
@@ -34,14 +36,14 @@ Where this handoff and the specification disagree, the specification wins.
 
 ---
 
-## 3. Sequencing — do not start Admin first
+## 3. Sequencing — JTE-04 is done
 
-**JTE-01 → JTE-02 → JTE-03 must complete on the server** before JTE-04.
-Admin consumes exported, tested golden pages. If you start against v1
-coverage chips, you will re-implement evaluators in the browser — that
-is forbidden.
+**JTE-01 → JTE-04 are complete.** The server evaluates; Admin displays.
+JTE-05 is the only startable issue. Do not re-implement evaluators in
+the browser. Do not restart the JTE-04 UI.
 
-JTE-04 is session 3. JTE-05 (deep links, a11y, live proof) is session 4.
+JTE-05 (deep links, a11y, live proof) is session 4. Do not treat live
+proof or deep links as already shipped.
 
 ---
 
@@ -51,15 +53,23 @@ JTE-04 is session 3. JTE-05 (deep links, a11y, live proof) is session 4.
 | --- | --- |
 | Page | `app/(dashboard)/job-timeline/page.tsx` |
 | Shell + search | `components/job-number-timeline/job-timeline-dashboard.tsx`, `job-number-search.tsx` |
-| v1 header / chips / cards | `job-timeline-header.tsx`, `coverage-chips.tsx`, `owner-timeline.tsx`, `timeline.tsx` |
-| Client | `lib/api/jobNumberTimeline.ts` — `fetchJobNumberTimeline`, `buildJobTimelineHref` |
-| Query key | `queryKeys.jobNumberTimeline` — isolated from `granotLifecycle` |
+| v2 header / stage / attention / proof | `job-timeline-header.tsx`, `stage-strip.tsx`, `attention-panel.tsx`, `proof-boundaries.tsx` |
+| v2 spine | `owner-timeline.tsx` (21st clustered spine), `evidence-details.tsx`, `v2.ts`, `density-filter.tsx` |
+| v1 fallback only | `coverage-chips.tsx`, `timeline.tsx` (nyxbui 1074) — pages without `schema_version` |
+| Client | `lib/api/jobNumberTimeline.ts` — additive v2 DTO types, `fetchJobNumberTimeline`, `buildJobTimelineHref` (`view` optional) |
+| Query key | `queryKeys.jobNumberTimeline` — isolated from `granotLifecycle`; `view` is not in the key |
 | Owner page gate | `OWNER_ONLY_PAGE_PREFIXES` includes `/job-timeline` |
 | Owner proxy gate | `canProxyVantagePath` refuses `/api/v1/admin/job-number-timeline` for non-Owner |
 | Florida time | `lib/floridaTime.ts` / `formatDateTime` |
 | Forensic timeline | `components/granot-lifecycle/job-timeline.tsx` — **do not mount it here** |
 
-Do not rebuild the route, the proxy path, or the search box.
+Do not rebuild the route, the proxy path, the search box, or the v2
+hierarchy.
+
+Shipped v2 hierarchy: typed search → identity + `summary.headline` →
+stage strip from `stage_assessments` → Attention panel only if
+`attention.length > 0` → oldest-first 21st clustered spine → collapsed
+Proof boundaries from `limitations`.
 
 ---
 
@@ -94,14 +104,16 @@ JTE-04 named test 18. Keep a fallback for pages without
 
 ---
 
-## 6. Files you will touch (JTE-04)
+## 6. Files you will touch (JTE-05)
 
-See JTE-04 §6.5. Extend `components/job-number-timeline/`. Add additive
-v2 types on `lib/api/jobNumberTimeline.ts`. Do not fork a second page.
+JTE-04 already extended `components/job-number-timeline/` and copied
+additive v2 types onto `lib/api/jobNumberTimeline.ts`. Do not fork a
+second page.
 
 JTE-05 adds `buildJobTimelineHref` on Lead / Booking / Cancellation /
-intake surfaces that already show a Job Number. `/daily` does not exist;
-do not create it.
+intake surfaces that already show a Job Number, and certifies the
+shipped page on a live read. `/daily` does not exist; do not create it.
+Do not expand this handoff into the JTE-05 issue contract.
 
 ---
 

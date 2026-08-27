@@ -1,6 +1,6 @@
 ---
 description: Enhanced Owner Job timeline — render server v2 fields, no catalog, no client-side evaluation
-globs: app/(dashboard)/job-timeline/**/*,components/job-number-timeline/**/*,lib/api/jobNumberTimeline.ts,lib/api/jobNumberTimeline.test.ts,tests/job-number-timeline.test.ts,uxdocs/HANDOFF-job-timeline-enhancement.md
+globs: app/(dashboard)/job-timeline/**/*,components/job-number-timeline/**/*,lib/api/jobNumberTimeline.ts,lib/api/jobNumberTimeline.test.ts,tests/job-number-timeline.test.ts,tests/job-timeline-fixtures.ts,uxdocs/HANDOFF-job-timeline-enhancement.md
 alwaysApply: false
 ---
 
@@ -10,16 +10,43 @@ Owner-only `/job-timeline?job=`. Typed search. No Job Number catalog.
 
 ## Workspace
 
-Do not start Admin enhancement until JTE-03 is `complete`.
+JTE-04 shipped. JTE-05 (live proof, deep links) is next. Do not start
+JTE-05 as if the v2 hierarchy is unbuilt, and do not describe live proof
+or deep links as shipped.
 Orientation: [`uxdocs/HANDOFF-job-timeline-enhancement.md`](../../uxdocs/HANDOFF-job-timeline-enhancement.md).
 Issues live in `vantage-main-server/docs/job-number-timeline/`.
 
 ## Render, do not evaluate
 
-Display `current_outcome`, `stage_assessments`, `attention`, and
-`limitations` from the server. Density filters hide rows only. Activity
-groups must not drop events. Official Booking and official Cancellation
-stay independently visible.
+The server is the only evaluator. Admin copies DTO types additively into
+`lib/api/jobNumberTimeline.ts`. Admin types are never the semantic
+authority. Display `current_outcome`, `stage_assessments`, `attention`,
+and `limitations` as given.
+
+Shipped v2 hierarchy (`schema_version: "job_timeline.v2"`):
+
+1. Typed search
+2. Identity + `summary.headline` outcome
+3. Stage strip from `stage_assessments`
+4. Attention panel only if `attention.length > 0`
+5. Oldest-first 21st clustered spine
+6. Collapsed Proof boundaries from `limitations`
+
+Density `?view=` (`lifecycle` default, `all`, `attention`, `customer`,
+`system`) hides rows only. Header counts stay stable. `view` is not in
+`queryKeys.jobNumberTimeline`.
+
+Official Booking and official Cancellation stay independently visible
+(never clustered). Activity groups must not drop events.
+
+v1 fixtures remain renderable when `schema_version` is missing.
+`coverage-chips.tsx` and `timeline.tsx` (nyxbui Timeline 1074) are that
+fallback only. Do not treat nyxbui 1074 as the v2 story. v2 uses the
+activity-clustered spine in `owner-timeline.tsx`
+(https://21st.dev/ai/6e776855-13dc-4091-bdd5-dc4562e66466).
+
+Sheet `synced` is outbox completion. Quote the server
+`GOOGLE_DESTINATION_UNVERIFIED` label. Never “Sheet verified”.
 
 This folder mounts `JobTimelinePage` from
 `GET /api/v1/admin/job-number-timeline`. Do not mount forensic
@@ -27,9 +54,11 @@ This folder mounts `JobTimelinePage` from
 
 ## Invariants
 
-- Keep `buildJobTimelineHref` / `?job=` as shareable state.
+- Keep `buildJobTimelineHref` / `?job=` as shareable state. `view` is
+  additive only.
 - Keep `queryKeys.jobNumberTimeline` isolated from `granotLifecycle`.
 - v1 fixtures remain renderable while `schema_version` is absent.
 - Locked headlines stay locked. No raw JSON. No contact.
 - Sheet `synced` is never “Google verified”.
 - Owner-only at `OWNER_ONLY_PAGE_PREFIXES` and `canProxyVantagePath`.
+- Route, Owner gates, and proxy path stay unchanged.

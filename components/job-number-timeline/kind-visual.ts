@@ -13,6 +13,12 @@ export type KindVisual = {
  * Adapted from 21st.dev Timeline 1074 (nyxbui) + Chrono Board 9216.
  */
 export const KIND_VISUAL: Record<JobTimelineEventKind, KindVisual> = {
+  source_received: {
+    label: "Receipt",
+    rail: "border-l-trust-blue",
+    icon: "bg-trust-blue text-white",
+    chip: "bg-trust-blue/10 text-navy",
+  },
   lead_created: {
     label: "Create",
     rail: "border-l-navy",
@@ -84,6 +90,7 @@ export const KIND_VISUAL: Record<JobTimelineEventKind, KindVisual> = {
 export type CycleStageId = "lead" | "granot" | "intake" | "official" | "sheet";
 
 export const CYCLE_STAGE: Record<JobTimelineEventKind, { id: CycleStageId; label: string }> = {
+  source_received: { id: "lead", label: "Lead" },
   lead_created: { id: "lead", label: "Lead" },
   lead_message: { id: "lead", label: "Lead" },
   job_number_acquired: { id: "lead", label: "Lead" },

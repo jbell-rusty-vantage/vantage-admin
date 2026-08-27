@@ -7,16 +7,23 @@ import { History } from "lucide-react";
 import {
   buildJobTimelineHref,
   fetchJobNumberTimeline,
+  isEnhancedJobTimelinePage,
+  parseTimelineView,
   type JobTimelineAssembleResult,
+  type TimelineDensityView,
 } from "@/lib/api/jobNumberTimeline";
 import { queryKeys } from "@/lib/query/keys";
 import { GranotNavigation } from "@/components/granot-lifecycle/granot-navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { NewFeatureBadge } from "@/components/ui/new-badge";
+import { AttentionPanel } from "./attention-panel";
+import { DensityFilter } from "./density-filter";
 import { JobNumberSearch } from "./job-number-search";
 import { JobTimelineHeader } from "./job-timeline-header";
 import { OwnerTimeline } from "./owner-timeline";
+import { ProofBoundaries } from "./proof-boundaries";
+import { eventVisibleInDensity } from "./v2";
 
 function isSearchableJobNumber(value: string): boolean {
   return value.trim().length > 0;
@@ -27,11 +34,15 @@ export function JobTimelineDashboardView({
   searched,
   loading,
   error,
+  view = "lifecycle",
+  onViewChange,
 }: {
   result: JobTimelineAssembleResult | undefined;
   searched: boolean;
   loading: boolean;
   error?: string;
+  view?: TimelineDensityView;
+  onViewChange?: (view: TimelineDensityView) => void;
 }) {
   if (!searched) {
     return (
@@ -81,14 +92,44 @@ export function JobTimelineDashboardView({
     );
   }
 
+  const page = result.page;
+
+  if (!isEnhancedJobTimelinePage(page)) {
+    return (
+      <div className="space-y-5">
+        <JobTimelineHeader page={page} />
+        {page.events.length === 0 ? (
+          <FeedbackMessage tone="info">This Job has no owner-facing events yet.</FeedbackMessage>
+        ) : (
+          <OwnerTimeline events={page.events} />
+        )}
+      </div>
+    );
+  }
+
+  const visibleCount = page.events.filter((event) =>
+    eventVisibleInDensity(event, view, page.attention, page.stage_assessments),
+  ).length;
+
   return (
     <div className="space-y-5">
-      <JobTimelineHeader page={result.page} />
-      {result.page.events.length === 0 ? (
+      <JobTimelineHeader page={page} />
+      {onViewChange ? <DensityFilter view={view} onViewChange={onViewChange} /> : null}
+      <AttentionPanel items={page.attention} />
+      {page.events.length === 0 ? (
         <FeedbackMessage tone="info">This Job has no owner-facing events yet.</FeedbackMessage>
+      ) : visibleCount === 0 ? (
+        <FeedbackMessage tone="info">No events match this view.</FeedbackMessage>
       ) : (
-        <OwnerTimeline events={result.page.events} />
+        <OwnerTimeline
+          events={page.events}
+          activities={page.activities}
+          view={view}
+          attention={page.attention}
+          stages={page.stage_assessments}
+        />
       )}
+      <ProofBoundaries limitations={page.limitations} />
     </div>
   );
 }
@@ -98,6 +139,7 @@ export function JobTimelineDashboard() {
   const searchParams = useSearchParams();
   const jobFromUrl = searchParams.get("job") ?? "";
   const granularityFromUrl = searchParams.get("source_granularity_id") ?? "";
+  const viewFromUrl = parseTimelineView(searchParams.get("view"));
   const [draftJob, setDraftJob] = useState(jobFromUrl);
   const [draftGranularity, setDraftGranularity] = useState(granularityFromUrl);
 
@@ -125,6 +167,17 @@ export function JobTimelineDashboard() {
       buildJobTimelineHref({
         job: draftJob,
         source_granularity_id: draftGranularity,
+        view: viewFromUrl,
+      }),
+    );
+  }
+
+  function changeView(view: TimelineDensityView) {
+    router.replace(
+      buildJobTimelineHref({
+        job: jobFromUrl,
+        source_granularity_id: granularityFromUrl,
+        view,
       }),
     );
   }
@@ -159,6 +212,8 @@ export function JobTimelineDashboard() {
         searched={searched}
         loading={query.isFetching}
         error={error}
+        view={viewFromUrl}
+        onViewChange={changeView}
       />
     </div>
   );

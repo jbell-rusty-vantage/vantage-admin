@@ -3,8 +3,11 @@ import test from "node:test";
 import {
   buildJobTimelineHref,
   fetchJobNumberTimeline,
+  isEnhancedJobTimelinePage,
   JOB_TIMELINE_HREF,
+  parseTimelineView,
 } from "./jobNumberTimeline";
+import { v1Page, v2Page } from "../../tests/job-timeline-fixtures";
 
 type FetchCall = { input: string | URL | Request; init?: RequestInit };
 
@@ -39,4 +42,19 @@ test("typed Job Number search uses the owner DTO route, not the forensic lifecyc
 test("job timeline href keeps the typed Job Number in the URL", () => {
   assert.equal(buildJobTimelineHref({}), JOB_TIMELINE_HREF);
   assert.equal(buildJobTimelineHref({ job: " 5562924 " }), "/job-timeline?job=5562924");
+  assert.equal(
+    buildJobTimelineHref({ job: "5562924", view: "attention" }),
+    "/job-timeline?job=5562924&view=attention",
+  );
+  assert.equal(
+    buildJobTimelineHref({ job: "5562924", view: "lifecycle" }),
+    "/job-timeline?job=5562924",
+  );
+});
+
+test("v1 page is not treated as the enhanced schema", () => {
+  assert.equal(isEnhancedJobTimelinePage(v1Page), false);
+  assert.equal(isEnhancedJobTimelinePage(v2Page), true);
+  assert.equal(parseTimelineView("system"), "system");
+  assert.equal(parseTimelineView("nope"), "lifecycle");
 });
