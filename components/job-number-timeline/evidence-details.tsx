@@ -59,7 +59,10 @@ export function EvidenceDetails({
 
   return (
     <details className="group mt-3 border-t border-steel-200 pt-3">
-      <summary className="cursor-pointer text-xs font-semibold text-navy outline-none focus-visible:ring-2 focus-visible:ring-gold">
+      <summary
+        className="cursor-pointer text-xs font-semibold text-navy outline-none focus-visible:ring-2 focus-visible:ring-gold"
+        aria-label={`View evidence for ${event.headline}`}
+      >
         View evidence
       </summary>
       <div className="mt-3 grid gap-3 text-xs text-steel">

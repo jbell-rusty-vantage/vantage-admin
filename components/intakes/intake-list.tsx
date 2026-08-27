@@ -4,6 +4,7 @@ import { formatDateTime } from "@/components/data-table/formatters";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import type { GranotLifecycleCaseListItem } from "@/lib/api/granotLifecycle";
 import { cn } from "@/lib/utils";
+import { JobTimelineDeepLink } from "@/components/job-number-timeline/job-timeline-deep-link";
 import { GranotBookingStatementAccordion } from "./granot-booking-statement";
 import {
   granotUpdateCountLine,
@@ -100,6 +101,14 @@ export function IntakeList({
                     <Link className="hover:underline" href={intakeJobHref(item.normalized_job_no)}>
                       Open job history
                     </Link>
+                    {item.job_no ? (
+                      <>
+                        {" · "}
+                        <JobTimelineDeepLink job={item.job_no} className="hover:underline">
+                          Open Job timeline
+                        </JobTimelineDeepLink>
+                      </>
+                    ) : null}
                   </p>
                 </td>
                 <td className="px-3 py-3 align-top">

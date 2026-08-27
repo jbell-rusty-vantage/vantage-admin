@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { formatDateTime, formatMoney } from "@/components/data-table/formatters";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { JobTimeline } from "@/components/granot-lifecycle/job-timeline";
+import { JobTimelineDeepLink } from "@/components/job-number-timeline/job-timeline-deep-link";
 import type {
   GranotLifecycleCaseDetail,
   GranotTimelinePage,
@@ -130,11 +131,13 @@ export function GranotUpdateHistory({
 
 /** The three drawers every intake carries, in the order the Owner would reach for them. */
 export function IntakeReferenceDrawers({
+  job,
   official,
   updates,
   timeline,
   defaultOpen,
 }: {
+  job?: string | null;
   official: GranotLifecycleCaseDetail["official_current"];
   updates: GranotLifecycleCaseDetail["evidence"];
   timeline?: GranotTimelinePage;
@@ -163,6 +166,12 @@ export function IntakeReferenceDrawers({
         hint={BOOKING_INTAKE_STORY.jobLifecycleTimeline.hint}
         defaultOpen={defaultOpen}
       >
+        {job ? (
+          <p className="mb-3 text-sm">
+            <JobTimelineDeepLink job={job}>Open Job timeline</JobTimelineDeepLink>
+            {" "}in addition to this forensic drawer.
+          </p>
+        ) : null}
         <JobTimeline page={timeline} />
       </IntakeReferenceDrawer>
     </div>

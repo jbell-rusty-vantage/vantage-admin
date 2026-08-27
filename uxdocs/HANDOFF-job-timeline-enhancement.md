@@ -1,24 +1,26 @@
 # Handoff — Job Timeline Enhancement (vantage-admin)
 
-**For:** the agent picking up JTE-05 in `vantage-admin`.
-**Status:** JTE-04 shipped. Live `/job-timeline?job=` renders the
-server-evaluated v2 hierarchy. Live proof and deep links are not
-shipped. Daily View and Daily Assurance are not this work.
-**Written:** 2026-08-27. Updated after JTE-04.
+**For:** the next agent touching the Owner Job timeline in `vantage-admin`.
+**Status:** JTE-01–05 shipped. JTE-06 and JTE-07 stay deferred. Live
+`/job-timeline?job=` renders the server-evaluated v2 hierarchy. Owner
+deep links exist. `/daily` does not exist; do not create it. Daily View
+and Daily Assurance are not this work.
+**Written:** 2026-08-27. Updated after JTE-05.
 
-Read this first, then the specification, then your issue. This file
-orients you; it decides nothing.
+Read this first, then the specification, then any issue you are
+authorized to start. This file orients you; it decides nothing.
 
 ---
 
-## 1. What you are building
+## 1. What is already built
 
-The same Owner-only page — `/job-timeline?job=` — already has the
-clearer lifecycle story. JTE-05 certifies that page on a live read and
-adds deep links from surfaces that already show a Job Number.
+The Owner-only page — `/job-timeline?job=` — has the v2 lifecycle
+story, JTE-05 a11y names on the shipped JTE-04 page, and URL-only
+deep links from surfaces that already show a Job Number.
 
 You are **not** rebuilding the v2 hierarchy, evaluators, or `/daily`.
-You are **not** building notifications or Google verification.
+You are **not** starting JTE-06 or JTE-07. You are **not** building
+notifications or Google verification.
 
 ---
 
@@ -28,7 +30,7 @@ You are **not** building notifications or Google verification.
 | --- | --- | --- |
 | **1** | `vantage-main-server/docs/job-number-timeline/job-timeline-enhancement-specification.md` | **The contract** for additive behavior |
 | **2** | Prototype spec under `scripts/prototypes/job-number-timeline/specs/` | **Wins on event truth, correlation, masking** |
-| **3** | `vantage-main-server/docs/job-number-timeline/issues/JTE-*.md` | Your session contract |
+| **3** | `vantage-main-server/docs/job-number-timeline/issues/JTE-*.md` | Session contracts (JTE-06/07 stay deferred) |
 | 4 | `vantage-main-server/docs/job-number-timeline/README.md` | Delivery index and session map |
 | 5 | This file | Admin orientation |
 
@@ -36,14 +38,13 @@ Where this handoff and the specification disagree, the specification wins.
 
 ---
 
-## 3. Sequencing — JTE-04 is done
+## 3. Sequencing — JTE-01–05 are done
 
-**JTE-01 → JTE-04 are complete.** The server evaluates; Admin displays.
-JTE-05 is the only startable issue. Do not re-implement evaluators in
-the browser. Do not restart the JTE-04 UI.
-
-JTE-05 (deep links, a11y, live proof) is session 4. Do not treat live
-proof or deep links as already shipped.
+**JTE-01 → JTE-05 are complete.** The server evaluates; Admin displays;
+live proof and Owner deep links shipped. JTE-06 and JTE-07 stay
+deferred until recorded write / source-assurance approval. Do not
+re-implement evaluators in the browser. Do not restart the JTE-04 UI.
+Do not treat JTE-06/07 as started.
 
 ---
 
@@ -56,20 +57,27 @@ proof or deep links as already shipped.
 | v2 header / stage / attention / proof | `job-timeline-header.tsx`, `stage-strip.tsx`, `attention-panel.tsx`, `proof-boundaries.tsx` |
 | v2 spine | `owner-timeline.tsx` (21st clustered spine), `evidence-details.tsx`, `v2.ts`, `density-filter.tsx` |
 | v1 fallback only | `coverage-chips.tsx`, `timeline.tsx` (nyxbui 1074) — pages without `schema_version` |
+| Deep link | `job-timeline-deep-link.tsx` (`JobTimelineDeepLink`) — `buildJobTimelineHref({ job })` → `/job-timeline?job=`; empty job renders `-` |
+| Deep-link call sites | `operational-resource-page.tsx` (Lead / Booking / Cancellation Job cell); `intake-list.tsx` (“Open Job timeline” **in addition to** forensic “Open job history”); booking/cancellation workbench headline Job Number; `intake-reference.tsx` (“Open Job timeline” **plus** the forensic `JobTimeline` drawer) |
 | Client | `lib/api/jobNumberTimeline.ts` — additive v2 DTO types, `fetchJobNumberTimeline`, `buildJobTimelineHref` (`view` optional) |
 | Query key | `queryKeys.jobNumberTimeline` — isolated from `granotLifecycle`; `view` is not in the key |
 | Owner page gate | `OWNER_ONLY_PAGE_PREFIXES` includes `/job-timeline` |
 | Owner proxy gate | `canProxyVantagePath` refuses `/api/v1/admin/job-number-timeline` for non-Owner |
 | Florida time | `lib/floridaTime.ts` / `formatDateTime` |
-| Forensic timeline | `components/granot-lifecycle/job-timeline.tsx` — **do not mount it here** |
+| Forensic timeline | `components/granot-lifecycle/job-timeline.tsx` — **do not mount it on `/job-timeline`**. Intake reference keeps it. |
+| Tests | `tests/job-number-timeline.test.ts`, `tests/job-timeline-deep-link.test.ts`, `tests/intakes-components.test.ts` |
 
-Do not rebuild the route, the proxy path, the search box, or the v2
-hierarchy.
+Do not rebuild the route, the proxy path, the search box, the v2
+hierarchy, or the deep-link helper.
 
 Shipped v2 hierarchy: typed search → identity + `summary.headline` →
 stage strip from `stage_assessments` → Attention panel only if
 `attention.length > 0` → oldest-first 21st clustered spine → collapsed
 Proof boundaries from `limitations`.
+
+Kept: Home `OverviewJobTimelineLink` (`/job-timeline`), sidebar nav,
+Granot nav. No catalog. No contact-search links. No employee/non-Owner
+links.
 
 ---
 
@@ -99,21 +107,21 @@ server limitation. Do not write “Sheet verified”.
 
 ### 5.5 v1 fixtures must still render
 
-JTE-04 named test 18. Keep a fallback for pages without
-`schema_version: "job_timeline.v2"`.
+Keep a fallback for pages without `schema_version: "job_timeline.v2"`.
+
+### 5.6 Deep links are URL-only
+
+`JobTimelineDeepLink` must not invent a catalog or fetch a Job Number
+the surface does not already have. Empty `job_no` stays `-`.
 
 ---
 
-## 6. Files you will touch (JTE-05)
+## 6. Deep links that exist (JTE-05)
 
-JTE-04 already extended `components/job-number-timeline/` and copied
-additive v2 types onto `lib/api/jobNumberTimeline.ts`. Do not fork a
-second page.
-
-JTE-05 adds `buildJobTimelineHref` on Lead / Booking / Cancellation /
-intake surfaces that already show a Job Number, and certifies the
-shipped page on a live read. `/daily` does not exist; do not create it.
-Do not expand this handoff into the JTE-05 issue contract.
+`components/job-number-timeline/job-timeline-deep-link.tsx` is the
+shared helper. Call sites are Owner-only surfaces that already show a
+Job Number. `/daily` does not exist; do not create it. Do not expand
+this handoff into a JTE-06 or JTE-07 contract.
 
 ---
 
@@ -124,6 +132,7 @@ cd vantage-admin && pnpm test && pnpm typecheck && pnpm lint
 cd ../vantage-main-server && pnpm test && pnpm typecheck
 ```
 
-Then check your issue's §10. If you changed the UI, verify in the
-browser: type a Job Number, read the outcome, expand evidence, switch
-every density filter, confirm empty attention stays hidden.
+If you changed the UI, verify in the browser: type a Job Number, read
+the outcome, expand evidence, switch every density filter, confirm
+empty attention stays hidden, and follow one Owner deep link to
+`/job-timeline?job=`.

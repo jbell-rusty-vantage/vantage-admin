@@ -5,7 +5,10 @@ export function ProofBoundaries({ limitations }: { limitations: TimelineLimitati
 
   return (
     <details className="rounded-md border border-steel-200 bg-white p-4">
-      <summary className="cursor-pointer font-heading text-sm font-extrabold uppercase tracking-wide text-navy outline-none focus-visible:ring-2 focus-visible:ring-gold">
+      <summary
+        className="cursor-pointer font-heading text-sm font-extrabold uppercase tracking-wide text-navy outline-none focus-visible:ring-2 focus-visible:ring-gold"
+        aria-label="Proof boundaries"
+      >
         Proof boundaries
       </summary>
       <ul className="mt-3 space-y-3">

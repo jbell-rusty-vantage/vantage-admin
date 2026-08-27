@@ -7,6 +7,7 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import { BookingOwnerActions } from "@/components/granot-lifecycle/booking-owner-actions";
 import { useMatchedLead } from "@/components/granot-lifecycle/use-matched-lead";
 import type { GranotLifecycleCaseDetail } from "@/lib/api/granotLifecycle";
+import { JobTimelineDeepLink } from "@/components/job-number-timeline/job-timeline-deep-link";
 import { GranotBookingStatementCard } from "./granot-booking-statement";
 import { MatchedCustomerSection } from "./matched-lead-panel";
 import { IntakeReferenceDrawers } from "./intake-reference";
@@ -33,7 +34,9 @@ function BookingIntakeHeadline({
           <p className="text-sm font-semibold uppercase tracking-wide text-trust-blue">
             Booking intake
           </p>
-          <h1 className="text-2xl font-semibold text-navy">Job {detail.job_no}</h1>
+          <h1 className="text-2xl font-semibold text-navy">
+            <JobTimelineDeepLink job={detail.job_no}>Job {detail.job_no}</JobTimelineDeepLink>
+          </h1>
         </div>
         <div className="flex flex-wrap gap-1">
           <StatusBadge tone={detail.state === "open" ? "warning" : "muted"}>
@@ -116,6 +119,7 @@ export function BookingIntakeWorkbench({
       ) : null}
 
       <IntakeReferenceDrawers
+        job={detail.job_no}
         official={detail.official_current}
         updates={detail.evidence}
         timeline={detail.timeline}

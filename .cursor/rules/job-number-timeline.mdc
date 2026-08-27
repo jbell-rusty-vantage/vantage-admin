@@ -1,6 +1,6 @@
 ---
 description: Enhanced Owner Job timeline — render server v2 fields, no catalog, no client-side evaluation
-globs: app/(dashboard)/job-timeline/**/*,components/job-number-timeline/**/*,lib/api/jobNumberTimeline.ts,lib/api/jobNumberTimeline.test.ts,tests/job-number-timeline.test.ts,tests/job-timeline-fixtures.ts,uxdocs/HANDOFF-job-timeline-enhancement.md
+globs: app/(dashboard)/job-timeline/**/*,components/job-number-timeline/**/*,lib/api/jobNumberTimeline.ts,lib/api/jobNumberTimeline.test.ts,tests/job-number-timeline.test.ts,tests/job-timeline-deep-link.test.ts,tests/job-timeline-fixtures.ts,uxdocs/HANDOFF-job-timeline-enhancement.md
 alwaysApply: false
 ---
 
@@ -10,9 +10,9 @@ Owner-only `/job-timeline?job=`. Typed search. No Job Number catalog.
 
 ## Workspace
 
-JTE-04 shipped. JTE-05 (live proof, deep links) is next. Do not start
-JTE-05 as if the v2 hierarchy is unbuilt, and do not describe live proof
-or deep links as shipped.
+JTE-01–05 shipped. JTE-06 and JTE-07 stay deferred. Do not start
+JTE-06/07 without recorded write / source-assurance approval. Do not
+create `/daily`.
 Orientation: [`uxdocs/HANDOFF-job-timeline-enhancement.md`](../../uxdocs/HANDOFF-job-timeline-enhancement.md).
 Issues live in `vantage-main-server/docs/job-number-timeline/`.
 
@@ -50,7 +50,26 @@ Sheet `synced` is outbox completion. Quote the server
 
 This folder mounts `JobTimelinePage` from
 `GET /api/v1/admin/job-number-timeline`. Do not mount forensic
-`components/granot-lifecycle/job-timeline.tsx` here.
+`components/granot-lifecycle/job-timeline.tsx` on the Owner page.
+`intake-reference.tsx` keeps the forensic drawer **and** the Owner
+deep link.
+
+## Deep links (JTE-05 shipped)
+
+`JobTimelineDeepLink` uses existing `buildJobTimelineHref({ job })` →
+`/job-timeline?job=`. Empty job renders `-`. Owner-only call sites:
+Lead / Booking / Cancellation list and detail in
+`operational-resource-page.tsx` (Form Leads gained a Job column when
+`job_no` is present); intake list “Open Job timeline” in addition to
+forensic “Open job history”; booking/cancellation workbench headline
+Job Number; intake-reference “Open Job timeline”. No catalog. No
+contact search. No employee/non-Owner links. Home
+`OverviewJobTimelineLink`, sidebar, and Granot nav stay as they were.
+
+JTE-05 certified the shipped JTE-04 page (screen-reader names on
+outcome, attention count, evidence, proof boundaries; stage strip
+state in aria-label + sr-only; density radiogroup without roving
+tabindex). Admin still does not recompute server arrays.
 
 ## Invariants
 

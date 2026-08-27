@@ -7,7 +7,7 @@ export function AttentionPanel({ items }: { items: TimelineAttention[] }) {
   return (
     <section
       className="rounded-md border border-amber-500/40 bg-amber-50 p-4"
-      aria-label="Attention"
+      aria-label={`Attention, ${items.length} ${items.length === 1 ? "item" : "items"}`}
     >
       <h3 className="flex items-center gap-2 font-heading text-sm font-extrabold uppercase tracking-wide text-navy">
         <AlertTriangle className="h-4 w-4" aria-hidden="true" />

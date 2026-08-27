@@ -6,6 +6,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { ReleaseOwnerActions } from "@/components/granot-lifecycle/release-owner-actions";
 import type { GranotLifecycleCaseDetail } from "@/lib/api/granotLifecycle";
+import { JobTimelineDeepLink } from "@/components/job-number-timeline/job-timeline-deep-link";
 import { GranotBookingStatementCard } from "./granot-booking-statement";
 import { IntakeReferenceDrawers } from "./intake-reference";
 import { intakeCaseHowToFinish, intakeStatusLabel } from "./intake-copy";
@@ -31,7 +32,9 @@ function CancellationIntakeHeadline({
           <p className="text-sm font-semibold uppercase tracking-wide text-trust-blue">
             Cancellation intake
           </p>
-          <h1 className="text-2xl font-semibold text-navy">Job {detail.job_no}</h1>
+          <h1 className="text-2xl font-semibold text-navy">
+            <JobTimelineDeepLink job={detail.job_no}>Job {detail.job_no}</JobTimelineDeepLink>
+          </h1>
         </div>
         <div className="flex flex-wrap gap-1">
           <StatusBadge tone={detail.state === "open" ? "warning" : "muted"}>
@@ -95,6 +98,7 @@ export function CancellationIntakeWorkbench({
       ) : null}
 
       <IntakeReferenceDrawers
+        job={detail.job_no}
         official={detail.official_current}
         updates={detail.evidence}
         timeline={detail.timeline}

@@ -148,6 +148,9 @@ test("intake list uses owner language and keeps booking and cancellation rows di
   assert.match(bookingMarkup, /Finish booking/);
   assert.match(bookingMarkup, /choose a lead and enter one binder amount/);
   assert.match(bookingMarkup, /href="\/intakes\?case=case-booking"/);
+  assert.match(bookingMarkup, /href="\/job-timeline\?job=Synthetic/);
+  assert.match(bookingMarkup, /Open Job timeline/);
+  assert.match(bookingMarkup, /Open job history/);
   assert.equal(bookingMarkup.includes("Synthetic Job 2"), false);
   assert.equal(bookingMarkup.includes("release #"), false);
 
@@ -160,6 +163,7 @@ test("intake list uses owner language and keeps booking and cancellation rows di
   assert.match(cancellationMarkup, /Synthetic Job 2/);
   assert.match(cancellationMarkup, /Granot recorded a cancellation/);
   assert.match(cancellationMarkup, /Vantage has an official booking on this job/);
+  assert.match(cancellationMarkup, /href="\/job-timeline\?job=Synthetic/);
   assert.equal(cancellationMarkup.includes("priority 5"), false);
 });
 
@@ -610,6 +614,7 @@ test("the booking intake reads as one story: Granot, then the customer, then the
     assert.ok(at > readSoFar, `${act} is out of order in the booking intake story`);
     readSoFar = at;
   }
+  assert.match(markup, /href="\/job-timeline\?job=Synthetic/);
 });
 
 test("a booking intake that needs no customer never asks for one", () => {
@@ -694,6 +699,7 @@ test("the cancellation intake reads as one story: Granot, then the work, then th
     readSoFar = at;
   }
   assert.equal(markup.includes("Who this booking is for"), false);
+  assert.match(markup, /href="\/job-timeline\?job=Synthetic/);
 });
 
 test("a cancellation intake nobody can finish yet says so and opens the record instead", () => {
@@ -717,6 +723,7 @@ test("a booking intake nobody can finish yet says so and opens the record instea
 test("the reference drawers explain the job in owner words, not schema words", () => {
   const detail = bookingIntakeDetail();
   const markup = renderToStaticMarkup(createElement(IntakeReferenceDrawers, {
+    job: detail.job_no,
     official: detail.official_current,
     updates: detail.evidence,
     timeline: detail.timeline,
@@ -728,6 +735,8 @@ test("the reference drawers explain the job in owner words, not schema words", (
   assert.match(markup, /Vantage read it cleanly/);
   assert.match(markup, /some fields looked wrong/);
   assert.match(markup, /Every update Granot sent on this job \(2\)/);
+  assert.match(markup, /href="\/job-timeline\?job=Synthetic/);
+  assert.match(markup, /Open Job timeline/);
   for (const jargon of ["normalization_result", "priority_5", "observation_id", "decision_id"]) {
     assert.equal(markup.includes(jargon), false);
   }

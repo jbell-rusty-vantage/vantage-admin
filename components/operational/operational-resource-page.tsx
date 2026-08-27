@@ -22,6 +22,7 @@ import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import { floridaCalendarDateInputValue } from "@/lib/floridaTime";
 import { Textarea } from "@/components/ui/textarea";
 import { DetailGrid, DetailItem, DetailSection } from "@/components/record-detail/detail-section";
+import { JobTimelineDeepLink } from "@/components/job-number-timeline/job-timeline-deep-link";
 import {
   getRelatedNavLinks,
   linkedContextHref,
@@ -138,6 +139,7 @@ const formLeadColumns: ColumnConfig[] = [
   { key: "pickup_city", label: "Pickup City", path: "pickup_city" },
   { key: "delivery_city", label: "Delivery City", path: "delivery_city" },
   { key: "ref", label: "Ref", path: "ref_no", sort: "ref_no" },
+  { key: "job", label: "Job", path: "job_no", sort: "job_no" },
   { key: "move", label: "Move", path: "move_size" },
   { key: "bad_lead", label: "Bad Lead", path: "bad_lead" },
   { key: "sms_message_sent", label: "SMS Sent", path: "sms_message_sent", format: "boolean" },
@@ -648,6 +650,10 @@ function formatCell(
   }
   if (column.key === "source" && isLeadRecordWithSourceMetadata(record)) {
     return formatSourceDisplay(record, value, granularityLabelByKey);
+  }
+  if (column.path === "job_no") {
+    const job = stringValue(value);
+    return job ? <JobTimelineDeepLink job={job} /> : "-";
   }
   if (column.format === "date") {
     return formatDate(value);

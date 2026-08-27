@@ -177,7 +177,7 @@ test("proof boundaries stay collapsed and quote server limitation labels", () =>
 test("density filters hide rows only and keep header counts stable", () => {
   const header = renderToStaticMarkup(createElement(JobTimelineHeader, { page: v2Page }));
   assert.match(header, /Events<\/dt><dd>9<\/dd>/);
-  assert.match(header, /Attention<\/dt><dd>0<\/dd>/);
+  assert.match(header, /aria-label="Attention count: 0"/);
   assert.match(header, /Cancelled/);
 
   const lifecycle = renderToStaticMarkup(
@@ -315,4 +315,41 @@ test("v2 render never dumps raw JSON or contact", () => {
 test("empty attention component renders nothing", () => {
   const markup = renderToStaticMarkup(createElement(AttentionPanel, { items: [] }));
   assert.equal(markup, "");
+});
+
+test("v2 page exposes screen-reader names on outcome, attention, and evidence", () => {
+  const header = renderToStaticMarkup(createElement(JobTimelineHeader, { page: v2Page }));
+  assert.match(header, /aria-label="Current outcome: Cancelled"/);
+  assert.match(header, /aria-label="Attention count: 0"/);
+  assert.match(header, /aria-label="Lead recorded \(complete\)"/);
+  assert.match(header, /aria-label="Google not verified \(unverifiable\)"/);
+
+  const attention = renderToStaticMarkup(
+    createElement(AttentionPanel, { items: v2PageWithAttention.attention }),
+  );
+  assert.match(attention, /aria-label="Attention, 1 item"/);
+
+  const timeline = renderToStaticMarkup(
+    createElement(OwnerTimeline, {
+      events: v2Page.events,
+      activities: v2Page.activities,
+      view: "lifecycle",
+    }),
+  );
+  assert.match(timeline, /aria-label="View evidence for Lead created \(wordpress_form\)"/);
+  assert.match(timeline, /aria-label="View evidence for Official Booking recorded"/);
+
+  const proof = renderToStaticMarkup(createElement(ProofBoundaries, { limitations: v2Page.limitations }));
+  assert.match(proof, /aria-label="Proof boundaries"/);
+});
+
+test("density radios stay tabbable without roving tabindex", () => {
+  const markup = renderToStaticMarkup(
+    createElement(DensityFilter, { view: "lifecycle", onViewChange() {} }),
+  );
+  assert.match(markup, /role="radiogroup"/);
+  assert.match(markup, /aria-label="Timeline density"/);
+  assert.equal((markup.match(/role="radio"/g) ?? []).length, 5);
+  assert.doesNotMatch(markup, /tabIndex=\{-1\}/);
+  assert.doesNotMatch(markup, /tabindex="-1"/);
 });

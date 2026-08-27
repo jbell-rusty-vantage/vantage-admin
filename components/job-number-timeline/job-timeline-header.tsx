@@ -32,7 +32,12 @@ export function JobTimelineHeader({ page }: { page: JobTimelinePage }) {
     <header className="space-y-3 rounded-md border border-gold/40 bg-pale-gold/40 p-5">
       <p className="text-xs font-bold uppercase tracking-wide text-steel">Job Number</p>
       <h2 className="font-heading text-2xl font-extrabold text-navy">{jobNumber}</h2>
-      <p className="font-heading text-lg font-bold text-navy">{page.summary.headline}</p>
+      <p
+        className="font-heading text-lg font-bold text-navy"
+        aria-label={`Current outcome: ${page.summary.headline}`}
+      >
+        {page.summary.headline}
+      </p>
       <p className="text-sm text-navy/80">
         {page.summary.origin_label}
         {sourceBits.length > 0 ? ` · ${sourceBits.join(" / ")}` : null}
@@ -57,7 +62,9 @@ export function JobTimelineHeader({ page }: { page: JobTimelinePage }) {
         </div>
         <div>
           <dt className="font-bold uppercase tracking-wide">Attention</dt>
-          <dd>{page.summary.attention_count}</dd>
+          <dd aria-label={`Attention count: ${page.summary.attention_count}`}>
+            {page.summary.attention_count}
+          </dd>
         </div>
       </dl>
       {page.freshness.ringcentral_covered_through ? (
