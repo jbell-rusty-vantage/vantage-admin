@@ -113,6 +113,9 @@ export function canProxyVantagePath(input: {
   if (path.startsWith("/api/v1/admin/booking-lead-reconciliations")) {
     return false;
   }
+  if (/^\/api\/v1\/admin\/bookings\/[^/]+\/connect-lead(?:-candidates)?$/.test(path)) {
+    return false;
+  }
   if (
     path === GRANOT_AUTOMATION_PREFIX ||
     path.startsWith(`${GRANOT_AUTOMATION_PREFIX}/`)

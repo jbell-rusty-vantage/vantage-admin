@@ -37,5 +37,6 @@ test("[AC-23][AC-36] command invalidation covers discrepancy, timelines, link-de
     ["granot-lifecycle", "leads", "CallLead", "lead-0"],
     ["details", "call-leads", "lead-0", "production", {}],
     ["details", "booked-leads", "booking-1", "production", {}],
+    ["granot-lifecycle", "bookings", "booking-1"],
   ]);
 });

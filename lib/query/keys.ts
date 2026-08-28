@@ -144,6 +144,14 @@ export const queryKeys = {
         "candidates",
         stableFilters(filters),
       ] as const,
+    connectCandidates: (bookingId: string, filters?: QueryFilters) =>
+      [
+        ...queryKeys.granotLifecycle.all,
+        "bookings",
+        bookingId,
+        "connect-candidates",
+        stableFilters(filters),
+      ] as const,
     jobTimeline: (jobNo: string, filters?: QueryFilters) =>
       [
         ...queryKeys.granotLifecycle.all,

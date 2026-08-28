@@ -1,0 +1,21 @@
+export const BOOKINGS_CONNECT_COPY = {
+  storedLead: "Stored lead",
+  noStoredLead: "No stored lead",
+  referral: "Referral",
+  emptyState: "This booking has no stored lead",
+  connectALead: "Connect a lead",
+  connectLead: "Connect lead",
+  searchTitle: "Connect a lead",
+  searchHint: "Search the website contact or the later Granot contact, or the job number or reference. The booking stays on this page.",
+  searchLabel: "Search the website contact, the later Granot contact, job number, or reference",
+  searchPlaceholder: "Website contact, Granot contact, job, or reference",
+  contactCycle: {
+    line: "Form submitted is what they typed on the website. Granot is the later card from the CRM when we have one.",
+    changed: "Granot later changed this contact.",
+  },
+  reviewTitle: "Review this connection",
+  overrideLabel: "Why this customer is the right one even though they came from a different lead source",
+  overrideHint: "Write 10–500 characters. Same-source customers do not need this.",
+  success: "Master Leads and Master Booked will update.",
+  attachedLead: "This booking now has a stored lead.",
+} as const;

@@ -411,6 +411,23 @@ export type ConfirmGranotBookingBody = {
   };
 };
 
+export type ConnectBookingToLeadBody = {
+  expected_booking_revision: number;
+  selected_lead: { lead_model: GranotLeadModel; lead_id: string };
+  out_of_scope_override_reason?: string;
+};
+
+export type ConnectBookingToLeadResult = {
+  booking_id: string;
+  booking_revision: number;
+  outcome: "connected" | "already_satisfied";
+  command_execution_id: string;
+  lead_ref: { model: GranotLeadModel; id: string };
+  entity_refs: Array<{ model: string; id: string }>;
+  replayed: boolean;
+  owner_notice?: string;
+};
+
 export type BookingOwnerCommandResult = {
   case_id: string;
   case_state: "resolved";
@@ -765,6 +782,44 @@ export function fetchGranotLeadTimeline(
       filters as SerializableFilters,
     ),
   ).then(asGranotTimelinePage);
+}
+
+export function fetchConnectLeadCandidates(
+  bookingId: string,
+  filters: Omit<GranotLifecycleCandidateFilters, "scope"> = {},
+): Promise<GranotLifecycleCandidatePage> {
+  const normalized = {
+    ...filters,
+    q: filters.q?.trim() || undefined,
+  };
+  return requestJson(
+    proxyUrl(
+      `api/v1/admin/bookings/${encodeURIComponent(bookingId)}/connect-lead-candidates`,
+      normalized as SerializableFilters,
+    ),
+  ).then((data) => {
+    const page = unwrapEnvelope(data);
+    const record = page && typeof page === "object" ? page as Partial<GranotLifecycleCandidatePage> : {};
+    return {
+      items: Array.isArray(record.items) ? record.items : [],
+      next_cursor: typeof record.next_cursor === "string" ? record.next_cursor : null,
+    };
+  });
+}
+
+export function connectBookingToLead(
+  bookingId: string,
+  body: ConnectBookingToLeadBody,
+  idempotencyKey: string,
+): Promise<ConnectBookingToLeadResult> {
+  return requestJson(
+    proxyUrl(`api/v1/admin/bookings/${encodeURIComponent(bookingId)}/connect-lead`),
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 export function confirmGranotBooking(

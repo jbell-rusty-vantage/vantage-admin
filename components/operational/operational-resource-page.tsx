@@ -28,6 +28,10 @@ import {
   GranotContactChip,
 } from "@/components/operational/form-lead-contacts";
 import {
+  BookingStoredLeadSection,
+  StoredLeadChip,
+} from "@/components/bookings/booking-stored-lead-section";
+import {
   getRelatedNavLinks,
   linkedContextHref,
   type RelatedNavLink,
@@ -327,6 +331,7 @@ const operationalConfigs: Record<UiResource, ResourceConfig> = {
       { key: "job", label: "Job", path: "job_no", sort: "job_no" },
       { key: "customer", label: "Customer", path: "customer.full_name" },
       { key: "phone", label: "Phone", path: "customer.phone_number" },
+      { key: "stored_lead", label: "Stored lead", path: "lead_ref" },
       { key: "source", label: "Source", path: "source", sort: "source" },
       { key: "binder", label: "Binder", path: "total_binder_amount", sort: "total_binder_amount", format: "money" },
       { key: "deposit", label: "Deposit", path: "deposit_amount", sort: "deposit_amount", format: "money" },
@@ -662,6 +667,9 @@ function formatCell(
   }
   if (column.key === "granot_contact") {
     return <GranotContactChip record={record} />;
+  }
+  if (column.key === "stored_lead") {
+    return <StoredLeadChip record={record} />;
   }
   if (column.format === "date") {
     return formatDate(value);
@@ -1816,6 +1824,7 @@ function DetailPanel({
   selected,
   scope,
   filters,
+  startConnect = false,
   onClose,
   readOnly,
   canDelete,
@@ -1827,6 +1836,7 @@ function DetailPanel({
   selected: AdminRecord | null;
   scope: DatabaseScope;
   filters: SerializableFilters;
+  startConnect?: boolean;
   onClose: () => void;
   readOnly?: boolean;
   canDelete: boolean;
@@ -1864,7 +1874,7 @@ function DetailPanel({
           ) : null}
           <DetailSection title="Summary">
             <DetailGrid>
-              {config.columns.map((column) => (
+              {config.columns.filter((column) => column.key !== "stored_lead").map((column) => (
                 <DetailItem
                   key={column.key}
                   label={column.label}
@@ -1878,6 +1888,13 @@ function DetailPanel({
               <DetailItem label="Mongo ID" value={id} />
             </DetailGrid>
           </DetailSection>
+          {uiResource === "bookings" ? (
+            <BookingStoredLeadSection
+              record={record}
+              startOpen={startConnect && !readOnly}
+              readOnly={readOnly}
+            />
+          ) : null}
           {uiResource === "form-leads" || uiResource === "duplicate-form-leads" ? (
             <>
               <FormLeadContactsSection record={record} />
@@ -2221,6 +2238,7 @@ function selectedRecordFromUrl(filters: TableQueryParams): string {
 function apiFiltersFromUrlState(filters: TableQueryParams): SerializableFilters {
   const apiFilters: SerializableFilters = { ...filters };
   delete apiFilters.record;
+  delete apiFilters.connect;
   return apiFilters;
 }
 
@@ -2567,6 +2585,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         selected={selectedRecord}
         scope={effectiveFilters.database_scope as DatabaseScope}
         filters={effectiveFilters}
+        startConnect={filters.connect === "1" || filters.connect === 1}
         onClose={closeSelectedRecord}
         readOnly={readOnly}
         canDelete={canDelete}

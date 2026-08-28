@@ -90,9 +90,14 @@ export async function invalidateGranotLifecycleCommandViews(
     );
   }
   if (context.bookingId) {
-    invalidations.push(queryClient.invalidateQueries({
-      queryKey: queryKeys.details.resource("booked-leads", context.bookingId),
-    }));
+    invalidations.push(
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.details.resource("booked-leads", context.bookingId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.granotLifecycle.all, "bookings", context.bookingId],
+      }),
+    );
   }
 
   await Promise.all(invalidations);

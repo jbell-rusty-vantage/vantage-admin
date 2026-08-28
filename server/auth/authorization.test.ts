@@ -461,6 +461,18 @@ test("Granot lifecycle standard reads allow admin while candidates and all write
   );
 });
 
+test("Connect Booking to Lead GET and POST are Owner-only at the proxy", () => {
+  for (const path of [
+    "api/v1/admin/bookings/64b7f4d9e6c2a1b0f3d5e799/connect-lead-candidates",
+    "api/v1/admin/bookings/64b7f4d9e6c2a1b0f3d5e799/connect-lead",
+  ]) {
+    assert.equal(canProxyVantagePath({ role: "owner", method: "GET", path }), true);
+    assert.equal(canProxyVantagePath({ role: "owner", method: "POST", path }), true);
+    assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path }), false);
+    assert.equal(canProxyVantagePath({ role: "admin", method: "POST", path }), false);
+  }
+});
+
 test("[AC-28][AC-32] exact Granot Booking command paths are Owner-only at the proxy", () => {
   for (const action of ["confirm-booking", "create-referral-booking", "update-booking", "no-action"]) {
     const path = `api/v1/admin/granot-lifecycle/booking-cases/case-1/${action}`;

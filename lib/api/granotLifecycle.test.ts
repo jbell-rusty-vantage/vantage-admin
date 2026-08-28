@@ -4,6 +4,8 @@ import {
   fetchGranotJobTimeline,
   fetchGranotLeadTimeline,
   fetchGranotLifecycleCandidates,
+  fetchConnectLeadCandidates,
+  connectBookingToLead,
   fetchBookingIntakeCreatingObservation,
   fetchGranotLifecycleCase,
   fetchGranotLifecycleCases,
@@ -118,6 +120,39 @@ test("[AC-21][AC-22] confirm uses the authenticated proxy and forwards one idemp
   assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit24-key");
   assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), body);
   assert.equal(result.booking_ref?.id, "booking-1");
+});
+
+test("Connect Booking to Lead uses the bookings proxy paths and one idempotency key", async () => {
+  const bookingId = "a".repeat(24);
+  let calls = mockFetch({ ok: true, data: { items: [], next_cursor: null } });
+  await fetchConnectLeadCandidates(bookingId, { q: "Granot Later" });
+  assert.equal(
+    new URL(String(calls[0]?.input), "https://admin.test").pathname,
+    `/api/proxy/api/v1/admin/bookings/${bookingId}/connect-lead-candidates`,
+  );
+
+  calls = mockFetch({
+    ok: true,
+    data: {
+      booking_id: bookingId,
+      booking_revision: 1,
+      outcome: "connected",
+      command_execution_id: "command-1",
+      lead_ref: { model: "FormLead", id: "b".repeat(24) },
+      entity_refs: [],
+      replayed: false,
+      owner_notice: "Master Leads and Master Booked will update.",
+    },
+  }, 201);
+  const body = {
+    expected_booking_revision: 0,
+    selected_lead: { lead_model: "FormLead" as const, lead_id: "b".repeat(24) },
+  };
+  const result = await connectBookingToLead(bookingId, body, "bila03-key");
+  assert.equal(calls[0]?.input, `/api/proxy/api/v1/admin/bookings/${bookingId}/connect-lead`);
+  assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "bila03-key");
+  assert.equal(result.outcome, "connected");
+  assert.match(result.owner_notice ?? "", /Master Leads/);
 });
 
 test("[AC-21][AC-24][AC-32] update and No Action use only their exact authenticated proxy paths", async () => {
