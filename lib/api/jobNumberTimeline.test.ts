@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildJobTimelineHref,
   fetchJobNumberTimeline,
+  fetchRecentOfficialBookingExamples,
   isEnhancedJobTimelinePage,
   JOB_TIMELINE_HREF,
   parseTimelineView,
@@ -50,6 +51,26 @@ test("job timeline href keeps the typed Job Number in the URL", () => {
     buildJobTimelineHref({ job: "5562924", view: "lifecycle" }),
     "/job-timeline?job=5562924",
   );
+});
+
+test("recent official booking examples use the owner timeline route, not a catalog", async () => {
+  const calls = mockFetch({
+    ok: true,
+    data: {
+      bookings: [
+        { job_no: "P9003", booked_at: "2026-08-20T14:00:00.000Z" },
+        { job_no: "P9002", booked_at: "2026-08-19T14:00:00.000Z" },
+        { job_no: "P9001", booked_at: "2026-08-18T14:00:00.000Z" },
+      ],
+    },
+  });
+  const bookings = await fetchRecentOfficialBookingExamples();
+  const url = new URL(String(calls[0]?.input), "https://admin.test");
+  assert.equal(
+    url.pathname,
+    "/api/proxy/api/v1/admin/job-number-timeline/recent-official-bookings",
+  );
+  assert.deepEqual(bookings.map((row) => row.job_no), ["P9003", "P9002", "P9001"]);
 });
 
 test("v1 page is not treated as the enhanced schema", () => {

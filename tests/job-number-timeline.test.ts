@@ -45,6 +45,28 @@ test("blank search does not render a timeline", () => {
   assert.doesNotMatch(markup, /Lead created/);
 });
 
+test("blank search offers three recent official booking Job Numbers to open", () => {
+  const markup = renderToStaticMarkup(
+    createElement(JobTimelineDashboardView, {
+      result: undefined,
+      searched: false,
+      loading: false,
+      recentOfficialBookings: [
+        { job_no: "P9003", booked_at: "2026-08-20T14:00:00.000Z" },
+        { job_no: "P9002", booked_at: "2026-08-19T14:00:00.000Z" },
+        { job_no: "P9001", booked_at: "2026-08-18T14:00:00.000Z" },
+      ],
+    }),
+  );
+  assert.match(markup, /Recent official bookings/);
+  assert.match(markup, /href="\/job-timeline\?job=P9003"/);
+  assert.match(markup, /href="\/job-timeline\?job=P9002"/);
+  assert.match(markup, /href="\/job-timeline\?job=P9001"/);
+  assert.match(markup, />P9003</);
+  assert.doesNotMatch(markup, /Lead created/);
+  assert.doesNotMatch(markup, /Ada Example/);
+});
+
 test("invalid_job_number and filtered_out copy still hold", () => {
   const invalid = renderToStaticMarkup(
     createElement(JobTimelineDashboardView, {

@@ -222,6 +222,11 @@ test("Job Number timeline keys live in their own namespace", () => {
   ]);
   assert.equal(queryKeys.jobNumberTimeline.all[0], "job-number-timeline");
   assert.notEqual(queryKeys.jobNumberTimeline.all[0], queryKeys.granotLifecycle.all[0]);
+  assert.deepEqual(queryKeys.jobNumberTimeline.recentOfficialBookings(), [
+    "job-number-timeline",
+    "recent-official-bookings",
+  ]);
+  assert.equal(JSON.stringify(first).includes("view"), false);
 });
 
 test("Lead Conversation keys isolate list and detail and never cache an audio URL", () => {

@@ -7,12 +7,19 @@ alwaysApply: false
 # Job Number timeline (Admin)
 
 Owner-only `/job-timeline?job=`. Typed search. No Job Number catalog.
+The empty state may show at most three recent official Booking Job
+Numbers from `GET /api/v1/admin/job-number-timeline/recent-official-bookings`
+so the Owner can open a live page without typing. After a page is open,
+the same sample stays under the search box. `fetchRecentOfficialBookingExamples`
+and `queryKeys.jobNumberTimeline.recentOfficialBookings()` own that
+read. That sample is not a catalog. Search draft syncs when `?job=`
+changes (deep-link click).
 
 ## Workspace
 
-JTE-01–05 shipped. JTE-06 and JTE-07 stay deferred. Do not start
-JTE-06/07 without recorded write / source-assurance approval. Do not
-create `/daily`.
+JTE-01–07 shipped. Admin displays server arrays, including
+`OFFICIAL_BOOKING_UNAVAILABLE` when the server emits it. Do not
+recompute outcome or attention. Do not create `/daily`.
 Orientation: [`uxdocs/HANDOFF-job-timeline-enhancement.md`](../../uxdocs/HANDOFF-job-timeline-enhancement.md).
 Issues live in `vantage-main-server/docs/job-number-timeline/`.
 
@@ -74,10 +81,12 @@ tabindex). Admin still does not recompute server arrays.
 ## Invariants
 
 - Keep `buildJobTimelineHref` / `?job=` as shareable state. `view` is
-  additive only.
+  additive only. Search draft must follow `?job=` when the URL changes.
 - Keep `queryKeys.jobNumberTimeline` isolated from `granotLifecycle`.
+  `recentOfficialBookings()` is a separate key from the typed page.
 - v1 fixtures remain renderable while `schema_version` is absent.
 - Locked headlines stay locked. No raw JSON. No contact.
 - Sheet `synced` is never “Google verified”.
 - Owner-only at `OWNER_ONLY_PAGE_PREFIXES` and `canProxyVantagePath`.
-- Route, Owner gates, and proxy path stay unchanged.
+- Route, Owner gates, and proxy prefix stay unchanged. The sample
+  path is already covered by `job-number-timeline/`.

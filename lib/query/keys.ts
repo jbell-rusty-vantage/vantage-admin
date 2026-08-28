@@ -171,6 +171,8 @@ export const queryKeys = {
     all: ["job-number-timeline"] as const,
     page: (jobNo: string, filters?: QueryFilters) =>
       [...queryKeys.jobNumberTimeline.all, "page", jobNo, stableFilters(filters)] as const,
+    recentOfficialBookings: () =>
+      [...queryKeys.jobNumberTimeline.all, "recent-official-bookings"] as const,
   },
   conversations: {
     all: ["conversations"] as const,

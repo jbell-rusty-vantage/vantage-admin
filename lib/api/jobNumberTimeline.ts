@@ -97,6 +97,7 @@ export type TimelineAttentionCode =
   | "BOOKING_CASE_RESOLVED_WITHOUT_FACT"
   | "CANCELLATION_CASE_RESOLVED_WITHOUT_FACT"
   | "ORPHAN_CANCELLATION_REFERENCE"
+  | "OFFICIAL_BOOKING_UNAVAILABLE"
   | "SHEET_SYNC_PENDING_TOO_LONG"
   | "SHEET_SYNC_TERMINAL_FAILURE"
   | "CONTRADICTORY_OFFICIAL_STATE"
@@ -283,6 +284,11 @@ export type JobNumberTimelineFilters = {
   source_company_id?: string;
 };
 
+export type RecentOfficialBookingExample = {
+  job_no: string;
+  booked_at: string;
+};
+
 export const JOB_TIMELINE_HREF = "/job-timeline";
 
 export const PROOF_SHAPE_LABELS: Record<JobTimelineProofShape, string> = {
@@ -320,6 +326,12 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   }
 
   return payload.data;
+}
+
+export function fetchRecentOfficialBookingExamples(): Promise<RecentOfficialBookingExample[]> {
+  return requestJson<{ bookings: RecentOfficialBookingExample[] }>(
+    proxyUrl("api/v1/admin/job-number-timeline/recent-official-bookings"),
+  ).then((data) => data.bookings ?? []);
 }
 
 export function fetchJobNumberTimeline(

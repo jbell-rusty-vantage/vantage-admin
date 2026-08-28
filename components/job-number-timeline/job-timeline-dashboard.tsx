@@ -1,15 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { History } from "lucide-react";
 import {
   buildJobTimelineHref,
   fetchJobNumberTimeline,
+  fetchRecentOfficialBookingExamples,
   isEnhancedJobTimelinePage,
   parseTimelineView,
   type JobTimelineAssembleResult,
+  type RecentOfficialBookingExample,
   type TimelineDensityView,
 } from "@/lib/api/jobNumberTimeline";
 import { queryKeys } from "@/lib/query/keys";
@@ -23,6 +25,7 @@ import { JobNumberSearch } from "./job-number-search";
 import { JobTimelineHeader } from "./job-timeline-header";
 import { OwnerTimeline } from "./owner-timeline";
 import { ProofBoundaries } from "./proof-boundaries";
+import { RecentOfficialBookings } from "./recent-official-bookings";
 import { eventVisibleInDensity } from "./v2";
 
 function isSearchableJobNumber(value: string): boolean {
@@ -36,6 +39,7 @@ export function JobTimelineDashboardView({
   error,
   view = "lifecycle",
   onViewChange,
+  recentOfficialBookings,
 }: {
   result: JobTimelineAssembleResult | undefined;
   searched: boolean;
@@ -43,12 +47,16 @@ export function JobTimelineDashboardView({
   error?: string;
   view?: TimelineDensityView;
   onViewChange?: (view: TimelineDensityView) => void;
+  recentOfficialBookings?: RecentOfficialBookingExample[];
 }) {
   if (!searched) {
     return (
-      <FeedbackMessage tone="info">
-        Type a Job Number and search. There is no list of every Job Number.
-      </FeedbackMessage>
+      <div className="space-y-4">
+        <FeedbackMessage tone="info">
+          Type a Job Number and search. There is no list of every Job Number.
+        </FeedbackMessage>
+        <RecentOfficialBookings bookings={recentOfficialBookings ?? []} />
+      </div>
     );
   }
 
@@ -143,7 +151,16 @@ export function JobTimelineDashboard() {
   const [draftJob, setDraftJob] = useState(jobFromUrl);
   const [draftGranularity, setDraftGranularity] = useState(granularityFromUrl);
 
+  useEffect(() => {
+    setDraftJob(jobFromUrl);
+    setDraftGranularity(granularityFromUrl);
+  }, [jobFromUrl, granularityFromUrl]);
+
   const searched = isSearchableJobNumber(jobFromUrl);
+  const recentBookingsQuery = useQuery({
+    queryKey: queryKeys.jobNumberTimeline.recentOfficialBookings(),
+    queryFn: fetchRecentOfficialBookingExamples,
+  });
   const query = useQuery({
     queryKey: queryKeys.jobNumberTimeline.page(jobFromUrl.trim(), {
       source_granularity_id: granularityFromUrl.trim() || undefined,
@@ -205,6 +222,11 @@ export function JobTimelineDashboard() {
             onSubmit={submit}
             disabled={query.isFetching}
           />
+          {searched ? (
+            <div className="mt-5">
+              <RecentOfficialBookings bookings={recentBookingsQuery.data ?? []} />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
       <JobTimelineDashboardView
@@ -214,6 +236,7 @@ export function JobTimelineDashboard() {
         error={error}
         view={viewFromUrl}
         onViewChange={changeView}
+        recentOfficialBookings={recentBookingsQuery.data}
       />
     </div>
   );

@@ -507,6 +507,16 @@ test("Job Number timeline proxy read is Owner-only", () => {
     method: "GET",
     path: "api/v1/admin/job-number-timeline?job_no=5562924",
   }), false);
+  assert.equal(canProxyVantagePath({
+    role: "owner",
+    method: "GET",
+    path: "api/v1/admin/job-number-timeline/recent-official-bookings",
+  }), true);
+  assert.equal(canProxyVantagePath({
+    role: "admin",
+    method: "GET",
+    path: "api/v1/admin/job-number-timeline/recent-official-bookings",
+  }), false);
 });
 
 test("[AC-31][AC-35] health GET is Owner/Admin at the proxy and remains read-only", () => {
