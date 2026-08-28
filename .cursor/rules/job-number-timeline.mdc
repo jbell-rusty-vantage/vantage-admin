@@ -85,7 +85,11 @@ tabindex). Admin still does not recompute server arrays.
 - Keep `queryKeys.jobNumberTimeline` isolated from `granotLifecycle`.
   `recentOfficialBookings()` is a separate key from the typed page.
 - v1 fixtures remain renderable while `schema_version` is absent.
-- Locked headlines stay locked. No raw JSON. No contact.
+- Locked headlines stay locked. `Lead updated` is command-only
+  (`Lead updated (synchronizeLeadFromGranot)`); changed paths belong in
+  the summary and View evidence, not the headline. No raw JSON. No
+  contact. WordPress `lead_created` may show a masked ingested form
+  snapshot in View evidence.
 - Sheet `synced` is never “Google verified”.
 - Owner-only at `OWNER_ONLY_PAGE_PREFIXES` and `canProxyVantagePath`.
 - Route, Owner gates, and proxy prefix stay unchanged. The sample

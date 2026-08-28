@@ -261,8 +261,15 @@ test("activity groups retain every event when expanded", () => {
   assert.match(markup, /Granot priority_updated/);
   assert.match(markup, /3 steps/);
   assert.match(markup, /Decision applied \/ lead_synchronized/);
-  assert.match(markup, /Lead updated \(synchronizeLeadFromGranot: granot_priority\)/);
+  assert.match(markup, /Lead updated \(synchronizeLeadFromGranot\)/);
+  assert.doesNotMatch(markup, /synchronizeLeadFromGranot:/);
   assert.match(markup, /View evidence/);
+  assert.match(markup, /Form snapshot/);
+  assert.match(markup, /2 Bedrooms/);
+  assert.match(markup, /Applied at/);
+  assert.match(markup, /Captured at/);
+  assert.doesNotMatch(markup, /ENTITY_CHANGE\.APPLIED_AT/);
+  assert.doesNotMatch(markup, /OBSERVATION\.CAPTURED_AT/);
 });
 
 test("official Booking and official Cancellation remain independently visible", () => {

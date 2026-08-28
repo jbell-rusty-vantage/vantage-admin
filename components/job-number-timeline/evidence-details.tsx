@@ -1,4 +1,4 @@
-import { formatDateTime } from "@/components/data-table/formatters";
+import { formatDate, formatDateTime } from "@/components/data-table/formatters";
 import type { EnhancedJobTimelineEvent } from "@/lib/api/jobNumberTimeline";
 import { relatedInActivity, safeChangedFieldGroups } from "./v2";
 
@@ -34,6 +34,92 @@ function asDetail(value: unknown): string | null {
   return null;
 }
 
+function clockLabel(field: string): string {
+  const last = field.split(".").pop() ?? field;
+  if (last === "applied_at") return "Applied at";
+  if (last === "captured_at") return "Captured at";
+  if (last === "decided_at") return "Decided at";
+  if (last === "createdAt") return "Recorded at";
+  if (last === "received_at") return "Received at";
+  if (last === "delivered_at") return "Delivered at";
+  if (last === "updatedAt") return "Updated at";
+  if (last === "timestamp") return "Lead time";
+  return last.replaceAll("_", " ");
+}
+
+function showRecordedClock(event: EnhancedJobTimelineEvent): boolean {
+  if (!event.time.recorded_at || !event.time.recorded_at_field) return false;
+  return !(
+    event.time.recorded_at === event.time.occurred_at
+    && event.time.recorded_at_field === event.time.occurred_at_field
+  );
+}
+
+type FormSnapshot = {
+  submitted_as?: string;
+  phone_masked?: string;
+  email_masked?: string;
+  move_date?: string;
+  move_size?: string;
+  pickup?: string;
+  delivery?: string;
+};
+
+function formSnapshotOf(event: EnhancedJobTimelineEvent): FormSnapshot | null {
+  const value = event.data.form_snapshot;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as FormSnapshot;
+  if (
+    !row.submitted_as
+    && !row.phone_masked
+    && !row.email_masked
+    && !row.move_date
+    && !row.move_size
+    && !row.pickup
+    && !row.delivery
+  ) {
+    return null;
+  }
+  return row;
+}
+
+function ClockRow({ field, at }: { field: string; at: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-steel">{clockLabel(field)}</dt>
+      <dd className="mt-0.5">
+        <time dateTime={at}>{formatDateTime(at)}</time>
+      </dd>
+    </div>
+  );
+}
+
+function FormSnapshotCard({ snapshot }: { snapshot: FormSnapshot }) {
+  const rows: { key: string; text: string }[] = [];
+  if (snapshot.submitted_as) rows.push({ key: "Submitted as", text: snapshot.submitted_as });
+  if (snapshot.phone_masked) rows.push({ key: "Phone", text: snapshot.phone_masked });
+  if (snapshot.email_masked) rows.push({ key: "Email", text: snapshot.email_masked });
+  if (snapshot.move_date) rows.push({ key: "Move date", text: formatDate(snapshot.move_date) });
+  if (snapshot.move_size) rows.push({ key: "Move size", text: snapshot.move_size });
+  if (snapshot.pickup) rows.push({ key: "Pickup", text: snapshot.pickup });
+  if (snapshot.delivery) rows.push({ key: "Delivery", text: snapshot.delivery });
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="rounded-lg bg-steel-100/70 p-3">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-navy">Form snapshot</p>
+      <dl className="mt-2 grid gap-2">
+        {rows.map((row) => (
+          <div key={row.key} className="min-w-0">
+            <dt className="text-[10px] font-bold uppercase tracking-wide text-steel">{row.key}</dt>
+            <dd className="mt-0.5 text-navy">{row.text}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
 export function EvidenceDetails({
   event,
   events,
@@ -43,6 +129,7 @@ export function EvidenceDetails({
 }) {
   const related = relatedInActivity(event, events);
   const groups = safeChangedFieldGroups(event);
+  const snapshot = formSnapshotOf(event);
   const source =
     asDetail(event.data.ingress)
     ?? asDetail(event.data.origin)
@@ -66,36 +153,31 @@ export function EvidenceDetails({
         View evidence
       </summary>
       <div className="mt-3 grid gap-3 text-xs text-steel">
-        <dl className="grid grid-cols-[minmax(7rem,10rem)_1fr] gap-x-3 gap-y-1">
-          <dt className="font-bold uppercase tracking-wide">{event.time.occurred_at_field}</dt>
-          <dd>
-            <time dateTime={event.time.occurred_at}>{formatDateTime(event.time.occurred_at)}</time>
-          </dd>
-          {event.time.recorded_at && event.time.recorded_at_field ? (
-            <>
-              <dt className="font-bold uppercase tracking-wide">{event.time.recorded_at_field}</dt>
-              <dd>
-                <time dateTime={event.time.recorded_at}>{formatDateTime(event.time.recorded_at)}</time>
-              </dd>
-            </>
+        {snapshot ? <FormSnapshotCard snapshot={snapshot} /> : null}
+        <dl className="grid gap-2">
+          <ClockRow field={event.time.occurred_at_field} at={event.time.occurred_at} />
+          {showRecordedClock(event) ? (
+            <ClockRow field={event.time.recorded_at_field!} at={event.time.recorded_at!} />
           ) : null}
           {source ? (
-            <>
-              <dt className="font-bold uppercase tracking-wide">Source</dt>
-              <dd>{source}</dd>
-            </>
+            <div className="min-w-0">
+              <dt className="text-[10px] font-bold uppercase tracking-wide text-steel">Source</dt>
+              <dd className="mt-0.5">{source}</dd>
+            </div>
           ) : null}
           {command ? (
-            <>
-              <dt className="font-bold uppercase tracking-wide">Command</dt>
-              <dd>{command}</dd>
-            </>
+            <div className="min-w-0">
+              <dt className="text-[10px] font-bold uppercase tracking-wide text-steel">Command</dt>
+              <dd className="mt-0.5">{command}</dd>
+            </div>
           ) : null}
           {extras.map((row) => (
-            <span key={row.key} className="contents">
-              <dt className="font-bold uppercase tracking-wide">{row.key.replaceAll("_", " ")}</dt>
-              <dd>{row.text}</dd>
-            </span>
+            <div key={row.key} className="min-w-0">
+              <dt className="text-[10px] font-bold uppercase tracking-wide text-steel">
+                {row.key.replaceAll("_", " ")}
+              </dt>
+              <dd className="mt-0.5">{row.text}</dd>
+            </div>
           ))}
         </dl>
         {groups.length > 0 ? (

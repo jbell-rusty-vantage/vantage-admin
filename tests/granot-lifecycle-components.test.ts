@@ -28,6 +28,7 @@ import {
   formatAlertState,
   formatHealthUnit,
 } from "../components/granot-lifecycle/lifecycle-health";
+import { LiveWebhooksView } from "../components/granot-lifecycle/live-webhooks";
 import type { GranotLifecycleHealth } from "../lib/api/granotLifecycle";
 import type {
   GranotLifecycleCandidateItem,
@@ -616,10 +617,12 @@ test("Granot navigation keeps Automation, Lifecycle, Intakes, and Health distinc
   const lifecycleMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/ingestion/granot/lifecycle/cases/case-1" }));
   assert.match(lifecycleMarkup, />Automation</);
   assert.match(lifecycleMarkup, />Lifecycle</);
+  assert.match(lifecycleMarkup, /Live webhooks/);
   assert.match(lifecycleMarkup, /Intakes/);
   assert.match(lifecycleMarkup, />New</);
   assert.match(lifecycleMarkup, />Health</);
   assert.match(lifecycleMarkup, /href="\/ingestion\/granot"/);
+  assert.match(lifecycleMarkup, /href="\/ingestion\/granot\/live"/);
   assert.match(lifecycleMarkup, /href="\/intakes"/);
   assert.match(lifecycleMarkup, /href="\/job-timeline"/);
   assert.match(lifecycleMarkup, />Job timeline</);
@@ -629,6 +632,8 @@ test("Granot navigation keeps Automation, Lifecycle, Intakes, and Health distinc
   assert.match(healthMarkup, /aria-current="page"[^>]+href="\/ingestion\/granot\/lifecycle\/health"/);
   const intakesMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/intakes" }));
   assert.match(intakesMarkup, /aria-current="page"[^>]+href="\/intakes"/);
+  const liveMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/ingestion/granot/live" }));
+  assert.match(liveMarkup, /aria-current="page"[^>]+href="\/ingestion\/granot\/live"/);
 });
 
 test("[AC-31][AC-35][AC-38] health view is read-only, unit-labeled, and never renders raw payload", () => {
@@ -706,4 +711,85 @@ test("[AC-31][AC-35][AC-38] health view is read-only, unit-labeled, and never re
 
 test("[AC-31] health URL stays stable for dashboard and observational links", () => {
   assert.equal(GRANOT_LIFECYCLE_HEALTH_HREF, "/ingestion/granot/lifecycle/health");
+});
+
+test("live webhook accordion shows lead facts and the three Granot event classes", () => {
+  const markup = renderToStaticMarkup(createElement(LiveWebhooksView, {
+    status: "live",
+    receipts: [
+      {
+        receipt_id: "64aaaaaaaaaaaaaaaaaaaaaa",
+        captured_at: "2026-08-28T15:00:00.000Z",
+        route_event_class: "lead_created",
+        observation_channel: "granot_webhook",
+        processing_state: "pending",
+        lead: {
+          display_name: "Ada Lovelace",
+          first_name: "Ada",
+          last_name: "Lovelace",
+          email: "ada@example.invalid",
+          phone: "212-555-0100",
+          job_no: "P5562401",
+          event_type: "Lead",
+          priority: null,
+          origin: "Brooklyn, NY",
+          destination: "Austin, TX",
+          move_date: "2026-09-01",
+        },
+        granot_statement: { first_name: "Ada", job_no: "P5562401" },
+      },
+      {
+        receipt_id: "64bbbbbbbbbbbbbbbbbbbbbb",
+        captured_at: "2026-08-28T15:01:00.000Z",
+        route_event_class: "priority_updated",
+        observation_channel: "granot_webhook",
+        processing_state: "completed",
+        lead: {
+          display_name: "Ada Lovelace",
+          first_name: "Ada",
+          last_name: "Lovelace",
+          email: null,
+          phone: "212-555-0100",
+          job_no: "P5562401",
+          event_type: "Priority",
+          priority: "5",
+          origin: null,
+          destination: null,
+          move_date: null,
+        },
+        granot_statement: { priority: "5" },
+      },
+      {
+        receipt_id: "64cccccccccccccccccccccc",
+        captured_at: "2026-08-28T15:02:00.000Z",
+        route_event_class: "booking_status_changed",
+        observation_channel: "granot_webhook",
+        processing_state: "pending",
+        lead: {
+          display_name: "Ada Lovelace",
+          first_name: "Ada",
+          last_name: "Lovelace",
+          email: null,
+          phone: null,
+          job_no: "P5562401",
+          event_type: "Booked",
+          priority: null,
+          origin: null,
+          destination: null,
+          move_date: null,
+        },
+        granot_statement: { event_type: "Booked" },
+      },
+    ],
+  }));
+  assert.match(markup, /Lead created/);
+  assert.match(markup, /Priority updated/);
+  assert.match(markup, /Booking status changed/);
+  assert.match(markup, /Ada Lovelace/);
+  assert.match(markup, /212-555-0100/);
+  assert.match(markup, /ada@example\.invalid/);
+  assert.match(markup, /P5562401/);
+  assert.match(markup, /Brooklyn, NY/);
+  assert.match(markup, /Full Granot payload/);
+  assert.match(markup, /Open job timeline/);
 });

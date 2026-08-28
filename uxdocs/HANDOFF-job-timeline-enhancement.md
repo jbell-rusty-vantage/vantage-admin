@@ -56,7 +56,7 @@ JTE-04 UI.
 | Page | `app/(dashboard)/job-timeline/page.tsx` |
 | Shell + search | `components/job-number-timeline/job-timeline-dashboard.tsx`, `job-number-search.tsx` |
 | v2 header / stage / attention / proof | `job-timeline-header.tsx`, `stage-strip.tsx`, `attention-panel.tsx`, `proof-boundaries.tsx` |
-| v2 spine | `owner-timeline.tsx` (21st clustered spine), `evidence-details.tsx`, `v2.ts`, `density-filter.tsx` |
+| v2 spine | `owner-timeline.tsx` (21st clustered spine), `evidence-details.tsx`, `v2.ts`, `density-filter.tsx`. Evidence stacks clock labels (`Applied at`, `Captured at`) so they do not collide with the date. WordPress `lead_created` may show a masked ingested form snapshot. `Lead updated` headlines are command-only; field lists stay in the summary/evidence. |
 | v1 fallback only | `coverage-chips.tsx`, `timeline.tsx` (nyxbui 1074) — pages without `schema_version` |
 | Deep link | `job-timeline-deep-link.tsx` (`JobTimelineDeepLink`) — `buildJobTimelineHref({ job })` → `/job-timeline?job=`; empty job renders `-` |
 | Deep-link call sites | `operational-resource-page.tsx` (Lead / Booking / Cancellation Job cell); `intake-list.tsx` (“Open Job timeline” **in addition to** forensic “Open job history”); booking/cancellation workbench headline Job Number; `intake-reference.tsx` (“Open Job timeline” **plus** the forensic `JobTimeline` drawer) |

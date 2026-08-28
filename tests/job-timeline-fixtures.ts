@@ -44,7 +44,20 @@ export const v1Page: JobTimelinePage = {
       type_priority: 10,
       coverage: "command_backed",
       headline: "Lead created (wordpress_form)",
-      data: { ingestion_origin: "wordpress_form", command_name: "createFormLead", lead_model: "FormLead" },
+      data: {
+        ingestion_origin: "wordpress_form",
+        command_name: "createFormLead",
+        lead_model: "FormLead",
+        form_snapshot: {
+          submitted_as: "A•••",
+          phone_masked: "•••1234",
+          email_masked: "a•••@example.invalid",
+          move_date: "2026-04-01T00:00:00.000Z",
+          move_size: "2 Bedrooms",
+          pickup: "NY 10001",
+          delivery: "FL 33101",
+        },
+      },
     },
     {
       id: "e2",
@@ -164,7 +177,7 @@ const updated = enhance(
     clock_field: "entity_change.applied_at",
     type_priority: 40,
     coverage: "command_backed",
-    headline: "Lead updated (synchronizeLeadFromGranot: granot_priority)",
+    headline: "Lead updated (synchronizeLeadFromGranot)",
     data: { command_name: "synchronizeLeadFromGranot", changed_paths: ["granot_priority"] },
   },
   {

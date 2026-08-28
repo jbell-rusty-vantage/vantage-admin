@@ -127,6 +127,9 @@ export function canProxyVantagePath(input: {
     if (/\/cases\/[^/]+\/(candidates|creating-observation)$/.test(path)) {
       return false;
     }
+    if (/\/receipts\/live$/.test(path)) {
+      return false;
+    }
     return input.method === "GET";
   }
   if (input.method === "DELETE") {
