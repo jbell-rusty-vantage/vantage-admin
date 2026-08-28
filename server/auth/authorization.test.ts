@@ -84,6 +84,7 @@ test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/bookings/reconciliation"), false);
   assert.equal(canAccessDashboardPath("admin", "/intakes"), false);
   assert.equal(canAccessDashboardPath("admin", "/job-timeline"), false);
+  assert.equal(canAccessDashboardPath("admin", "/live-events"), false);
   assert.equal(canAccessDashboardPath("admin", "/form-leads"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry?tab=cpl"), true);
@@ -498,6 +499,8 @@ test("Granot lifecycle pages remain owner-only in the Admin UI except health", (
   assert.equal(canAccessDashboardPath("owner", "/job-timeline"), true);
   assert.equal(canAccessDashboardPath("admin", "/conversations"), false);
   assert.equal(canAccessDashboardPath("owner", "/conversations"), true);
+  assert.equal(canAccessDashboardPath("admin", "/live-events"), false);
+  assert.equal(canAccessDashboardPath("owner", "/live-events"), true);
 });
 
 test("conversation proxy reads are Owner-only", () => {

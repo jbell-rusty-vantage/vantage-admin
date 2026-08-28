@@ -1,5 +1,7 @@
-export const GRANOT_LIVE_RECEIPTS_HREF = "/ingestion/granot/live";
+export const LIVE_EVENTS_HREF = "/live-events";
 export const GRANOT_LIVE_RECEIPTS_STREAM_PATH = "/api/granot-live-receipts";
+export const LIVE_RECEIPT_WINDOW_MS = 30 * 60 * 1000;
+export const LIVE_RECEIPT_WINDOW_LIMIT = 80;
 
 export const LIVE_WEBHOOK_EVENT_CLASSES = [
   "lead_created",
@@ -39,9 +41,29 @@ export const LIVE_WEBHOOK_EVENT_LABELS: Record<LiveWebhookEventClass, string> = 
   booking_status_changed: "Booking status changed",
 };
 
+export function trimLiveWebhookReceipts(
+  receipts: LiveWebhookReceipt[],
+  nowMs = Date.now(),
+): LiveWebhookReceipt[] {
+  const floor = nowMs - LIVE_RECEIPT_WINDOW_MS;
+  return receipts
+    .filter((receipt) => {
+      const capturedMs = Date.parse(receipt.captured_at);
+      return Number.isFinite(capturedMs) && capturedMs >= floor;
+    })
+    .sort((left, right) => {
+      if (left.captured_at === right.captured_at) {
+        return right.receipt_id.localeCompare(left.receipt_id);
+      }
+      return right.captured_at.localeCompare(left.captured_at);
+    })
+    .slice(0, LIVE_RECEIPT_WINDOW_LIMIT);
+}
+
 export function mergeLiveWebhookReceipts(
   current: LiveWebhookReceipt[],
   incoming: LiveWebhookReceipt | LiveWebhookReceipt[],
+  nowMs = Date.now(),
 ): LiveWebhookReceipt[] {
   const next = Array.isArray(incoming) ? incoming : [incoming];
   const byId = new Map<string, LiveWebhookReceipt>();
@@ -50,10 +72,11 @@ export function mergeLiveWebhookReceipts(
       byId.set(receipt.receipt_id, receipt);
     }
   }
-  return [...byId.values()].sort((left, right) => {
+  const merged = [...byId.values()].sort((left, right) => {
     if (left.captured_at === right.captured_at) {
       return right.receipt_id.localeCompare(left.receipt_id);
     }
     return right.captured_at.localeCompare(left.captured_at);
   });
+  return trimLiveWebhookReceipts(merged, nowMs);
 }

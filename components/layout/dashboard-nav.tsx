@@ -19,6 +19,7 @@ import {
   MessageSquareQuote,
   Phone,
   Presentation,
+  Radio,
   SearchCheck,
   Settings,
   ShieldCheck,
@@ -38,6 +39,7 @@ export type DashboardNavItem = {
 
 export const dashboardNavigation: DashboardNavItem[] = [
   { label: "Overview", href: "/", icon: Home },
+  { label: "Live Events", href: "/live-events", icon: Radio, ownerOnly: true, isNew: true },
   { label: "Lead Conversations", href: "/conversations", icon: Headphones, ownerOnly: true, isNew: true },
   { label: "Form Leads", href: "/form-leads", icon: FileText },
   { label: "Duplicate Form Leads", href: "/duplicate-form-leads", icon: FileClock },

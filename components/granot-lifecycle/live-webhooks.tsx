@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 import { formatDateTime } from "@/components/data-table/formatters";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import {
   GRANOT_LIVE_RECEIPTS_STREAM_PATH,
   LIVE_WEBHOOK_EVENT_LABELS,
   mergeLiveWebhookReceipts,
+  trimLiveWebhookReceipts,
   type LiveWebhookEventClass,
   type LiveWebhookLead,
   type LiveWebhookReceipt,
@@ -62,8 +64,8 @@ export function LiveWebhookReceiptCard({ receipt }: { receipt: LiveWebhookReceip
     ? buildJobTimelineHref({ job: receipt.lead.job_no })
     : null;
   return (
-    <details className="rounded-md border bg-background">
-      <summary className="cursor-pointer list-none px-4 py-3 [&::-webkit-details-marker]:hidden">
+    <details className="group rounded-md border bg-background">
+      <summary className="cursor-pointer list-none px-4 py-3 hover:bg-steel-100 [&::-webkit-details-marker]:hidden">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-navy">
@@ -78,11 +80,18 @@ export function LiveWebhookReceiptCard({ receipt }: { receipt: LiveWebhookReceip
               {receipt.lead.priority ? ` · Priority ${receipt.lead.priority}` : ""}
             </p>
           </div>
-          <div className="text-right text-xs text-muted-foreground">
-            <time dateTime={receipt.captured_at}>{formatDateTime(receipt.captured_at)}</time>
-            <div className="mt-1">
-              <StatusBadge tone="muted">{receipt.processing_state}</StatusBadge>
+          <div className="flex shrink-0 items-start gap-3">
+            <div className="text-right text-xs text-muted-foreground">
+              <time dateTime={receipt.captured_at}>{formatDateTime(receipt.captured_at)}</time>
+              <div className="mt-1">
+                <StatusBadge tone="muted">{receipt.processing_state}</StatusBadge>
+              </div>
             </div>
+            <span className="inline-flex items-center gap-1 pt-0.5 text-sm font-semibold text-trust-blue">
+              <span className="group-open:hidden">Show details</span>
+              <span className="hidden group-open:inline">Hide details</span>
+              <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
+            </span>
           </div>
         </div>
       </summary>
@@ -123,6 +132,7 @@ export function LiveWebhooksView({
         <CardTitle>Live Granot webhooks</CardTitle>
         <CardDescription>
           Lead created, priority updated, and booking status changed — as Granot delivers them.
+          Click a row to open the lead facts.
         </CardDescription>
         <p className="text-sm font-medium text-navy" aria-live="polite">
           <span
@@ -165,7 +175,7 @@ export function LiveWebhooks() {
     source.addEventListener("snapshot", (event) => {
       try {
         const payload = JSON.parse((event as MessageEvent).data) as { receipts?: LiveWebhookReceipt[] };
-        setReceipts(Array.isArray(payload.receipts) ? payload.receipts : []);
+        setReceipts(trimLiveWebhookReceipts(Array.isArray(payload.receipts) ? payload.receipts : []));
         setStatus("live");
         setError(null);
       } catch {
@@ -184,6 +194,10 @@ export function LiveWebhooks() {
     });
     source.addEventListener("heartbeat", () => {
       setStatus("live");
+      setReceipts((current) => {
+        const next = trimLiveWebhookReceipts(current);
+        return next.length === current.length ? current : next;
+      });
     });
     source.onerror = () => {
       setStatus("reconnecting");

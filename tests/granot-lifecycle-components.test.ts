@@ -617,12 +617,12 @@ test("Granot navigation keeps Automation, Lifecycle, Intakes, and Health distinc
   const lifecycleMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/ingestion/granot/lifecycle/cases/case-1" }));
   assert.match(lifecycleMarkup, />Automation</);
   assert.match(lifecycleMarkup, />Lifecycle</);
-  assert.match(lifecycleMarkup, /Live webhooks/);
+  assert.doesNotMatch(lifecycleMarkup, /Live webhooks/);
+  assert.doesNotMatch(lifecycleMarkup, /\/ingestion\/granot\/live/);
   assert.match(lifecycleMarkup, /Intakes/);
   assert.match(lifecycleMarkup, />New</);
   assert.match(lifecycleMarkup, />Health</);
   assert.match(lifecycleMarkup, /href="\/ingestion\/granot"/);
-  assert.match(lifecycleMarkup, /href="\/ingestion\/granot\/live"/);
   assert.match(lifecycleMarkup, /href="\/intakes"/);
   assert.match(lifecycleMarkup, /href="\/job-timeline"/);
   assert.match(lifecycleMarkup, />Job timeline</);
@@ -632,8 +632,6 @@ test("Granot navigation keeps Automation, Lifecycle, Intakes, and Health distinc
   assert.match(healthMarkup, /aria-current="page"[^>]+href="\/ingestion\/granot\/lifecycle\/health"/);
   const intakesMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/intakes" }));
   assert.match(intakesMarkup, /aria-current="page"[^>]+href="\/intakes"/);
-  const liveMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/ingestion/granot/live" }));
-  assert.match(liveMarkup, /aria-current="page"[^>]+href="\/ingestion\/granot\/live"/);
 });
 
 test("[AC-31][AC-35][AC-38] health view is read-only, unit-labeled, and never renders raw payload", () => {
@@ -792,4 +790,7 @@ test("live webhook accordion shows lead facts and the three Granot event classes
   assert.match(markup, /Brooklyn, NY/);
   assert.match(markup, /Full Granot payload/);
   assert.match(markup, /Open job timeline/);
+  assert.match(markup, /Show details/);
+  assert.match(markup, /Hide details/);
+  assert.match(markup, /Click a row to open the lead facts/);
 });

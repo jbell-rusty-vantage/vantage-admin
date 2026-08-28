@@ -79,15 +79,22 @@ test("duration and match line use the seeded inbound facts", () => {
   assert.equal(conversationStatusLabel(fixture), "BOOKED");
 });
 
-test("Owner nav shows Lead Conversations with New, above Form Leads; Admin does not", () => {
+test("Owner nav shows Overview, then Live Events, then Lead Conversations; Admin does not", () => {
   const owner = visibleDashboardNav("owner");
   const admin = visibleDashboardNav("admin");
-  const ownerIndex = owner.findIndex((item) => item.href === "/conversations");
+  assert.equal(owner[0]?.label, "Overview");
+  assert.equal(owner[0]?.href, "/");
+  assert.equal(owner[1]?.label, "Live Events");
+  assert.equal(owner[1]?.href, "/live-events");
+  assert.equal(owner[1]?.ownerOnly, true);
+  assert.equal(owner[1]?.isNew, true);
+  assert.equal(owner[2]?.label, "Lead Conversations");
+  assert.equal(owner[2]?.href, "/conversations");
+  assert.equal(owner[2]?.ownerOnly, true);
+  assert.equal(owner[2]?.isNew, true);
   const formIndex = owner.findIndex((item) => item.href === "/form-leads");
-  assert.equal(owner[ownerIndex]?.label, "Lead Conversations");
-  assert.equal(owner[ownerIndex]?.ownerOnly, true);
-  assert.equal(owner[ownerIndex]?.isNew, true);
-  assert.ok(ownerIndex >= 0 && ownerIndex < formIndex);
+  assert.ok(formIndex > 2);
+  assert.equal(admin.some((item) => item.href === "/live-events"), false);
   assert.equal(admin.some((item) => item.href === "/conversations"), false);
 });
 

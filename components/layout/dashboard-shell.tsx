@@ -19,6 +19,7 @@ const ownerOnlyPagePrefixes = [
   "/bookings/reconciliation",
   "/ingestion/granot",
   "/intakes",
+  "/live-events",
 ] as const;
 // /operations-registry is intentionally readable by admin roles (mutations gated in UI/proxy).
 
