@@ -1,4 +1,5 @@
 import { StatusBadge } from "@/components/data-table/status-badge";
+import { IntakeKnownContactsCards } from "@/components/intakes/intake-known-contacts";
 import type { GranotLifecycleCandidateItem } from "@/lib/api/granotLifecycle";
 import { cn } from "@/lib/utils";
 
@@ -65,28 +66,36 @@ export function CandidateLeadFacts({
   className?: string;
   includeSource?: boolean;
 }) {
+  const formLead = item.lead_ref.model === "FormLead";
   return (
-    <dl className={cn("grid gap-x-4 gap-y-3 sm:grid-cols-2", className)}>
-      <Fact label="Name" value={item.contact?.name} />
-      <Fact label="Phone" value={item.contact?.phone_number} />
-      <Fact label="Email" value={item.contact?.email} />
-      <Fact label="Job number" value={item.job_no} />
-      <Fact label="Reference" value={item.reference} />
-      <Fact label="How they came in" value={candidateLeadTypeLabel(item.lead_ref.model)} />
-      <Fact label="Why it matched" value={candidateMatchLabel(item.match_method)} />
-      <Fact label="Lead ID for support" value={item.lead_ref.id} mono />
-      {includeSource ? (
-        <>
-          <Fact
-            label="Lead source"
-            value={item.source?.source_company_label ?? item.source?.lead_source_company}
-          />
-          <Fact
-            label="Where in that source"
-            value={item.source?.source_granularity_label ?? item.source?.source_granularity_id}
-          />
-        </>
-      ) : null}
-    </dl>
+    <div className="space-y-3">
+      {formLead ? <IntakeKnownContactsCards item={item} compact /> : null}
+      <dl className={cn("grid gap-x-4 gap-y-3 sm:grid-cols-2", className)}>
+        {formLead ? null : (
+          <>
+            <Fact label="Name" value={item.contact?.name} />
+            <Fact label="Phone" value={item.contact?.phone_number} />
+            <Fact label="Email" value={item.contact?.email} />
+          </>
+        )}
+        <Fact label="Job number" value={item.job_no} />
+        <Fact label="Reference" value={item.reference} />
+        <Fact label="How they came in" value={candidateLeadTypeLabel(item.lead_ref.model)} />
+        <Fact label="Why it matched" value={candidateMatchLabel(item.match_method)} />
+        <Fact label="Lead ID for support" value={item.lead_ref.id} mono />
+        {includeSource ? (
+          <>
+            <Fact
+              label="Lead source"
+              value={item.source?.source_company_label ?? item.source?.lead_source_company}
+            />
+            <Fact
+              label="Where in that source"
+              value={item.source?.source_granularity_label ?? item.source?.source_granularity_id}
+            />
+          </>
+        ) : null}
+      </dl>
+    </div>
   );
 }

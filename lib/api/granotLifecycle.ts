@@ -341,6 +341,24 @@ export type BookingIntakeCreatingObservation = {
 
 export type SafeContact = { name?: string; phone_number?: string; email?: string };
 
+export type CandidateKnownContact = {
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  phone_number?: string;
+  email?: string;
+};
+
+export type CandidateKnownGranotContact = CandidateKnownContact & {
+  differs_from_ingested: boolean;
+  captured_at?: string;
+};
+
+export type CandidateKnownContacts = {
+  form_submitted: CandidateKnownContact;
+  granot?: CandidateKnownGranotContact;
+};
+
 export type GranotLifecycleCandidateFilters = {
   scope?: "source" | "all";
   lead_model?: GranotLeadModel;
@@ -353,6 +371,7 @@ export type GranotLifecycleCandidateItem = {
   lead_ref: { model: GranotLeadModel; id: string };
   customer_label: string;
   contact?: SafeContact;
+  known_contacts?: CandidateKnownContacts;
   job_no?: string;
   normalized_job_no?: string;
   reference?: string;

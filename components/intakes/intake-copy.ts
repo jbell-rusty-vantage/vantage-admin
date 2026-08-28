@@ -228,7 +228,13 @@ export const BOOKING_INTAKE_STORY = {
   },
   findAnotherCustomer: {
     title: "Find the right customer",
-    hint: "Search by name, phone, email, job number, or reference. Picking someone replaces the customer above.",
+    hint: "Search the website contact or the later Granot contact, or the job number or reference. Picking someone replaces the customer above.",
+    searchLabel: "Search the website contact, the later Granot contact, job number, or reference",
+    searchPlaceholder: "Website contact, Granot contact, job, or reference",
+  },
+  contactCycle: {
+    line: "Form submitted is what they typed on the website. Granot is the later card from the CRM when we have one.",
+    changed: "Granot later changed this contact.",
   },
   finishTheBooking: {
     title: "Finish the booking",

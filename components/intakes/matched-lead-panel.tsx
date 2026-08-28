@@ -13,6 +13,11 @@ import {
 import { LeadCandidateBrowser } from "@/components/granot-lifecycle/lead-candidate-browser";
 import type { MatchedLead } from "@/components/granot-lifecycle/use-matched-lead";
 import {
+  IntakeContactCycleLine,
+  IntakeKnownContactsCards,
+  IntakeKnownContactsChip,
+} from "./intake-known-contacts";
+import {
   BOOKING_INTAKE_STORY,
   matchConfidenceHint,
   matchConfidenceLabel,
@@ -65,11 +70,19 @@ export function MatchedLeadPanel({
                 <HowToReach phone={lead.contact?.phone_number} email={lead.contact?.email} />
               </div>
               <div className="flex flex-col items-start gap-2 sm:items-end">
+                <IntakeKnownContactsChip item={lead} />
                 <StatusBadge tone={lead.confidence === "high" ? "success" : "warning"}>
                   {matchConfidenceLabel(lead.confidence)}
                 </StatusBadge>
                 <StatusBadge tone="muted">{matchedCustomerOriginLabel(matched.origin)}</StatusBadge>
               </div>
+            </div>
+
+            <div className="mt-3">
+              <IntakeContactCycleLine item={lead} />
+            </div>
+            <div className="mt-3">
+              <IntakeKnownContactsCards item={lead} />
             </div>
 
             <p className="mt-3 text-sm text-muted-foreground">

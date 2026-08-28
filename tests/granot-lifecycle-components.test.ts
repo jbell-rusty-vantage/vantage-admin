@@ -16,6 +16,7 @@ import {
   pickBestCandidate,
 } from "../components/granot-lifecycle/lead-candidate-browser";
 import { MatchedLeadPanel } from "../components/intakes/matched-lead-panel";
+import { BOOKING_INTAKE_STORY } from "../components/intakes/intake-copy";
 import {
   DEFAULT_GRANOT_LIFECYCLE_FILTERS,
   LifecycleDashboardView,
@@ -521,6 +522,132 @@ test("the matched customer panel says plainly when nobody is attached yet", () =
   assert.match(markup, /No customer is attached to this booking yet/);
   assert.match(markup, /Search for the customer/);
   assert.equal(markup.includes("Strong match"), false);
+});
+
+const formSubmittedCandidate: GranotLifecycleCandidateItem = {
+  ...ownerWorkCandidate,
+  lead_ref: { model: "FormLead", id: "lead-form-submitted" },
+  customer_label: "Form Submitted",
+  contact: {
+    name: "Form Submitted",
+    phone_number: "555-0001",
+    email: "form@example.invalid",
+  },
+  match_method: "form_ref_no_exact",
+  known_contacts: {
+    form_submitted: {
+      name: "Form Submitted",
+      phone_number: "555-0001",
+      email: "form@example.invalid",
+    },
+  },
+};
+
+const matchingGranotCandidate: GranotLifecycleCandidateItem = {
+  ...formSubmittedCandidate,
+  lead_ref: { model: "FormLead", id: "lead-form-matching" },
+  known_contacts: {
+    form_submitted: formSubmittedCandidate.known_contacts!.form_submitted,
+    granot: {
+      name: "Form Submitted",
+      phone_number: "555-0001",
+      email: "form@example.invalid",
+      differs_from_ingested: false,
+      captured_at: "2026-08-01T12:00:00.000Z",
+    },
+  },
+};
+
+const changedGranotCandidate: GranotLifecycleCandidateItem = {
+  ...formSubmittedCandidate,
+  lead_ref: { model: "FormLead", id: "lead-form-changed" },
+  known_contacts: {
+    form_submitted: formSubmittedCandidate.known_contacts!.form_submitted,
+    granot: {
+      name: "Granot Later",
+      phone_number: "555-9999",
+      email: "granot@example.invalid",
+      differs_from_ingested: true,
+      captured_at: "2026-08-01T12:00:00.000Z",
+    },
+  },
+};
+
+const forbiddenFieldNames = [
+  "ingested_contact_snapshot",
+  "granot_contact_snapshot",
+  "differs_from_ingested",
+  "wordpress_form",
+  "legacy_baseline",
+  "observation_id",
+];
+
+test("no snapshot shows Form submitted only and no Granot chip on the hero", () => {
+  const hero = renderToStaticMarkup(createElement(MatchedLeadPanel, {
+    matched: { lead: formSubmittedCandidate, origin: "vantage_matched", stillSearching: false, chooseLead: () => {} },
+  }));
+  const rows = renderToStaticMarkup(createElement(LeadCandidateResults, { items: [formSubmittedCandidate] }));
+  for (const markup of [hero, rows]) {
+    assert.match(markup, /Form submitted/);
+    assert.match(markup, /Form Submitted/);
+    assert.doesNotMatch(markup, />Granot</);
+    assert.doesNotMatch(markup, /Changed in Granot/);
+    assert.doesNotMatch(markup, new RegExp(BOOKING_INTAKE_STORY.contactCycle.line));
+    for (const forbidden of forbiddenFieldNames) {
+      assert.doesNotMatch(markup, new RegExp(forbidden));
+    }
+  }
+});
+
+test("matching snapshot shows Granot chip, both cards, and the cycle line", () => {
+  const hero = renderToStaticMarkup(createElement(MatchedLeadPanel, {
+    matched: { lead: matchingGranotCandidate, origin: "vantage_matched", stillSearching: false, chooseLead: () => {} },
+  }));
+  const rows = renderToStaticMarkup(createElement(LeadCandidateResults, { items: [matchingGranotCandidate] }));
+  for (const markup of [hero, rows]) {
+    assert.match(markup, /Form submitted/);
+    assert.match(markup, />Granot</);
+    assert.match(markup, new RegExp(BOOKING_INTAKE_STORY.contactCycle.line));
+    assert.doesNotMatch(markup, /Changed in Granot/);
+    assert.doesNotMatch(markup, new RegExp(BOOKING_INTAKE_STORY.contactCycle.changed));
+    for (const forbidden of forbiddenFieldNames) {
+      assert.doesNotMatch(markup, new RegExp(forbidden));
+    }
+  }
+});
+
+test("differing snapshot shows Changed in Granot and keeps the Form submitted headline", () => {
+  const hero = renderToStaticMarkup(createElement(MatchedLeadPanel, {
+    matched: { lead: changedGranotCandidate, origin: "vantage_matched", stillSearching: false, chooseLead: () => {} },
+  }));
+  const rows = renderToStaticMarkup(createElement(LeadCandidateResults, { items: [changedGranotCandidate] }));
+  for (const markup of [hero, rows]) {
+    assert.match(markup, /Form Submitted/);
+    assert.match(markup, /Changed in Granot/);
+    assert.match(markup, /Granot Later/);
+    assert.match(markup, new RegExp(BOOKING_INTAKE_STORY.contactCycle.changed));
+    assert.match(markup, new RegExp(BOOKING_INTAKE_STORY.contactCycle.line));
+    for (const forbidden of forbiddenFieldNames) {
+      assert.doesNotMatch(markup, new RegExp(forbidden));
+    }
+  }
+});
+
+test("Call Lead fixture has no Granot card and owner strings come from intake-copy", () => {
+  const hero = renderToStaticMarkup(createElement(MatchedLeadPanel, {
+    matched: { lead: ownerWorkCandidate, origin: "vantage_matched", stillSearching: false, chooseLead: () => {} },
+  }));
+  const rows = renderToStaticMarkup(createElement(LeadCandidateResults, { items: [ownerWorkCandidate] }));
+  for (const markup of [hero, rows]) {
+    assert.doesNotMatch(markup, />Granot</);
+    assert.doesNotMatch(markup, /Changed in Granot/);
+    assert.doesNotMatch(markup, /Form submitted/);
+    assert.doesNotMatch(markup, new RegExp(BOOKING_INTAKE_STORY.contactCycle.line));
+    for (const forbidden of forbiddenFieldNames) {
+      assert.doesNotMatch(markup, new RegExp(forbidden));
+    }
+  }
+  assert.match(hero, new RegExp(BOOKING_INTAKE_STORY.whoThisIsFor.title));
 });
 
 test("selectable candidate rows show full Lead data and mark the row already on the booking", () => {

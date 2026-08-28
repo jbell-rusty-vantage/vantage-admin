@@ -15,6 +15,11 @@ import {
 import { queryKeys } from "@/lib/query/keys";
 import { cn } from "@/lib/utils";
 import {
+  IntakeContactCycleLine,
+  IntakeKnownContactsChip,
+} from "@/components/intakes/intake-known-contacts";
+import { BOOKING_INTAKE_STORY } from "@/components/intakes/intake-copy";
+import {
   CandidateConfidenceBadges,
   CandidateLeadFacts,
   candidateLeadName,
@@ -75,8 +80,12 @@ export function LeadCandidateResults({
                   {item.reference ? ` · reference ${item.reference}` : ""}
                 </p>
               </div>
-              {isSelected ? <StatusBadge tone="success">On this booking</StatusBadge> : null}
+              <div className="flex flex-wrap items-center gap-2">
+                <IntakeKnownContactsChip item={item} />
+                {isSelected ? <StatusBadge tone="success">On this booking</StatusBadge> : null}
+              </div>
             </div>
+            <IntakeContactCycleLine item={item} />
             <CandidateConfidenceBadges item={item} />
             <CandidateLeadFacts item={item} className="sm:grid-cols-2" />
             {item.requires_override_reason ? (
@@ -151,12 +160,10 @@ export function LeadCandidateBrowser({
     <section aria-labelledby="candidate-browser-heading" className="space-y-4">
       <div>
         <h2 id="candidate-browser-heading" className="text-base font-semibold text-navy">
-          {heading ?? "Find the right customer"}
+          {heading ?? BOOKING_INTAKE_STORY.findAnotherCustomer.title}
         </h2>
         <p className="text-sm text-muted-foreground">
-          {description ?? (onSelect
-            ? "Search only if the customer above is wrong. Picking someone here replaces them on the booking."
-            : "Search results only. Nothing here changes the booking.")}
+          {description ?? BOOKING_INTAKE_STORY.findAnotherCustomer.hint}
         </p>
       </div>
       <form
@@ -176,13 +183,13 @@ export function LeadCandidateBrowser({
         }}
       >
         <div className="space-y-1">
-          <Label htmlFor="candidate-query">Search by name, phone, email, job number, or reference</Label>
+          <Label htmlFor="candidate-query">{BOOKING_INTAKE_STORY.findAnotherCustomer.searchLabel}</Label>
           <Input
             id="candidate-query"
             maxLength={100}
             value={draftQuery}
             onChange={(event) => setDraftQuery(event.target.value)}
-            placeholder="Name, phone, email, job, or reference"
+            placeholder={BOOKING_INTAKE_STORY.findAnotherCustomer.searchPlaceholder}
           />
         </div>
         <div className="space-y-1">
