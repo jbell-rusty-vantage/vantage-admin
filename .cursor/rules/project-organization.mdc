@@ -25,7 +25,7 @@ alwaysApply: true
 | `components/ui/` | shadcn-compatible primitives |
 | `components/layout/` | Shell, nav, login, global search, scope controls, role context |
 | `components/filters/`, `data-table/`, `record-detail/` | Shared table/detail primitives |
-| `components/operational/` | Shared operational list/detail/edit (`operational-resource-page.tsx`) |
+| `components/operational/` | Shared operational list/detail/edit (`operational-resource-page.tsx`). Form/duplicate form leads: `form-lead-contacts.tsx` (Granot contact chip after Phone + Contacts detail after Summary). Call Leads unchanged. Edit fields stay live-only. |
 | `components/forms/` | Booking + cancellation create workflows |
 | `components/dashboard/` | Home overview (Owner-only Lead Conversations quick link) |
 | `components/analytics/`, `reports/` | Analytics + agent-sales report UI |

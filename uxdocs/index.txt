@@ -2,6 +2,17 @@ Write text wireframes and ui / ux suggestions in this directory !
 
 These files are suggestions unless a doc says the surface is live.
 
+Live: Form Lead contact snapshots
+  — Admin /form-leads and /duplicate-form-leads show Form submitted vs
+    Granot contact (chip + Contacts detail). Search hits live + ingested +
+    Granot snapshot. Call Leads unchanged.
+    Authority: vantage-main-server/docs/form-lead-contact-snapshots-display-and-search-specification.md
+
+Contract (not fully developed): Booking intake Form Lead contact snapshots
+  — Find the right customer on /intakes should search and show Form
+    submitted vs Granot. Owner will add more to this file. Do not implement.
+    Authority: vantage-main-server/docs/granot-lead-lifecycle/booking-intake-form-lead-contact-snapshots-specification.md
+
 Live: live-events-tab-specification.md
   — Owner-only Granot live webhook SSE as a top-level sidebar tab
     "Live Events" (immediately under Overview) at /live-events.

@@ -24,6 +24,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { DetailGrid, DetailItem, DetailSection } from "@/components/record-detail/detail-section";
 import { JobTimelineDeepLink } from "@/components/job-number-timeline/job-timeline-deep-link";
 import {
+  FormLeadContactsSection,
+  GranotContactChip,
+} from "@/components/operational/form-lead-contacts";
+import {
   getRelatedNavLinks,
   linkedContextHref,
   type RelatedNavLink,
@@ -134,6 +138,7 @@ const formLeadColumns: ColumnConfig[] = [
   { key: "first_name", label: "First", path: "first_name" },
   { key: "last_name", label: "Last", path: "last_name" },
   { key: "phone", label: "Phone", path: "phone_number" },
+  { key: "granot_contact", label: "Granot contact", path: "granot_contact_snapshot" },
   { key: "email", label: "Email", path: "email" },
   { key: "source", label: "Source", path: "source_company", sort: "source_company" },
   { key: "pickup_city", label: "Pickup City", path: "pickup_city" },
@@ -654,6 +659,9 @@ function formatCell(
   if (column.path === "job_no") {
     const job = stringValue(value);
     return job ? <JobTimelineDeepLink job={job} /> : "-";
+  }
+  if (column.key === "granot_contact") {
+    return <GranotContactChip record={record} />;
   }
   if (column.format === "date") {
     return formatDate(value);
@@ -1871,7 +1879,10 @@ function DetailPanel({
             </DetailGrid>
           </DetailSection>
           {uiResource === "form-leads" || uiResource === "duplicate-form-leads" ? (
-            <SmsMessageSection record={record} />
+            <>
+              <FormLeadContactsSection record={record} />
+              <SmsMessageSection record={record} />
+            </>
           ) : null}
           {isLeadResource(uiResource) && isLeadRecordWithSourceMetadata(record) ? (
             <DetailSection title="Source Metadata" description="Catalog relation and source label snapshots.">
@@ -1993,6 +2004,8 @@ function getTableColumnClassName(column: ColumnConfig): string | undefined {
       return "min-w-44";
     case "phone":
       return "min-w-32";
+    case "granot_contact":
+      return "min-w-36";
     case "source":
     case "merchant":
     case "move":
