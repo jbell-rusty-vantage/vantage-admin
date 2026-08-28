@@ -67,6 +67,22 @@ test("Stored lead table chip renders owner labels without Lead IDs", () => {
   assert.doesNotMatch(referral, /Connect/);
 });
 
+test("Connect search and attached Form cards reuse the intake cycle helper and hide it on Call Leads", () => {
+  const panel = readFileSync(
+    path.join(process.cwd(), "components/bookings/connect-lead-panel.tsx"),
+    "utf8",
+  );
+  const section = readFileSync(
+    path.join(process.cwd(), "components/bookings/booking-stored-lead-section.tsx"),
+    "utf8",
+  );
+  assert.match(panel, /IntakeContactCycleLine/);
+  assert.match(panel, /onConnected/);
+  assert.match(section, /model === "CallLead"/);
+  assert.match(section, /!attached/);
+  assert.match(section, /readOnly/);
+});
+
 test("Bookings operational page mounts Stored lead after Summary and keeps reconciliation out of the file", () => {
   const page = readFileSync(
     path.join(process.cwd(), "components/operational/operational-resource-page.tsx"),

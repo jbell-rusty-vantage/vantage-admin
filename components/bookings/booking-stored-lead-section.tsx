@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { Button } from "@/components/ui/button";
+import { FeedbackMessage } from "@/components/ui/feedback";
 import { DetailSection } from "@/components/record-detail/detail-section";
 import {
   FormSubmittedGranotCards,
@@ -35,6 +36,7 @@ export function BookingStoredLeadSection({
   const attached = bookingLeadRef(record);
   const allowConnect = role === "owner" && !readOnly && canConnectBookingToLead(record);
   const [open, setOpen] = useState(startOpen && allowConnect);
+  const [notice, setNotice] = useState<string>();
   const leadQuery = useQuery({
     queryKey: queryKeys.details.resource(
       attached?.model === "CallLead" ? "call-leads" : "form-leads",
@@ -55,7 +57,7 @@ export function BookingStoredLeadSection({
           leadQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">Loading stored lead…</p>
           ) : leadQuery.data ? (
-            <AttachedLeadCards lead={leadQuery.data} />
+            <AttachedLeadCards lead={leadQuery.data} model={attached.model} />
           ) : (
             <p className="text-sm text-muted-foreground">This booking has a stored lead.</p>
           )
@@ -72,27 +74,62 @@ export function BookingStoredLeadSection({
             ) : null}
           </>
         )}
-        {open && allowConnect ? (
-          <ConnectLeadPanel record={record} />
+        {notice ? <FeedbackMessage tone="success">{notice}</FeedbackMessage> : null}
+        {open && allowConnect && !attached ? (
+          <ConnectLeadPanel
+            record={record}
+            onConnected={(ownerNotice) => {
+              setOpen(false);
+              setNotice(ownerNotice);
+            }}
+          />
         ) : null}
       </div>
     </DetailSection>
   );
 }
 
-function AttachedLeadCards({ lead }: { lead: AdminRecord }) {
-  const granot = readGranotContactSnapshot(lead);
+function attachedLeadName(lead: AdminRecord): string {
+  const combined = [lead.first_name, lead.last_name].filter(Boolean).join(" ");
+  if (typeof lead.name === "string" && lead.name.trim()) return lead.name;
+  if (combined) return combined;
+  return "Stored lead";
+}
+
+function AttachedLeadCards({
+  lead,
+  model,
+}: {
+  lead: AdminRecord;
+  model: "FormLead" | "CallLead";
+}) {
+  const granot = model === "FormLead" ? readGranotContactSnapshot(lead) : null;
+  const name = attachedLeadName(lead);
+  if (model === "CallLead") {
+    return (
+      <div className="space-y-2">
+        <p className="font-semibold text-navy">{name}</p>
+        <p className="text-sm text-muted-foreground">
+          {typeof lead.phone_number === "string" && lead.phone_number.trim() ? lead.phone_number : "—"}
+          {" · "}
+          {typeof lead.email === "string" && lead.email.trim() ? lead.email : "—"}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="font-semibold text-navy">
-          {String(lead.name ?? [lead.first_name, lead.last_name].filter(Boolean).join(" ") ?? "Stored lead")}
-        </p>
+        <p className="font-semibold text-navy">{name}</p>
         <GranotContactStatusChip snapshot={granot} omitEmpty />
       </div>
-      <p className="text-sm text-muted-foreground">{BOOKINGS_CONNECT_COPY.contactCycle.line}</p>
-      {granot?.differs_from_ingested === true ? (
-        <p className="text-sm text-muted-foreground">{BOOKINGS_CONNECT_COPY.contactCycle.changed}</p>
+      {granot ? (
+        <>
+          <p className="text-sm text-muted-foreground">{BOOKINGS_CONNECT_COPY.contactCycle.line}</p>
+          {granot.differs_from_ingested === true ? (
+            <p className="text-sm text-muted-foreground">{BOOKINGS_CONNECT_COPY.contactCycle.changed}</p>
+          ) : null}
+        </>
       ) : null}
       <FormSubmittedGranotCards
         formSubmitted={{

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import {
+  IntakeContactCycleLine,
   IntakeKnownContactsChip,
   IntakeKnownContactsCards,
 } from "@/components/intakes/intake-known-contacts";
@@ -30,7 +31,13 @@ import { invalidateGranotLifecycleCommandViews } from "@/lib/query/granotLifecyc
 import { cn } from "@/lib/utils";
 import { BOOKINGS_CONNECT_COPY } from "./bookings-copy";
 
-export function ConnectLeadPanel({ record }: { record: AdminRecord }) {
+export function ConnectLeadPanel({
+  record,
+  onConnected,
+}: {
+  record: AdminRecord;
+  onConnected?: (notice: string) => void;
+}) {
   const bookingId = getRecordId(record);
   const queryClient = useQueryClient();
   const [draftQuery, setDraftQuery] = useState("");
@@ -62,7 +69,8 @@ export function ConnectLeadPanel({ record }: { record: AdminRecord }) {
       );
     },
     async onSuccess(result) {
-      setNotice(result.owner_notice ?? BOOKINGS_CONNECT_COPY.success);
+      const ownerNotice = result.owner_notice ?? BOOKINGS_CONNECT_COPY.success;
+      setNotice(ownerNotice);
       await Promise.all([
         invalidateGranotLifecycleCommandViews(queryClient, {
           bookingId,
@@ -74,6 +82,7 @@ export function ConnectLeadPanel({ record }: { record: AdminRecord }) {
         queryClient.invalidateQueries({ queryKey: queryKeys.details.resource("booked-leads", bookingId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.lists.resource("booked-leads") }),
       ]);
+      onConnected?.(ownerNotice);
     },
   });
 
@@ -209,10 +218,7 @@ function ConnectCandidateResults({
                 {candidateLeadTypeLabel(item.lead_ref.model)}
                 {item.job_no ? ` · job ${item.job_no}` : ""}
               </p>
-              <p className="text-sm text-muted-foreground">{BOOKINGS_CONNECT_COPY.contactCycle.line}</p>
-              {item.known_contacts?.granot?.differs_from_ingested === true ? (
-                <p className="text-sm text-muted-foreground">{BOOKINGS_CONNECT_COPY.contactCycle.changed}</p>
-              ) : null}
+              <IntakeContactCycleLine item={item} />
               <CandidateLeadFacts item={item} className="sm:grid-cols-2" />
             </label>
           </li>

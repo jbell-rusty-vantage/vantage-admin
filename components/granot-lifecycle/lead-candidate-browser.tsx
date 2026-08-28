@@ -38,15 +38,19 @@ export function isSameCandidate(
 }
 
 /**
- * Server order already ranks identity matches first; this only breaks ties the
- * same way the server does so a reordered page cannot change the pre-selection.
+ * Pre-fill only a unique High-Confidence Booking Lead. A persisted high
+ * suggestion wins when it is on the page. Two or more highs with no suggestion
+ * stay empty so submit omits `selected_lead` and the server stays Leadless.
  */
 export function pickBestCandidate(
   items: readonly GranotLifecycleCandidateItem[] | undefined,
 ): GranotLifecycleCandidateItem | undefined {
   const highs = (items ?? []).filter((item) => item.confidence === "high");
   if (highs.length === 0) return undefined;
-  return highs.reduce((best, item) => (item.suggested && !best.suggested ? item : best));
+  const suggested = highs.find((item) => item.suggested);
+  if (suggested) return suggested;
+  if (highs.length === 1) return highs[0];
+  return undefined;
 }
 
 export function LeadCandidateResults({

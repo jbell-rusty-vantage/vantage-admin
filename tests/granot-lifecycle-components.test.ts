@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -474,21 +476,23 @@ const ownerWorkCandidate: GranotLifecycleCandidateItem = {
   requires_override_reason: false,
 };
 
-test("pre-selection prefers the suggested Lead, then high confidence, then Source Scope", () => {
+test("pre-selection is unique high only; medium never wins; ambiguous highs stay empty", () => {
   const candidate = (
     overrides: Partial<GranotLifecycleCandidateItem>,
   ): GranotLifecycleCandidateItem => ({ ...ownerWorkCandidate, suggested: false, ...overrides });
   const suggested = candidate({ lead_ref: { model: "CallLead", id: "suggested" }, suggested: true, confidence: "medium" });
   const high = candidate({ lead_ref: { model: "CallLead", id: "high" }, confidence: "high" });
+  const otherHigh = candidate({ lead_ref: { model: "CallLead", id: "other-high" }, confidence: "high" });
   const inScope = candidate({ lead_ref: { model: "CallLead", id: "scoped" }, confidence: "medium" });
   const outOfScope = candidate({ lead_ref: { model: "CallLead", id: "outside" }, confidence: "medium", in_source_scope: false });
 
   assert.equal(pickBestCandidate([outOfScope, inScope, high, suggested])?.lead_ref.id, "high");
   assert.equal(pickBestCandidate([outOfScope, inScope, high])?.lead_ref.id, "high");
   assert.equal(pickBestCandidate([outOfScope, inScope]), undefined);
+  assert.equal(pickBestCandidate([high, otherHigh]), undefined);
   assert.equal(
     pickBestCandidate([
-      suggested,
+      otherHigh,
       { ...high, lead_ref: { model: "CallLead", id: "suggested-high" }, suggested: true, confidence: "high" },
     ])?.lead_ref.id,
     "suggested-high",
@@ -708,6 +712,12 @@ test("the booking form can review official details with no Lead selected", () =>
   assert.match(markup, /No strong match/);
   assert.match(markup, /Review Booking/);
   assert.equal(markup.includes("Choose the customer this booking belongs to"), false);
+  const formSource = readFileSync(
+    path.join(process.cwd(), "components/granot-lifecycle/booking-command-form.tsx"),
+    "utf8",
+  );
+  assert.match(formSource, /reviewNoLead/);
+  assert.match(formSource, /No lead — Master Booked only|INTAKE_LEAD_OPTIONAL\.reviewNoLead/);
 });
 
 test("timeline preserves server order and individual Booking/Release discriminants", () => {

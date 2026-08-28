@@ -97,7 +97,7 @@ test("[AC-18][AC-20] case list sends every URL-backed filter and opaque cursor",
 });
 
 test("[AC-21][AC-22] confirm uses the authenticated proxy and forwards one idempotency key", async () => {
-  const calls = mockFetch({ ok: true, data: {
+  let calls = mockFetch({ ok: true, data: {
     case_id: "case-1", case_state: "resolved", case_revision: 2,
     outcome: "booking_created", command_execution_id: "command-1", decision_id: "decision-1",
     booking_ref: { id: "booking-1", domain_revision: 1 },
@@ -120,6 +120,20 @@ test("[AC-21][AC-22] confirm uses the authenticated proxy and forwards one idemp
   assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit24-key");
   assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), body);
   assert.equal(result.booking_ref?.id, "booking-1");
+
+  const { selected_lead: _omitted, ...withoutLead } = body;
+  calls = mockFetch({ ok: true, data: {
+    case_id: "case-1", case_state: "resolved", case_revision: 2,
+    outcome: "booking_created", command_execution_id: "command-1", decision_id: "decision-1",
+    booking_ref: { id: "booking-2", domain_revision: 1 },
+    record_link_ref: { id: "link-1", domain_revision: 1 }, entity_refs: [], replayed: false,
+    is_leadless_booking: true,
+  } }, 201);
+  await confirmGranotBooking("case/one", withoutLead, "unit24-leadless-key");
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(JSON.parse(String(calls[0]?.init?.body)), "selected_lead"),
+    false,
+  );
 });
 
 test("Connect Booking to Lead uses the bookings proxy paths and one idempotency key", async () => {
