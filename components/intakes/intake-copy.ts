@@ -69,9 +69,9 @@ export function intakeNextStep(item: Pick<GranotLifecycleCaseListItem, "kind" | 
   }
   switch (item.mode) {
     case "create_missing_booking":
-      return "Open this case to choose a lead and enter one binder amount, up to two agents, deposit, and merchant.";
+      return "Enter binder, up to two agents, deposit, and merchant. A high-confidence lead attaches automatically. You can save without a lead.";
     case "review_existing_booking":
-      return "Open this case to review the official booking values.";
+      return "Review or update the official booking. Binder is one amount, split evenly across the agents you pick.";
     case "create_referral_booking":
       return "Open this case to enter one binder amount, up to two agents, deposit, and merchant.";
     default:
@@ -98,14 +98,14 @@ export function intakeCaseHowToFinish(input: {
     return {
       title: "How to finish this booking",
       body: input.commandsAvailable
-        ? "Official booking values are below. Binder is one amount, split evenly across the up to two agents you pick. Use the same catalog as a normal booking, or leave official records unchanged."
+        ? "Review or update the official booking. Binder is one amount, split evenly across the agents you pick. Use the same catalog as a normal booking, or leave official records unchanged."
         : "Vantage already has an official booking on this job. The official form appears here when owner booking work is enabled.",
     };
   }
   return {
     title: "How to finish this booking",
     body: input.commandsAvailable
-        ? "Read what Granot sent, check the customer Vantage matched, then enter one binder amount, up to two agents, deposit, and merchant from the same Operations Registry catalog as a normal booking. Two agents split the binder evenly. If the customer is wrong, search for the right one before you file it. Granot estimate and payment numbers stay as reference only."
+        ? "Enter binder, up to two agents, deposit, and merchant. A high-confidence lead attaches automatically. You can save without a lead. If the customer is wrong, search for the right one before you file it. Granot estimate and payment numbers stay as reference only."
         : "This case is waiting for one binder amount, up to two agents, deposit, and merchant. The official form appears here when owner booking work is enabled.",
   };
 }
@@ -324,10 +324,22 @@ export function matchConfidenceHint(
     : "Some of what Granot sent lines up with this customer. Check the name and phone before you file it.";
 }
 
+export const INTAKE_LEAD_OPTIONAL = {
+  noStoredLeadTitle: "No stored lead",
+  noStrongMatch:
+    "No strong match. You can search, or save the booking now and connect a lead later from Bookings.",
+  willAttachHigh: "This customer will be attached when you file the booking.",
+  filingUnder: "Filing this booking under",
+  reviewNoLead: "No lead — Master Booked only",
+  leadlessCreated:
+    "Booking saved to Master Booked. No stored lead was attached. You can connect a lead later from Bookings.",
+  attachedCreated: "Booking created successfully.",
+} as const;
+
 export function noMatchedCustomerMessage(searching: boolean): string {
   return searching
     ? "Looking for the customer this job belongs to…"
-    : "No customer matched this job automatically. Search below and pick the person this booking belongs to.";
+    : INTAKE_LEAD_OPTIONAL.noStrongMatch;
 }
 
 export function granotUpdateActionLabel(

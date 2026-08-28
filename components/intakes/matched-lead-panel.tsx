@@ -22,6 +22,7 @@ import {
   matchConfidenceHint,
   matchConfidenceLabel,
   matchedCustomerOriginLabel,
+  INTAKE_LEAD_OPTIONAL,
   noMatchedCustomerMessage,
 } from "./intake-copy";
 
@@ -110,7 +111,7 @@ export function MatchedLeadPanel({
           </div>
         ) : (
           <div className="rounded-lg border border-dashed p-4">
-            <p className="font-semibold text-navy">No customer is attached to this booking yet</p>
+            <p className="font-semibold text-navy">{INTAKE_LEAD_OPTIONAL.noStoredLeadTitle}</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {noMatchedCustomerMessage(matched.stillSearching)}
             </p>

@@ -18,6 +18,7 @@ import {
 import { useCatalogOptions } from "@/lib/api/use-catalog-options";
 import { parseOfficialBookingDetails } from "@/lib/booking/officialBookingDetails";
 import { invalidateGranotLifecycleCommandViews } from "@/lib/query/granotLifecycle";
+import { INTAKE_LEAD_OPTIONAL } from "@/components/intakes/intake-copy";
 import { OfficialBinderAgentsFields } from "./official-binder-agents-fields";
 import { candidateLeadName } from "./candidate-lead-facts";
 
@@ -69,18 +70,17 @@ export function BookingCommandForm({
       secondaryAgentId,
     });
     const nextErrors = [...parsed.errors];
-    if (!matchedLead) {
-      nextErrors.push("Choose the customer this booking belongs to before you file it.");
-    }
     if (matchedLead?.requires_override_reason && (overrideReason.trim().length < 10 || overrideReason.trim().length > 500)) {
       nextErrors.push("Write 10 to 500 characters explaining why this customer belongs on this job.");
     }
     setErrors(nextErrors);
-    if (nextErrors.length || !matchedLead || !parsed.details) return undefined;
+    if (nextErrors.length || !parsed.details) return undefined;
     return {
       expected_case_revision: detail.case_revision,
-      selected_lead: { lead_model: matchedLead.lead_ref.model, lead_id: matchedLead.lead_ref.id },
-      ...(matchedLead.requires_override_reason ? { out_of_scope_override_reason: overrideReason.trim() } : {}),
+      ...(matchedLead
+        ? { selected_lead: { lead_model: matchedLead.lead_ref.model, lead_id: matchedLead.lead_ref.id } }
+        : {}),
+      ...(matchedLead?.requires_override_reason ? { out_of_scope_override_reason: overrideReason.trim() } : {}),
       official_booking_details: parsed.details,
     };
   };
@@ -100,11 +100,18 @@ export function BookingCommandForm({
       if (!result.booking_ref) throw new Error("Booking command response omitted the created Booking reference.");
       lastAttempt.current = undefined;
       setReviewing(false);
-      setNotice(result.outcome === "booking_created" ? "Booking created successfully." : "The current official Booking already satisfied this case.");
+      setNotice(
+        result.outcome === "booking_created"
+          ? result.owner_notice
+            ?? (result.is_leadless_booking ? INTAKE_LEAD_OPTIONAL.leadlessCreated : INTAKE_LEAD_OPTIONAL.attachedCreated)
+          : "The current official Booking already satisfied this case.",
+      );
       await invalidateGranotLifecycleCommandViews(queryClient, {
         caseId: detail.case_id,
         jobNo: detail.normalized_job_no,
-        lead: { model: body.selected_lead.lead_model, id: body.selected_lead.lead_id },
+        ...(body.selected_lead
+          ? { lead: { model: body.selected_lead.lead_model, id: body.selected_lead.lead_id } }
+          : {}),
         previousLead: detail.record_link?.lead_ref?.model === "FormLead" || detail.record_link?.lead_ref?.model === "CallLead"
           ? { model: detail.record_link.lead_ref.model, id: detail.record_link.lead_ref.id }
           : undefined,
@@ -116,7 +123,9 @@ export function BookingCommandForm({
         await invalidateGranotLifecycleCommandViews(queryClient, {
           caseId: detail.case_id,
           jobNo: detail.normalized_job_no,
-          lead: { model: body.selected_lead.lead_model, id: body.selected_lead.lead_id },
+          ...(body.selected_lead
+            ? { lead: { model: body.selected_lead.lead_model, id: body.selected_lead.lead_id } }
+            : {}),
         });
       } else {
         setErrors([error instanceof Error ? error.message : "Unable to create Booking."]);
@@ -146,11 +155,14 @@ export function BookingCommandForm({
 
         {matchedLead ? (
           <p className="text-sm text-muted-foreground">
-            Filing this booking under <span className="font-semibold text-navy">{candidateLeadName(matchedLead)}</span>.
+            {matchedLead.confidence === "high"
+              ? INTAKE_LEAD_OPTIONAL.willAttachHigh
+              : INTAKE_LEAD_OPTIONAL.filingUnder}{" "}
+            <span className="font-semibold text-navy">{candidateLeadName(matchedLead)}</span>.
           </p>
         ) : (
           <FeedbackMessage tone="warning">
-            No customer is attached yet. Pick one above before you file this booking.
+            {INTAKE_LEAD_OPTIONAL.noStrongMatch}
           </FeedbackMessage>
         )}
 
@@ -215,13 +227,15 @@ export function BookingCommandForm({
           <section aria-labelledby="granot-booking-review" className="rounded-lg border bg-muted/40 p-4">
             <h3 id="granot-booking-review" className="font-semibold">Check this before you file it</h3>
             <p className="mt-2 text-sm">
-              Customer: {matchedLead ? candidateLeadName(matchedLead) : "—"}
-              {matchedLead?.job_no ? ` · job ${matchedLead.job_no}` : ""}
-              {matchedLead?.reference ? ` · reference ${matchedLead.reference}` : ""}
+              {matchedLead
+                ? `Customer: ${candidateLeadName(matchedLead)}${matchedLead.job_no ? ` · job ${matchedLead.job_no}` : ""}${matchedLead.reference ? ` · reference ${matchedLead.reference}` : ""} · Lead ID ${matchedLead.lead_ref.id}`
+                : INTAKE_LEAD_OPTIONAL.reviewNoLead}
             </p>
-            <p className="text-sm">
-              {matchedLead?.contact?.phone_number ?? "no phone"} · {matchedLead?.contact?.email ?? "no email"}
-            </p>
+            {matchedLead ? (
+              <p className="text-sm">
+                {matchedLead.contact?.phone_number ?? "no phone"} · {matchedLead.contact?.email ?? "no email"}
+              </p>
+            ) : null}
             <p className="mt-2 text-sm">Book Date: {bookDate} · Deposit: {deposit} · Binder: {totalBinder}</p>
             <p className="text-sm">Merchant: {chosenMerchant?.name ?? merchantId}</p>
             <p className="text-sm">Agents: {chosenAgents.join(", ") || "—"}</p>

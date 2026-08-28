@@ -399,7 +399,7 @@ export type GranotTimelineFilters = { cursor?: string; limit?: number };
 
 export type ConfirmGranotBookingBody = {
   expected_case_revision: number;
-  selected_lead: { lead_model: GranotLeadModel; lead_id: string };
+  selected_lead?: { lead_model: GranotLeadModel; lead_id: string };
   out_of_scope_override_reason?: string;
   official_booking_details: {
     book_date: string;
@@ -422,6 +422,8 @@ export type BookingOwnerCommandResult = {
   record_link_ref?: { id: string; domain_revision: number };
   entity_refs: Array<{ model: string; id: string }>;
   replayed: boolean;
+  owner_notice?: string;
+  is_leadless_booking?: boolean;
 };
 
 export type CreateReferralBookingBody = {

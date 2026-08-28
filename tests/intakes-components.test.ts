@@ -114,7 +114,8 @@ test("owner copy names booking and cancellation intakes without lifecycle jargon
   );
   assert.equal(intakeActionLabel("booking"), "Finish booking");
   assert.equal(intakeActionLabel("cancellation"), "Review cancellation");
-  assert.match(intakeNextStep(bookingCase), /one binder amount, up to two agents, deposit, and merchant/);
+  assert.match(intakeNextStep(bookingCase), /You can save without a lead/);
+  assert.equal(intakeNextStep(bookingCase).includes("choose a lead"), false);
   assert.match(
     intakeCaseHowToFinish({
       kind: "booking",
@@ -122,7 +123,7 @@ test("owner copy names booking and cancellation intakes without lifecycle jargon
       state: "open",
       commandsAvailable: true,
     })?.body ?? "",
-    /Operations Registry catalog/,
+    /You can save without a lead/,
   );
   assert.equal(
     intakeEmptyMessage("booking", "open"),
@@ -146,7 +147,7 @@ test("intake list uses owner language and keeps booking and cancellation rows di
   assert.match(bookingMarkup, /No official Vantage booking yet/);
   assert.match(bookingMarkup, /Waiting for you/);
   assert.match(bookingMarkup, /Finish booking/);
-  assert.match(bookingMarkup, /choose a lead and enter one binder amount/);
+  assert.match(bookingMarkup, /You can save without a lead/);
   assert.match(bookingMarkup, /href="\/intakes\?case=case-booking"/);
   assert.match(bookingMarkup, /href="\/job-timeline\?job=Synthetic/);
   assert.match(bookingMarkup, /Open Job timeline/);

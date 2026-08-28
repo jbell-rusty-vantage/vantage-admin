@@ -44,12 +44,9 @@ export function isSameCandidate(
 export function pickBestCandidate(
   items: readonly GranotLifecycleCandidateItem[] | undefined,
 ): GranotLifecycleCandidateItem | undefined {
-  const rank = (item: GranotLifecycleCandidateItem) =>
-    item.suggested ? 0 : item.confidence === "high" ? 1 : item.in_source_scope ? 2 : 3;
-  return (items ?? []).reduce<GranotLifecycleCandidateItem | undefined>(
-    (best, item) => (!best || rank(item) < rank(best) ? item : best),
-    undefined,
-  );
+  const highs = (items ?? []).filter((item) => item.confidence === "high");
+  if (highs.length === 0) return undefined;
+  return highs.reduce((best, item) => (item.suggested && !best.suggested ? item : best));
 }
 
 export function LeadCandidateResults({

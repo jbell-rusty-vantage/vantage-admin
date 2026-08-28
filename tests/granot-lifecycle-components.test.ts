@@ -296,7 +296,7 @@ test("[AC-22][AC-32] enabled Owner command renders blank labeled fields and an e
   assert.match(formMarkup, /value=""/);
   assert.equal(formMarkup.includes("$synthetic"), false);
   // Who the booking is for is settled above this card, so the form only asks for the numbers.
-  assert.match(formMarkup, /No customer is attached yet/);
+  assert.match(formMarkup, /No strong match/);
   assert.equal(formMarkup.includes("Search by name, phone, email, job number, or reference"), false);
 
   const detailMarkup = renderToStaticMarkup(createElement(CaseDetail, {
@@ -483,9 +483,16 @@ test("pre-selection prefers the suggested Lead, then high confidence, then Sourc
   const inScope = candidate({ lead_ref: { model: "CallLead", id: "scoped" }, confidence: "medium" });
   const outOfScope = candidate({ lead_ref: { model: "CallLead", id: "outside" }, confidence: "medium", in_source_scope: false });
 
-  assert.equal(pickBestCandidate([outOfScope, inScope, high, suggested])?.lead_ref.id, "suggested");
+  assert.equal(pickBestCandidate([outOfScope, inScope, high, suggested])?.lead_ref.id, "high");
   assert.equal(pickBestCandidate([outOfScope, inScope, high])?.lead_ref.id, "high");
-  assert.equal(pickBestCandidate([outOfScope, inScope])?.lead_ref.id, "scoped");
+  assert.equal(pickBestCandidate([outOfScope, inScope]), undefined);
+  assert.equal(
+    pickBestCandidate([
+      suggested,
+      { ...high, lead_ref: { model: "CallLead", id: "suggested-high" }, suggested: true, confidence: "high" },
+    ])?.lead_ref.id,
+    "suggested-high",
+  );
   assert.equal(pickBestCandidate([]), undefined);
   assert.equal(pickBestCandidate(undefined), undefined);
 });
@@ -519,8 +526,8 @@ test("the matched customer panel says plainly when nobody is attached yet", () =
     matched: { origin: "none", stillSearching: false, chooseLead: () => {} },
     onFindDifferentCustomer: () => {},
   }));
-  assert.match(markup, /No customer is attached to this booking yet/);
-  assert.match(markup, /Search for the customer/);
+  assert.match(markup, /No stored lead/);
+  assert.match(markup, /No strong match/);
   assert.equal(markup.includes("Strong match"), false);
 });
 
@@ -684,10 +691,23 @@ test("the booking form files under the customer settled above it and never asks 
       detail: commandDetail,
       matchedLead: ownerWorkCandidate,
     })));
-  assert.match(markup, /Filing this booking under/);
+  assert.match(markup, /This customer will be attached when you file the booking/);
   assert.match(markup, /Synthetic Owner Work/);
   assert.equal(markup.includes("Who this booking is for"), false);
   assert.equal(markup.includes("Find the right customer"), false);
+});
+
+test("the booking form can review official details with no Lead selected", () => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const commandDetail = detail({
+    mode: "create_missing_booking",
+    capabilities: { commands: true, referral: false, release_cases: false, discrepancies: false },
+  });
+  const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
+    createElement(BookingCommandForm, { detail: commandDetail })));
+  assert.match(markup, /No strong match/);
+  assert.match(markup, /Review Booking/);
+  assert.equal(markup.includes("Choose the customer this booking belongs to"), false);
 });
 
 test("timeline preserves server order and individual Booking/Release discriminants", () => {
