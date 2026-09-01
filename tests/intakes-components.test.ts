@@ -26,6 +26,9 @@ import {
   intakeEmptyMessage,
   intakeKindFromCase,
   intakeKindLabel,
+  intakeQueueLabel,
+  intakeMoreWaitingLabel,
+  intakeWaitingEmptyMessage,
   intakeNextStep,
   intakePairingLine,
   intakeStatusLabel,
@@ -96,6 +99,13 @@ test("owner copy names booking and cancellation intakes without lifecycle jargon
   assert.equal(intakeKindFromCase("release"), "cancellation");
   assert.equal(intakeKindLabel("booking"), "Booking intake");
   assert.equal(intakeKindLabel("cancellation"), "Cancellation intake");
+  assert.equal(intakeQueueLabel("booking"), "Booking intakes");
+  assert.equal(intakeQueueLabel("cancellation"), "Cancellation intakes");
+  assert.equal(
+    intakeWaitingEmptyMessage("cancellation"),
+    "No cancellation intakes waiting. When Granot cancels a job, it will show up here.",
+  );
+  assert.equal(intakeMoreWaitingLabel("booking"), "More booking intakes");
   assert.equal(intakeStatusLabel("open"), "Waiting for you");
   assert.equal(intakeStatusLabel("resolved"), "Finished");
   assert.equal(intakeWhyHere("priority_5"), "Opened under the retired Priority 5 trigger");

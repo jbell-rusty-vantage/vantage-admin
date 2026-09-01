@@ -77,8 +77,8 @@ lib/query/keys.ts                  add queryKeys.conversations.*
 
 Edits to existing files:
 
-- `components/layout/dashboard-nav.tsx` — add `{ label: "Conversations", href: "/conversations", icon: …, ownerOnly: true, isNew: true }` **above Form Leads**.
-- `components/dashboard/home-overview.tsx` — optional quick link, Owner-only, same href.
+- `components/layout/dashboard-nav.tsx` — `{ label: "Lead Conversations", href: "/conversations", icon: …, ownerOnly: true, isNew: true }` under Today.
+- `components/dashboard/home-overview.tsx` — no Lead Conversations launch card. The tab lives in the sidebar.
 
 Do **not** put transcript text on `/call-leads` or `/bookings` tables.
 

@@ -18,6 +18,10 @@ export function intakeKindLabel(kind: IntakeKind): string {
   return kind === "cancellation" ? "Cancellation intake" : "Booking intake";
 }
 
+export function intakeQueueLabel(kind: IntakeKind): string {
+  return kind === "cancellation" ? "Cancellation intakes" : "Booking intakes";
+}
+
 export function intakeStatusLabel(state: GranotLifecycleCaseListItem["state"]): string {
   return state === "resolved" ? "Finished" : "Waiting for you";
 }
@@ -110,14 +114,24 @@ export function intakeCaseHowToFinish(input: {
   };
 }
 
+export function intakeWaitingEmptyMessage(kind: IntakeKind): string {
+  return kind === "booking"
+    ? "No booking intakes waiting. When Granot records a Booked job, it will show up here."
+    : "No cancellation intakes waiting. When Granot cancels a job, it will show up here.";
+}
+
+export function intakeMoreWaitingLabel(kind: IntakeKind): string {
+  return kind === "cancellation" ? "More cancellation intakes" : "More booking intakes";
+}
+
 export function intakeEmptyMessage(kind: IntakeKind, state: "open" | "resolved"): string {
-  if (kind === "booking") {
-    return state === "open"
-      ? "No booking intakes waiting. When Granot records a Booked job, it will show up here."
-      : "No finished booking intakes match this view.";
+  if (state === "open") {
+    return kind === "cancellation"
+      ? `${intakeWaitingEmptyMessage(kind)} Press Refresh to check again.`
+      : intakeWaitingEmptyMessage(kind);
   }
-  return state === "open"
-    ? "No cancellation intakes waiting. When Granot cancels a job, it will show up here. Press Refresh to check again."
+  return kind === "booking"
+    ? "No finished booking intakes match this view."
     : "No finished cancellation intakes match this view.";
 }
 

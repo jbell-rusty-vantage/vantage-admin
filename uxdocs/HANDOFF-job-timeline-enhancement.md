@@ -77,9 +77,9 @@ stage strip from `stage_assessments` → Attention panel only if
 `attention.length > 0` → oldest-first 21st clustered spine → collapsed
 Proof boundaries from `limitations`.
 
-Kept: Home `OverviewJobTimelineLink` (`/job-timeline`), sidebar nav,
-Granot nav. No catalog. No contact-search links. No employee/non-Owner
-links.
+Kept: sidebar nav, Granot nav. Overview no longer launches Job Timeline
+(`OverviewJobTimelineLink` removed). No catalog. No contact-search links.
+No employee/non-Owner links.
 
 ---
 

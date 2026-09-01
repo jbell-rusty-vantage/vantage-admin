@@ -24,8 +24,8 @@ Decided 2026-08-19 (spec 12.1 — do not relitigate)
   business-day board is nearly empty at 8:00 AM and files the overnight call
   leads under yesterday. Comparable day-over-day numbers stay in /analytics.
 
-  /daily is ITS OWN PAGE. / remains HomeOverview (analytics overview + quick
-  links), unchanged. Daily View is a new sidebar item above Form Leads. No
+  /daily is ITS OWN PAGE. / remains HomeOverview (waiting intakes + this-week
+  pulse), not Daily View. Daily View is a new sidebar item above Form Leads. No
   other admin's landing experience changes.
 
   Cancellation Intakes wait for Granot Unit 26. The Daily View does not wait

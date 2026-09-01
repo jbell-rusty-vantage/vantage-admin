@@ -5,6 +5,9 @@ Owner feature list: docs/owner-dashboard-features.txt
 Employee booking + Booking Lead Reconciliation: docs/owner-employee-booking-and-reconciliation.txt
 Admin-local terms / planned pointer: CONTEXT.md (shared terms → workspace-root CONTEXT.md)
 
+Live `/` Overview desk: HomeOverview (Waiting for you Booking intakes + this-week pulse; not Cancellation intakes).
+  Map: .cursor/rules/project-organization.mdc. Not Daily View.
+
 Planned, not shipped: Owner Daily View on branch granot-lead-lifecycle.
   See uxdocs/owner-daily-view-planned.txt
   Do not treat uxdocs/admin-operational-views-ux-proposal.md as current product.

@@ -2,6 +2,26 @@ Write text wireframes and ui / ux suggestions in this directory !
 
 These files are suggestions unless a doc says the surface is live.
 
+Live: dashboard chrome
+  — Sidebar grouped Today / Records / People / Insight / System in
+    components/layout/dashboard-nav.tsx. visibleDashboardNav(role) is
+    still a flattened destination list (Owner starts Overview, Live
+    Events, Lead Conversations). Duplicate Form/Call Leads nest under
+    their parents in the UI. Job Timeline is title case. Compact 13px
+    medium rows; nested duplicates sit on a left rail. No New badges.
+    Navbar: command palette (⌘K / Ctrl+K via GlobalSearch +
+    command-palette.ts), compact database scope selector, UserMenu,
+    pageTitleForPath. Aside sticky + h-screen (w-56 expanded, w-14
+    collapsed); sidebar and mobile drawer scroll. Not Owner Daily View.
+    Authority: .cursor/rules/project-organization.mdc (components/layout).
+
+Live: Overview desk at /
+  — HomeOverview: Owner Waiting for you Booking intakes (existing
+    open-case list, limit 3), this-week pulse, compact all-time, create
+    Booking/Cancellation. Cancellation intakes are not on Overview.
+    Not Daily View, not a sitemap, not a second Analytics. Authority:
+    .cursor/rules/project-organization.mdc (components/dashboard).
+
 Live: Form Lead contact snapshots
   — Admin /form-leads and /duplicate-form-leads show Form submitted vs
     Granot contact (chip + Contacts detail). Search hits live + ingested +

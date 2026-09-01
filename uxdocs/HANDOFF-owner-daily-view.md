@@ -217,7 +217,7 @@ Specification §12.1 carries them.
 | Decision | Answer | Where the reasoning lives |
 | --- | --- | --- |
 | Window shape | **Rolling** 24h/48h back from `now`. Not Florida business days. **No third mode.** | Spec challenge 0.3 |
-| `/daily` vs `/` | **Its own page.** `/` stays `HomeOverview`, unchanged. New sidebar entry above Form Leads. | Spec §6.1 |
+| `/daily` vs `/` | **Its own page.** `/` stays `HomeOverview` (waiting intakes + this-week pulse; not Daily View). New sidebar entry above Form Leads. | Spec §6.1 |
 | Cancellation Intakes | **Waits for Granot Unit 26.** The Daily View does not wait for it — ODV-G ships the Booking half plus a `not_built` panel. | Spec §12.1, ODV-G |
 
 The rolling-window reasoning in one line, because it will come up: this is an

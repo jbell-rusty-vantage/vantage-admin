@@ -23,7 +23,7 @@ The stream is Owner-only, one-way, Mongo-polled SSE of `lead_created`, `priority
 
 ## Target
 
-**Sidebar** (`components/layout/dashboard-nav.tsx`), Owner-only, `isNew: true`:
+**Sidebar** (`components/layout/dashboard-nav.tsx`), Owner-only:
 
 ```
 Overview
@@ -33,7 +33,7 @@ Form Leads
 …
 ```
 
-`Live Events` is the second item. Do not put it under Ingestion, Observational, or Granot.
+`Live Events` is the second item. Do not put it under Ingestion, Observational, or Granot. Sidebar grouping labels sit above Overview; Live Events remains the first item under Overview.
 
 **Route:** `/live-events`
 
@@ -66,12 +66,16 @@ Non-owners: no sidebar item, page blocked, `/api/granot-live-receipts` still 403
 - Granot nav no longer contains `Live webhooks` or `/ingestion/granot/live`.
 - Existing live accordion test still passes (move the import if the file moves; do not rewrite the UI).
 
+## Later: Live Events → booking intake
+
+Shipped tab move is unchanged. The **Open booking intake** control on a `booking_status_changed` row is specified in [`vantage-main-server/docs/granot-lead-lifecycle/release-into-booking-intake-specification.md`](../../vantage-main-server/docs/granot-lead-lifecycle/release-into-booking-intake-specification.md) Part B. That spec **does** require a server DTO/`receipt_updated` change. This file still wins only on the tab move.
+
 ## Out of scope
 
-- Any `vantage-main-server` change
-- New event types, WebSockets, writes on the stream
+- Any `vantage-main-server` change for the tab move itself
+- New event types, WebSockets, writes on the stream (except the intake-link enrichment in the Release-into-intake spec)
 - ODR / Daily View
-- Home Overview quick-link (sidebar is enough)
+- A Live Events card on `/` HomeOverview (sidebar is enough)
 - Renaming the SSE BFF
 
 ## Done when

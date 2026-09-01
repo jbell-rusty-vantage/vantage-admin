@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-local-storage-boolean";
 import { cn } from "@/lib/utils";
 import { DashboardRoleProvider } from "./dashboard-role-context";
-import { DashboardNav } from "./dashboard-nav";
-import { LogoutButton } from "./logout-button";
+import { DashboardNav, pageTitleForPath } from "./dashboard-nav";
 import { ScopeAwareHeaderControls } from "./scope-aware-header-controls";
+import { UserMenu } from "./user-menu";
 
 const sidebarStorageKey = "vantage-admin-sidebar-collapsed";
 const ownerOnlyPagePrefixes = [
@@ -50,11 +50,11 @@ export function DashboardShell({
       <div className="flex min-h-screen bg-cool-white">
       <aside
         className={cn(
-          "hidden flex-col border-r border-steel-200 bg-white px-4 py-6 shadow-sm transition-[width] duration-200 lg:flex",
-          collapsed ? "w-20" : "w-64",
+          "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-steel-200 bg-white px-2.5 py-4 shadow-sm transition-[width] duration-200 lg:flex",
+          collapsed ? "w-14" : "w-56",
         )}
       >
-        <div className={cn("mb-6 flex items-center gap-2", collapsed ? "justify-center px-0" : "justify-between px-2")}>
+        <div className={cn("mb-3 flex shrink-0 items-center gap-2", collapsed ? "justify-center px-0" : "justify-between px-1")}>
           <div className={collapsed ? "hidden" : undefined}>
             <BrandLogo />
           </div>
@@ -67,7 +67,9 @@ export function DashboardShell({
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
         </div>
-        <DashboardNav adminRole={adminRole} collapsed={collapsed} />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <DashboardNav adminRole={adminRole} collapsed={collapsed} />
+        </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex min-h-16 items-center justify-between gap-4 border-b border-steel-200 bg-white/95 px-6 py-3 shadow-sm backdrop-blur">
@@ -80,13 +82,13 @@ export function DashboardShell({
             >
               <Menu className="h-5 w-5" />
             </Button>
+            <h1 className="hidden min-w-0 max-w-xs truncate font-heading text-base font-extrabold text-navy lg:block">
+              {pageTitleForPath(pathname)}
+            </h1>
             <ScopeAwareHeaderControls />
           </div>
-          <div className="flex items-center gap-4">
-            <p className="hidden text-sm font-medium text-steel sm:block">
-              {adminEmail} ({adminRole})
-            </p>
-            <LogoutButton />
+          <div className="flex shrink-0 items-center gap-3">
+            <UserMenu email={adminEmail} role={adminRole} />
           </div>
         </header>
         <main className="flex-1 p-6">
@@ -110,14 +112,16 @@ export function DashboardShell({
             className="absolute inset-0 bg-background/70 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="absolute left-0 top-0 flex h-full w-72 flex-col border-r bg-white p-5 shadow-xl">
-            <div className="mb-6 flex items-start justify-between gap-3">
+          <aside className="absolute left-0 top-0 flex h-full w-64 flex-col border-r bg-white p-4 shadow-xl">
+            <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
               <BrandLogo />
               <Button variant="ghost" className="h-9 w-9 px-0" onClick={() => setMobileOpen(false)} aria-label="Close">
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <DashboardNav adminRole={adminRole} onNavigate={() => setMobileOpen(false)} />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <DashboardNav adminRole={adminRole} onNavigate={() => setMobileOpen(false)} />
+            </div>
           </aside>
         </div>
       ) : null}

@@ -777,7 +777,7 @@ test("Granot navigation keeps Automation, Lifecycle, Intakes, and Health distinc
   assert.doesNotMatch(lifecycleMarkup, /Live webhooks/);
   assert.doesNotMatch(lifecycleMarkup, /\/ingestion\/granot\/live/);
   assert.match(lifecycleMarkup, /Intakes/);
-  assert.match(lifecycleMarkup, />New</);
+  assert.doesNotMatch(lifecycleMarkup, />New</);
   assert.match(lifecycleMarkup, />Health</);
   assert.match(lifecycleMarkup, /href="\/ingestion\/granot"/);
   assert.match(lifecycleMarkup, /href="\/intakes"/);

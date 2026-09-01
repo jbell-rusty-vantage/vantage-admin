@@ -70,8 +70,8 @@ Lead / Booking / Cancellation list and detail in
 `job_no` is present); intake list “Open Job timeline” in addition to
 forensic “Open job history”; booking/cancellation workbench headline
 Job Number; intake-reference “Open Job timeline”. No catalog. No
-contact search. No employee/non-Owner links. Home
-`OverviewJobTimelineLink`, sidebar, and Granot nav stay as they were.
+contact search. No employee/non-Owner links. Overview does not launch
+Job Timeline. Sidebar and Granot nav stay as they were.
 
 JTE-05 certified the shipped JTE-04 page (screen-reader names on
 outcome, attention count, evidence, proof boundaries; stage strip

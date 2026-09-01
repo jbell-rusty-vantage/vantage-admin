@@ -8,11 +8,15 @@ Internal web application for lead search, bookings, cancellations, Granot intake
 
 **Agent consumer rules:** [`../docs/agents/domain.md`](../docs/agents/domain.md)
 
-**Planned (admin-local pointer, not a glossary term):** Owner Daily View / owner-home UX change is intended on branch `granot-lead-lifecycle`. It is not architected and is not current `/` Overview (`HomeOverview`) behavior. See [`.cursor/rules/project-organization.mdc`](.cursor/rules/project-organization.mdc) and [`uxdocs/owner-daily-view-planned.txt`](uxdocs/owner-daily-view-planned.txt).
+**Overview desk (admin-local pointer):** live `/` is `HomeOverview` — Owner Waiting for you Booking intakes from the existing open-case list, this-week pulse, compact all-time, create Booking/Cancellation. Cancellation intakes are not on Overview. Not Daily View, not a sitemap, not a second Analytics. Map: [`.cursor/rules/project-organization.mdc`](.cursor/rules/project-organization.mdc).
+
+**Planned (admin-local pointer, not a glossary term):** Owner Daily View is intended as its own `/daily` page. It is not implemented and is not current `/` Overview behavior. See [`uxdocs/owner-daily-view-planned.txt`](uxdocs/owner-daily-view-planned.txt).
 
 **Lead Conversations tab (admin-local pointer):** shipped Owner-only `/conversations` example surface. One seeded Lead Conversation. Vercel AI Gateway automation is not authorized and is not live. Contract: [`uxdocs/lead-conversations-tab-specification.md`](uxdocs/lead-conversations-tab-specification.md). Domain words stay in the root glossary.
 
-**Live Events tab (admin-local pointer):** shipped Owner-only `/live-events`. Granot live webhook SSE moved out of Ingestion to a top-level Owner sidebar tab. Contract: [`uxdocs/live-events-tab-specification.md`](uxdocs/live-events-tab-specification.md). Domain words stay in the root glossary.
+**Dashboard chrome (admin-local pointer):** Sidebar destinations are grouped Today / Records / People / Insight / System in `components/layout/dashboard-nav.tsx`. Links stay compact under those headers. `visibleDashboardNav(role)` stays a flattened destination list; Owner order still starts Overview, Live Events, Lead Conversations. No New badges. Grouping labels are not Owner Daily View. Map: [`.cursor/rules/project-organization.mdc`](.cursor/rules/project-organization.mdc).
+
+**Live Events tab (admin-local pointer):** shipped Owner-only `/live-events`. Granot live webhook SSE moved out of Ingestion to a top-level Owner sidebar tab (first item under Overview). Contract: [`uxdocs/live-events-tab-specification.md`](uxdocs/live-events-tab-specification.md). Domain words stay in the root glossary.
 
 **Form Lead contact snapshots (admin-local pointer):** shipped. `/form-leads` and `/duplicate-form-leads` show Form submitted vs Granot contact (chip + Contacts detail). Browse and typeahead search live fields plus both snapshots. Contract: [`../vantage-main-server/docs/form-lead-contact-snapshots-display-and-search-specification.md`](../vantage-main-server/docs/form-lead-contact-snapshots-display-and-search-specification.md). Domain words stay in the root glossary.
 

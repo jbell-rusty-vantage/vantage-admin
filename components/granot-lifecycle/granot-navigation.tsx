@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NewFeatureBadge } from "@/components/ui/new-badge";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/ingestion/granot", label: "Automation" },
   { href: "/ingestion/granot/lifecycle", label: "Lifecycle" },
-  { href: "/intakes", label: "Intakes", isNew: true },
-  { href: "/job-timeline", label: "Job timeline", isNew: true },
+  { href: "/intakes", label: "Intakes" },
+  { href: "/job-timeline", label: "Job timeline" },
   { href: "/ingestion/granot/lifecycle/health", label: "Health" },
 ] as const;
 
@@ -42,7 +41,6 @@ export function GranotNavigationLinks({ pathname }: { pathname: string }) {
               )}
             >
               {tab.label}
-              {"isNew" in tab && tab.isNew ? <NewFeatureBadge /> : null}
             </Link>
           );
         })}

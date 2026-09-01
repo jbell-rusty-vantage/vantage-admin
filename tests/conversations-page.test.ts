@@ -87,11 +87,9 @@ test("Owner nav shows Overview, then Live Events, then Lead Conversations; Admin
   assert.equal(owner[1]?.label, "Live Events");
   assert.equal(owner[1]?.href, "/live-events");
   assert.equal(owner[1]?.ownerOnly, true);
-  assert.equal(owner[1]?.isNew, true);
   assert.equal(owner[2]?.label, "Lead Conversations");
   assert.equal(owner[2]?.href, "/conversations");
   assert.equal(owner[2]?.ownerOnly, true);
-  assert.equal(owner[2]?.isNew, true);
   const formIndex = owner.findIndex((item) => item.href === "/form-leads");
   assert.ok(formIndex > 2);
   assert.equal(admin.some((item) => item.href === "/live-events"), false);
@@ -103,7 +101,7 @@ test("page banner names the seeded example and the Vercel AI Gateway path", () =
     createElement(ConversationsPageView, { items: [listItem], selectedId: listItem.id }),
   );
   assert.match(markup, /Lead Conversations/);
-  assert.match(markup, />New</);
+  assert.doesNotMatch(markup, />New</);
   assert.match(markup, /Example/);
   assert.match(markup, /seeded from a known booked inbound Call Lead/);
   assert.match(markup, /Vercel AI Gateway/);

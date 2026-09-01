@@ -18,7 +18,6 @@ import { queryKeys } from "@/lib/query/keys";
 import { GranotNavigation } from "@/components/granot-lifecycle/granot-navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
-import { NewFeatureBadge } from "@/components/ui/new-badge";
 import { AttentionPanel } from "./attention-panel";
 import { DensityFilter } from "./density-filter";
 import { JobNumberSearch } from "./job-number-search";
@@ -207,7 +206,6 @@ export function JobTimelineDashboard() {
           <CardTitle className="flex items-center gap-2">
             <History className="h-6 w-6 text-navy" aria-hidden="true" />
             Job timeline
-            <NewFeatureBadge />
           </CardTitle>
           <CardDescription>
             Type a Job Number to read the owner-facing chain — including events before the Lead had a Job Number.

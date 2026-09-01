@@ -111,15 +111,15 @@ only after the single-card page works.
 **Sidebar.** Add a nav item **above Form Leads**:
 
 ```ts
-{ label: "Lead Conversations", href: "/conversations", ownerOnly: true, isNew: true }
+{ label: "Lead Conversations", href: "/conversations", ownerOnly: true }
 ```
 
-The visible label is **Lead Conversations**. Keep the `New` badge
-(`NewFeatureBadge` / `isNew: true`). Icon: `Headphones` from `lucide-react`
+The visible label is **Lead Conversations**. Do not add a `New` badge.
+Icon: `Headphones` from `lucide-react`
 (already a project dependency). Do not add an npm package for an icon.
 
-**Home Overview.** Optional Owner-only quick link with the same href and a
-one-line description: "Hear and read the call that happened."
+**Home Overview.** Do not put a Lead Conversations launch card on `/`.
+The tab lives in the Today sidebar.
 
 **Not this tab.** `/daily` is not built. Do not wait for Daily View. Do not
 put transcript text on `/call-leads` or `/bookings`.
@@ -132,7 +132,7 @@ One page. One seeded card. Honest empty and future states.
 
 ```
 +------------------------------------------------------------------+
-| Lead Conversations                                    [ New ]    |
+| Lead Conversations                                               |
 | One real call on a booked inbound Lead. Automation is designed,  |
 | not authorized.                                                  |
 +------------------------------------------------------------------+
@@ -256,10 +256,10 @@ lib/api/conversations.ts
 
 Edits:
 
-- `components/layout/dashboard-nav.tsx` — nav item, Owner-only, New, above
-  Form Leads.
+- `components/layout/dashboard-nav.tsx` — nav item, Owner-only, no New
+  badge, under Today.
 - `lib/query/keys.ts` — `conversations` namespace.
-- `components/dashboard/home-overview.tsx` — optional Owner-only link.
+- `components/dashboard/home-overview.tsx` — no Lead Conversations launch card.
 
 Tests:
 
@@ -362,8 +362,8 @@ makes those decisions by default.
 
 ## 10. Acceptance
 
-- [ ] Sidebar shows **Lead Conversations** with a New badge, above Form
-      Leads, to Owner only.
+- [ ] Sidebar shows **Lead Conversations** without a New badge, above
+      Form Leads, to Owner only.
 - [ ] `/conversations` is unreachable for the Admin role (page prefix).
 - [ ] The page loads the seeded record from
       `GET /api/v1/admin/conversations` and

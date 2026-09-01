@@ -7,7 +7,9 @@ alwaysApply: true
 
 `vantage-admin` is the Next.js 16 App Router owner/admin dashboard. Preserve ownership boundaries; put new work in the folder that owns the behavior.
 
-**Planned (not shipped):** an Owner Daily View / owner-home UX change is intended on branch `granot-lead-lifecycle`. It is **not architected** and has **no implementation**. Live `/` remains `HomeOverview` (analytics overview + quick links). Do not invent routes, components, query keys, or KPIs, and do not treat `uxdocs/admin-operational-views-ux-proposal.md` as current product. See `uxdocs/owner-daily-view-planned.txt`.
+**Planned (not shipped):** an Owner Daily View is intended as its own `/daily` page. It is **not implemented**. Live `/` remains `HomeOverview` — Owner Waiting for you Booking intakes (existing open-case list), this-week pulse, compact all-time, create Booking/Cancellation. Cancellation intakes are not on Overview. Not Daily View, not a sitemap, not a second Analytics. Do not invent routes, query keys, or KPIs, and do not treat `uxdocs/admin-operational-views-ux-proposal.md` as current product. See `uxdocs/owner-daily-view-planned.txt`.
+
+**Later contract (not implemented):** [`vantage-main-server/docs/granot-lead-lifecycle/release-into-booking-intake-specification.md`](../../../vantage-main-server/docs/granot-lead-lifecycle/release-into-booking-intake-specification.md) retires the cancellation intake tab. Rows below still describe the shipped Booking/Cancellation `/intakes` surface. Do not invent replacement UI from this map.
 
 ## Architecture Map
 
@@ -23,12 +25,12 @@ alwaysApply: true
 | `app/api/employee-booking/` | Public options/submit (feature-flagged; not dashboard auth) |
 | `proxy.ts` | Next 16 request-boundary auth (not `middleware.ts`) |
 | `components/ui/` | shadcn-compatible primitives |
-| `components/layout/` | Shell, nav, login, global search, scope controls, role context |
+| `components/layout/` | Dashboard chrome. Grouped sidebar in `dashboard-nav.tsx` (Today / Records / People / Insight / System). Compact 13px medium link rows under quieter section headers; nested duplicates sit on a left rail. `visibleDashboardNav(role)` stays a flattened destination list — Owner order still starts Overview, Live Events, Lead Conversations. Duplicate Form Leads / Duplicate Call Leads nest under Form Leads / Call Leads in the UI (still after their parents in the flat list). Job Timeline is title case. No New badges. Navbar: `GlobalSearch` command palette (⌘K / Ctrl+K, `command-palette.ts`, client `router.push` to `/search` or destinations), compact `DatabaseScopeSelector` via `scope-aware-header-controls.tsx`, `UserMenu` (initials + sign out), header title from `pageTitleForPath`. Aside is sticky + `h-screen` (`w-56` expanded, `w-14` collapsed); sidebar and mobile drawer scroll. Login and role context stay here. Grouping is not Owner Daily View. |
 | `components/filters/`, `data-table/`, `record-detail/` | Shared table/detail primitives |
 | `components/operational/` | Shared operational list/detail/edit (`operational-resource-page.tsx`). Form/duplicate form leads: `form-lead-contacts.tsx` (Granot chip after Phone + Contacts detail after Summary; First/Last + empty “No Granot contact yet”; table chip “—” when missing). Intake reuses `GranotContactStatusChip` / `FormSubmittedGranotCards` via `intake-known-contacts.tsx` (`omitEmpty` hides a missing Granot chip). Call Leads unchanged. Edit fields stay live-only. **BILA-03 shipped:** `/bookings` list has a Stored lead column; detail owns Connect Booking to Lead for a Leadless Booking (`components/bookings/`). Not `/bookings/reconciliation`. Pack: `vantage-main-server/docs/booking-intake-lead-attachment/`. |
 | `components/bookings/` | Bookings-tab Connect Booking to Lead: Owner copy (`bookings-copy.ts`), Stored lead chip/eligibility (`booking-stored-lead.ts`), detail section (`booking-stored-lead-section.tsx`), in-place search/review (`connect-lead-panel.tsx`). Mounted from `operational-resource-page.tsx` after Summary. Owner-only. |
 | `components/forms/` | Booking + cancellation create workflows |
-| `components/dashboard/` | Home overview (Owner-only Lead Conversations quick link) |
+| `components/dashboard/` | Home overview desk: Owner Waiting for you Booking intakes (`needs-you.tsx` + existing `queryKeys.granotLifecycle.cases` for open booking cases only), this-week pulse, compact all-time, create Booking/Cancellation. Cancellation intakes are not on this desk. Copy in `overview-copy.ts`. |
 | `components/analytics/`, `reports/` | Analytics + agent-sales report UI |
 | `components/observational/` | Observability tabs (events/incidents/reports/notifications/sheet-sync); overview links to Granot lifecycle health |
 | `components/operations-registry/` | Registry shell: agents, merchants, sources, Granot sources, CPL, RingCentral, changes |
@@ -65,7 +67,7 @@ alwaysApply: true
 
 ## Frontend Route Surface
 
-**Operational:** `/` (`HomeOverview` — live home; not the planned Daily View), `/form-leads`, `/duplicate-form-leads`, `/call-leads`, `/duplicate-call-leads`, `/bookings`, `/bookings/new`, `/bookings/reconciliation` (owner), `/cancellations`, `/cancellations/new`, `/intakes` (owner Booking/Cancellation Granot cases), `/job-timeline` (owner typed Job Number chain, `?job=`), `/conversations` (owner Lead Conversation example), `/customers`, `/agents`, `/testimonials`
+**Operational:** `/` (`HomeOverview` desk — Waiting for you Booking intakes + this-week pulse; not Daily View; not Cancellation intakes), `/form-leads`, `/duplicate-form-leads`, `/call-leads`, `/duplicate-call-leads`, `/bookings`, `/bookings/new`, `/bookings/reconciliation` (owner), `/cancellations`, `/cancellations/new`, `/intakes` (owner Booking/Cancellation Granot cases), `/job-timeline` (owner typed Job Number chain, `?job=`), `/conversations` (owner Lead Conversation example), `/customers`, `/agents`, `/testimonials`
 
 **Insight:** `/analytics` (`?tab=overview|sales|lead-sources|receiver-agents|text-to-booked|geography|cancellations`), `/reports/agent-sales`
 
@@ -76,6 +78,7 @@ alwaysApply: true
 **Public:** `/employee-booking`, `/privacy-policy`, `/terms-and-conditions`
 
 - Prefer extending `operational-resource-page` config before forking model pages.
+- The Operational / Insight / Ops / Support headings above are the route surface, not the sidebar groups (Today / Records / People / Insight / System in `dashboard-nav.tsx`).
 - Scope controls live in `components/layout/scope-aware-header-controls.tsx`; coerce `combined` before detail fetches.
 - Historical scope is read-only; hide mutations. No delete UI in any scope unless an explicit owner-only observability delete path already exists.
 
