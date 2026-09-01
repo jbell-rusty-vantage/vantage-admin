@@ -72,7 +72,10 @@ export function RouteDetail({
           }
         }}
         onDeactivate={() => {
-          setShowDeactivate(true);
+          if (!showDeactivate) {
+            setShowDeactivate(true);
+            return;
+          }
           onDeactivate();
         }}
         showDeactivateConfirm={showDeactivate}

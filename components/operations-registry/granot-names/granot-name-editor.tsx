@@ -65,6 +65,7 @@ export function GranotNameEditor({
   isPending,
   onCreate,
   onSave,
+  onSaveSms,
   onActivate,
 }: {
   mode: "create" | "edit";
@@ -75,6 +76,12 @@ export function GranotNameEditor({
   isPending: boolean;
   onCreate?: (body: OwnerGranotNameCommand) => void;
   onSave?: (body: GranotCrmSourceUpdateInput) => void;
+  onSaveSms?: (body: {
+    enabled: boolean;
+    body_template: string;
+    consent_basis: OutboundSmsConsentBasis;
+    reason: string;
+  }) => void;
   onActivate?: (body: { lifecycle_enabled: boolean; reason: string }) => void;
 }) {
   const initialArrival = source ? policyToArrival(source.lead_created_policy) : "existing_only";
@@ -183,6 +190,16 @@ export function GranotNameEditor({
       lifecycle_routes: routes,
       reason: reason.trim(),
     });
+    if (source && arrival === "create_if_missing") {
+      const storedTemplate = source.outbound_sms?.body_template ?? DEFAULT_GRANOT_SMS_TEMPLATE;
+      const templateChanged = template !== storedTemplate;
+      onSaveSms?.({
+        enabled: textOnRequested && !templateChanged && consent !== "not_attested",
+        body_template: template,
+        consent_basis: consent,
+        reason: reason.trim(),
+      });
+    }
   }
 
   return (
@@ -522,7 +539,7 @@ function GranotTextPanel({
       ) : null}
       {source && !readOnly ? (
         <p className="text-xs text-muted-foreground">
-          Customer text is saved from Turn it on after this Granot name exists.
+          Saving this Granot name also saves the message and whether texting is on.
         </p>
       ) : null}
       <p className="text-xs text-muted-foreground">No recent sends.</p>

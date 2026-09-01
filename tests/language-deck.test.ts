@@ -12,6 +12,7 @@ import {
   SetupStepReview,
 } from "../components/operations-registry/lead-sources/setup/lead-source-setup-wizard";
 import { CompatibilityObservationStatement } from "../components/operations-registry/compatibility-observation-statement";
+import { ReassignDialog } from "../components/operations-registry/ringcentral/reassign-dialog";
 import { REGISTRY_TABS } from "../components/operations-registry/registry-tabs";
 import { ORS3_LEAD_SOURCE_DETAIL } from "../lib/operations-registry/ors3LeadSourceDetailFixture";
 import {
@@ -117,6 +118,37 @@ test("primary Owner surfaces stay inside the language deck", () => {
         onValidate() {},
         onActivate() {},
         onDeactivate() {},
+      }),
+    ),
+    renderToStaticMarkup(
+      createElement(ReassignDialog, {
+        route: {
+          id: "route-1",
+          provider: "ringcentral",
+          phone_number: "+19545550142",
+          phone_locked: true,
+          display_label: "Best Relocation inbound queue",
+          active: true,
+          ever_activated: true,
+          observed_target_names: [],
+          validation_status: "valid",
+          created_from: "admin",
+          current_assignment: {
+            id: "assign-1",
+            route_id: "route-1",
+            source_company_id: "company-1",
+            source_granularity_id: "feed-call",
+            lead_source_name: "Best Relocation",
+            feed_display_name: "Inbound calls",
+            effective_from: "2026-08-03T00:00:00.000Z",
+            active: true,
+          },
+        },
+        companies: [],
+        granularities: [],
+        isPending: false,
+        onReassign() {},
+        onCancel() {},
       }),
     ),
     renderToStaticMarkup(createElement(CompatibilityObservationStatement, { remainingReads: 2 })),

@@ -17,6 +17,7 @@ import { invalidateRegistryQueries } from "@/lib/api/registryInvalidation";
 import {
   fetchGranotCrmSources,
   setGranotCrmSourceActivation,
+  setGranotCrmSourceOutboundSms,
   updateGranotCrmSource,
 } from "@/lib/api/registryGranotCrmSources";
 import { fetchSourceCompanies, fetchSourceGranularities } from "@/lib/api/registrySources";
@@ -42,12 +43,12 @@ export function GranotCrmSourcesManager({ readOnly }: { readOnly: boolean }) {
     queryFn: fetchGranotCrmSources,
   });
   const companiesQuery = useQuery({
-    queryKey: queryKeys.operationsRegistry.sourceCompanies(false),
-    queryFn: () => fetchSourceCompanies({ includeInactive: false }),
+    queryKey: queryKeys.operationsRegistry.sourceCompanies(true),
+    queryFn: () => fetchSourceCompanies({ includeInactive: true }),
   });
   const feedsQuery = useQuery({
-    queryKey: queryKeys.operationsRegistry.sourceGranularities({ includeInactive: false }),
-    queryFn: () => fetchSourceGranularities({ includeInactive: false }),
+    queryKey: queryKeys.operationsRegistry.sourceGranularities({ includeInactive: true }),
+    queryFn: () => fetchSourceGranularities({ includeInactive: true }),
   });
 
   const sources = sourcesQuery.data ?? [];
@@ -70,6 +71,20 @@ export function GranotCrmSourcesManager({ readOnly }: { readOnly: boolean }) {
     onSuccess: async () => {
       await invalidateRegistryQueries(queryClient);
       setMessage("Granot name saved.");
+    },
+    onError: (caught) => setError(formatRegistryError(caught)),
+  });
+  const smsMutation = useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: Parameters<typeof setGranotCrmSourceOutboundSms>[1];
+    }) => setGranotCrmSourceOutboundSms(id, body),
+    onSuccess: async () => {
+      await invalidateRegistryQueries(queryClient);
+      setMessage("Customer text saved.");
     },
     onError: (caught) => setError(formatRegistryError(caught)),
   });
@@ -159,8 +174,11 @@ export function GranotCrmSourcesManager({ readOnly }: { readOnly: boolean }) {
             companies={companiesQuery.data ?? []}
             feeds={feedsQuery.data ?? []}
             readOnly={readOnly}
-            isPending={updateMutation.isPending || activationMutation.isPending}
+            isPending={
+              updateMutation.isPending || smsMutation.isPending || activationMutation.isPending
+            }
             onSave={(body) => updateMutation.mutate({ id: selected.id, body })}
+            onSaveSms={(body) => smsMutation.mutate({ id: selected.id, body })}
             onActivate={(body) => activationMutation.mutate({ id: selected.id, body })}
           />
         ) : sourcesQuery.isSuccess ? (

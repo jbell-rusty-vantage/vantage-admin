@@ -166,6 +166,11 @@ export function SetupStepHowLeadsArrive({
           Do local and long-distance moves need to be tracked separately?
         </label>
       ) : null}
+      {state.channel === "form" && state.splitMoveTypes ? (
+        <FeedbackMessage tone="info">
+          This draft saves one feed. Add the long-distance feed after you save.
+        </FeedbackMessage>
+      ) : null}
       <p className="text-xs text-muted-foreground">
         Once this feed is activated, its kind — web forms or inbound calls — cannot be changed.
       </p>

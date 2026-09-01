@@ -7,29 +7,30 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import type { RingCentralRoute } from "@/lib/api/registryRingCentral";
 import type { SourceCompanyItem, SourceGranularityItem } from "@/lib/api/registrySources";
+import {
+  inboundConnectionLabel,
+  isOwnerDisplayName,
+  resolveInboundAssignmentLabels,
+} from "@/lib/operations-registry/inboundNumberStatus";
 
 const selectClassName =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm";
 
 function assignmentLabel(
-  companyId: string | undefined,
-  granularityId: string | undefined,
+  route: RingCentralRoute,
   companies: SourceCompanyItem[],
-  granularities: SourceGranularityItem[],
+  feeds: SourceGranularityItem[],
 ): string {
-  if (!companyId || !granularityId) {
-    return "None";
-  }
-  const company = companies.find((item) => item.id === companyId || item._id === companyId);
-  const granularity = granularities.find(
-    (item) => item.id === granularityId || item._id === granularityId,
+  const assignment = route.current_assignment;
+  const resolved = resolveInboundAssignmentLabels(assignment, { companies, feeds });
+  const label = inboundConnectionLabel(resolved);
+  if (label) return label;
+  const feed = feeds.find(
+    (item) =>
+      (item.id === assignment?.source_granularity_id || item._id === assignment?.source_granularity_id) &&
+      isOwnerDisplayName(item.owner_label),
   );
-  const companyLabel = company?.owner_label ?? company?.name ?? companyId;
-  const granularityLabel =
-    granularity?.owner_label ?? granularity?.crm_label ?? granularityId;
-  const inactiveNote =
-    granularity && !granularity.active ? " (inactive — choose a corrective active call target)" : "";
-  return `${companyLabel} · ${granularityLabel}${inactiveNote}`;
+  return feed ? feed.owner_label : "Not filed yet";
 }
 
 export function CallGranularitySelector({
@@ -79,14 +80,18 @@ export function CallGranularitySelector({
       disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
     >
-      <option value="">Select active call granularity…</option>
+      <option value="">Select an active call feed…</option>
       {options.map((item) => {
         const company = companyById.get(item.source_company);
-        const companyLabel = company?.owner_label ?? company?.name ?? "Company";
+        const companyLabel = isOwnerDisplayName(company?.owner_label)
+          ? company.owner_label
+          : isOwnerDisplayName(company?.name)
+            ? company.name
+            : "Lead source";
         const inactive = !item.active || item.channel !== "call";
         return (
-          <option key={item.id} value={item.id} disabled={inactive}>
-            {companyLabel} · {item.owner_label}
+          <option key={item.id || item._id} value={item.id || item._id} disabled={inactive}>
+            {companyLabel} · {isOwnerDisplayName(item.owner_label) ? item.owner_label : "Call feed"}
             {item.channel !== "call" ? " (form — not allowed)" : ""}
             {!item.active ? " (inactive)" : ""}
           </option>
@@ -118,10 +123,10 @@ export function ActivatePanel({
     <div className="space-y-3 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
       <p className="font-medium">Activate route</p>
       <p className="text-muted-foreground">
-        Activation assigns this phone identity to an active call Source Granularity immediately.
-        After activation the phone number becomes permanently read-only.
+        Activation files new calls under the call feed you choose. After activation the phone
+        number becomes permanently read-only.
       </p>
-      <FilterField label="Call Source Granularity">
+      <FilterField label="Call feed">
         <CallGranularitySelector
           value={granularityId}
           onChange={setGranularityId}
@@ -187,14 +192,9 @@ export function ReassignDialog({
       </p>
       <p>
         <span className="text-muted-foreground">Current:</span>{" "}
-        {assignmentLabel(
-          current?.source_company_id,
-          current?.source_granularity_id,
-          companies,
-          granularities,
-        )}
+        {assignmentLabel(route, companies, granularities)}
       </p>
-      <FilterField label="New call Source Granularity">
+      <FilterField label="New call feed">
         <CallGranularitySelector
           value={granularityId}
           onChange={setGranularityId}

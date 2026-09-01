@@ -142,6 +142,52 @@ test("connection card joins Lead source → Feed from catalogs when the route DT
   assert.doesNotMatch(markup, /Not filed yet/);
 });
 
+test("history never prints leftover ObjectIds when catalog labels are missing", () => {
+  const markup = renderToStaticMarkup(
+    createElement(InboundNumberEditor, {
+      route: {
+        ...baseRoute,
+        current_assignment: {
+          id: "assign-1",
+          route_id: "route-1",
+          source_company_id: "6a4d240f3117eacd97823866",
+          source_granularity_id: "6a4d240f04c6e063cb6621ec",
+          lead_source_name: "6a4d240f3117eacd97823866",
+          feed_display_name: "6a4d240f04c6e063cb6621ec",
+          effective_from: "2026-07-30T00:00:00.000Z",
+          active: true,
+        },
+        assignment_history: [
+          {
+            id: "assign-1",
+            route_id: "route-1",
+            source_company_id: "6a4d240f3117eacd97823866",
+            source_granularity_id: "6a4d240f04c6e063cb6621ec",
+            lead_source_name: "6a4d240f3117eacd97823866",
+            feed_display_name: "6a4d240f04c6e063cb6621ec",
+            effective_from: "2026-07-30T00:00:00.000Z",
+            active: true,
+          },
+        ],
+      },
+      callFeeds: [],
+      companies: [],
+      readOnly: true,
+      isPending: false,
+      nickname: "10best Inbounds",
+      selectedFeedId: "",
+      onNicknameChange() {},
+      onFeedChange() {},
+      onSave() {},
+      onValidate() {},
+      onActivate() {},
+      onDeactivate() {},
+    }),
+  );
+  assert.doesNotMatch(markup, /6a4d240f3117eacd97823866/);
+  assert.doesNotMatch(markup, /6a4d240f04c6e063cb6621ec/);
+});
+
 test("failed-validation plus active says the number has stopped filing calls", () => {
   const route = {
     ...baseRoute,

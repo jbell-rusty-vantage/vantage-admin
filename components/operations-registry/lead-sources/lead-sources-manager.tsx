@@ -21,10 +21,7 @@ import {
   type OwnerReadinessPlanRow,
 } from "@/lib/api/leadSources";
 import { invalidateRegistryQueries } from "@/lib/api/registryInvalidation";
-import {
-  setGranotCrmSourceActivation,
-  setGranotCrmSourceOutboundSms,
-} from "@/lib/api/registryGranotCrmSources";
+import { setGranotCrmSourceActivation } from "@/lib/api/registryGranotCrmSources";
 import { setSourceCompanyActivation, setSourceGranularityActivation } from "@/lib/api/registrySources";
 import { formatRegistryError } from "@/lib/api/registryRequest";
 import { queryKeys } from "@/lib/query/keys";
@@ -36,6 +33,7 @@ import { LeadSourceSetupWizard } from "./setup/lead-source-setup-wizard";
 export function LeadSourcesManager({ readOnly }: { readOnly: boolean }) {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const requestedFeedId = searchParams.get("feed");
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get("entity"));
   const [mode, setMode] = useState<"browse" | "setup">("browse");
   const [message, setMessage] = useState<string | null>(null);
@@ -46,7 +44,10 @@ export function LeadSourcesManager({ readOnly }: { readOnly: boolean }) {
     queryFn: fetchLeadSources,
   });
   const items = listQuery.data?.items ?? [];
-  const effectiveId = selectedId ?? items[0]?.id ?? null;
+  const feedOwnerId = requestedFeedId
+    ? items.find((item) => item.feeds.items.some((feed) => feed.id === requestedFeedId))?.id
+    : null;
+  const effectiveId = selectedId ?? feedOwnerId ?? items[0]?.id ?? null;
   const detailQuery = useQuery({
     queryKey: queryKeys.operationsRegistry.leadSourceDetail(effectiveId ?? ""),
     queryFn: () => fetchLeadSource(effectiveId!),
@@ -67,8 +68,8 @@ export function LeadSourcesManager({ readOnly }: { readOnly: boolean }) {
   async function runReadiness(row: OwnerReadinessPlanRow) {
     if (!detailQuery.data) return;
     const detail = detailQuery.data;
-    const feed = detail.feeds.items[0];
-    const granot = detail.feeds.items.flatMap((item) => item.granot_names?.items ?? [])[0];
+    const feeds = detail.feeds.items;
+    const granots = feeds.flatMap((item) => item.granot_names?.items ?? []);
     setError(null);
     try {
       if (row.action === "open_lead_costs") {
@@ -79,30 +80,39 @@ export function LeadSourcesManager({ readOnly }: { readOnly: boolean }) {
         window.location.href = "/operations-registry?tab=granot-names";
         return;
       }
+      if (row.action === "turn_on_customer_text") {
+        const target =
+          granots.find((item) => item.when_lead_arrives === "create_if_missing" && item.text_state !== "on") ??
+          granots.find((item) => item.when_lead_arrives === "create_if_missing");
+        window.location.href = target
+          ? `/operations-registry?tab=granot-names&entity=${encodeURIComponent(target.id)}`
+          : "/operations-registry?tab=granot-names";
+        return;
+      }
       if (row.action === "activate_lead_source") {
         await setSourceCompanyActivation(detail.id, {
           active: true,
           reason: "Owner activated this lead source from the readiness checklist",
         });
-      } else if (row.action === "activate_feed" && feed) {
-        await setSourceGranularityActivation(feed.id, {
-          active: true,
-          replacement_default_id: feed.id,
-          reason: "Owner activated this feed from the readiness checklist",
-        });
-      } else if (row.action === "switch_granot_name_live" && granot) {
-        await setGranotCrmSourceActivation(granot.id, {
-          lifecycle_enabled: true,
-          reason: "Owner switched this Granot name into live processing",
-        });
-      } else if (row.action === "turn_on_customer_text" && granot) {
-        await setGranotCrmSourceOutboundSms(granot.id, {
-          enabled: true,
-          body_template:
-            "Hi {first_name}, this is Vantage Movers. We got your request and we'll call you shortly to go over your move.",
-          consent_basis: "customer_submitted_form",
-          reason: "Owner turned on customer text from the readiness checklist",
-        });
+      } else if (row.action === "activate_feed") {
+        const inactive = requestedFeedId
+          ? feeds.filter((feed) => feed.id === requestedFeedId && !feed.active)
+          : feeds.filter((feed) => !feed.active);
+        for (const feed of inactive) {
+          await setSourceGranularityActivation(feed.id, {
+            active: true,
+            replacement_default_id: feed.id,
+            reason: "Owner activated this feed from the readiness checklist",
+          });
+        }
+      } else if (row.action === "switch_granot_name_live") {
+        const notLive = granots.filter((item) => !item.live);
+        for (const granot of notLive) {
+          await setGranotCrmSourceActivation(granot.id, {
+            lifecycle_enabled: true,
+            reason: "Owner switched this Granot name into live processing",
+          });
+        }
       }
       await invalidateRegistryQueries(queryClient);
       await detailQuery.refetch();

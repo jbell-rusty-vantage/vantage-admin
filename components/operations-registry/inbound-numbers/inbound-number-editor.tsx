@@ -165,10 +165,16 @@ export function InboundNumberEditor({
     feed_display_name: feedName,
   });
   const history = (route.assignment_history ?? (route.current_assignment ? [route.current_assignment] : [])).map(
-    (row) => ({
-      ...row,
-      ...resolveInboundAssignmentLabels(row, catalogs),
-    }),
+    (row) => {
+      const labels = resolveInboundAssignmentLabels(row, catalogs);
+      return {
+        id: row.id,
+        effective_from: row.effective_from,
+        effective_until: row.effective_until,
+        lead_source_name: labels.lead_source_name,
+        feed_display_name: labels.feed_display_name,
+      };
+    },
   );
   const validationOk = route.validation_status === "valid";
 
@@ -249,7 +255,11 @@ export function InboundNumberEditor({
             <Button type="button" variant="outline" disabled={isPending} onClick={onValidate}>
               Check against RingCentral
             </Button>
-            <Button type="button" disabled={isPending || !validationOk || !selectedFeedId} onClick={onActivate}>
+            <Button
+              type="button"
+              disabled={isPending || !validationOk || !selectedFeedId || route.active}
+              onClick={onActivate}
+            >
               Activate
             </Button>
             {route.active ? (
