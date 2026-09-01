@@ -13,6 +13,7 @@ import {
   createGranotReferralBooking,
   updateGranotBooking,
   resolveGranotBookingNoAction,
+  confirmGranotBookingCancellation,
   confirmGranotCancellation,
   updateGranotReleaseBooking,
   resolveGranotReleaseNoAction,
@@ -239,6 +240,11 @@ test("[AC-21][AC-25][AC-32] Release commands use exact proxy paths, bodies, and 
     expected_booking_revision: 1,
     official_cancellation_details: { cancel_date: "2026-08-19", refund_amount: 12.34, reason: "Synthetic reason" },
   };
+  await confirmGranotBookingCancellation("case/one", cancellationBody, "unit27-booking-cancel-key");
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/booking-cases/case%2Fone/confirm-cancellation");
+  assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit27-booking-cancel-key");
+
+  calls = mockFetch(response, 201);
   await confirmGranotCancellation("case/one", cancellationBody, "unit27-cancel-key");
   assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-lifecycle/release-cases/case%2Fone/confirm-cancellation");
   assert.equal(new Headers(calls[0]?.init?.headers).get("idempotency-key"), "unit27-cancel-key");

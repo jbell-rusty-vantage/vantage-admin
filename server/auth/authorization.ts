@@ -3,7 +3,6 @@ import type { VantageApiMethod } from "@/server/vantage-api/client";
 
 const OWNER_ONLY_PAGE_PREFIXES = [
   "/audit-log",
-  "/settings",
   "/bookings/reconciliation",
   "/ingestion/granot",
   "/intakes",
@@ -36,6 +35,7 @@ const REGISTRY_OWNER_MUTATION_PREFIXES = [
   "/api/v1/admin/catalog/merchants",
   "/api/v1/admin/source-companies",
   "/api/v1/admin/source-granularities",
+  "/api/v1/admin/moving-carriers",
   "/api/v1/admin/cpl",
   "/api/v1/admin/cpl-rates",
   "/api/v1/admin/cpl-corrections",

@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { MIN_SEARCH_QUERY_LENGTH } from "@/components/filters/debounced-search-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -237,76 +238,79 @@ export function GlobalSearch({
           {hotkeyHint}
         </span>
       </div>
-      {open ? (
-        <div className="fixed inset-0 z-50">
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-label="Close search"
-            className="absolute inset-0 bg-navy/40"
-            onClick={closePalette}
-          />
-          <div
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Search and go to"
-            className="relative mx-auto mt-[15vh] w-full max-w-lg rounded-lg border border-steel-200 bg-white shadow-xl"
-          >
-            <div className="relative border-b border-steel-200">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel"
-                aria-hidden="true"
+      {open
+        ? createPortal(
+            <div className="fixed inset-0 z-50">
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label="Close search"
+                className="absolute inset-0 bg-navy/40"
+                onClick={closePalette}
               />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={onPaletteKeyDown}
-                placeholder="Search job, phone, email…"
-                className="border-0 pl-9 focus-visible:ring-0"
+              <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
                 aria-label="Search and go to"
-                autoComplete="off"
-              />
-            </div>
-            <ul className="max-h-80 overflow-y-auto p-2">
-              {canSearch ? (
-                <li>
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm",
-                      highlightedIndex === 0 ? "bg-pale-gold text-navy" : "text-steel hover:bg-steel-100",
-                    )}
-                    onClick={goToSearch}
-                    onMouseEnter={() => setHighlightedIndex(0)}
-                  >
-                    <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    Search records for “{trimmed}”
-                  </button>
-                </li>
-              ) : null}
-              {matches.map((destination, index) => {
-                const itemIndex = (canSearch ? 1 : 0) + index;
-                return (
-                  <li key={destination.href}>
-                    <button
-                      type="button"
-                      className={cn(
-                        "flex w-full items-center rounded-md px-3 py-2 text-left text-sm",
-                        highlightedIndex === itemIndex ? "bg-pale-gold text-navy" : "text-steel hover:bg-steel-100",
-                      )}
-                      onClick={() => goToDestination(destination.href)}
-                      onMouseEnter={() => setHighlightedIndex(itemIndex)}
-                    >
-                      {destination.label}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </div>
-      ) : null}
+                className="relative mx-auto mt-[15vh] w-full max-w-lg rounded-lg border border-steel-200 bg-white shadow-xl"
+              >
+                <div className="relative border-b border-steel-200">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    onKeyDown={onPaletteKeyDown}
+                    placeholder="Search job, phone, email…"
+                    className="border-0 pl-9 focus-visible:ring-0"
+                    aria-label="Search and go to"
+                    autoComplete="off"
+                  />
+                </div>
+                <ul className="max-h-80 overflow-y-auto p-2">
+                  {canSearch ? (
+                    <li>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm",
+                          highlightedIndex === 0 ? "bg-pale-gold text-navy" : "text-steel hover:bg-steel-100",
+                        )}
+                        onClick={goToSearch}
+                        onMouseEnter={() => setHighlightedIndex(0)}
+                      >
+                        <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        Search records for “{trimmed}”
+                      </button>
+                    </li>
+                  ) : null}
+                  {matches.map((destination, index) => {
+                    const itemIndex = (canSearch ? 1 : 0) + index;
+                    return (
+                      <li key={destination.href}>
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex w-full items-center rounded-md px-3 py-2 text-left text-sm",
+                            highlightedIndex === itemIndex ? "bg-pale-gold text-navy" : "text-steel hover:bg-steel-100",
+                          )}
+                          onClick={() => goToDestination(destination.href)}
+                          onMouseEnter={() => setHighlightedIndex(itemIndex)}
+                        >
+                          {destination.label}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }

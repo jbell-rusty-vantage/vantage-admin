@@ -5,6 +5,7 @@ import {
   LIVE_EVENTS_HREF,
   LIVE_RECEIPT_WINDOW_LIMIT,
   LIVE_RECEIPT_WINDOW_MS,
+  applyLiveWebhookSsePayload,
   mergeLiveWebhookReceipts,
   trimLiveWebhookReceipts,
   type LiveWebhookReceipt,
@@ -56,6 +57,56 @@ test("mergeLiveWebhookReceipts drops receipts older than the 30-minute window", 
   const fresh = receipt("new", new Date(now - 60_000).toISOString());
   const merged = mergeLiveWebhookReceipts([stale], fresh, now);
   assert.deepEqual(merged.map((row) => row.receipt_id), ["new"]);
+});
+
+test("mergeLiveWebhookReceipts replaces a later intake_link over a prior null", () => {
+  const now = Date.parse("2026-08-28T15:10:00.000Z");
+  const pending: LiveWebhookReceipt = {
+    ...receipt("a", "2026-08-28T15:00:00.000Z"),
+    route_event_class: "booking_status_changed",
+    intake_link: null,
+  };
+  const bound: LiveWebhookReceipt = {
+    ...pending,
+    processing_state: "completed",
+    observation_id: "65aaaaaaaaaaaaaaaaaaaaaa",
+    intake_link: {
+      case_id: "66aaaaaaaaaaaaaaaaaaaaaa",
+      kind: "booking",
+      state: "open",
+      matched_via: "evidence_observation_id",
+    },
+  };
+  const merged = mergeLiveWebhookReceipts([pending], bound, now);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0]?.receipt_id, "a");
+  assert.deepEqual(merged[0]?.intake_link, bound.intake_link);
+  assert.equal(merged[0]?.processing_state, "completed");
+});
+
+test("applyLiveWebhookSsePayload merges receipt_updated the same way as receipt", () => {
+  const now = Date.parse("2026-08-28T15:10:00.000Z");
+  const pending: LiveWebhookReceipt = {
+    ...receipt("a", "2026-08-28T15:00:00.000Z"),
+    intake_link: null,
+  };
+  const bound: LiveWebhookReceipt = {
+    ...pending,
+    intake_link: {
+      case_id: "66aaaaaaaaaaaaaaaaaaaaaa",
+      kind: "booking",
+      state: "resolved",
+      matched_via: "evidence_observation_id",
+    },
+  };
+  const fromReceipt = applyLiveWebhookSsePayload(
+    "receipt_updated",
+    JSON.stringify(bound),
+    [pending],
+    now,
+  );
+  assert.equal(fromReceipt.error, undefined);
+  assert.deepEqual(fromReceipt.receipts[0]?.intake_link, bound.intake_link);
 });
 
 test("trimLiveWebhookReceipts keeps only the newest receipts up to the window cap", () => {

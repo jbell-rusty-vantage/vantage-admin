@@ -79,7 +79,7 @@ test("admin cannot delete operational bookings or cancellations", () => {
 });
 
 test("admin dashboard paths hide owner-only local pages", () => {
-  assert.equal(canAccessDashboardPath("admin", "/settings"), false);
+  assert.equal(canAccessDashboardPath("admin", "/settings"), true);
   assert.equal(canAccessDashboardPath("admin", "/audit-log"), false);
   assert.equal(canAccessDashboardPath("admin", "/bookings/reconciliation"), false);
   assert.equal(canAccessDashboardPath("admin", "/intakes"), false);
@@ -88,6 +88,8 @@ test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/form-leads"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry?tab=cpl"), true);
+  assert.equal(canAccessDashboardPath("admin", "/operations-registry?tab=moving-carriers"), true);
+  assert.equal(canAccessDashboardPath("admin", "/operations-registry?tab=legacy-cpl"), true);
   assert.equal(canAccessDashboardPath("admin", "/ingestion"), true);
   assert.equal(canAccessDashboardPath("admin", "/ingestion/granot"), false);
   assert.equal(canAccessDashboardPath("owner", "/settings"), true);
@@ -148,6 +150,30 @@ test("admin can read registry endpoints but cannot mutate them", () => {
       role: "admin",
       method: "POST",
       path: "api/v1/admin/cpl/simple-schedule",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "GET",
+      path: "api/v1/admin/moving-carriers",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/moving-carriers",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "PATCH",
+      path: "api/v1/admin/moving-carriers/abc",
     }),
     false,
   );
@@ -474,7 +500,7 @@ test("Connect Booking to Lead GET and POST are Owner-only at the proxy", () => {
 });
 
 test("[AC-28][AC-32] exact Granot Booking command paths are Owner-only at the proxy", () => {
-  for (const action of ["confirm-booking", "create-referral-booking", "update-booking", "no-action"]) {
+  for (const action of ["confirm-booking", "create-referral-booking", "update-booking", "no-action", "confirm-cancellation"]) {
     const path = `api/v1/admin/granot-lifecycle/booking-cases/case-1/${action}`;
     assert.equal(canProxyVantagePath({ role: "owner", method: "POST", path }), true);
     assert.equal(canProxyVantagePath({ role: "admin", method: "POST", path }), false);

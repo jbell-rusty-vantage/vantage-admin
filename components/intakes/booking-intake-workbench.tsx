@@ -11,7 +11,7 @@ import { JobTimelineDeepLink } from "@/components/job-number-timeline/job-timeli
 import { GranotBookingStatementCard } from "./granot-booking-statement";
 import { MatchedCustomerSection } from "./matched-lead-panel";
 import { IntakeReferenceDrawers } from "./intake-reference";
-import { intakeCaseHowToFinish, intakeStatusLabel } from "./intake-copy";
+import { intakeCaseHowToFinish, intakeReleaseHeadline, intakeStatusLabel } from "./intake-copy";
 
 function BookingIntakeHeadline({
   detail,
@@ -77,6 +77,12 @@ export function BookingIntakeWorkbench({
     mode: detail.mode,
     state: detail.state,
     commandsAvailable: detail.capabilities.commands,
+    latest_action: detail.latest_action,
+  });
+  const releaseHeadline = intakeReleaseHeadline({
+    latest_action: detail.latest_action ?? "booked",
+    deterministic_booking: { present: Boolean(detail.official_current.booking) },
+    mode: detail.mode,
   });
 
   return (
@@ -90,6 +96,10 @@ export function BookingIntakeWorkbench({
             <CardDescription>{howToFinish.body}</CardDescription>
           </CardHeader>
         </Card>
+      ) : null}
+
+      {releaseHeadline ? (
+        <p className="text-sm text-navy">{releaseHeadline}</p>
       ) : null}
 
       {detail.employee_booking_lead_reconciliation ? (

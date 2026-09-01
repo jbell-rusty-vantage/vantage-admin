@@ -10,13 +10,13 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import {
   GRANOT_LIVE_RECEIPTS_STREAM_PATH,
   LIVE_WEBHOOK_EVENT_LABELS,
-  mergeLiveWebhookReceipts,
-  trimLiveWebhookReceipts,
+  applyLiveWebhookSsePayload,
   type LiveWebhookEventClass,
   type LiveWebhookLead,
   type LiveWebhookReceipt,
 } from "@/lib/api/granotLiveReceipts";
 import { buildJobTimelineHref } from "@/lib/api/jobNumberTimeline";
+import { intakeCaseHref } from "@/components/intakes/intake-copy";
 
 export type LiveStreamStatus = "connecting" | "live" | "reconnecting";
 
@@ -97,10 +97,25 @@ export function LiveWebhookReceiptCard({ receipt }: { receipt: LiveWebhookReceip
       </summary>
       <div className="space-y-3 border-t px-4 py-3">
         <LiveWebhookLeadFacts lead={receipt.lead} />
-        {jobHref ? (
-          <Link className="inline-flex text-sm font-medium text-trust-blue hover:underline" href={jobHref}>
-            Open job timeline
-          </Link>
+        {jobHref || receipt.intake_link?.kind === "booking" ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {jobHref ? (
+              <Link className="inline-flex text-sm font-medium text-trust-blue hover:underline" href={jobHref}>
+                Open job timeline
+              </Link>
+            ) : null}
+            {receipt.intake_link?.kind === "booking" ? (
+              <Link
+                className="inline-flex text-sm font-medium text-trust-blue hover:underline"
+                href={intakeCaseHref(receipt.intake_link.case_id, {
+                  state: receipt.intake_link.state,
+                  job: receipt.lead.job_no ?? undefined,
+                })}
+              >
+                Open booking intake
+              </Link>
+            ) : null}
+          </div>
         ) : null}
         <details className="rounded-md border bg-steel-100">
           <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-navy">
@@ -172,31 +187,32 @@ export function LiveWebhooks() {
 
   useEffect(() => {
     const source = new EventSource(GRANOT_LIVE_RECEIPTS_STREAM_PATH);
-    source.addEventListener("snapshot", (event) => {
-      try {
-        const payload = JSON.parse((event as MessageEvent).data) as { receipts?: LiveWebhookReceipt[] };
-        setReceipts(trimLiveWebhookReceipts(Array.isArray(payload.receipts) ? payload.receipts : []));
+    const applyEvent = (eventName: string, rawData: string) => {
+      setReceipts((current) => {
+        const next = applyLiveWebhookSsePayload(eventName, rawData, current);
+        if (next.error) {
+          setError(next.error);
+          return current;
+        }
         setStatus("live");
         setError(null);
-      } catch {
-        setError("Could not read the live snapshot.");
-      }
+        return next.receipts;
+      });
+    };
+    source.addEventListener("snapshot", (event) => {
+      applyEvent("snapshot", (event as MessageEvent).data);
     });
     source.addEventListener("receipt", (event) => {
-      try {
-        const receipt = JSON.parse((event as MessageEvent).data) as LiveWebhookReceipt;
-        setReceipts((current) => mergeLiveWebhookReceipts(current, receipt));
-        setStatus("live");
-        setError(null);
-      } catch {
-        setError("Could not read a live webhook.");
-      }
+      applyEvent("receipt", (event as MessageEvent).data);
+    });
+    source.addEventListener("receipt_updated", (event) => {
+      applyEvent("receipt_updated", (event as MessageEvent).data);
     });
     source.addEventListener("heartbeat", () => {
       setStatus("live");
       setReceipts((current) => {
-        const next = trimLiveWebhookReceipts(current);
-        return next.length === current.length ? current : next;
+        const next = applyLiveWebhookSsePayload("heartbeat", "{}", current);
+        return next.receipts.length === current.length ? current : next.receipts;
       });
     });
     source.onerror = () => {

@@ -16,6 +16,7 @@ import {
   intakeNextStep,
   intakePairingLine,
   intakeStatusLabel,
+  intakeReleaseHeadline,
   intakeWhatVantageHas,
   intakeWhyHere,
   type IntakeKind,
@@ -112,7 +113,7 @@ export function IntakeList({
                   </p>
                 </td>
                 <td className="px-3 py-3 align-top">
-                  <p>{intakeWhyHere(item.latest_action)}</p>
+                  <p>{intakeReleaseHeadline(item) ?? intakeWhyHere(item.latest_action)}</p>
                   {(() => {
                     const pairing = intakePairingLine(item.priority_pairing);
                     if (!pairing) return null;

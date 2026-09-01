@@ -48,7 +48,6 @@ test("admin palette destinations omit owner-only hrefs", () => {
     "/intakes",
     "/job-timeline",
     "/audit-log",
-    "/settings",
   ]) {
     assert.equal(hrefs.includes(href), false, href);
   }

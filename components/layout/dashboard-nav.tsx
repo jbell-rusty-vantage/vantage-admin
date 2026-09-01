@@ -23,7 +23,6 @@ import {
   Radio,
   ScrollText,
   SearchCheck,
-  Settings,
   ShieldCheck,
   Users,
   type LucideIcon,
@@ -116,7 +115,6 @@ export const dashboardNavSections: DashboardNavSection[] = [
       { label: "Operations Registry", href: "/operations-registry", icon: Boxes },
       { label: "Ingestion", href: "/ingestion", icon: Import },
       { label: "Audit Log", href: "/audit-log", icon: ScrollText, ownerOnly: true },
-      { label: "Settings", href: "/settings", icon: Settings, ownerOnly: true },
     ],
   },
 ];

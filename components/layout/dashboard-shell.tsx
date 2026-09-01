@@ -15,7 +15,6 @@ import { UserMenu } from "./user-menu";
 const sidebarStorageKey = "vantage-admin-sidebar-collapsed";
 const ownerOnlyPagePrefixes = [
   "/audit-log",
-  "/settings",
   "/bookings/reconciliation",
   "/ingestion/granot",
   "/intakes",

@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
         destination: "/live-events",
         permanent: true,
       },
+      {
+        source: "/settings",
+        destination: "/operations-registry?tab=moving-carriers",
+        permanent: true,
+      },
     ];
   },
 };

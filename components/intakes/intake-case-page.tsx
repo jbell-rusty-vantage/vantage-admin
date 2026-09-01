@@ -5,14 +5,13 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import { fetchGranotLifecycleCase } from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
 import { BookingIntakeWorkbench } from "./booking-intake-workbench";
-import { CancellationIntakeWorkbench } from "./cancellation-intake-workbench";
 import { isAllowedIntakeReturn } from "./intake-copy";
 
 const REFRESH_WHILE_OPEN_MS = 15_000;
 
 /**
- * One intake, opened in place from the waiting list. Booking and cancellation
- * intakes each get their own owner workbench.
+ * One intake, opened in place from the waiting list. Owner Intakes is the
+ * booking-case queue. Historical Release cases stay on the technical lifecycle page.
  */
 export function IntakeCasePage({
   caseId,
@@ -43,11 +42,5 @@ export function IntakeCasePage({
   const backHref = isAllowedIntakeReturn(returnTo) ? returnTo : undefined;
   const backTo = backHref ? (backLabel ?? "Back to waiting intakes") : undefined;
 
-  if (intake.data.kind === "booking") {
-    return <BookingIntakeWorkbench detail={intake.data} backHref={backHref} backLabel={backTo} />;
-  }
-
-  return (
-    <CancellationIntakeWorkbench detail={intake.data} backHref={backHref} backLabel={backTo} />
-  );
+  return <BookingIntakeWorkbench detail={intake.data} backHref={backHref} backLabel={backTo} />;
 }

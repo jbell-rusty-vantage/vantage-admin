@@ -138,6 +138,18 @@ test("[AC-24][AC-32] Granot update and No Action audits retain only bounded meta
     reason_text_present: true,
   });
   assertProxyAuditPayloadSafe(noAction, ["Sensitive owner prose"]);
+
+  const bookingCancel = buildProxyAuditRequestPayload({
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/booking-cases/case-1/confirm-cancellation",
+    body: { expected_case_revision: 4, expected_booking_revision: 8, official_cancellation_details: { cancel_date: "2026-08-19", refund_amount: 12.34, reason: "Sensitive reason", notes: "Sensitive notes", cancelled_by: "Sensitive actor" } },
+  });
+  assert.deepEqual(bookingCancel, {
+    method: "POST", path: "api/v1/admin/granot-lifecycle/booking-cases/case-1/confirm-cancellation",
+    operation: "granot_booking_confirm_cancellation", case_id: "case-1",
+    expected_case_revision: 4, expected_booking_revision: 8, official_details_present: true,
+  });
+  assertProxyAuditPayloadSafe(bookingCancel, ["12.34", "Sensitive reason", "Sensitive notes", "Sensitive actor"]);
 });
 
 test("[AC-28] Referral create audit excludes contact, Job, money, and catalog IDs", () => {

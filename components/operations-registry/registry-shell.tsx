@@ -1,8 +1,11 @@
 "use client";
 
 import type { KeyboardEvent } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
+import { CarrierManager } from "@/components/settings/carrier-manager";
+import { CplRateManager } from "@/components/settings/cpl-rate-manager";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils";
 import { AgentsManager } from "./agents-manager";
@@ -13,19 +16,12 @@ import { RegistryOverview } from "./registry-overview";
 import { RingCentralRoutesManager } from "./ringcentral/routes-list";
 import { GranotCrmSourcesManager } from "./granot-crm-sources-manager";
 import { SourceCompaniesManager } from "./source-companies-manager";
+import { REGISTRY_TABS, type RegistryTab } from "./registry-tabs";
 
-const TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "agents", label: "Agents" },
-  { id: "merchants", label: "Merchants" },
-  { id: "sources", label: "Sources" },
-  { id: "granot-sources", label: "Granot sources" },
-  { id: "ringcentral", label: "RingCentral" },
-  { id: "cpl", label: "CPL" },
-  { id: "changes", label: "Changes" },
-] as const;
+export type { RegistryTab };
+export { REGISTRY_TABS };
 
-export type RegistryTab = (typeof TABS)[number]["id"];
+const TABS = REGISTRY_TABS;
 
 function parseTab(value: string | null): RegistryTab {
   return (TABS.some((tab) => tab.id === value) ? value : "overview") as RegistryTab;
@@ -81,8 +77,8 @@ export function RegistryShell() {
         <h1 className="text-2xl font-semibold text-navy">Operations Registry</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Owner-managed catalog of agents, merchants, source companies, granularities, Granot CRM
-          sources, RingCentral queue numbers, and CPL schedules. Changes are audited and
-          dependency-aware.
+          sources, RingCentral queue numbers, moving carriers, and CPL schedules. Legacy CPL is a
+          read-only compatibility view. Changes are audited and dependency-aware.
         </p>
       </div>
 
@@ -134,7 +130,20 @@ export function RegistryShell() {
         {activeTab === "sources" ? <SourceCompaniesManager readOnly={readOnly} /> : null}
         {activeTab === "granot-sources" ? <GranotCrmSourcesManager readOnly={readOnly} /> : null}
         {activeTab === "ringcentral" ? <RingCentralRoutesManager readOnly={readOnly} /> : null}
+        {activeTab === "moving-carriers" ? <CarrierManager readOnly={readOnly} /> : null}
         {activeTab === "cpl" ? <CplManager readOnly={readOnly} /> : null}
+        {activeTab === "legacy-cpl" ? (
+          <div className="space-y-3">
+            <FeedbackMessage tone="warning">
+              Legacy CPL rates are compatibility-only. Prefer{" "}
+              <Link href="/operations-registry?tab=cpl" className="font-medium underline">
+                Operations Registry → CPL
+              </Link>{" "}
+              for schedule edits and corrections.
+            </FeedbackMessage>
+            <CplRateManager compatibilityMode />
+          </div>
+        ) : null}
         {activeTab === "changes" ? <RegistryChanges /> : null}
       </div>
     </div>

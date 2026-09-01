@@ -19,7 +19,7 @@ import {
 } from "@/lib/api/carriers";
 import { queryKeys } from "@/lib/query/keys";
 
-export function CarrierManager() {
+export function CarrierManager({ readOnly = false }: { readOnly?: boolean }) {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -86,113 +86,127 @@ export function CarrierManager() {
               {message}
             </FeedbackMessage>
           ) : null}
-          <form
-            className="grid gap-3 md:grid-cols-[1.4fr_0.7fr_0.7fr_auto_auto]"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const form = event.currentTarget;
-              const formData = new FormData(form);
-              const name = String(formData.get("name") ?? "").trim();
-              const dotNumber = String(formData.get("dot_number") ?? "").trim();
-              const mcNumber = String(formData.get("mc_number") ?? "").trim();
-              const active = formData.get("active") === "true";
+          {readOnly ? (
+            <FeedbackMessage tone="info">
+              Carrier collection is visible here. Adding, importing, or editing carriers requires
+              the owner role.
+            </FeedbackMessage>
+          ) : null}
+          {!readOnly ? (
+            <form
+              className="grid gap-3 md:grid-cols-[1.4fr_0.7fr_0.7fr_auto_auto]"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const formData = new FormData(form);
+                const name = String(formData.get("name") ?? "").trim();
+                const dotNumber = String(formData.get("dot_number") ?? "").trim();
+                const mcNumber = String(formData.get("mc_number") ?? "").trim();
+                const active = formData.get("active") === "true";
 
-              if (!name || !dotNumber || !mcNumber) {
-                setMessage("Carrier name, DOT, and MC are required.");
-                return;
-              }
+                if (!name || !dotNumber || !mcNumber) {
+                  setMessage("Carrier name, DOT, and MC are required.");
+                  return;
+                }
 
-              createMutation.mutate({
-                name,
-                dot_number: dotNumber,
-                mc_number: mcNumber,
-                active,
-              });
-              form.reset();
-            }}
-          >
-            <FilterField label="Carrier name">
-              <Input name="name" placeholder="New carrier" />
-            </FilterField>
-            <FilterField label="DOT">
-              <Input name="dot_number" placeholder="DOT" inputMode="numeric" />
-            </FilterField>
-            <FilterField label="MC">
-              <Input name="mc_number" placeholder="MC" inputMode="numeric" />
-            </FilterField>
-            <FilterField label="Initial status">
-              <select
-                name="active"
-                defaultValue="true"
-                className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
-              </select>
-            </FilterField>
-            <FilterField label="&nbsp;">
-              <Button type="submit" disabled={createMutation.isPending}>
-                Add Carrier
-              </Button>
-            </FilterField>
-          </form>
+                createMutation.mutate({
+                  name,
+                  dot_number: dotNumber,
+                  mc_number: mcNumber,
+                  active,
+                });
+                form.reset();
+              }}
+            >
+              <FilterField label="Carrier name">
+                <Input name="name" placeholder="New carrier" />
+              </FilterField>
+              <FilterField label="DOT">
+                <Input name="dot_number" placeholder="DOT" inputMode="numeric" />
+              </FilterField>
+              <FilterField label="MC">
+                <Input name="mc_number" placeholder="MC" inputMode="numeric" />
+              </FilterField>
+              <FilterField label="Initial status">
+                <select
+                  name="active"
+                  defaultValue="true"
+                  className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </FilterField>
+              <FilterField label="&nbsp;">
+                <Button type="submit" disabled={createMutation.isPending}>
+                  Add Carrier
+                </Button>
+              </FilterField>
+            </form>
+          ) : null}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>CSV Import</CardTitle>
-          <CardDescription>
-            Upload a CSV with `Carrier Name`, `DOT`, and `MC` columns. Patch mode leaves missing
-            carriers unchanged; replace mode deactivates active carriers missing from the upload.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <form
-            className="grid gap-3 md:grid-cols-[1fr_auto_auto]"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const file = fileInputRef.current?.files?.[0];
-              if (!file) {
-                setMessage("Choose a CSV file before importing.");
-                return;
-              }
-              const csvText = await file.text();
-              importMutation.mutate({ csv_text: csvText, mode: importMode });
-            }}
-          >
-            <FilterField label="Carrier CSV">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,text/csv"
-                className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm text-foreground"
-              />
-            </FilterField>
-            <FilterField label="Import mode">
-              <select
-                value={importMode}
-                onChange={(event) => setImportMode(event.target.value as CarrierImportMode)}
-                className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="replace">Replace active list</option>
-                <option value="patch">Patch only</option>
-              </select>
-            </FilterField>
-            <FilterField label="&nbsp;">
-              <Button type="submit" disabled={importMutation.isPending}>
-                Import CSV
-              </Button>
-            </FilterField>
-          </form>
-          {lastImport ? <ImportSummary result={lastImport} /> : null}
-        </CardContent>
-      </Card>
+      {!readOnly ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>CSV Import</CardTitle>
+            <CardDescription>
+              Upload a CSV with `Carrier Name`, `DOT`, and `MC` columns. Patch mode leaves missing
+              carriers unchanged; replace mode deactivates active carriers missing from the upload.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form
+              className="grid gap-3 md:grid-cols-[1fr_auto_auto]"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const file = fileInputRef.current?.files?.[0];
+                if (!file) {
+                  setMessage("Choose a CSV file before importing.");
+                  return;
+                }
+                const csvText = await file.text();
+                importMutation.mutate({ csv_text: csvText, mode: importMode });
+              }}
+            >
+              <FilterField label="Carrier CSV">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm text-foreground"
+                />
+              </FilterField>
+              <FilterField label="Import mode">
+                <select
+                  value={importMode}
+                  onChange={(event) => setImportMode(event.target.value as CarrierImportMode)}
+                  className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="replace">Replace active list</option>
+                  <option value="patch">Patch only</option>
+                </select>
+              </FilterField>
+              <FilterField label="&nbsp;">
+                <Button type="submit" disabled={importMutation.isPending}>
+                  Import CSV
+                </Button>
+              </FilterField>
+            </form>
+            {lastImport ? <ImportSummary result={lastImport} /> : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
           <CardTitle>Carrier Collection</CardTitle>
-          <CardDescription>Edit display values and deactivate carriers without deleting history.</CardDescription>
+          <CardDescription>
+            {readOnly
+              ? "DOT and MC together identify each carrier. Display values are read-only for this role."
+              : "Edit display values and deactivate carriers without deleting history."}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {carriersQuery.isLoading ? <FeedbackMessage>Loading moving carriers...</FeedbackMessage> : null}
@@ -209,6 +223,7 @@ export function CarrierManager() {
                 key={`${carrier.id}-${carrier.name}-${carrier.dot_number}-${carrier.mc_number}-${carrier.active}`}
                 carrier={carrier}
                 isPending={updateMutation.isPending}
+                readOnly={readOnly}
                 onSave={(body) => updateMutation.mutate({ id: carrier.id, body })}
               />
             ))}
@@ -249,10 +264,12 @@ function ImportSummary({ result }: { result: CarrierImportResult }) {
 function CarrierRow({
   carrier,
   isPending,
+  readOnly = false,
   onSave,
 }: {
   carrier: MovingCarrier;
   isPending: boolean;
+  readOnly?: boolean;
   onSave: (body: Partial<MovingCarrier>) => void;
 }) {
   const [name, setName] = useState(carrier.name);
@@ -267,38 +284,57 @@ function CarrierRow({
     <div className="rounded-md border bg-background p-3">
       <div className="grid gap-3 lg:grid-cols-[1.5fr_0.6fr_0.6fr_auto] lg:items-end">
         <FilterField label="Carrier name">
-          <Input value={name} onChange={(event) => setName(event.target.value)} />
+          <Input
+            value={name}
+            readOnly={readOnly}
+            disabled={readOnly}
+            onChange={(event) => setName(event.target.value)}
+          />
         </FilterField>
         <FilterField label="DOT">
-          <Input value={dotNumber} onChange={(event) => setDotNumber(event.target.value)} />
+          <Input
+            value={dotNumber}
+            readOnly={readOnly}
+            disabled={readOnly}
+            onChange={(event) => setDotNumber(event.target.value)}
+          />
         </FilterField>
         <FilterField label="MC">
-          <Input value={mcNumber} onChange={(event) => setMcNumber(event.target.value)} />
+          <Input
+            value={mcNumber}
+            readOnly={readOnly}
+            disabled={readOnly}
+            onChange={(event) => setMcNumber(event.target.value)}
+          />
         </FilterField>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge tone={carrier.active ? "success" : "muted"}>
             {carrier.active ? "Active" : "Inactive"}
           </StatusBadge>
-          <Button
-            variant="outline"
-            disabled={!changed || isPending}
-            onClick={() =>
-              onSave({
-                name: name.trim(),
-                dot_number: dotNumber.trim(),
-                mc_number: mcNumber.trim(),
-              })
-            }
-          >
-            Save
-          </Button>
-          <Button
-            variant={carrier.active ? "destructive" : "outline"}
-            disabled={isPending}
-            onClick={() => onSave({ active: !carrier.active })}
-          >
-            {carrier.active ? "Deactivate" : "Reactivate"}
-          </Button>
+          {!readOnly ? (
+            <>
+              <Button
+                variant="outline"
+                disabled={!changed || isPending}
+                onClick={() =>
+                  onSave({
+                    name: name.trim(),
+                    dot_number: dotNumber.trim(),
+                    mc_number: mcNumber.trim(),
+                  })
+                }
+              >
+                Save
+              </Button>
+              <Button
+                variant={carrier.active ? "destructive" : "outline"}
+                disabled={isPending}
+                onClick={() => onSave({ active: !carrier.active })}
+              >
+                {carrier.active ? "Deactivate" : "Reactivate"}
+              </Button>
+            </>
+          ) : null}
         </div>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">

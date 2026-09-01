@@ -108,7 +108,7 @@ test("waiting band lists open booking intakes and links to the intake workbench"
   assert.match(markup, /href="\/intakes\?case=case-booking"/);
   assert.match(markup, new RegExp(intakeActionLabel("booking")));
   assert.doesNotMatch(markup, /tab=cancellations/);
-  assert.doesNotMatch(markup, new RegExp(intakeActionLabel("cancellation")));
+  assert.doesNotMatch(markup, /Review cancellation/);
 });
 
 test("waiting band offers the intakes list when more open booking cases exist", () => {

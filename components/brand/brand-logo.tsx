@@ -9,6 +9,7 @@ type BrandLogoProps = {
   showText?: boolean;
   subtitle?: string;
   size?: "sm" | "md" | "lg";
+  tone?: "default" | "onDark";
 };
 
 const sizes = {
@@ -23,14 +24,17 @@ export function BrandLogo({
   showText = true,
   subtitle = "Owner dashboard",
   size = "md",
+  tone = "default",
 }: BrandLogoProps) {
   const { image, box } = sizes[size];
+  const onDark = tone === "onDark";
 
   return (
     <div className={cn("flex items-center gap-3", className)}>
       <div
         className={cn(
-          "relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-steel-200",
+          "relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm ring-1",
+          onDark ? "ring-white/20" : "ring-steel-200",
           box,
         )}
       >
@@ -45,9 +49,18 @@ export function BrandLogo({
       </div>
       {showText ? (
         <div className="min-w-0">
-          <p className="font-heading text-sm font-extrabold tracking-tight text-navy">Vantage Admin</p>
+          <p
+            className={cn(
+              "font-heading text-sm font-extrabold tracking-tight",
+              onDark ? "text-white" : "text-navy",
+            )}
+          >
+            Vantage Admin
+          </p>
           {subtitle ? (
-            <p className="truncate text-xs font-medium text-steel">{subtitle}</p>
+            <p className={cn("truncate text-xs font-medium", onDark ? "text-white/70" : "text-steel")}>
+              {subtitle}
+            </p>
           ) : null}
         </div>
       ) : null}

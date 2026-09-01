@@ -549,6 +549,15 @@ function sanitizeGranotLifecycleAuditBody(
       reason_text_present: hasValue(record.reason_text),
     };
   }
+  if (method === "POST" && /\/booking-cases\/[^/]+\/confirm-cancellation$/.test(normalized)) {
+    return {
+      operation: "granot_booking_confirm_cancellation",
+      case_id: pathSegment(path, "booking-cases"),
+      expected_case_revision: record.expected_case_revision,
+      expected_booking_revision: record.expected_booking_revision,
+      official_details_present: hasValue(record.official_cancellation_details),
+    };
+  }
   if (method === "POST" && /\/release-cases\/[^/]+\/confirm-cancellation$/.test(normalized)) {
     return {
       operation: "granot_release_confirm_cancellation",

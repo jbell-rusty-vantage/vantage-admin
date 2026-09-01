@@ -8,6 +8,7 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  confirmGranotBookingCancellation,
   confirmGranotCancellation,
   GranotLifecycleApiError,
   type ConfirmGranotCancellationBody,
@@ -17,7 +18,13 @@ import { invalidateGranotLifecycleCommandViews } from "@/lib/query/granotLifecyc
 
 const MONEY = /^\d+(?:\.\d{1,2})?$/;
 
-export function CancellationCommandForm({ detail }: { detail: GranotLifecycleCaseDetail }) {
+export function CancellationCommandForm({
+  detail,
+  confirm = "release",
+}: {
+  detail: GranotLifecycleCaseDetail;
+  confirm?: "booking" | "release";
+}) {
   const booking = detail.official_current.booking;
   const queryClient = useQueryClient();
   const [cancelDate, setCancelDate] = useState("");
@@ -77,12 +84,16 @@ export function CancellationCommandForm({ detail }: { detail: GranotLifecycleCas
     setSubmitting(true);
     setNotice(undefined);
     try {
-      const result = await confirmGranotCancellation(detail.case_id, body, attempt.key);
+      const result = confirm === "booking"
+        ? await confirmGranotBookingCancellation(detail.case_id, body, attempt.key)
+        : await confirmGranotCancellation(detail.case_id, body, attempt.key);
       lastAttempt.current = undefined;
       setReviewing(false);
       setNotice(result.outcome === "cancellation_created"
         ? "Cancellation created successfully."
-        : "The Booking already has the verified official Cancellation for this Release case.");
+        : confirm === "booking"
+          ? "The Booking already has the verified official Cancellation for this booking case."
+          : "The Booking already has the verified official Cancellation for this Release case.");
       await invalidate();
     } catch (error) {
       if (error instanceof GranotLifecycleApiError && error.status === 409) {

@@ -27,12 +27,7 @@ const TABS = [
   {
     id: "booking" as const,
     label: "Booking intakes",
-    summary: "Granot recorded a Booked job.",
-  },
-  {
-    id: "cancellation" as const,
-    label: "Cancellation intakes",
-    summary: "Granot sent a booking status change that cancelled the job.",
+    summary: "Granot recorded a Booked or Release job.",
   },
 ] as const;
 
@@ -108,10 +103,10 @@ export function IntakesHeader({
         <p className="text-sm font-semibold uppercase tracking-wide text-trust-blue">Owner review</p>
         <h1 className="text-2xl font-semibold text-navy">Intakes</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This is the waiting room for Granot booking and cancellation work. A case appears when
-          Granot records a Booked job or cancels a job. Choose a case, then enter one binder amount,
-          up to two agents, deposit, and merchant from the same catalog as a normal booking. Granot is not
-          creating those official records for you.
+          This is the waiting room for Granot booking work. A case appears when Granot records a
+          Booked or Release job. Choose a case, then enter one binder amount, up to two agents,
+          deposit, and merchant from the same catalog as a normal booking. Granot is not creating
+          those official records for you.
         </p>
       </div>
       <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -202,10 +197,8 @@ export function IntakesDashboardView({
   onPrevious?: () => void;
   onNext?: () => void;
 }) {
-  const title = kind === "cancellation" ? "Cancellation intakes" : "Booking intakes";
-  const description = kind === "cancellation"
-    ? "Choose a cancelled job, then finish official cancellation details."
-    : "Choose a booked job, then finish the official booking: lead, one binder amount, up to two agents, deposit, and merchant.";
+  const title = "Booking intakes";
+  const description = "Choose a booked or released job, then finish the official booking: lead, one binder amount, up to two agents, deposit, and merchant.";
   const itemCount = data?.items?.length ?? 0;
   const showPager = itemCount > 0 || page > 1;
 
@@ -247,7 +240,7 @@ export function IntakesDashboardView({
 export function IntakesDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tab = parseTab(searchParams?.get("tab") ?? null);
+  const tab = "booking" as const;
   const state = parseState(searchParams?.get("state") ?? null);
   const job = searchParams?.get("job") ?? "";
   const cursor = searchParams?.get("cursor") ?? undefined;
@@ -257,14 +250,14 @@ export function IntakesDashboard() {
   const page = Math.max(cursorHistory.length + 1, cursor ? 2 : 1);
 
   const filters = useMemo(() => ({
-    kind: tab === "cancellation" ? "release" as const : "booking" as const,
+    kind: "booking" as const,
     state,
     normalized_job_no: job.trim() || undefined,
     sort: "last_evidence_at" as const,
     order: "desc" as const,
     limit: INTAKE_PAGE_SIZE,
     cursor,
-  }), [tab, state, job, cursor]);
+  }), [state, job, cursor]);
 
   const query = useQuery({
     queryKey: queryKeys.granotLifecycle.cases(filters),
@@ -300,33 +293,20 @@ export function IntakesDashboard() {
       />
 
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Intake type">
-        {TABS.map((item) => {
-          const active = item.id === tab;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              className={cn(
-                "rounded-md px-3 py-2 text-sm font-semibold transition-colors",
-                active ? "bg-primary text-white" : "border border-steel-200 bg-white text-navy hover:bg-steel-100",
-              )}
-              onClick={() => {
-                setJobDraft(job);
-                go({ tab: item.id, cursor: undefined });
-              }}
-            >
-              {item.label}
-            </button>
-          );
-        })}
+        {TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected="true"
+            className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white"
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
       <p className="text-sm text-muted-foreground">
-        {TABS.find((item) => item.id === tab)?.summary}
-        {tab === "booking"
-          ? " Open a waiting case to enter the official booking form."
-          : " Open a waiting case to enter official cancellation details."}
+        {TABS[0].summary} Open a waiting case to enter the official booking form.
       </p>
 
       <Card>
@@ -424,4 +404,4 @@ export function IntakesDashboard() {
   );
 }
 
-export { buildIntakesHref, parseTab, parseState };
+export { TABS, buildIntakesHref, parseTab, parseState };

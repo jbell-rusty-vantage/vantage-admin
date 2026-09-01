@@ -31,7 +31,7 @@ import {
   formatAlertState,
   formatHealthUnit,
 } from "../components/granot-lifecycle/lifecycle-health";
-import { LiveWebhooksView } from "../components/granot-lifecycle/live-webhooks";
+import { LiveWebhookReceiptCard, LiveWebhooksView } from "../components/granot-lifecycle/live-webhooks";
 import type { GranotLifecycleHealth } from "../lib/api/granotLifecycle";
 import type {
   GranotLifecycleCandidateItem,
@@ -129,7 +129,8 @@ function detail(overrides: Partial<GranotLifecycleCaseDetail> = {}): GranotLifec
     official_current: {},
     official_draft: {},
     timeline,
-    capabilities: { commands: false, referral: false, release_cases: false, discrepancies: false },
+    latest_action: "booked",
+    capabilities: { commands: false, referral: false, confirm_cancellation: false, release_cases: false, discrepancies: false },
     ...overrides,
   };
 }
@@ -378,6 +379,55 @@ test("[AC-20][AC-24][AC-32] review-existing actions initialize from live values 
     "Review No Action",
   ]) assert.match(markup, new RegExp(value));
   assert.equal(markup.includes("Finish the booking"), false);
+});
+
+test("review plus latest Release exposes Update, Confirm Cancellation, and No Action", () => {
+  const commandDetail = detail({
+    mode: "review_existing_booking",
+    latest_action: "release",
+    capabilities: {
+      commands: true,
+      referral: false,
+      confirm_cancellation: true,
+      release_cases: false,
+      discrepancies: false,
+    },
+    official_current: {
+      booking: {
+        id: "booking-safe-id",
+        normalized_job_no: "SYNTHETIC JOB 1",
+        job_no: "Synthetic Job 1",
+        book_date: "2026-08-17T00:00:00.000Z",
+        customer_name: "Masked Owner Work",
+        source: "Synthetic Source",
+        merchant: "Synthetic Merchant",
+        merchant_id: "merchant-1",
+        deposit_amount: 100.25,
+        total_binder_amount: 200.5,
+        agent_allocations: [{ agent_id: "agent-1", agent_name: "Synthetic Agent", binder_amount: 200.5 }],
+        domain_revision: 4,
+      },
+    },
+  });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
+    createElement(BookingOwnerActions, { detail: commandDetail })));
+  assert.match(markup, /Update Existing Booking/);
+  assert.match(markup, /Create Cancellation/);
+  assert.match(markup, /No Action/);
+});
+
+test("create-missing plus latest Release does not expose Confirm Cancellation", () => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
+    createElement(BookingOwnerActions, { detail: detail({
+      mode: "create_missing_booking",
+      latest_action: "release",
+      capabilities: { commands: true, referral: false, confirm_cancellation: false, release_cases: false, discrepancies: false },
+    }) })));
+  assert.match(markup, /Finish the booking/);
+  assert.match(markup, /No Action/);
+  assert.equal(markup.includes("Create Cancellation"), false);
 });
 
 test("[AC-20][AC-28] create-missing and Referral expose only their explicit Owner actions", () => {
@@ -950,4 +1000,58 @@ test("live webhook accordion shows lead facts and the three Granot event classes
   assert.match(markup, /Show details/);
   assert.match(markup, /Hide details/);
   assert.match(markup, /Click a row to open the lead facts/);
+  assert.doesNotMatch(markup, /Open booking intake/);
+});
+
+test("LiveWebhookReceiptCard shows Open booking intake only when intake_link is present", () => {
+  const base = {
+    receipt_id: "64cccccccccccccccccccccc",
+    captured_at: "2026-08-28T15:02:00.000Z",
+    route_event_class: "booking_status_changed" as const,
+    observation_channel: "granot_webhook" as const,
+    processing_state: "completed",
+    lead: {
+      display_name: "Ada Lovelace",
+      first_name: "Ada",
+      last_name: "Lovelace",
+      email: null,
+      phone: null,
+      job_no: "P5562401",
+      event_type: "Booked",
+      priority: null,
+      origin: null,
+      destination: null,
+      move_date: null,
+    },
+    granot_statement: { event_type: "Booked" },
+  };
+  const withoutLink = renderToStaticMarkup(createElement(LiveWebhookReceiptCard, { receipt: base }));
+  assert.match(withoutLink, /Open job timeline/);
+  assert.doesNotMatch(withoutLink, /Open booking intake/);
+  assert.doesNotMatch(withoutLink, /no intake yet/i);
+
+  const withLink = renderToStaticMarkup(createElement(LiveWebhookReceiptCard, {
+    receipt: {
+      ...base,
+      observation_id: "65cccccccccccccccccccccc",
+      intake_link: {
+        case_id: "66bbbbbbbbbbbbbbbbbbbbbb",
+        kind: "booking",
+        state: "open",
+        matched_via: "evidence_observation_id",
+      },
+    },
+  }));
+  assert.match(withLink, /Open job timeline/);
+  assert.match(withLink, /Open booking intake/);
+  assert.match(withLink, /\/intakes\?job=P5562401&amp;case=66bbbbbbbbbbbbbbbbbbbbbb/);
+});
+
+test("LiveWebhooks listens for receipt_updated and reuses the merge helper", () => {
+  const source = readFileSync(
+    path.join(process.cwd(), "components/granot-lifecycle/live-webhooks.tsx"),
+    "utf8",
+  );
+  assert.match(source, /addEventListener\("receipt_updated"/);
+  assert.match(source, /applyLiveWebhookSsePayload/);
 });

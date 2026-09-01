@@ -33,10 +33,20 @@ export function intakeWhyHere(action: GranotLifecycleCaseListItem["latest_action
     case "booked":
       return "Granot recorded a booking";
     case "release":
-      return "Granot recorded a cancellation";
+      return "Granot released this job";
     default:
       return "Granot sent an update that needs your review";
   }
+}
+
+export function intakeReleaseHeadline(item: Pick<
+  GranotLifecycleCaseListItem,
+  "latest_action" | "deterministic_booking" | "mode"
+>): string | undefined {
+  if (item.latest_action !== "release") return undefined;
+  return item.deterministic_booking.present || item.mode === "review_existing_booking"
+    ? "Granot released this job. That may be a customer cancel or a booking edit. Review the official booking."
+    : "Granot released this job. There is still no Vantage booking. File the booking if the sale is real, or choose No Action.";
 }
 
 export function intakeWhatVantageHas(item: Pick<
@@ -63,11 +73,19 @@ export function intakeWhatVantageHas(item: Pick<
   }
 }
 
-export function intakeActionLabel(kind: IntakeKind): string {
-  return kind === "cancellation" ? "Review cancellation" : "Finish booking";
+export function intakeActionLabel(_kind?: IntakeKind): string {
+  return "Finish booking";
 }
 
-export function intakeNextStep(item: Pick<GranotLifecycleCaseListItem, "kind" | "mode">): string {
+export function intakeNextStep(item: Pick<
+  GranotLifecycleCaseListItem,
+  "kind" | "mode" | "latest_action" | "deterministic_booking"
+>): string {
+  if (item.kind === "booking" && item.latest_action === "release") {
+    return item.deterministic_booking.present || item.mode === "review_existing_booking"
+      ? "Review the official booking. That may be a customer cancel or a booking edit."
+      : "File the booking if the sale is real, or choose No Action.";
+  }
   if (item.kind === "release") {
     return "Open this case to review official cancellation details.";
   }
@@ -88,8 +106,17 @@ export function intakeCaseHowToFinish(input: {
   mode: string;
   state: GranotLifecycleCaseListItem["state"];
   commandsAvailable: boolean;
+  latest_action?: GranotLifecycleCaseListItem["latest_action"];
 }): { title: string; body: string } | undefined {
   if (input.state !== "open") return undefined;
+  if (input.kind === "booking" && input.mode === "review_existing_booking" && input.latest_action === "release") {
+    return {
+      title: "How to finish this booking",
+      body: input.commandsAvailable
+        ? "Review booking or cancellation. Update the official booking, confirm a Granot cancellation, or leave official records unchanged."
+        : "Vantage already has an official booking on this job. The official form appears here when owner booking work is enabled.",
+    };
+  }
   if (input.kind === "release") {
     return {
       title: "How to finish this cancellation",
@@ -116,8 +143,8 @@ export function intakeCaseHowToFinish(input: {
 
 export function intakeWaitingEmptyMessage(kind: IntakeKind): string {
   return kind === "booking"
-    ? "No booking intakes waiting. When Granot records a Booked job, it will show up here."
-    : "No cancellation intakes waiting. When Granot cancels a job, it will show up here.";
+    ? "No booking intakes waiting. When Granot records a Booked or Release job, it will show up here."
+    : "Cancellation intakes are retired. New Release jobs appear on booking intakes.";
 }
 
 export function intakeMoreWaitingLabel(kind: IntakeKind): string {
@@ -151,10 +178,10 @@ export function creatingObservationTitle(
   selection?: "preferred_booked" | "preferred_release" | "latest_creating",
   kind: IntakeKind = "booking",
 ): string {
-  if (selection === "preferred_release") return "Granot cancellation payload";
+  if (selection === "preferred_release") return "Granot Release payload";
   if (selection === "latest_creating") return "Latest Granot payload that created this intake";
   if (selection === "preferred_booked") return "Granot Booked payload";
-  return kind === "cancellation" ? "Granot cancellation payload" : "Granot Booked payload";
+  return kind === "cancellation" ? "Granot Release payload" : "Granot Booked payload";
 }
 
 export function creatingObservationListHint(kind: IntakeKind): string {
@@ -204,9 +231,9 @@ export function intakePairingClassLabel(
 }
 
 /**
- * A booking intake is read top to bottom as one story: what Granot sent, who it
- * is for, what you do about it, and — underneath — the paper trail. These are
- * the words that name each part of that story on screen.
+ * Unused owner-path tombstone. `/intakes` no longer has a cancellation queue.
+ * Historical Release cases still use `ReleaseOwnerActions` on the technical
+ * lifecycle page. Keep this object only so leftover imports compile.
  */
 export const CANCELLATION_INTAKE_STORY = {
   whatGranotSent: {
@@ -280,8 +307,13 @@ export function granotStatementHeadline(input: {
   const called = input.whatGranotCalledIt?.trim();
   if (!called) return `Granot sent an update on ${subject}${when}.`;
   if (called.toLowerCase() === "booked") return `Granot marked ${subject} booked${when}.`;
-  if (called.toLowerCase() === "release" || called.toLowerCase() === "cancelled") {
-    return `Granot cancelled ${subject}${when}.`;
+  if (
+    called.toLowerCase() === "release"
+    || called.toLowerCase() === "releas"
+    || called.toLowerCase() === "cancelled"
+    || called.toLowerCase() === "canceled"
+  ) {
+    return `Granot released ${subject}${when}.`;
   }
   return `Granot sent a “${called}” update on ${subject}${when}.`;
 }
@@ -363,7 +395,7 @@ export function granotUpdateActionLabel(
     case "booked":
       return "Granot marked the job booked";
     case "release":
-      return "Granot cancelled the job";
+      return "Granot released the job";
     case "priority_5":
       return "Granot flagged the job a priority 5";
   }
@@ -394,7 +426,7 @@ export function creatingObservationSelectionHint(
   selection: BookingIntakeCreatingObservation["selection"],
 ): string {
   if (selection === "preferred_release") {
-    return "This is the cancellation update Granot sent. It is what opened this intake.";
+    return "This is the Release update Granot sent. It is what opened this intake.";
   }
   return selection === "latest_creating"
     ? "Granot never sent a Booked update on this job, so this is the most recent update it did send."

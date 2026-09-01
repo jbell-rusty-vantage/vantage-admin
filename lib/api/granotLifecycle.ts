@@ -290,9 +290,11 @@ export type GranotLifecycleCaseDetail = {
     href: string;
   };
   timeline: GranotTimelinePage;
+  latest_action?: "priority_5" | "booked" | "release";
   capabilities: {
     commands: boolean;
     referral: boolean;
+    confirm_cancellation?: boolean;
     release_cases: boolean;
     discrepancies: boolean;
   };
@@ -432,10 +434,11 @@ export type BookingOwnerCommandResult = {
   case_id: string;
   case_state: "resolved";
   case_revision: number;
-  outcome: "booking_created" | "booking_updated" | "referral_booking_created" | "no_action" | "already_satisfied";
+  outcome: "booking_created" | "booking_updated" | "referral_booking_created" | "no_action" | "already_satisfied" | "cancellation_created";
   command_execution_id: string;
   decision_id: string;
   booking_ref?: { id: string; domain_revision: number };
+  cancellation_ref?: { id: string; domain_revision: number };
   record_link_ref?: { id: string; domain_revision: number };
   entity_refs: Array<{ model: string; id: string }>;
   replayed: boolean;
@@ -668,6 +671,7 @@ export function asGranotLifecycleCaseDetail(data: unknown): GranotLifecycleCaseD
     capabilities: record.capabilities ?? {
       commands: false,
       referral: false,
+      confirm_cancellation: false,
       release_cases: false,
       discrepancies: false,
     },
@@ -874,6 +878,21 @@ export function resolveGranotBookingNoAction(
 ): Promise<BookingOwnerCommandResult> {
   return requestJson(
     proxyUrl(`api/v1/admin/granot-lifecycle/booking-cases/${encodeURIComponent(caseId)}/no-action`),
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function confirmGranotBookingCancellation(
+  caseId: string,
+  body: ConfirmGranotCancellationBody,
+  idempotencyKey: string,
+): Promise<BookingOwnerCommandResult> {
+  return requestJson(
+    proxyUrl(`api/v1/admin/granot-lifecycle/booking-cases/${encodeURIComponent(caseId)}/confirm-cancellation`),
     {
       method: "POST",
       headers: { "Idempotency-Key": idempotencyKey },

@@ -54,7 +54,6 @@ test("admin flat nav omits owner-only destinations", () => {
     "/intakes",
     "/job-timeline",
     "/audit-log",
-    "/settings",
   ]) {
     assert.equal(adminHrefs.includes(href), false, href);
   }
@@ -102,7 +101,6 @@ test("owner sections keep the five groups and admin Today and System shrink", ()
     "/operations-registry",
     "/ingestion",
     "/audit-log",
-    "/settings",
   ]);
 
   const admin = visibleDashboardNavSections("admin");
