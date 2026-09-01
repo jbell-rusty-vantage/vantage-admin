@@ -69,12 +69,15 @@ function FindingCard({ finding }: { finding: RegistryHealthFinding }) {
             </StatusBadge>
             <span className="text-sm font-semibold text-navy">{finding.summary}</span>
           </div>
-          <p className="text-xs text-muted-foreground">
-            <span className="font-medium">{finding.code}</span>
-            {finding.entity_type ? ` · ${humanizeRegistryKey(finding.entity_type)}` : ""}
-            {finding.entity_id ? ` · ${finding.entity_id}` : ""}
-            {finding.actionable ? " · Actionable" : " · Informational"}
-          </p>
+          <details className="text-xs text-muted-foreground">
+            <summary>Advanced</summary>
+            <p>
+              {finding.code}
+              {finding.entity_type ? ` · ${humanizeRegistryKey(finding.entity_type)}` : ""}
+              {finding.entity_id ? ` · ${finding.entity_id}` : ""}
+              {finding.actionable ? " · Actionable" : " · Informational"}
+            </p>
+          </details>
         </div>
         {entityLink ? (
           <Link href={entityLink.href} className="text-xs font-medium text-primary hover:underline">

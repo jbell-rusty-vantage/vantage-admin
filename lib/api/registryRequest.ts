@@ -74,9 +74,21 @@ export async function registryRequestJson<T>(
   return payload.data;
 }
 
+function ownerFacingErrorMessage(message: string): string {
+  const trimmed = message.trim();
+  if (!/^<!DOCTYPE html/i.test(trimmed) && !trimmed.includes("<html")) {
+    return message;
+  }
+  const missingRoute = trimmed.match(/Cannot (GET|POST|PATCH|PUT|DELETE) \S+/i);
+  if (missingRoute) {
+    return `The connected server does not have this registry route yet (${missingRoute[0]}).`;
+  }
+  return "The connected server returned an unexpected error page.";
+}
+
 export function formatRegistryError(error: unknown): string {
   if (error instanceof RegistryApiError) {
-    const parts = [error.message];
+    const parts = [ownerFacingErrorMessage(error.message)];
     if (error.registryCode) {
       parts.push(`(${error.registryCode})`);
     }

@@ -274,6 +274,78 @@ test("admin can read registry endpoints but cannot mutate them", () => {
     }),
     true,
   );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "GET",
+      path: "api/v1/admin/operations-registry/lead-sources",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/operations-registry/lead-source-setups/preview",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/operations-registry/lead-source-setups",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "owner",
+      method: "POST",
+      path: "api/v1/admin/operations-registry/lead-source-setups",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/granot-crm-sources",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "owner",
+      method: "POST",
+      path: "api/v1/admin/granot-crm-sources",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/source-label-resolution/preview",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/source-label-mappings",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "owner",
+      method: "POST",
+      path: "api/v1/admin/source-label-mappings",
+    }),
+    true,
+  );
 });
 
 

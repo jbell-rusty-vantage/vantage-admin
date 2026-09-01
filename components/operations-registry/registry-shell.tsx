@@ -1,6 +1,7 @@
 "use client";
 
 import type { KeyboardEvent } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
@@ -15,17 +16,18 @@ import { RegistryChanges } from "./registry-changes";
 import { RegistryOverview } from "./registry-overview";
 import { RingCentralRoutesManager } from "./ringcentral/routes-list";
 import { GranotCrmSourcesManager } from "./granot-crm-sources-manager";
-import { SourceCompaniesManager } from "./source-companies-manager";
-import { REGISTRY_TABS, type RegistryTab } from "./registry-tabs";
+import { LeadSourcesManager } from "./lead-sources/lead-sources-manager";
+import {
+  isLegacyRegistryTab,
+  parseRegistryTab,
+  REGISTRY_TABS,
+  type RegistryTab,
+} from "./registry-tabs";
 
 export type { RegistryTab };
 export { REGISTRY_TABS };
 
 const TABS = REGISTRY_TABS;
-
-function parseTab(value: string | null): RegistryTab {
-  return (TABS.some((tab) => tab.id === value) ? value : "overview") as RegistryTab;
-}
 
 function panelId(tab: RegistryTab) {
   return `registry-panel-${tab}`;
@@ -40,7 +42,8 @@ export function RegistryShell() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const role = useDashboardRole();
-  const activeTab = parseTab(searchParams.get("tab"));
+  const rawTab = searchParams.get("tab");
+  const activeTab = parseRegistryTab(rawTab);
   const readOnly = role !== "owner";
 
   function selectTab(tab: RegistryTab) {
@@ -51,6 +54,14 @@ export function RegistryShell() {
     const query = params.toString();
     router.push(query ? `${pathname}?${query}` : pathname);
   }
+
+  useEffect(() => {
+    if (isLegacyRegistryTab(rawTab)) {
+      selectTab(activeTab);
+    }
+    // Redirect once when an old ?tab= value is present.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawTab]);
 
   function onTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft" && event.key !== "Home" && event.key !== "End") {
@@ -76,9 +87,9 @@ export function RegistryShell() {
       <div>
         <h1 className="text-2xl font-semibold text-navy">Operations Registry</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Owner-managed catalog of agents, merchants, source companies, granularities, Granot CRM
-          sources, RingCentral queue numbers, moving carriers, and CPL schedules. Legacy CPL is a
-          read-only compatibility view. Changes are audited and dependency-aware.
+          Owner-managed catalog of agents, merchants, lead sources, Granot names, inbound numbers,
+          moving carriers, and lead costs. Legacy CPL is a read-only compatibility view. Changes are
+          audited and dependency-aware.
         </p>
       </div>
 
@@ -127,17 +138,17 @@ export function RegistryShell() {
         {activeTab === "overview" ? <RegistryOverview /> : null}
         {activeTab === "agents" ? <AgentsManager readOnly={readOnly} /> : null}
         {activeTab === "merchants" ? <MerchantsManager readOnly={readOnly} /> : null}
-        {activeTab === "sources" ? <SourceCompaniesManager readOnly={readOnly} /> : null}
-        {activeTab === "granot-sources" ? <GranotCrmSourcesManager readOnly={readOnly} /> : null}
-        {activeTab === "ringcentral" ? <RingCentralRoutesManager readOnly={readOnly} /> : null}
+        {activeTab === "lead-sources" ? <LeadSourcesManager readOnly={readOnly} /> : null}
+        {activeTab === "granot-names" ? <GranotCrmSourcesManager readOnly={readOnly} /> : null}
+        {activeTab === "inbound-numbers" ? <RingCentralRoutesManager readOnly={readOnly} /> : null}
         {activeTab === "moving-carriers" ? <CarrierManager readOnly={readOnly} /> : null}
-        {activeTab === "cpl" ? <CplManager readOnly={readOnly} /> : null}
+        {activeTab === "lead-costs" ? <CplManager readOnly={readOnly} /> : null}
         {activeTab === "legacy-cpl" ? (
           <div className="space-y-3">
             <FeedbackMessage tone="warning">
               Legacy CPL rates are compatibility-only. Prefer{" "}
-              <Link href="/operations-registry?tab=cpl" className="font-medium underline">
-                Operations Registry → CPL
+              <Link href="/operations-registry?tab=lead-costs" className="font-medium underline">
+                Operations Registry → Lead costs
               </Link>{" "}
               for schedule edits and corrections.
             </FeedbackMessage>

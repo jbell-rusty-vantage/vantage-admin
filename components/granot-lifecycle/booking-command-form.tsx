@@ -185,13 +185,10 @@ export function BookingCommandForm({
           </div>
         ) : null}
 
-        <fieldset className="grid gap-3 sm:grid-cols-2" disabled={reviewing || submitting}>
+        <fieldset className="grid gap-3 sm:grid-cols-2 md:grid-cols-3" disabled={reviewing || submitting}>
           <legend className="sr-only">Official booking details</legend>
           <FilterField label="Book Date">
             <Input id="granot-book-date" type="date" value={bookDate} onChange={(event) => setBookDate(event.target.value)} />
-          </FilterField>
-          <FilterField label="Deposit Amount">
-            <Input id="granot-deposit" inputMode="decimal" value={deposit} onChange={(event) => setDeposit(event.target.value)} />
           </FilterField>
           <OfficialBinderAgentsFields
             idPrefix="granot"
@@ -202,6 +199,11 @@ export function BookingCommandForm({
             onPrimaryAgentChange={setPrimaryAgentId}
             onSecondaryAgentChange={setSecondaryAgentId}
             agents={agents}
+            afterBinder={
+              <FilterField label="Deposit Amount">
+                <Input id="granot-deposit" inputMode="decimal" value={deposit} onChange={(event) => setDeposit(event.target.value)} />
+              </FilterField>
+            }
           />
           <FilterField label="Active Merchant">
             <select

@@ -43,11 +43,14 @@ const REGISTRY_OWNER_MUTATION_PREFIXES = [
   "/api/v1/admin/ingestion",
   "/api/v1/admin/granot-automation",
   "/api/v1/admin/granot-crm-sources",
+  "/api/v1/admin/source-label-mappings",
 ] as const;
 
 /** Read-style POSTs that admins may call. CPL correction preview is Owner-only. */
 const REGISTRY_READ_PREVIEW_POST_PATHS = new Set([
   "/api/v1/admin/source-resolution/preview",
+  "/api/v1/admin/source-label-resolution/preview",
+  "/api/v1/admin/operations-registry/lead-source-setups/preview",
   "/api/v1/admin/ingestion/connections/best-relocation/inspect",
 ]);
 

@@ -48,8 +48,8 @@ export function RouteDraftCreateForm({
           required
         />
       </FilterField>
-      <FilterField label="Display label">
-        <Input name="display_label" placeholder="Queue / campaign label" required />
+      <FilterField label="Number nickname">
+        <Input name="display_label" placeholder="How you recognize this number" required />
       </FilterField>
       <FilterField label="Reason (optional)">
         <Input name="reason" placeholder="Audit reason" />
@@ -60,8 +60,9 @@ export function RouteDraftCreateForm({
         </Button>
       </FilterField>
       <p className="md:col-span-4 text-xs text-muted-foreground">
-        Drafts start inactive and unvalidated. The server normalizes the phone number; submit the
-        value as entered and use the canonical number returned after save.
+        Only helps you recognize this number in Vantage. It does not decide where the call goes.
+        Saving a draft is unfinished until the number is checked against RingCentral and mapped to a
+        call feed.
       </p>
     </form>
   );
@@ -98,7 +99,7 @@ export function RouteEditor({
           ) : null}
         </p>
         <p>
-          <span className="text-muted-foreground">Label:</span> {route.display_label}
+          <span className="text-muted-foreground">Number nickname:</span> {route.display_label}
         </p>
       </div>
     );
@@ -124,8 +125,11 @@ export function RouteEditor({
           </p>
         )}
       </FilterField>
-      <FilterField label="Display label">
+      <FilterField label="Number nickname">
         <Input value={displayLabel} onChange={(event) => setDisplayLabel(event.target.value)} />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Only helps you recognize this number in Vantage. It does not decide where the call goes.
+        </p>
       </FilterField>
       <FilterField label="Reason (optional)">
         <Input value={reason} onChange={(event) => setReason(event.target.value)} />

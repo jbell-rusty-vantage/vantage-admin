@@ -126,6 +126,16 @@ test("operations registry query keys nest under a shared root", () => {
     queryKeys.operationsRegistry.granotCrmSources()[0],
     queryKeys.operationsRegistry.all[0],
   );
+  assert.deepEqual(queryKeys.operationsRegistry.leadSources(), [
+    "operations-registry",
+    "lead-sources",
+  ]);
+  assert.deepEqual(queryKeys.operationsRegistry.leadSourceDetail("ls1"), [
+    "operations-registry",
+    "lead-sources",
+    "detail",
+    "ls1",
+  ]);
 });
 
 test("booking reconciliation queue pages and filters have isolated cache keys", () => {

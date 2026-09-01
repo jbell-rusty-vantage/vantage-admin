@@ -192,11 +192,10 @@ export function RingCentralRoutesManager({ readOnly }: { readOnly: boolean }) {
     <div className="space-y-5">
       <Card>
         <CardHeader>
-          <CardTitle>RingCentral Queue Numbers</CardTitle>
+          <CardTitle>Inbound numbers</CardTitle>
           <CardDescription>
-            Draft, validate, activate, and reassign inbound phone identities against first-class call
-            Source Granularities. Qualification duration remains the global 120-second policy and is
-            not configured per route.
+            Save a number, prove it exists in RingCentral, choose the call feed, then activate.
+            The nickname never decides where the call goes.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

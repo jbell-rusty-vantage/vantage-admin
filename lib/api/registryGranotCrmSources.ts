@@ -24,8 +24,11 @@ export type GranotCrmSourceOutboundSms = {
   body_template: string;
   template_version: number;
   consent_basis: OutboundSmsConsentBasis;
-  daily_cap: number;
+  /** Stored only. Removed from the Owner contract — do not show as a working control. */
+  daily_cap?: number;
 };
+
+export type OwnerGranotCrmSourceOutboundSms = Omit<GranotCrmSourceOutboundSms, "daily_cap">;
 
 export type GranotCrmSourceRecentSms = {
   id: string;

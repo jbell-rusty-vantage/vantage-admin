@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { FilterField } from "@/components/filters/filter-field";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/components/data-table/formatters";
@@ -16,6 +17,7 @@ export function OfficialBinderAgentsFields({
   onPrimaryAgentChange,
   onSecondaryAgentChange,
   agents,
+  afterBinder,
 }: {
   idPrefix: string;
   binder: string;
@@ -25,6 +27,7 @@ export function OfficialBinderAgentsFields({
   onPrimaryAgentChange: (value: string) => void;
   onSecondaryAgentChange: (value: string) => void;
   agents: Array<{ id: string; name: string }>;
+  afterBinder?: ReactNode;
 }) {
   const primary = agents.find((item) => item.id === primaryAgentId);
   const secondary = agents.find((item) => item.id === secondaryAgentId);
@@ -42,6 +45,7 @@ export function OfficialBinderAgentsFields({
           onChange={(event) => onBinderChange(event.target.value)}
         />
       </FilterField>
+      {afterBinder}
       <FilterField label="Primary Agent">
         <select
           id={`${idPrefix}-primary-agent`}

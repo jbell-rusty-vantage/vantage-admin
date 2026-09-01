@@ -14,6 +14,7 @@ import { fetchRegistryHealth, fetchRegistryOverview } from "@/lib/api/operations
 import { formatRegistryError } from "@/lib/api/registryRequest";
 import { queryKeys } from "@/lib/query/keys";
 import { cn } from "@/lib/utils";
+import { CompatibilityObservationStatement } from "./compatibility-observation-statement";
 import { RegistryHealthFindings } from "./registry-health-findings";
 
 function MetricCard({
@@ -77,6 +78,13 @@ export function RegistryOverview() {
   const counts = overview.counts;
   const errorCount = health.findings.filter((finding) => finding.severity === "error").length;
   const warnCount = health.findings.filter((finding) => finding.severity === "warn").length;
+  const compatibilityFinding = health.findings.find(
+    (finding) => finding.code === "registry.compatibility_reads_remaining",
+  );
+  const remainingReads =
+    typeof compatibilityFinding?.evidence?.read_count === "number"
+      ? compatibilityFinding.evidence.read_count
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -118,22 +126,22 @@ export function RegistryOverview() {
           href="/operations-registry?tab=merchants"
         />
         <MetricCard
-          label="Source companies"
+          label="Lead sources"
           active={counts.source_companies_active}
           total={counts.source_companies_total}
-          href="/operations-registry?tab=sources"
+          href="/operations-registry?tab=lead-sources"
         />
         <MetricCard
-          label="Granularities"
+          label="Feeds"
           active={counts.source_granularities_active}
           total={counts.source_granularities_total}
-          href="/operations-registry?tab=sources"
+          href="/operations-registry?tab=lead-sources"
         />
         <MetricCard
-          label="RingCentral routes"
+          label="Inbound numbers"
           active={counts.ringcentral_routes_active}
           total={counts.ringcentral_routes_total}
-          href="/operations-registry?tab=ringcentral"
+          href="/operations-registry?tab=inbound-numbers"
         />
         <MetricCard
           label="Registry changes"
@@ -186,6 +194,7 @@ export function RegistryOverview() {
             View change history
           </Link>
         </div>
+        <CompatibilityObservationStatement remainingReads={remainingReads} />
         <RegistryHealthFindings findings={health.findings} />
       </section>
     </div>

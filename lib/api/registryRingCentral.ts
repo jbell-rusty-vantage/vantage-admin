@@ -9,6 +9,11 @@ export type RingCentralRouteAssignment = {
   route_id: string;
   source_company_id: string;
   source_granularity_id: string;
+  lead_source_name?: string;
+  lead_source_company_slug?: string;
+  feed_display_name?: string;
+  granularity_key?: string;
+  channel?: "form" | "call";
   effective_from: string;
   effective_until?: string;
   active: boolean;

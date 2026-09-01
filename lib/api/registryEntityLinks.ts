@@ -96,47 +96,47 @@ export function registryEntityHref(
     case "source_company":
       return {
         href: id
-          ? `/operations-registry?tab=sources&entity=${id}`
-          : "/operations-registry?tab=sources",
-        label: id ? "Open source company" : "Open sources",
+          ? `/operations-registry?tab=lead-sources&entity=${id}`
+          : "/operations-registry?tab=lead-sources",
+        label: id ? "Open lead source" : "Open lead sources",
       };
     case "source_granularity":
       return {
         href: id
-          ? `/operations-registry?tab=sources&granularity=${id}`
-          : "/operations-registry?tab=sources",
-        label: id ? "Open granularity" : "Open sources",
+          ? `/operations-registry?tab=lead-sources&feed=${id}`
+          : "/operations-registry?tab=lead-sources",
+        label: id ? "Open feed" : "Open lead sources",
       };
     case "cpl_schedule":
       return {
         href: id
-          ? `/operations-registry?tab=cpl&cpl_mode=advanced&entity=${id}`
-          : "/operations-registry?tab=cpl&cpl_mode=advanced",
-        label: id ? "Open CPL schedule" : "Open CPL",
+          ? `/operations-registry?tab=lead-costs&cpl_mode=advanced&entity=${id}`
+          : "/operations-registry?tab=lead-costs&cpl_mode=advanced",
+        label: id ? "Open lead cost schedule" : "Open lead costs",
       };
     case "cpl_correction_job":
     case "cpl_correction":
       return {
         href: id
-          ? `/operations-registry?tab=cpl&cpl_mode=corrections&entity=${id}`
-          : "/operations-registry?tab=cpl&cpl_mode=corrections",
-        label: id ? "Open correction job" : "Open CPL corrections",
+          ? `/operations-registry?tab=lead-costs&cpl_mode=corrections&entity=${id}`
+          : "/operations-registry?tab=lead-costs&cpl_mode=corrections",
+        label: id ? "Open correction job" : "Open lead cost corrections",
       };
     case "ringcentral_route":
     case "ringcentral_assignment":
       return {
         href: id
-          ? `/operations-registry?tab=ringcentral&entity=${id}`
-          : "/operations-registry?tab=ringcentral",
-        label: id ? "Open RingCentral route" : "Open RingCentral",
+          ? `/operations-registry?tab=inbound-numbers&entity=${id}`
+          : "/operations-registry?tab=inbound-numbers",
+        label: id ? "Open inbound number" : "Open inbound numbers",
       };
     case "granot_crm_source":
     case "granot_automation_source":
       return {
         href: id
-          ? `/operations-registry?tab=granot-sources&entity=${id}`
-          : "/operations-registry?tab=granot-sources",
-        label: id ? "Open Granot source" : "Open Granot sources",
+          ? `/operations-registry?tab=granot-names&entity=${id}`
+          : "/operations-registry?tab=granot-names",
+        label: id ? "Open Granot name" : "Open Granot names",
       };
     case "registry":
     case "registry_cache":
@@ -174,50 +174,50 @@ export function remediationTarget(
   switch (action) {
     case "edit_cpl_schedule":
       return {
-        href: entity?.href ?? "/operations-registry?tab=cpl&cpl_mode=advanced",
-        label: "Edit CPL schedule",
+        href: entity?.href ?? "/operations-registry?tab=lead-costs&cpl_mode=advanced",
+        label: "Edit lead cost schedule",
         ownerActionable: true,
         reviewGuidance: null,
       };
     case "preview_cpl_correction":
       return {
-        href: "/operations-registry?tab=cpl&cpl_mode=corrections",
-        label: "Preview CPL correction",
+        href: "/operations-registry?tab=lead-costs&cpl_mode=corrections",
+        label: "Preview lead cost correction",
         ownerActionable: true,
         reviewGuidance: null,
       };
     case "review_cpl_correction_jobs":
       return {
-        href: entity?.href ?? "/operations-registry?tab=cpl&cpl_mode=corrections",
+        href: entity?.href ?? "/operations-registry?tab=lead-costs&cpl_mode=corrections",
         label: "Review correction jobs",
         ownerActionable: true,
         reviewGuidance: null,
       };
     case "validate_ringcentral_route":
       return {
-        href: entity?.href ?? "/operations-registry?tab=ringcentral",
-        label: "Validate RingCentral route",
+        href: entity?.href ?? "/operations-registry?tab=inbound-numbers",
+        label: "Check this number against RingCentral",
         ownerActionable: true,
         reviewGuidance: null,
       };
     case "edit_ringcentral_route":
       return {
-        href: entity?.href ?? "/operations-registry?tab=ringcentral",
-        label: "Edit RingCentral route",
+        href: entity?.href ?? "/operations-registry?tab=inbound-numbers",
+        label: "Edit inbound number",
         ownerActionable: true,
         reviewGuidance: null,
       };
     case "reassign_ringcentral_route":
       return {
-        href: entity?.href ?? "/operations-registry?tab=ringcentral",
-        label: "Reassign RingCentral route",
+        href: entity?.href ?? "/operations-registry?tab=inbound-numbers",
+        label: "File calls under a different feed",
         ownerActionable: true,
         reviewGuidance: null,
       };
     case "set_source_default":
       return {
-        href: entity?.href ?? "/operations-registry?tab=sources",
-        label: "Set source default",
+        href: entity?.href ?? "/operations-registry?tab=lead-sources",
+        label: "Set the default feed",
         ownerActionable: true,
         reviewGuidance: null,
       };
@@ -226,8 +226,8 @@ export function remediationTarget(
     case "resolve_exact_identifier_conflict":
     case "resolve_fallback_priority_conflict":
       return {
-        href: entity?.href ?? "/operations-registry?tab=sources",
-        label: "Review sources",
+        href: entity?.href ?? "/operations-registry?tab=lead-sources",
+        label: "Review lead sources",
         ownerActionable: true,
         reviewGuidance: null,
       };

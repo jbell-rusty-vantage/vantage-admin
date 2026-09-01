@@ -241,6 +241,9 @@ export const queryKeys = {
       [...queryKeys.operationsRegistry.all, "granot-crm-sources"] as const,
     granotCrmSourceDetail: (id: string) =>
       [...queryKeys.operationsRegistry.all, "granot-crm-sources", "detail", id] as const,
+    leadSources: () => [...queryKeys.operationsRegistry.all, "lead-sources"] as const,
+    leadSourceDetail: (id: string) =>
+      [...queryKeys.operationsRegistry.all, "lead-sources", "detail", id] as const,
   },
   observability: {
     all: ["observability"] as const,
