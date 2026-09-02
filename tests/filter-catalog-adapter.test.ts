@@ -99,16 +99,19 @@ test("listed lead and analytics surfaces do not import hardcoded source maps", (
 });
 
 test("lead browse and edit submit source_granularity_key as the one Source Company control", () => {
-  const operational = readFileSync(join(root, "components/operational/operational-resource-page.tsx"), "utf8");
+  const configs = readFileSync(join(root, "components/operational/operational-configs.ts"), "utf8");
+  const filters = readFileSync(join(root, "components/operational/operational-filter-panel.tsx"), "utf8");
+  const detail = readFileSync(join(root, "components/operational/operational-detail-panel.tsx"), "utf8");
+  const operational = `${configs}\n${filters}\n${detail}`;
   const analytics = readFileSync(join(root, "components/analytics/analytics-dashboard.tsx"), "utf8");
 
-  assert.match(operational, /key: "source_granularity_key",\s*label: "Source Company"/);
+  assert.match(configs, /key: "source_granularity_key",\s*label: "Source Company"/);
   assert.doesNotMatch(operational, /hasOption\(field, "tbm_leads"\)/);
   assert.doesNotMatch(operational, /FORM_LEAD_SOURCE_LABEL_OPTIONS|CALL_LEAD_SOURCE_LABEL_OPTIONS/);
-  assert.match(operational, /payload\[field\.key\] = raw/);
-  assert.match(operational, /name=\{field\.key\}/);
+  assert.match(detail, /payload\[field\.key\] = raw/);
+  assert.match(detail, /name=\{field\.key\}/);
   assert.match(
-    operational,
+    filters,
     /source_granularity_key: value,\s*source_company: null/,
   );
 

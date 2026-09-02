@@ -21,12 +21,16 @@ test("JobTimelineDeepLink is URL-only and omits empty Job Numbers", () => {
 });
 
 test("operational list/detail Job cells use the owner timeline href", () => {
-  const source = readFileSync(
-    path.join(process.cwd(), "components/operational/operational-resource-page.tsx"),
+  const columns = readFileSync(
+    path.join(process.cwd(), "components/operational/operational-columns.tsx"),
     "utf8",
   );
-  assert.match(source, /JobTimelineDeepLink/);
-  assert.match(source, /column\.path === "job_no"/);
-  assert.match(source, /path: "job_no"/);
-  assert.equal((source.match(/path: "job_no"/g) ?? []).length >= 4, true);
+  const configs = readFileSync(
+    path.join(process.cwd(), "components/operational/operational-configs.ts"),
+    "utf8",
+  );
+  assert.match(columns, /JobTimelineDeepLink/);
+  assert.match(columns, /column\.path === "job_no"/);
+  assert.match(configs, /path: "job_no"/);
+  assert.equal((configs.match(/path: "job_no"/g) ?? []).length >= 4, true);
 });

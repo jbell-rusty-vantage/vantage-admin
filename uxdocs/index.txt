@@ -48,9 +48,9 @@ Start here for Job Timeline Enhancement (Admin): HANDOFF-job-timeline-enhancemen
   — orientation for JTE-04 / JTE-05. Do not start until JTE-03 is complete
     on the server. Contract: vantage-main-server/docs/job-number-timeline/.
 
-Start here for operational surfaces (Admin): HANDOFF-operational-surfaces.md
-  — orientation for OSE-01–05. Keep OperationalResourcePage. Tab the
-    detail panel, cluster row actions, group filters, remove JSON.
+Live: operational surfaces (Admin) — HANDOFF-operational-surfaces.md
+  — OSE-01–05 shipped. Keep OperationalResourcePage. Tabbed
+    detail panel, clustered row actions, grouped filters, no JSON.
     Contract: vantage-main-server/docs/operational-surfaces/.
     21st.dev allowed for the four named shells only. Not Daily View.
 

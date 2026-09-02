@@ -1,16 +1,31 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, parseDatabaseScope, parseTableQueryParams } from "./filters";
 import type { DatabaseScope, SortDirection, TableQueryParams } from "./types";
+import { applyUrlStateUpdate, type UrlStateUpdate } from "./url-state-update";
 
-export type UrlStateUpdate = Record<string, string | number | boolean | null | undefined>;
+export type { UrlStateUpdate };
+export { applyUrlStateUpdate };
 
 export function useUrlTableState(defaults: Partial<TableQueryParams> = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const latestQueryRef = useRef(searchParams.toString());
+  const pendingPushRef = useRef(false);
+
+  useEffect(() => {
+    const current = searchParams.toString();
+    if (current === latestQueryRef.current) {
+      pendingPushRef.current = false;
+      return;
+    }
+    if (!pendingPushRef.current) {
+      latestQueryRef.current = current;
+    }
+  }, [searchParams]);
 
   const filters = useMemo(() => {
     const params = new URLSearchParams(searchParams.toString());
@@ -26,24 +41,13 @@ export function useUrlTableState(defaults: Partial<TableQueryParams> = {}) {
 
   const update = useCallback(
     (next: UrlStateUpdate, options: { resetPage?: boolean } = { resetPage: true }) => {
-      const params = new URLSearchParams(searchParams.toString());
-
-      if (options.resetPage) {
-        params.set("page", "1");
-      }
-
-      for (const [key, value] of Object.entries(next)) {
-        if (value === undefined || value === null || value === "") {
-          params.delete(key);
-        } else {
-          params.set(key, String(value));
-        }
-      }
-
+      const params = applyUrlStateUpdate(latestQueryRef.current, next, options);
       const query = params.toString();
+      latestQueryRef.current = query;
+      pendingPushRef.current = true;
       router.push(query ? `${pathname}?${query}` : pathname);
     },
-    [pathname, router, searchParams],
+    [pathname, router],
   );
 
   const setSort = useCallback(
@@ -81,6 +85,8 @@ export function useUrlTableState(defaults: Partial<TableQueryParams> = {}) {
       params.set("database_scope", String(scope));
     }
     const query = params.toString();
+    latestQueryRef.current = query;
+    pendingPushRef.current = true;
     router.push(query ? `${pathname}?${query}` : pathname);
   }, [defaults.database_scope, pathname, router, searchParams]);
 

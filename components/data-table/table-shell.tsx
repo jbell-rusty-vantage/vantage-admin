@@ -12,7 +12,7 @@ export type DataTableColumn<TItem> = {
   headerClassName?: string;
   cellClassName?: string;
   truncate?: boolean;
-  sticky?: "left";
+  sticky?: "left" | "right";
 };
 
 export function DataTable<TItem>({
@@ -20,6 +20,7 @@ export function DataTable<TItem>({
   columns,
   getRowKey,
   onRowClick,
+  isRowSelected,
   className,
   stickyHeader = false,
   compact = false,
@@ -29,6 +30,7 @@ export function DataTable<TItem>({
   columns: DataTableColumn<TItem>[];
   getRowKey: (item: TItem) => string;
   onRowClick?: (item: TItem) => void;
+  isRowSelected?: (item: TItem) => boolean;
   className?: string;
   stickyHeader?: boolean;
   compact?: boolean;
@@ -82,6 +84,29 @@ export function DataTable<TItem>({
   }, []);
 
   const showControls = horizontalControls && (scrollState.canScrollLeft || scrollState.canScrollRight);
+  const stickyRightOffset = showControls ? "right-16" : "right-0";
+
+  function stickyColumnClass(sticky: DataTableColumn<TItem>["sticky"], selected: boolean, isHeader: boolean) {
+    if (sticky === "left") {
+      return cn(
+        "sticky left-0",
+        isHeader ? "z-30 bg-muted" : cn("z-10", selected ? "bg-primary/10" : "bg-background group-hover:bg-muted"),
+      );
+    }
+    if (sticky === "right") {
+      return cn(
+        "sticky",
+        stickyRightOffset,
+        isHeader
+          ? "z-30 bg-muted shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.18)]"
+          : cn(
+              "z-20 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.12)]",
+              selected ? "bg-primary/10" : "bg-background group-hover:bg-muted",
+            ),
+      );
+    }
+    return undefined;
+  }
 
   return (
     <div className={cn("relative overflow-hidden rounded-lg border bg-background", className)}>
@@ -106,7 +131,7 @@ export function DataTable<TItem>({
                   className={cn(
                     compact ? "px-3 py-2" : "px-4 py-3",
                     "font-medium",
-                    column.sticky === "left" ? "sticky left-0 z-30 bg-muted" : undefined,
+                    stickyColumnClass(column.sticky, false, true),
                     column.className,
                     column.headerClassName,
                   )}
@@ -127,13 +152,17 @@ export function DataTable<TItem>({
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {items.map((item) => {
+              const selected = isRowSelected?.(item) === true;
+              return (
               <tr
                 key={getRowKey(item)}
+                aria-selected={selected}
                 onClick={() => onRowClick?.(item)}
                 className={cn(
                   "group border-t",
                   onRowClick ? "cursor-pointer hover:bg-muted/50" : undefined,
+                  selected ? "bg-primary/10" : undefined,
                 )}
               >
                 {columns.map((column) => (
@@ -142,7 +171,7 @@ export function DataTable<TItem>({
                     className={cn(
                       compact ? "px-3 py-2" : "px-4 py-3",
                       "align-top",
-                      column.sticky === "left" ? "sticky left-0 z-10 bg-background group-hover:bg-muted" : undefined,
+                      stickyColumnClass(column.sticky, selected, false),
                       column.className,
                       column.cellClassName,
                     )}
@@ -156,7 +185,8 @@ export function DataTable<TItem>({
                   <td
                     className={cn(
                       compact ? "px-2 py-2" : "px-3 py-3",
-                      "sticky right-0 z-20 w-px bg-background align-top group-hover:bg-muted",
+                      "sticky right-0 z-30 w-px align-top",
+                      selected ? "bg-primary/10" : "bg-background group-hover:bg-muted",
                     )}
                     onClick={(event) => event.stopPropagation()}
                   >
@@ -184,7 +214,8 @@ export function DataTable<TItem>({
                   </td>
                 ) : null}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

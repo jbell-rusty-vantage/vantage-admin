@@ -93,7 +93,7 @@ test("differing snapshot shows Changed in Granot and keeps the Form submitted na
 
 test("operational form lead edit fields omit snapshot keys", () => {
   const source = readFileSync(
-    path.join(process.cwd(), "components/operational/operational-resource-page.tsx"),
+    path.join(process.cwd(), "components/operational/operational-configs.ts"),
     "utf8",
   );
   const editBlock = source.slice(
