@@ -129,7 +129,15 @@ const truncateTableColumns = new Set([
   "merchant",
   "reason",
   "by",
+  "ref",
 ]);
+
+const statusAfterColumnByResource: Partial<Record<UiResource, string>> = {
+  "form-leads": "source",
+  "duplicate-form-leads": "source",
+  "call-leads": "source",
+  "duplicate-call-leads": "source",
+};
 
 function getTableColumnClassName(column: ColumnConfig): string | undefined {
   switch (column.key) {
@@ -140,17 +148,18 @@ function getTableColumnClassName(column: ColumnConfig): string | undefined {
       return "min-w-28";
     case "name":
     case "customer":
-      return "min-w-44";
+      return "min-w-36";
     case "granot_contact":
       return "min-w-36";
     case "source":
     case "merchant":
     case "move":
     case "reason":
-      return "min-w-40";
-    case "ref":
-    case "job":
       return "min-w-36";
+    case "ref":
+      return "max-w-28 min-w-24";
+    case "job":
+      return "min-w-28";
     case "binder":
     case "deposit":
     case "refund":
@@ -188,6 +197,9 @@ function StatusChipsCell({ record, resource }: { record: AdminRecord; resource: 
   );
 }
 
+const clusterControlClass =
+  "inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-[11px] font-semibold";
+
 function ActionsClusterCell({
   record,
   resource,
@@ -207,14 +219,14 @@ function ActionsClusterCell({
   const copy = OPERATIONAL_COPY.row;
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
+    <div className="inline-flex flex-nowrap items-center justify-center gap-1" onClick={(event) => event.stopPropagation()}>
       {cluster.book ? (
         <Link
           href={`/bookings/new?${getBookingQuery(resource, record)}`}
           onClick={(event) => event.stopPropagation()}
-          className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-primary px-3 text-xs font-semibold text-white hover:bg-navy hover:text-white"
+          className={`${clusterControlClass} bg-primary text-white hover:bg-navy hover:text-white`}
         >
-          <PlusCircle className="h-3.5 w-3.5" aria-hidden="true" />
+          <PlusCircle className="h-3 w-3" aria-hidden="true" />
           {copy.book}
         </Link>
       ) : null}
@@ -226,16 +238,16 @@ function ActionsClusterCell({
         <Link
           href={`/cancellations/new?${getCancellationQuery(resource, record)}`}
           onClick={(event) => event.stopPropagation()}
-          className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-input bg-background px-3 text-xs font-semibold hover:bg-muted"
+          className={`${clusterControlClass} border border-input bg-background hover:bg-muted`}
         >
-          <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+          <XCircle className="h-3 w-3" aria-hidden="true" />
           {copy.cancel}
         </Link>
       ) : null}
       {cluster.delete && (resource === "bookings" || resource === "cancellations") ? (
         <Button
           variant="destructive"
-          className="h-8 gap-1 px-3 text-xs"
+          className="h-7 w-7 px-0"
           onClick={(event) => {
             event.stopPropagation();
             onRequestDelete({ resource, record });
@@ -243,7 +255,6 @@ function ActionsClusterCell({
           aria-label={`Delete ${resource === "bookings" ? "booking" : "cancellation"}`}
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-          {copy.delete}
         </Button>
       ) : null}
     </div>
@@ -290,15 +301,18 @@ export function buildColumns(
     }));
 
   if (resourceShowsStatusChips(resource)) {
-    const identityIndex = columns.findIndex((column) => isIdentityColumnKey(resource, column.key));
+    const afterKey = statusAfterColumnByResource[resource];
+    const afterIndex = afterKey
+      ? columns.findIndex((column) => column.key === afterKey)
+      : columns.findIndex((column) => isIdentityColumnKey(resource, column.key));
     const statusColumn: DataTableColumn<AdminRecord> = {
       key: "__status",
       header: OPERATIONAL_COPY.row.status,
-      className: "min-w-36",
+      className: "min-w-32",
       cell: (item) => <StatusChipsCell record={item} resource={resource} />,
     };
-    if (identityIndex >= 0) {
-      columns.splice(identityIndex + 1, 0, statusColumn);
+    if (afterIndex >= 0) {
+      columns.splice(afterIndex + 1, 0, statusColumn);
     } else {
       columns.unshift(statusColumn);
     }
@@ -308,9 +322,9 @@ export function buildColumns(
     columns.push({
       key: "__actions",
       header: OPERATIONAL_COPY.row.actions,
-      className: "min-w-40",
-      headerClassName: "text-right",
-      cellClassName: "text-right",
+      className: "w-px whitespace-nowrap border-l-2 border-steel-200 px-1.5 tracking-normal",
+      headerClassName: "text-center",
+      cellClassName: "text-center align-middle",
       sticky: "right",
       cell: (item) => (
         <ActionsClusterCell

@@ -37,7 +37,7 @@ export function GranotNavigationLinks({ pathname }: { pathname: string }) {
               aria-current={active ? "page" : undefined}
               className={cn(
                 "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors",
-                active ? "bg-primary text-white" : "text-navy hover:bg-steel-100",
+                active ? "bg-primary text-white" : "text-steel hover:bg-steel-100 hover:text-navy",
               )}
             >
               {tab.label}

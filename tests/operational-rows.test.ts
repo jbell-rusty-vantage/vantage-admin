@@ -92,6 +92,7 @@ test("rowStatusChips shows Form Lead chips only when set, with Owner labels", ()
   assert.equal(OPERATIONAL_COPY.row.booked, "Booked");
   assert.equal(OPERATIONAL_COPY.row.cancelled, "Cancelled");
   assert.equal(OPERATIONAL_COPY.row.badLead, "Bad Lead");
+  assert.equal(OPERATIONAL_COPY.row.badLeadAction, "Bad");
   assert.equal(OPERATIONAL_COPY.row.leadMessageSent, "Lead Message sent");
   assert.doesNotMatch(OPERATIONAL_COPY.row.leadMessageSent, /text message|SMS/i);
   assert.doesNotMatch(OPERATIONAL_COPY.row.badLead, /Bad Call/);
@@ -212,16 +213,17 @@ test("buildColumns does not prepend action columns", () => {
     }
   }
 
-  assert.equal(formKeys[0], "timestamp");
-  assert.equal(formKeys.includes("name"), true);
+  assert.deepEqual(formKeys.slice(0, 6), ["timestamp", "name", "ref", "job", "source", "__status"]);
   assert.equal(formKeys.includes("phone"), false);
   assert.equal(formKeys.includes("booked"), false);
-  assert.equal(formKeys.includes("__status"), true);
   assert.equal(formKeys.at(-1), "__actions");
+  assert.equal(operationalConfigs["form-leads"].columns.find((column) => column.key === "source")?.label, "Source Company");
 
+  assert.deepEqual(callKeys.slice(0, 5), ["timestamp", "name", "job", "source", "__status"]);
   assert.equal(callKeys.includes("phone"), false);
   assert.equal(callKeys.includes("booked"), false);
   assert.equal(callKeys.at(-1), "__actions");
+  assert.equal(operationalConfigs["call-leads"].columns.find((column) => column.key === "source")?.label, "Source Company");
 
   assert.equal(bookingKeys.includes("phone"), false);
   assert.equal(bookingKeys.includes("cancelled"), false);
@@ -261,6 +263,11 @@ test("buildColumns source no longer unshifts leading action keys", () => {
   assert.match(source, /GranotContactChip/);
   assert.match(source, /StoredLeadChip/);
   assert.match(source, /sticky: "right"/);
+  assert.match(source, /border-l-2 border-steel-200/);
+  assert.match(source, /w-px whitespace-nowrap/);
+  assert.match(source, /justify-center/);
+  assert.doesNotMatch(source, /right-16/);
+  assert.doesNotMatch(source, /\{copy\.delete\}/);
   assert.doesNotMatch(source, /key: "__book"/);
   assert.doesNotMatch(source, /key: "__mark_bad"/);
   assert.doesNotMatch(source, /key: "__cancel"/);

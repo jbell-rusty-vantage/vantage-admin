@@ -116,7 +116,7 @@ export function RelatedNavLinkButton({
       onClick={(event) => event.stopPropagation()}
       className={
         compact
-          ? "inline-flex h-8 items-center justify-center gap-1 rounded-md border border-input bg-background px-3 text-xs font-semibold hover:bg-muted"
+          ? "inline-flex h-7 items-center justify-center gap-1 rounded-md border border-input bg-background px-2 text-[11px] font-semibold hover:bg-muted"
           : "inline-flex h-10 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
       }
     >

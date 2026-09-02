@@ -290,7 +290,7 @@ export function OperationalFilterPanel({
 
   return (
     <>
-      <div className="sticky top-20 z-20 rounded-lg border bg-background/95 p-3 shadow-sm backdrop-blur xl:hidden">
+      <div className="sticky top-0 z-10 rounded-lg border bg-background/95 p-3 shadow-sm backdrop-blur xl:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button variant="outline" className="gap-2" onClick={() => setMobileOpen(true)}>
             <Funnel className="h-4 w-4" aria-hidden="true" />
@@ -307,7 +307,7 @@ export function OperationalFilterPanel({
 
       <aside className="hidden xl:block">
         {collapsed ? (
-          <div className="sticky top-24 flex flex-col items-center gap-3 rounded-lg border bg-background p-2 shadow-sm">
+          <div className="sticky top-0 flex flex-col items-center gap-3 rounded-lg border bg-background p-2 shadow-sm">
             <Button
               variant="ghost"
               className="h-9 w-9 px-0"
@@ -328,7 +328,7 @@ export function OperationalFilterPanel({
             </div>
           </div>
         ) : (
-          <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-lg border bg-background p-4 shadow-sm">
+          <div className="sticky top-0 max-h-[calc(100svh-8rem)] overflow-y-auto rounded-lg border bg-background p-4 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold">Filters</h2>

@@ -81,6 +81,19 @@ export function LiveWebhookReceiptCard({ receipt }: { receipt: LiveWebhookReceip
             </p>
           </div>
           <div className="flex shrink-0 items-start gap-3">
+            {receipt.intake_link?.kind === "booking" ? (
+              <Link
+                className="inline-flex h-7 items-center rounded-md border border-trust-blue/25 bg-white px-2 text-xs font-semibold text-trust-blue hover:bg-steel-100"
+                href={intakeCaseHref(receipt.intake_link.case_id, {
+                  state: receipt.intake_link.state,
+                  job: receipt.lead.job_no ?? undefined,
+                })}
+                onClick={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                Open booking intake
+              </Link>
+            ) : null}
             <div className="text-right text-xs text-muted-foreground">
               <time dateTime={receipt.captured_at}>{formatDateTime(receipt.captured_at)}</time>
               <div className="mt-1">
@@ -97,24 +110,11 @@ export function LiveWebhookReceiptCard({ receipt }: { receipt: LiveWebhookReceip
       </summary>
       <div className="space-y-3 border-t px-4 py-3">
         <LiveWebhookLeadFacts lead={receipt.lead} />
-        {jobHref || receipt.intake_link?.kind === "booking" ? (
+        {jobHref ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            {jobHref ? (
-              <Link className="inline-flex text-sm font-medium text-trust-blue hover:underline" href={jobHref}>
-                Open job timeline
-              </Link>
-            ) : null}
-            {receipt.intake_link?.kind === "booking" ? (
-              <Link
-                className="inline-flex text-sm font-medium text-trust-blue hover:underline"
-                href={intakeCaseHref(receipt.intake_link.case_id, {
-                  state: receipt.intake_link.state,
-                  job: receipt.lead.job_no ?? undefined,
-                })}
-              >
-                Open booking intake
-              </Link>
-            ) : null}
+            <Link className="inline-flex text-sm font-medium text-trust-blue hover:underline" href={jobHref}>
+              Open job timeline
+            </Link>
           </div>
         ) : null}
         <details className="rounded-md border bg-steel-100">

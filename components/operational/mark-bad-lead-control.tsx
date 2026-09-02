@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
+import { OPERATIONAL_COPY } from "@/components/operational/operational-copy";
 import { invalidateOperationalMutations } from "@/components/operational/operational-helpers";
 import {
   getRecordId,
@@ -201,15 +202,16 @@ export function MarkBadLeadControl({
         : null;
 
     return (
-      <div ref={anchorRef} onClick={(event) => event.stopPropagation()}>
+      <div ref={anchorRef} className="inline-flex" onClick={(event) => event.stopPropagation()}>
         <Button
           type="button"
           variant={isMarkedBad ? "destructive" : "outline"}
-          className="h-8 min-w-24 gap-1 px-2 text-xs"
+          className="h-7 gap-1 px-2 text-[11px] font-semibold normal-case tracking-normal"
           onClick={() => setCompactOpen((current) => !current)}
           aria-expanded={compactOpen}
+          aria-label={isMarkedBad ? formatBadLead(currentBadLead) || "Bad Lead" : "Bad Lead"}
         >
-          <span className="max-w-28 truncate">{isMarkedBad ? formatBadLead(currentBadLead) : "Bad Lead"}</span>
+          <span className="max-w-24 truncate">{isMarkedBad ? formatBadLead(currentBadLead) : OPERATIONAL_COPY.row.badLeadAction}</span>
           <ChevronDown className="h-3 w-3" aria-hidden="true" />
         </Button>
         {compactPopover}

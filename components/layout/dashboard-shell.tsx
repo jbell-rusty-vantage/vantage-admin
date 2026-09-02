@@ -7,6 +7,7 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
 import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-local-storage-boolean";
 import { cn } from "@/lib/utils";
+import { DASHBOARD_MAIN_ID } from "./dashboard-ids";
 import { DashboardRoleProvider } from "./dashboard-role-context";
 import { DashboardNav, pageTitleForPath } from "./dashboard-nav";
 import { ScopeAwareHeaderControls } from "./scope-aware-header-controls";
@@ -46,10 +47,10 @@ export function DashboardShell({
 
   return (
     <DashboardRoleProvider role={adminRole}>
-      <div className="flex min-h-screen bg-cool-white">
+      <div className="flex h-svh overflow-hidden bg-cool-white">
       <aside
         className={cn(
-          "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-steel-200 bg-white px-2.5 py-4 shadow-sm transition-[width] duration-200 lg:flex",
+          "hidden h-full shrink-0 flex-col border-r border-steel-200 bg-white px-2.5 py-4 shadow-sm transition-[width] duration-200 lg:flex",
           collapsed ? "w-14" : "w-56",
         )}
       >
@@ -70,8 +71,8 @@ export function DashboardShell({
           <DashboardNav adminRole={adminRole} collapsed={collapsed} />
         </div>
       </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex min-h-16 items-center justify-between gap-4 border-b border-steel-200 bg-white/95 px-6 py-3 shadow-sm backdrop-blur">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="z-30 flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-steel-200 bg-white/95 px-6 py-3 shadow-sm backdrop-blur">
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <Button
               variant="ghost"
@@ -90,7 +91,7 @@ export function DashboardShell({
             <UserMenu email={adminEmail} role={adminRole} />
           </div>
         </header>
-        <main className="flex-1 p-6">
+        <main id={DASHBOARD_MAIN_ID} className="min-h-0 flex-1 overflow-y-auto p-6">
           {pageAllowed ? (
             children
           ) : (

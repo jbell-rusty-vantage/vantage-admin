@@ -9,6 +9,7 @@ import { TableEmptyState, TableErrorState, TableLoadingState } from "@/component
 import { getCommittedSearchQuery } from "@/components/filters/debounced-search-input";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
+import { DASHBOARD_MAIN_ID } from "@/components/layout/dashboard-ids";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import { DeleteConfirmationDialog } from "@/components/operational/operational-actions";
 import { buildColumns } from "@/components/operational/operational-columns";
@@ -76,17 +77,26 @@ function InfiniteTableFooter({
   );
 }
 
+function scrollRoot(): HTMLElement | Window {
+  return document.getElementById(DASHBOARD_MAIN_ID) ?? window;
+}
+
+function scrollTopOf(root: HTMLElement | Window): number {
+  return root instanceof Window ? root.scrollY : root.scrollTop;
+}
+
 function BackToTopButton() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    const root = scrollRoot();
     function onScroll() {
-      setVisible(window.scrollY > 600);
+      setVisible(scrollTopOf(root) > 600);
     }
 
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    root.addEventListener("scroll", onScroll, { passive: true });
+    return () => root.removeEventListener("scroll", onScroll);
   }, []);
 
   if (!visible) {
@@ -96,7 +106,7 @@ function BackToTopButton() {
   return (
     <Button
       className="fixed bottom-5 right-5 z-40 gap-2 shadow-lg"
-      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      onClick={() => scrollRoot().scrollTo({ top: 0, behavior: "smooth" })}
     >
       <ArrowUp className="h-4 w-4" aria-hidden="true" />
       Back to top

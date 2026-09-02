@@ -1045,6 +1045,10 @@ test("LiveWebhookReceiptCard shows Open booking intake only when intake_link is 
   assert.match(withLink, /Open job timeline/);
   assert.match(withLink, /Open booking intake/);
   assert.match(withLink, /\/intakes\?job=P5562401&amp;case=66bbbbbbbbbbbbbbbbbbbbbb/);
+  assert.ok(
+    withLink.indexOf("Open booking intake") < withLink.indexOf("Show details"),
+    "Open booking intake belongs on the collapsed Live Events row",
+  );
 });
 
 test("LiveWebhooks listens for receipt_updated and reuses the merge helper", () => {

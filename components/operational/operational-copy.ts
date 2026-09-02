@@ -83,6 +83,7 @@ export const OPERATIONAL_COPY = {
     booked: "Booked",
     cancelled: "Cancelled",
     badLead: "Bad Lead",
+    badLeadAction: "Bad",
     leadMessageSent: "Lead Message sent",
     book: "Book",
     cancel: "Cancel",

@@ -17,8 +17,22 @@ const tabs: BookingsTab[] = [
   { href: "/bookings/new", label: "Precise Booking Form" },
 ];
 
-function isActive(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`);
+const tabHrefs = tabs.map((tab) => tab.href);
+
+export function isBookingsTabActive(pathname: string, href: string): boolean {
+  const matches = (tabHref: string) =>
+    pathname === tabHref || pathname.startsWith(`${tabHref}/`);
+
+  if (!matches(href)) {
+    return false;
+  }
+
+  return !tabHrefs.some(
+    (other) =>
+      other !== href &&
+      other.startsWith(`${href}/`) &&
+      matches(other),
+  );
 }
 
 export function BookingsSubnav() {
@@ -31,7 +45,7 @@ export function BookingsSubnav() {
         {tabs
           .filter((tab) => role === "owner" || !tab.ownerOnly)
           .map((tab) => {
-            const active = isActive(pathname, tab.href);
+            const active = isBookingsTabActive(pathname, tab.href);
             return (
               <Link
                 key={tab.href}
@@ -41,7 +55,7 @@ export function BookingsSubnav() {
                   "rounded-md px-3 py-2 text-sm font-semibold transition-colors",
                   active
                     ? "bg-primary text-white"
-                    : "text-navy hover:bg-steel-100",
+                    : "text-steel hover:bg-steel-100 hover:text-navy",
                 )}
               >
                 {tab.label}
