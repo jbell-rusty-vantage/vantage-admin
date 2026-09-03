@@ -12,8 +12,9 @@ import {
   type GranotLifecycleHealthAlert,
 } from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
+import { GRANOT_LIFECYCLE_COPY } from "./granot-lifecycle-copy";
 
-export const GRANOT_LIFECYCLE_HEALTH_HREF = "/ingestion/granot/lifecycle/health";
+export { GRANOT_LIFECYCLE_HEALTH_HREF } from "./granot-lifecycle-copy";
 
 const FLAG_LABELS: Record<string, string> = {
   GRANOT_LIFECYCLE_PROCESSING_ENABLED: "Processing enabled",
@@ -327,8 +328,8 @@ export function LifecycleHealthPage() {
   const stale = query.isStale && !query.isFetching && Boolean(query.data);
   return (
     <div className="space-y-4">
-      <Link className="inline-flex h-10 items-center text-sm font-medium underline" href="/ingestion/granot/lifecycle">
-        Back to lifecycle queue
+      <Link className="inline-flex h-10 items-center text-sm font-medium underline" href={GRANOT_LIFECYCLE_COPY.backToIntakesHref}>
+        {GRANOT_LIFECYCLE_COPY.backToIntakes}
       </Link>
       <LifecycleHealthView
         data={query.data}

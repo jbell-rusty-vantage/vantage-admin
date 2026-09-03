@@ -5,6 +5,8 @@ import { AlertTriangle, CheckCircle2, DatabaseZap, RefreshCw } from "lucide-reac
 import { useState } from "react";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import { Button } from "@/components/ui/button";
+import { FeedbackMessage } from "@/components/ui/feedback";
+import { INGESTION_COPY } from "./ingestion-copy";
 import {
   approveBestRelocationRun,
   dismissIngestionConflict,
@@ -105,6 +107,7 @@ export function BestRelocationIngestionDashboard() {
 
   return (
     <div className="space-y-6">
+      <FeedbackMessage tone="warning">{INGESTION_COPY.bestRelocationDeprecatedStatement}</FeedbackMessage>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-trust-blue">

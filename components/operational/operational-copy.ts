@@ -93,8 +93,17 @@ export const OPERATIONAL_COPY = {
     action: "Check Google Sheet contains",
     selected: "selected",
     clear: "Clear",
-    selectRow: "Select for sheet check",
-    selectLoaded: "Select loaded rows for sheet check",
+    selectRow: "Select this record to check the Google Sheet",
+    selectLoaded: "Select loaded rows to check the Google Sheet",
+    column: "Sheet",
+    hintIdle: {
+      lead: "Use the checkboxes to select a lead. Check Google Sheet contains will appear so you can confirm the lead is in the Google Sheet.",
+      booking:
+        "Use the checkboxes to select a booking. Check Google Sheet contains will appear so you can confirm the booking is in the Google Sheet.",
+      cancellation:
+        "Use the checkboxes to select a cancellation. Check Google Sheet contains will appear so you can confirm the cancellation is in the Google Sheet.",
+    },
+    hintReady: "Check Google Sheet contains is ready — confirm these records are in the Google Sheet.",
     maxSelected: "You can check 25 records at a time.",
     panelTitle: "Google Sheet check",
     panelDescription: "Live read of Master Leads or Master Booked. Mongo stays the source of truth.",
@@ -156,6 +165,16 @@ export function productionDeleteLabel(
   return hasCancellation
     ? OPERATIONAL_COPY.production.deleteBookingAndCancellation
     : OPERATIONAL_COPY.production.deleteBooking;
+}
+
+export function sheetContainsIdleHint(resource: UiResource): string {
+  if (resource === "bookings") {
+    return OPERATIONAL_COPY.sheetContains.hintIdle.booking;
+  }
+  if (resource === "cancellations") {
+    return OPERATIONAL_COPY.sheetContains.hintIdle.cancellation;
+  }
+  return OPERATIONAL_COPY.sheetContains.hintIdle.lead;
 }
 
 export function filterGroupTitle(group: FilterGroupId): string {

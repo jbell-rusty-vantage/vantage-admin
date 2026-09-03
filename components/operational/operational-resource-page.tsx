@@ -14,7 +14,12 @@ import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import { DeleteConfirmationDialog } from "@/components/operational/operational-actions";
 import { buildColumns } from "@/components/operational/operational-columns";
 import { operationalConfigs, withFacetOptions, type DeleteTarget } from "@/components/operational/operational-configs";
-import { deleteSuccessCopy, duplicateReadOnlyBannerCopy, OPERATIONAL_COPY } from "@/components/operational/operational-copy";
+import {
+  deleteSuccessCopy,
+  duplicateReadOnlyBannerCopy,
+  OPERATIONAL_COPY,
+  sheetContainsIdleHint,
+} from "@/components/operational/operational-copy";
 import { SheetContainsPanel } from "@/components/operational/sheet-contains-panel";
 import { DetailPanel } from "@/components/operational/operational-detail-panel";
 import { ActiveFilterChips, OperationalFilterPanel } from "@/components/operational/operational-filter-panel";
@@ -485,15 +490,22 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
           {isProduction && !readOnly && (resource === "form-leads" || resource === "call-leads" || resource === "bookings") ? (
             <div className="rounded-lg border bg-background p-3 text-sm">
               {resource === "bookings"
-                ? "Select a booking row to inspect it, or use the row detail to start a cancellation."
-                : "Select a lead row to inspect it, then start a booking with identifiers prefilled."}
+                ? "Click a booking row to inspect it, or use the row detail to start a cancellation."
+                : "Click a lead row to inspect it, then start a booking with identifiers prefilled."}
+            </div>
+          ) : null}
+
+          {canCheckSheets && selectedCount === 0 ? (
+            <div className="rounded-lg border bg-background p-3 text-sm">
+              {sheetContainsIdleHint(resource)}
             </div>
           ) : null}
 
           {canCheckSheets && selectedCount > 0 ? (
             <div className="flex flex-col gap-2 rounded-lg border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm">
-                {selectedCount} {OPERATIONAL_COPY.sheetContains.selected}
+                {selectedCount} {OPERATIONAL_COPY.sheetContains.selected}.{" "}
+                {OPERATIONAL_COPY.sheetContains.hintReady}
                 {selectedCount >= SHEET_CONTAINS_MAX_IDS
                   ? ` · ${OPERATIONAL_COPY.sheetContains.maxSelected}`
                   : null}

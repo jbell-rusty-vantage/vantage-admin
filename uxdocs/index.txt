@@ -49,9 +49,12 @@ Start here for Job Timeline Enhancement (Admin): HANDOFF-job-timeline-enhancemen
     on the server. Contract: vantage-main-server/docs/job-number-timeline/.
 
 Live: Manual tab at /manual
-  — Owner-only create Form Lead or Call Lead, plus Connect Booking
-    to Lead for a Leadless Booking. Reuses booking Connect
-    panel. Not Booking Lead Reconciliation. Authority:
+  — Owner-only two options on that route: Create a Lead (`/manual`)
+    and Connect Booking to Lead (`/manual?tab=attach`). Create picks
+    the Source Company the Owner already knows (Top10 Inbounds, not
+    the parent company). Attach is a two-panel find of its own, not
+    the Bookings-tab connect panel. Bookings-tab connect stays on
+    /bookings detail. Not Booking Lead Reconciliation. Authority:
     .cursor/rules/project-organization.mdc (components/manual).
 
 Live: operational surfaces (Admin) — HANDOFF-operational-surfaces.md

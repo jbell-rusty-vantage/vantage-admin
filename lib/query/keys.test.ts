@@ -212,6 +212,22 @@ test("[AC-20] Granot lifecycle keys isolate stable case, candidate, Job, and Lea
     "granot-lifecycle", "discrepancies", {},
   ]);
   assert.deepEqual(queryKeys.granotLifecycle.health(), ["granot-lifecycle", "health"]);
+  const receiptsFirst = queryKeys.granotLifecycle.receipts({
+    job_no: "P5562401",
+    route_event_class: "booking_status_changed",
+    empty: "",
+  });
+  const receiptsSecond = queryKeys.granotLifecycle.receipts({
+    empty: "",
+    route_event_class: "booking_status_changed",
+    job_no: "P5562401",
+  });
+  assert.deepEqual(receiptsFirst, receiptsSecond);
+  assert.deepEqual(receiptsFirst, [
+    "granot-lifecycle",
+    "receipts",
+    { job_no: "P5562401", route_event_class: "booking_status_changed" },
+  ]);
 });
 
 test("Job Number timeline keys live in their own namespace", () => {
@@ -248,4 +264,9 @@ test("Lead Conversation keys isolate list and detail and never cache an audio UR
   ]);
   assert.equal(queryKeys.conversations.all[0], "conversations");
   assert.equal("audio" in queryKeys.conversations, false);
+});
+
+test("Extension User keys isolate the list", () => {
+  assert.deepEqual(queryKeys.extensionUsers.list(), ["extension-users", "list"]);
+  assert.equal(queryKeys.extensionUsers.all[0], "extension-users");
 });

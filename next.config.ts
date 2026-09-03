@@ -11,6 +11,26 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/ingestion/granot/lifecycle/health/:path*",
+        destination: "/granot-lifecycle/health",
+        permanent: true,
+      },
+      {
+        source: "/ingestion/granot/lifecycle/health",
+        destination: "/granot-lifecycle/health",
+        permanent: true,
+      },
+      {
+        source: "/ingestion/granot/lifecycle/jobs/:jobNo",
+        destination: "/job-timeline?job=:jobNo",
+        permanent: true,
+      },
+      {
+        source: "/ingestion/granot/lifecycle",
+        destination: "/intakes",
+        permanent: true,
+      },
+      {
         source: "/settings",
         destination: "/operations-registry?tab=moving-carriers",
         permanent: true,

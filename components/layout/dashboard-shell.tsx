@@ -17,12 +17,15 @@ const sidebarStorageKey = "vantage-admin-sidebar-collapsed";
 const ownerOnlyPagePrefixes = [
   "/audit-log",
   "/bookings/reconciliation",
+  "/granot-lifecycle",
   "/ingestion/granot",
   "/intakes",
   "/live-events",
   "/manual",
+  "/extension",
 ] as const;
 // /operations-registry is intentionally readable by admin roles (mutations gated in UI/proxy).
+// /granot-lifecycle is Owner-only except Health, which Admin reaches via Observational.
 
 export function DashboardShell({
   adminEmail,
@@ -36,8 +39,12 @@ export function DashboardShell({
   const collapsed = useLocalStorageBoolean(sidebarStorageKey);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const granotLifecycleHealth =
+    pathname === "/granot-lifecycle/health" ||
+    pathname.startsWith("/granot-lifecycle/health/");
   const pageAllowed =
     adminRole === "owner" ||
+    granotLifecycleHealth ||
     !ownerOnlyPagePrefixes.some(
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     );

@@ -13,6 +13,7 @@ import {
   Download,
   FileText,
   Headphones,
+  HeartPulse,
   History,
   Home,
   Inbox,
@@ -21,6 +22,7 @@ import {
   Phone,
   PhoneForwarded,
   Presentation,
+  Puzzle,
   Radio,
   ScrollText,
   SearchCheck,
@@ -28,6 +30,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { GRANOT_LIFECYCLE_COPY, GRANOT_LIFECYCLE_HREF } from "@/components/granot-lifecycle/granot-lifecycle-copy";
 import { cn } from "@/lib/utils";
 
 export type DashboardNavChild = {
@@ -115,7 +118,9 @@ export const dashboardNavSections: DashboardNavSection[] = [
     items: [
       { label: "Observational", href: "/observational", icon: Activity },
       { label: "Operations Registry", href: "/operations-registry", icon: Boxes },
+      { label: GRANOT_LIFECYCLE_COPY.pageTitle, href: GRANOT_LIFECYCLE_HREF, icon: HeartPulse, ownerOnly: true },
       { label: "Ingestion", href: "/ingestion", icon: Import },
+      { label: "Extension", href: "/extension", icon: Puzzle, ownerOnly: true },
       { label: "Audit Log", href: "/audit-log", icon: ScrollText, ownerOnly: true },
     ],
   },

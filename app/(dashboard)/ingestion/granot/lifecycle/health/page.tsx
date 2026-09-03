@@ -1,5 +1,6 @@
-import { LifecycleHealthPage } from "@/components/granot-lifecycle/lifecycle-health";
+import { permanentRedirect } from "next/navigation";
+import { GRANOT_LIFECYCLE_HEALTH_HREF } from "@/components/granot-lifecycle/granot-lifecycle-copy";
 
-export default function GranotLifecycleHealthRoute() {
-  return <LifecycleHealthPage />;
+export default function GranotLifecycleHealthRedirect() {
+  permanentRedirect(GRANOT_LIFECYCLE_HEALTH_HREF);
 }

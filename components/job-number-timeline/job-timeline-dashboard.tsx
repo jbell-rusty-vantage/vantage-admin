@@ -15,7 +15,6 @@ import {
   type TimelineDensityView,
 } from "@/lib/api/jobNumberTimeline";
 import { queryKeys } from "@/lib/query/keys";
-import { GranotNavigation } from "@/components/granot-lifecycle/granot-navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { AttentionPanel } from "./attention-panel";
@@ -200,7 +199,6 @@ export function JobTimelineDashboard() {
 
   return (
     <div className="space-y-6">
-      <GranotNavigation />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

@@ -24,6 +24,7 @@ import {
   intakeCaseHref,
   intakeCaseHowToFinish,
   intakeEmptyMessage,
+  intakeJobHref,
   intakeKindFromCase,
   intakeKindLabel,
   intakeQueueLabel,
@@ -144,6 +145,7 @@ test("owner copy names booking intakes without lifecycle jargon", () => {
   assert.equal(isAllowedIntakeReturn("/intakes"), true);
   assert.equal(isAllowedIntakeReturn("/intakes?tab=cancellations"), true);
   assert.equal(isAllowedIntakeReturn("/ingestion/granot/lifecycle"), false);
+  assert.equal(intakeJobHref("5562924"), "/job-timeline?job=5562924");
 });
 
 test("intake list uses owner language and keeps historical Release rows off the booking queue", () => {

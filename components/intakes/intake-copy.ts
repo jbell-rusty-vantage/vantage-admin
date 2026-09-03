@@ -4,6 +4,7 @@ import type {
   GranotLifecycleCandidateItem,
   GranotLifecycleCaseListItem,
 } from "@/lib/api/granotLifecycle";
+import { buildJobTimelineHref } from "@/lib/api/jobNumberTimeline";
 
 export const INTAKES_HREF = "/intakes";
 export const INTAKE_CASE_RETURN = "/intakes";
@@ -202,7 +203,7 @@ export function creatingObservationSummary(input: {
 }
 
 export function intakeJobHref(normalizedJobNo: string): string {
-  return `/ingestion/granot/lifecycle/jobs/${encodeURIComponent(normalizedJobNo)}`;
+  return buildJobTimelineHref({ job: normalizedJobNo });
 }
 
 export function intakePairingLine(

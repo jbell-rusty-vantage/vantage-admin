@@ -4,12 +4,14 @@ import type { VantageApiMethod } from "@/server/vantage-api/client";
 const OWNER_ONLY_PAGE_PREFIXES = [
   "/audit-log",
   "/bookings/reconciliation",
+  "/granot-lifecycle",
   "/ingestion/granot",
   "/intakes",
   "/job-timeline",
   "/conversations",
   "/live-events",
   "/manual",
+  "/extension",
 ] as const;
 
 const OPERATIONAL_PATCH_PREFIXES = [
@@ -65,8 +67,8 @@ export function canAccessDashboardPath(role: AdminRole, pathname: string): boole
     return true;
   }
   if (
-    pathname === "/ingestion/granot/lifecycle/health"
-    || pathname.startsWith("/ingestion/granot/lifecycle/health/")
+    pathname === "/granot-lifecycle/health"
+    || pathname.startsWith("/granot-lifecycle/health/")
   ) {
     return true;
   }
@@ -114,6 +116,12 @@ export function canProxyVantagePath(input: {
   ) {
     return false;
   }
+  if (
+    path === "/api/v1/admin/extension-users" ||
+    path.startsWith("/api/v1/admin/extension-users/")
+  ) {
+    return false;
+  }
   if (path.startsWith("/api/v1/admin/booking-lead-reconciliations")) {
     return false;
   }
@@ -136,6 +144,9 @@ export function canProxyVantagePath(input: {
       return false;
     }
     if (/\/receipts\/live$/.test(path)) {
+      return false;
+    }
+    if (path === `${GRANOT_LIFECYCLE_PREFIX}/receipts`) {
       return false;
     }
     return input.method === "GET";

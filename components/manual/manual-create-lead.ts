@@ -17,6 +17,24 @@ export type ManualCreateLeadDraft = {
   post_to_granot: boolean;
 };
 
+export type ManualSourceChoice = {
+  source_company: string;
+  source_granularity_key: string;
+  owner_label: string;
+  channel: LeadSourceChannel;
+};
+
+export type ManualLeadSearchDraft = {
+  source_granularity_key: string;
+  phone_number: string;
+  name: string;
+  email: string;
+  ref_no: string;
+  job_no: string;
+};
+
+export type ManualLeadSearchResource = "form-leads" | "call-leads";
+
 export const emptyManualCreateLeadDraft = (kind: ManualLeadKind = "FormLead"): ManualCreateLeadDraft => ({
   kind,
   source_company: "",
@@ -30,6 +48,15 @@ export const emptyManualCreateLeadDraft = (kind: ManualLeadKind = "FormLead"): M
   move_date: "",
   job_no: "",
   post_to_granot: false,
+});
+
+export const emptyManualLeadSearchDraft = (): ManualLeadSearchDraft => ({
+  source_granularity_key: "",
+  phone_number: "",
+  name: "",
+  email: "",
+  ref_no: "",
+  job_no: "",
 });
 
 const ZIP = /^\d{5}$/;
@@ -47,6 +74,24 @@ export function granularitiesForChannel(
   );
 }
 
+export function sourceChoicesForChannel(
+  companies: LeadSourceCompany[] | undefined,
+  channel: LeadSourceChannel,
+): ManualSourceChoice[] {
+  return (companies ?? []).flatMap((company) =>
+    granularitiesForChannel(company, channel).map((granularity) => ({
+      source_company: company.company_slug,
+      source_granularity_key: granularity.granularity_key,
+      owner_label: granularity.owner_label,
+      channel: granularity.channel,
+    })),
+  );
+}
+
+export function allSourceChoices(companies: LeadSourceCompany[] | undefined): ManualSourceChoice[] {
+  return [...sourceChoicesForChannel(companies, "form"), ...sourceChoicesForChannel(companies, "call")];
+}
+
 export function defaultGranularityKey(granularities: LeadSourceGranularity[]): string {
   if (granularities.length === 1) {
     return granularities[0]?.granularity_key ?? "";
@@ -54,9 +99,22 @@ export function defaultGranularityKey(granularities: LeadSourceGranularity[]): s
   return "";
 }
 
+export function defaultSourceChoice(choices: ManualSourceChoice[]): ManualSourceChoice | undefined {
+  return choices.length === 1 ? choices[0] : undefined;
+}
+
+export function findSourceChoice(
+  choices: ManualSourceChoice[],
+  granularityKey: string,
+): ManualSourceChoice | undefined {
+  return choices.find((choice) => choice.source_granularity_key === granularityKey);
+}
+
 export function validateManualCreateLeadDraft(draft: ManualCreateLeadDraft): string[] {
   const missing: string[] = [];
-  if (!trim(draft.source_company)) missing.push("Source Company");
+  if (!trim(draft.source_granularity_key) || !trim(draft.source_company)) {
+    missing.push("Source Company");
+  }
   if (!trim(draft.name)) missing.push("name");
 
   if (draft.kind === "FormLead") {
@@ -81,7 +139,7 @@ function optionalField(value: string): string | undefined {
 export function buildManualCreateLeadPayload(draft: ManualCreateLeadDraft): Record<string, unknown> {
   const source = {
     source_company: trim(draft.source_company),
-    source_granularity_key: optionalField(draft.source_granularity_key),
+    source_granularity_key: trim(draft.source_granularity_key),
     name: trim(draft.name),
     email: optionalField(draft.email),
   };
@@ -126,4 +184,90 @@ export function leadlessBookingListFilters(query: string): Record<string, string
     limit: 10,
     ...(q && !isBookingObjectId(q) ? { q } : {}),
   };
+}
+
+export function bookingJobSearchFilters(jobNo: string): Record<string, string | number | boolean> {
+  return {
+    job_no: jobNo.trim(),
+    leadless: true,
+    cancelled: false,
+    limit: 10,
+  };
+}
+
+export function bookingJobExplainFilters(jobNo: string): Record<string, string | number | boolean> {
+  return {
+    job_no: jobNo.trim(),
+    limit: 10,
+  };
+}
+
+export function hasLeadSearchCriteria(draft: ManualLeadSearchDraft): boolean {
+  return Boolean(
+    trim(draft.source_granularity_key) ||
+      trim(draft.phone_number) ||
+      trim(draft.name) ||
+      trim(draft.email) ||
+      trim(draft.ref_no) ||
+      trim(draft.job_no),
+  );
+}
+
+function hasSharedLeadCriteria(draft: ManualLeadSearchDraft): boolean {
+  return Boolean(
+    trim(draft.source_granularity_key) ||
+      trim(draft.phone_number) ||
+      trim(draft.name) ||
+      trim(draft.email),
+  );
+}
+
+export function sanitizeLeadSearchDraft(
+  draft: ManualLeadSearchDraft,
+  channel?: LeadSourceChannel,
+): ManualLeadSearchDraft {
+  return {
+    ...draft,
+    ref_no: channel === "call" ? "" : draft.ref_no,
+    job_no: channel === "form" ? "" : draft.job_no,
+  };
+}
+
+export function leadSearchResources(
+  draft: ManualLeadSearchDraft,
+  channel?: LeadSourceChannel,
+): ManualLeadSearchResource[] {
+  const next = sanitizeLeadSearchDraft(draft, channel);
+  if (channel === "form") return hasSharedLeadCriteria(next) || trim(next.ref_no) ? ["form-leads"] : [];
+  if (channel === "call") return hasSharedLeadCriteria(next) || trim(next.job_no) ? ["call-leads"] : [];
+  const resources: ManualLeadSearchResource[] = [];
+  if (hasSharedLeadCriteria(next) || trim(next.ref_no)) resources.push("form-leads");
+  if (hasSharedLeadCriteria(next) || trim(next.job_no)) resources.push("call-leads");
+  return resources;
+}
+
+export function leadSearchFilters(
+  draft: ManualLeadSearchDraft,
+  resource: ManualLeadSearchResource = "form-leads",
+): Record<string, string | number | boolean> {
+  const filters: Record<string, string | number | boolean> = {
+    duplicate: false,
+    booked: false,
+    limit: 10,
+  };
+  if (trim(draft.source_granularity_key)) filters.source_granularity_key = trim(draft.source_granularity_key);
+  if (trim(draft.phone_number)) filters.phone_number = trim(draft.phone_number);
+  if (trim(draft.name)) filters.name = trim(draft.name);
+  if (trim(draft.email)) filters.email = trim(draft.email);
+  if (resource === "form-leads" && trim(draft.ref_no)) filters.ref_no = trim(draft.ref_no);
+  if (resource === "call-leads" && trim(draft.job_no)) filters.job_no = trim(draft.job_no);
+  return filters;
+}
+
+export function channelForLeadKind(kind: ManualLeadKind): LeadSourceChannel {
+  return kind === "CallLead" ? "call" : "form";
+}
+
+export function leadKindFromResource(resource: ManualLeadSearchResource): ManualLeadKind {
+  return resource === "call-leads" ? "CallLead" : "FormLead";
 }

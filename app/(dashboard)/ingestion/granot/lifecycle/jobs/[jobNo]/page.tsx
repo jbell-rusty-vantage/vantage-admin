@@ -1,15 +1,11 @@
-import { Suspense } from "react";
-import { GranotJobTimelinePage } from "@/components/granot-lifecycle/job-timeline";
+import { permanentRedirect } from "next/navigation";
+import { buildJobTimelineHref } from "@/lib/api/jobNumberTimeline";
 
-export default async function GranotLifecycleJobPage({
+export default async function GranotLifecycleJobRedirect({
   params,
 }: {
   params: Promise<{ jobNo: string }>;
 }) {
   const { jobNo } = await params;
-  return (
-    <Suspense fallback={<p className="text-sm text-muted-foreground">Loading Job timeline…</p>}>
-      <GranotJobTimelinePage jobNo={jobNo} />
-    </Suspense>
-  );
+  permanentRedirect(buildJobTimelineHref({ job: jobNo }));
 }

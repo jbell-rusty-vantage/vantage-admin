@@ -312,13 +312,18 @@ export function buildColumns(
     columns.unshift({
       key: "__select",
       header: (
-        <SelectionCheckbox
-          label={OPERATIONAL_COPY.sheetContains.selectLoaded}
-          checked={selection.allLoadedSelected}
-          onChange={selection.onToggleAllLoaded}
-        />
+        <div className="flex items-center gap-2">
+          <SelectionCheckbox
+            label={OPERATIONAL_COPY.sheetContains.selectLoaded}
+            checked={selection.allLoadedSelected}
+            onChange={selection.onToggleAllLoaded}
+          />
+          <span className="text-xs font-medium text-muted-foreground">
+            {OPERATIONAL_COPY.sheetContains.column}
+          </span>
+        </div>
       ),
-      className: "w-10 px-2",
+      className: "w-16 px-2",
       sticky: "left",
       cell: (item) => {
         const id = getRecordId(item);

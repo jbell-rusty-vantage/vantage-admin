@@ -9,6 +9,7 @@ test("route guard protects dashboard paths", () => {
   assert.equal(shouldProtectPath("/bookings"), true);
   assert.equal(shouldProtectPath("/intakes"), true);
   assert.equal(shouldProtectPath("/manual"), true);
+  assert.equal(shouldProtectPath("/extension"), true);
   assert.equal(shouldProtectPath("/job-timeline"), true);
   assert.equal(shouldProtectPath("/duplicate-call-leads"), true);
   assert.equal(shouldProtectPath("/audit-log"), true);

@@ -84,6 +84,7 @@ test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/bookings/reconciliation"), false);
   assert.equal(canAccessDashboardPath("admin", "/intakes"), false);
   assert.equal(canAccessDashboardPath("admin", "/manual"), false);
+  assert.equal(canAccessDashboardPath("admin", "/extension"), false);
   assert.equal(canAccessDashboardPath("admin", "/job-timeline"), false);
   assert.equal(canAccessDashboardPath("admin", "/live-events"), false);
   assert.equal(canAccessDashboardPath("admin", "/form-leads"), true);
@@ -633,21 +634,35 @@ test("[AC-35][AC-36] discrepancy reads allow Admin and exact commands remain Own
 });
 
 test("Granot lifecycle pages remain owner-only in the Admin UI except health", () => {
+  assert.equal(canAccessDashboardPath("admin", "/ingestion/granot"), false);
   assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle"), false);
   assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle/cases/case-1"), false);
+  assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle/health"), false);
   assert.equal(canAccessDashboardPath("owner", "/ingestion/granot/lifecycle"), true);
-  assert.equal(canAccessDashboardPath("admin", "/ingestion/granot/lifecycle/health"), true);
-  assert.equal(canAccessDashboardPath("owner", "/ingestion/granot/lifecycle/health"), true);
+  assert.equal(canAccessDashboardPath("admin", "/granot-lifecycle"), false);
+  assert.equal(canAccessDashboardPath("admin", "/granot-lifecycle/receipts"), false);
+  assert.equal(canAccessDashboardPath("admin", "/granot-lifecycle/health"), true);
+  assert.equal(canAccessDashboardPath("owner", "/granot-lifecycle"), true);
+  assert.equal(canAccessDashboardPath("owner", "/granot-lifecycle/health"), true);
   assert.equal(canAccessDashboardPath("admin", "/intakes"), false);
   assert.equal(canAccessDashboardPath("owner", "/intakes"), true);
   assert.equal(canAccessDashboardPath("admin", "/manual"), false);
   assert.equal(canAccessDashboardPath("owner", "/manual"), true);
+  assert.equal(canAccessDashboardPath("admin", "/extension"), false);
+  assert.equal(canAccessDashboardPath("owner", "/extension"), true);
   assert.equal(canAccessDashboardPath("admin", "/job-timeline"), false);
   assert.equal(canAccessDashboardPath("owner", "/job-timeline"), true);
   assert.equal(canAccessDashboardPath("admin", "/conversations"), false);
   assert.equal(canAccessDashboardPath("owner", "/conversations"), true);
   assert.equal(canAccessDashboardPath("admin", "/live-events"), false);
   assert.equal(canAccessDashboardPath("owner", "/live-events"), true);
+});
+
+test("Extension User proxy routes are Owner-only", () => {
+  for (const method of ["GET", "POST"] as const) {
+    assert.equal(canProxyVantagePath({ role: "admin", method, path: "api/v1/admin/extension-users" }), false);
+    assert.equal(canProxyVantagePath({ role: "owner", method, path: "api/v1/admin/extension-users" }), true);
+  }
 });
 
 test("conversation proxy reads are Owner-only", () => {
@@ -696,4 +711,27 @@ test("[AC-31][AC-35] health GET is Owner/Admin at the proxy and remains read-onl
     method: "POST",
     path: "api/v1/admin/granot-lifecycle/operations/health",
   }), false);
+});
+
+test("Granot Observation Receipt list GET is Owner-only at the proxy", () => {
+  assert.equal(canProxyVantagePath({
+    role: "admin",
+    method: "GET",
+    path: "api/v1/admin/granot-lifecycle/receipts",
+  }), false);
+  assert.equal(canProxyVantagePath({
+    role: "owner",
+    method: "GET",
+    path: "api/v1/admin/granot-lifecycle/receipts",
+  }), true);
+  assert.equal(canProxyVantagePath({
+    role: "admin",
+    method: "GET",
+    path: "api/v1/admin/granot-lifecycle/receipts/live",
+  }), false);
+  assert.equal(canProxyVantagePath({
+    role: "admin",
+    method: "GET",
+    path: "api/v1/admin/granot-lifecycle/operations/health",
+  }), true);
 });

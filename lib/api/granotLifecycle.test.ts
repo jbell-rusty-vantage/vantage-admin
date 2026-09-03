@@ -25,7 +25,9 @@ import {
   resolveGranotDiscrepancyNoAction,
   asGranotLifecycleHealth,
   asGranotLifecycleCaseDetail,
+  asGranotWebhookReceiptListPage,
   fetchGranotLifecycleHealth,
+  fetchGranotWebhookReceipts,
   GRANOT_LIFECYCLE_FLAG_NAMES,
 } from "./granotLifecycle";
 
@@ -435,6 +437,71 @@ test("[AC-31][AC-35] health client uses the exact GET path and ignores raw paylo
   assert.throws(
     () => asGranotLifecycleHealth({ ok: true, data: { generated_at: "2026-08-19T16:00:00.000Z" } }),
     /malformed/,
+  );
+});
+
+test("webhook receipt list client uses the exact GET path and drops extra DTO keys", async () => {
+  const calls = mockFetch({
+    ok: true,
+    data: {
+      items: [{
+        receipt_id: "64aaaaaaaaaaaaaaaaaaaaaa",
+        captured_at: "2026-08-28T15:00:00.000Z",
+        route_event_class: "booking_status_changed",
+        booking_action: "booked",
+        processing_state: "completed",
+        observation_id: "65aaaaaaaaaaaaaaaaaaaaaa",
+        decision_outcome: "linked",
+        ref_no: "DT_synthetic",
+        job_no: "P5562401",
+        contact: { display_name: "A***", phone: "***0100", email: "a***@example.invalid" },
+        source_company: { id: "src-1", owner_label: "Synthetic Source" },
+        intake_case_id: "66aaaaaaaaaaaaaaaaaaaaaa",
+        granot_statement: { event_type: "Booked" },
+      }],
+      next_cursor: "opaque+cursor",
+    },
+  });
+  const page = await fetchGranotWebhookReceipts({
+    ref_no: "DT_synthetic",
+    job_no: "P5562401",
+    name: "Ada",
+    phone: "2125550100",
+    email: "ada@example.invalid",
+    source_company_id: "aaaaaaaaaaaaaaaaaaaaaaaa",
+    route_event_class: "booking_status_changed",
+    booking_action: "booked",
+    captured_from: "2026-08-01T00:00:00.000Z",
+    captured_to: "2026-08-28T23:59:59.999Z",
+    processing_state: "completed",
+    cursor: "opaque+/=cursor",
+    limit: 50,
+  });
+  const url = new URL(String(calls[0]?.input), "https://admin.test");
+  assert.equal(url.pathname, "/api/proxy/api/v1/admin/granot-lifecycle/receipts");
+  assert.equal(url.searchParams.get("ref_no"), "DT_synthetic");
+  assert.equal(url.searchParams.get("job_no"), "P5562401");
+  assert.equal(url.searchParams.get("name"), "Ada");
+  assert.equal(url.searchParams.get("phone"), "2125550100");
+  assert.equal(url.searchParams.get("email"), "ada@example.invalid");
+  assert.equal(url.searchParams.get("source_company_id"), "aaaaaaaaaaaaaaaaaaaaaaaa");
+  assert.equal(url.searchParams.get("route_event_class"), "booking_status_changed");
+  assert.equal(url.searchParams.get("booking_action"), "booked");
+  assert.equal(url.searchParams.get("captured_from"), "2026-08-01T00:00:00.000Z");
+  assert.equal(url.searchParams.get("captured_to"), "2026-08-28T23:59:59.999Z");
+  assert.equal(url.searchParams.get("processing_state"), "completed");
+  assert.equal(url.searchParams.get("cursor"), "opaque+/=cursor");
+  assert.equal(url.searchParams.get("limit"), "50");
+  assert.equal(page.items[0]?.receipt_id, "64aaaaaaaaaaaaaaaaaaaaaa");
+  assert.equal(page.items[0]?.booking_action, "booked");
+  assert.equal(page.next_cursor, "opaque+cursor");
+  assert.equal("granot_statement" in (page.items[0] ?? {}), false);
+  assert.equal(
+    "granot_statement" in (asGranotWebhookReceiptListPage({
+      items: [{ receipt_id: "r1", captured_at: "2026-08-28T15:00:00.000Z", route_event_class: "lead_created", granot_statement: {} }],
+      next_cursor: null,
+    }).items[0] ?? {}),
+    false,
   );
 });
 

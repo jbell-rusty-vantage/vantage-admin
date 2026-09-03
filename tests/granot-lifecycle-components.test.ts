@@ -11,7 +11,11 @@ import { ReleaseOwnerActions } from "../components/granot-lifecycle/release-owne
 import { GranotLifecycleCaseList } from "../components/granot-lifecycle/case-list";
 import { DiscrepancyList } from "../components/granot-lifecycle/discrepancy-list";
 import { CaseDetail } from "../components/granot-lifecycle/case-detail";
-import { GranotNavigationLinks } from "../components/granot-lifecycle/granot-navigation";
+import {
+  GRANOT_LIFECYCLE_HEALTH_HREF as HEALTH_HREF_FROM_COPY,
+  GRANOT_LIFECYCLE_RECEIPTS_HREF,
+} from "../components/granot-lifecycle/granot-lifecycle-copy";
+import { GranotLifecycleSubnavLinks } from "../components/granot-lifecycle/granot-lifecycle-subnav";
 import { JobTimeline } from "../components/granot-lifecycle/job-timeline";
 import {
   LeadCandidateResults,
@@ -820,25 +824,29 @@ test("queue stays mounted when the list page omits items instead of throwing on 
   assert.match(markup, /No lifecycle cases match/);
 });
 
-test("Granot navigation keeps Automation, Lifecycle, Intakes, and Health distinct", () => {
-  const lifecycleMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/ingestion/granot/lifecycle/cases/case-1" }));
-  assert.match(lifecycleMarkup, />Automation</);
-  assert.match(lifecycleMarkup, />Lifecycle</);
-  assert.doesNotMatch(lifecycleMarkup, /Live webhooks/);
-  assert.doesNotMatch(lifecycleMarkup, /\/ingestion\/granot\/live/);
-  assert.match(lifecycleMarkup, /Intakes/);
-  assert.doesNotMatch(lifecycleMarkup, />New</);
-  assert.match(lifecycleMarkup, />Health</);
-  assert.match(lifecycleMarkup, /href="\/ingestion\/granot"/);
-  assert.match(lifecycleMarkup, /href="\/intakes"/);
-  assert.match(lifecycleMarkup, /href="\/job-timeline"/);
-  assert.match(lifecycleMarkup, />Job timeline</);
-  assert.match(lifecycleMarkup, /href="\/ingestion\/granot\/lifecycle\/health"/);
-  assert.match(lifecycleMarkup, /aria-current="page"[^>]+href="\/ingestion\/granot\/lifecycle"/);
-  const healthMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/ingestion/granot/lifecycle/health" }));
-  assert.match(healthMarkup, /aria-current="page"[^>]+href="\/ingestion\/granot\/lifecycle\/health"/);
-  const intakesMarkup = renderToStaticMarkup(createElement(GranotNavigationLinks, { pathname: "/intakes" }));
-  assert.match(intakesMarkup, /aria-current="page"[^>]+href="\/intakes"/);
+test("Granot nest navigation is gone; Granot Lifecycle subnav is Receipts then Health", () => {
+  const granotLayout = readFileSync(
+    path.join(process.cwd(), "app/(dashboard)/ingestion/granot/layout.tsx"),
+    "utf8",
+  );
+  const jobTimelineDashboard = readFileSync(
+    path.join(process.cwd(), "components/job-number-timeline/job-timeline-dashboard.tsx"),
+    "utf8",
+  );
+  assert.doesNotMatch(granotLayout, /GranotNavigation/);
+  assert.doesNotMatch(jobTimelineDashboard, /GranotNavigation/);
+
+  const healthMarkup = renderToStaticMarkup(
+    createElement(GranotLifecycleSubnavLinks, { pathname: "/granot-lifecycle/health" }),
+  );
+  assert.match(healthMarkup, />Receipts</);
+  assert.match(healthMarkup, />Health</);
+  assert.match(healthMarkup, /href="\/granot-lifecycle\/receipts"/);
+  assert.match(healthMarkup, /href="\/granot-lifecycle\/health"/);
+  assert.ok(healthMarkup.indexOf("Receipts") < healthMarkup.indexOf("Health"));
+  assert.doesNotMatch(healthMarkup, /Automation/);
+  assert.doesNotMatch(healthMarkup, /Job timeline/);
+  assert.doesNotMatch(healthMarkup, /Intakes/);
 });
 
 test("[AC-31][AC-35][AC-38] health view is read-only, unit-labeled, and never renders raw payload", () => {
@@ -915,7 +923,9 @@ test("[AC-31][AC-35][AC-38] health view is read-only, unit-labeled, and never re
 });
 
 test("[AC-31] health URL stays stable for dashboard and observational links", () => {
-  assert.equal(GRANOT_LIFECYCLE_HEALTH_HREF, "/ingestion/granot/lifecycle/health");
+  assert.equal(GRANOT_LIFECYCLE_HEALTH_HREF, "/granot-lifecycle/health");
+  assert.equal(HEALTH_HREF_FROM_COPY, "/granot-lifecycle/health");
+  assert.equal(GRANOT_LIFECYCLE_RECEIPTS_HREF, "/granot-lifecycle/receipts");
 });
 
 test("live webhook accordion shows lead facts and the three Granot event classes", () => {

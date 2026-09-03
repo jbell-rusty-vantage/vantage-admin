@@ -1216,3 +1216,134 @@ function asLastRun(value: unknown): { at: string; status: "completed" | "failed"
 export function fetchGranotLifecycleHealth(): Promise<GranotLifecycleHealth> {
   return requestJson(proxyUrl("api/v1/admin/granot-lifecycle/operations/health")).then(asGranotLifecycleHealth);
 }
+
+export const GRANOT_WEBHOOK_ROUTE_EVENT_CLASSES = [
+  "lead_created",
+  "priority_updated",
+  "booking_status_changed",
+] as const;
+
+export type GranotWebhookRouteEventClass = (typeof GRANOT_WEBHOOK_ROUTE_EVENT_CLASSES)[number];
+
+export const GRANOT_WEBHOOK_BOOKING_ACTIONS = ["booked", "release"] as const;
+
+export type GranotWebhookBookingAction = (typeof GRANOT_WEBHOOK_BOOKING_ACTIONS)[number];
+
+export type GranotWebhookReceiptListFilters = {
+  ref_no?: string;
+  job_no?: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  source_company_id?: string;
+  route_event_class?: GranotWebhookRouteEventClass;
+  booking_action?: GranotWebhookBookingAction;
+  captured_from?: string;
+  captured_to?: string;
+  processing_state?: string;
+  cursor?: string;
+  limit?: number;
+};
+
+export type GranotWebhookReceiptListItem = {
+  receipt_id: string;
+  captured_at: string;
+  route_event_class: GranotWebhookRouteEventClass;
+  booking_action: GranotWebhookBookingAction | null;
+  processing_state: string;
+  observation_id: string | null;
+  decision_outcome: string | null;
+  ref_no: string | null;
+  job_no: string | null;
+  contact: {
+    display_name: string | null;
+    phone: string | null;
+    email: string | null;
+  };
+  source_company: {
+    id: string;
+    owner_label: string;
+  } | null;
+  intake_case_id: string | null;
+};
+
+export type GranotWebhookReceiptListPage = {
+  items: GranotWebhookReceiptListItem[];
+  next_cursor: string | null;
+};
+
+function asNullableString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function asRouteEventClass(value: unknown): GranotWebhookRouteEventClass | undefined {
+  return GRANOT_WEBHOOK_ROUTE_EVENT_CLASSES.includes(value as GranotWebhookRouteEventClass)
+    ? (value as GranotWebhookRouteEventClass)
+    : undefined;
+}
+
+function asBookingAction(value: unknown): GranotWebhookBookingAction | null {
+  return GRANOT_WEBHOOK_BOOKING_ACTIONS.includes(value as GranotWebhookBookingAction)
+    ? (value as GranotWebhookBookingAction)
+    : null;
+}
+
+export function asGranotWebhookReceiptListItem(value: unknown): GranotWebhookReceiptListItem | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const receipt_id = asString(record.receipt_id);
+  const captured_at = asString(record.captured_at);
+  const route_event_class = asRouteEventClass(record.route_event_class);
+  if (!receipt_id || !captured_at || !route_event_class) return null;
+  const contactRaw = record.contact && typeof record.contact === "object"
+    ? record.contact as Record<string, unknown>
+    : {};
+  const sourceRaw = record.source_company && typeof record.source_company === "object"
+    ? record.source_company as Record<string, unknown>
+    : null;
+  const sourceId = sourceRaw ? asString(sourceRaw.id) : undefined;
+  const sourceLabel = sourceRaw ? asString(sourceRaw.owner_label) : undefined;
+  return {
+    receipt_id,
+    captured_at,
+    route_event_class,
+    booking_action: asBookingAction(record.booking_action),
+    processing_state: asString(record.processing_state) ?? "",
+    observation_id: asNullableString(record.observation_id),
+    decision_outcome: asNullableString(record.decision_outcome),
+    ref_no: asNullableString(record.ref_no),
+    job_no: asNullableString(record.job_no),
+    contact: {
+      display_name: asNullableString(contactRaw.display_name),
+      phone: asNullableString(contactRaw.phone),
+      email: asNullableString(contactRaw.email),
+    },
+    source_company: sourceId && sourceLabel ? { id: sourceId, owner_label: sourceLabel } : null,
+    intake_case_id: asNullableString(record.intake_case_id),
+  };
+}
+
+export function asGranotWebhookReceiptListPage(data: unknown): GranotWebhookReceiptListPage {
+  const page = unwrapEnvelope(data);
+  if (page && typeof page === "object") {
+    const record = page as Partial<GranotWebhookReceiptListPage>;
+    return {
+      items: Array.isArray(record.items)
+        ? record.items.flatMap((item) => {
+          const mapped = asGranotWebhookReceiptListItem(item);
+          return mapped ? [mapped] : [];
+        })
+        : [],
+      next_cursor: typeof record.next_cursor === "string" ? record.next_cursor : null,
+    };
+  }
+  return { items: [], next_cursor: null };
+}
+
+export function fetchGranotWebhookReceipts(
+  filters: GranotWebhookReceiptListFilters = {},
+): Promise<GranotWebhookReceiptListPage> {
+  return requestJson(
+    proxyUrl("api/v1/admin/granot-lifecycle/receipts", filters as SerializableFilters),
+  ).then(asGranotWebhookReceiptListPage);
+}

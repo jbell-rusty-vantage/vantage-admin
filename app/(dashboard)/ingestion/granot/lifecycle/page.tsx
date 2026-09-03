@@ -1,10 +1,6 @@
-import { Suspense } from "react";
-import { LifecycleDashboard } from "@/components/granot-lifecycle/lifecycle-dashboard";
+import { permanentRedirect } from "next/navigation";
+import { GRANOT_LIFECYCLE_COPY } from "@/components/granot-lifecycle/granot-lifecycle-copy";
 
-export default function GranotLifecyclePage() {
-  return (
-    <Suspense fallback={<p className="text-sm text-muted-foreground">Loading Granot lifecycle…</p>}>
-      <LifecycleDashboard />
-    </Suspense>
-  );
+export default function GranotLifecycleQueueRedirect() {
+  permanentRedirect(GRANOT_LIFECYCLE_COPY.backToIntakesHref);
 }

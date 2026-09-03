@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FilterField } from "@/components/filters/filter-field";
 import { Button } from "@/components/ui/button";
@@ -13,20 +13,18 @@ import {
   getRecordId,
   type CreateFormLeadResult,
 } from "@/lib/api/admin";
-import {
-  fetchLeadSourceCompanies,
-  toLeadSourceCompanyOptions,
-  type LeadSourceChannel,
-} from "@/lib/api/sourceCompanies";
+import { fetchLeadSourceCompanies } from "@/lib/api/sourceCompanies";
 import { MOVE_SIZE_OPTIONS } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
 import { MANUAL_COPY } from "./manual-copy";
 import {
   buildManualCreateLeadPayload,
+  channelForLeadKind,
   createdLeadRecordHref,
-  defaultGranularityKey,
+  defaultSourceChoice,
   emptyManualCreateLeadDraft,
-  granularitiesForChannel,
+  findSourceChoice,
+  sourceChoicesForChannel,
   validateManualCreateLeadDraft,
   type ManualCreateLeadDraft,
   type ManualLeadKind,
@@ -38,9 +36,7 @@ type FormMessage = {
   href?: string;
 };
 
-function channelForKind(kind: ManualLeadKind): LeadSourceChannel {
-  return kind === "CallLead" ? "call" : "form";
-}
+const SELECT_CLASS = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm";
 
 export function CreateLeadForm() {
   const queryClient = useQueryClient();
@@ -51,14 +47,21 @@ export function CreateLeadForm() {
     queryFn: () => fetchLeadSourceCompanies(),
     staleTime: 5 * 60 * 1000,
   });
-  const sourceCompanyOptions = useMemo(
-    () => toLeadSourceCompanyOptions(sourceCompaniesQuery.data),
-    [sourceCompaniesQuery.data],
+  const sourceChoices = useMemo(
+    () => sourceChoicesForChannel(sourceCompaniesQuery.data, channelForLeadKind(draft.kind)),
+    [sourceCompaniesQuery.data, draft.kind],
   );
-  const selectedCompany = sourceCompaniesQuery.data?.find(
-    (company) => company.company_slug === draft.source_company,
-  );
-  const granularityOptions = granularitiesForChannel(selectedCompany, channelForKind(draft.kind));
+
+  useEffect(() => {
+    if (draft.source_granularity_key) return;
+    const next = defaultSourceChoice(sourceChoices);
+    if (!next) return;
+    setDraft((current) => ({
+      ...current,
+      source_company: next.source_company,
+      source_granularity_key: next.source_granularity_key,
+    }));
+  }, [draft.source_granularity_key, sourceChoices]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -107,20 +110,21 @@ export function CreateLeadForm() {
 
   function handleKindChange(value: string) {
     const kind: ManualLeadKind = value === "CallLead" ? "CallLead" : "FormLead";
-    const nextGranularities = granularitiesForChannel(selectedCompany, channelForKind(kind));
+    const nextChoices = sourceChoicesForChannel(sourceCompaniesQuery.data, channelForLeadKind(kind));
+    const nextChoice = defaultSourceChoice(nextChoices);
     patch({
       kind,
-      source_granularity_key: defaultGranularityKey(nextGranularities),
+      source_company: nextChoice?.source_company ?? "",
+      source_granularity_key: nextChoice?.source_granularity_key ?? "",
       post_to_granot: kind === "FormLead" ? draft.post_to_granot : false,
     });
   }
 
-  function handleSourceCompanyChange(value: string) {
-    const company = sourceCompaniesQuery.data?.find((item) => item.company_slug === value);
-    const nextGranularities = granularitiesForChannel(company, channelForKind(draft.kind));
+  function handleSourceChoiceChange(value: string) {
+    const choice = findSourceChoice(sourceChoices, value);
     patch({
-      source_company: value,
-      source_granularity_key: defaultGranularityKey(nextGranularities),
+      source_company: choice?.source_company ?? "",
+      source_granularity_key: value,
     });
   }
 
@@ -145,6 +149,9 @@ export function CreateLeadForm() {
         <h2 className="text-sm font-semibold">{MANUAL_COPY.createTitle}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{MANUAL_COPY.createHint}</p>
       </div>
+      {sourceCompaniesQuery.isError ? (
+        <FeedbackMessage tone="error">{MANUAL_COPY.sourceCatalogError}</FeedbackMessage>
+      ) : null}
       {message ? (
         <FeedbackMessage tone={message.tone}>
           <span>{message.text}</span>
@@ -163,7 +170,7 @@ export function CreateLeadForm() {
           <select
             value={draft.kind}
             onChange={(event) => handleKindChange(event.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className={SELECT_CLASS}
           >
             <option value="FormLead">{MANUAL_COPY.formLead}</option>
             <option value="CallLead">{MANUAL_COPY.callLead}</option>
@@ -171,38 +178,22 @@ export function CreateLeadForm() {
         </FilterField>
         <FilterField label={MANUAL_COPY.sourceCompany}>
           <select
-            value={draft.source_company}
+            value={draft.source_granularity_key}
             required
-            onChange={(event) => handleSourceCompanyChange(event.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            onChange={(event) => handleSourceChoiceChange(event.target.value)}
+            className={SELECT_CLASS}
           >
-            <option value="">{MANUAL_COPY.sourceCompanyPlaceholder}</option>
-            {sourceCompanyOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {sourceChoices.length === 1 ? null : (
+              <option value="">{MANUAL_COPY.sourceCompanyPlaceholder}</option>
+            )}
+            {sourceChoices.map((option) => (
+              <option key={option.source_granularity_key} value={option.source_granularity_key}>
+                {option.owner_label}
               </option>
             ))}
           </select>
+          <p className="text-xs text-muted-foreground">{MANUAL_COPY.sourceCompanyHint}</p>
         </FilterField>
-        {granularityOptions.length > 0 ? (
-          <FilterField label={MANUAL_COPY.sourceGranularity} className="sm:col-span-2">
-            <select
-              value={draft.source_granularity_key}
-              onChange={(event) => patch({ source_granularity_key: event.target.value })}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              {granularityOptions.length > 1 ? (
-                <option value="">{MANUAL_COPY.sourceGranularityPlaceholder}</option>
-              ) : null}
-              {granularityOptions.map((option) => (
-                <option key={option.granularity_key} value={option.granularity_key}>
-                  {option.owner_label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">{MANUAL_COPY.sourceGranularityHint}</p>
-          </FilterField>
-        ) : null}
         <FilterField label={MANUAL_COPY.name}>
           <Input value={draft.name} onChange={(event) => patch({ name: event.target.value })} required />
         </FilterField>
@@ -250,7 +241,7 @@ export function CreateLeadForm() {
                 value={draft.move_size}
                 onChange={(event) => patch({ move_size: event.target.value })}
                 required
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className={SELECT_CLASS}
               >
                 <option value="">Choose move size</option>
                 {MOVE_SIZE_OPTIONS.map((option) => (

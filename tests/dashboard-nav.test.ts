@@ -57,6 +57,8 @@ test("admin flat nav omits owner-only destinations", () => {
     "/intakes",
     "/manual",
     "/job-timeline",
+    "/granot-lifecycle",
+    "/extension",
     "/audit-log",
   ]) {
     assert.equal(adminHrefs.includes(href), false, href);
@@ -104,9 +106,15 @@ test("owner sections keep the five groups and admin Today and System shrink", ()
   assert.deepEqual(hrefs(owner.find((section) => section.id === "system")!.items), [
     "/observational",
     "/operations-registry",
+    "/granot-lifecycle",
     "/ingestion",
+    "/extension",
     "/audit-log",
   ]);
+  assert.deepEqual(
+    owner.find((section) => section.id === "system")!.items.map((item) => item.label),
+    ["Observational", "Operations Registry", "Granot Lifecycle", "Ingestion", "Extension", "Audit Log"],
+  );
 
   const admin = visibleDashboardNavSections("admin");
   assert.deepEqual(
@@ -132,6 +140,14 @@ test("owner sections keep the five groups and admin Today and System shrink", ()
     "/operations-registry",
     "/ingestion",
   ]);
+  assert.equal(
+    admin.find((section) => section.id === "system")!.items.some((item) => item.label === "Granot Lifecycle"),
+    false,
+  );
+  assert.equal(
+    admin.find((section) => section.id === "system")!.items.some((item) => item.label === "Extension"),
+    false,
+  );
 });
 
 test("Job Timeline sidebar label is title case", () => {
@@ -166,8 +182,12 @@ test("pageTitleForPath uses nav labels, then longer special prefixes", () => {
   assert.equal(pageTitleForPath("/job-timeline"), "Job Timeline");
   assert.equal(pageTitleForPath("/search"), "Search");
   assert.equal(pageTitleForPath("/ingestion/granot/lifecycle"), "Ingestion");
+  assert.equal(pageTitleForPath("/granot-lifecycle"), "Granot Lifecycle");
+  assert.equal(pageTitleForPath("/granot-lifecycle/receipts"), "Granot Lifecycle");
+  assert.equal(pageTitleForPath("/granot-lifecycle/health"), "Granot Lifecycle");
   assert.equal(pageTitleForPath("/live-events"), "Live Events");
   assert.equal(pageTitleForPath("/manual"), "Manual");
+  assert.equal(pageTitleForPath("/extension"), "Extension");
   assert.equal(pageTitleForPath("/cancellations/new"), "New Cancellation");
 });
 

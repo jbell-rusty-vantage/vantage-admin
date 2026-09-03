@@ -13,6 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { Download, FileBarChart, RefreshCw } from "lucide-react";
+import { GRANOT_LIFECYCLE_HEALTH_HREF } from "@/components/granot-lifecycle/granot-lifecycle-copy";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { DataTable } from "@/components/data-table/table-shell";
@@ -179,7 +180,7 @@ export function ObservationalOverview() {
             Export events CSV
           </Button>
           <Link
-            href="/ingestion/granot/lifecycle/health"
+            href={GRANOT_LIFECYCLE_HEALTH_HREF}
             className="inline-flex h-10 items-center justify-center rounded-md border border-steel-200 bg-white px-4 py-2 font-heading text-sm font-bold uppercase tracking-wide text-navy shadow-sm transition-all hover:border-trust-blue/30 hover:bg-steel-100"
           >
             Granot lifecycle health
