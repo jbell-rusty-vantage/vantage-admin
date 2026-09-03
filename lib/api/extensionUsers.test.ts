@@ -31,21 +31,21 @@ test("create Extension User posts email, password, and role through the Owner pr
   const calls = mockFetch(
     {
       ok: true,
-      data: { id: "user-2", email: "rep@vantage.com", role: "employee", active: true },
+      data: { id: "user-2", email: "rep@vantage.com", role: "sales", active: true },
     },
     201,
   );
   const result = await createExtensionUser({
     email: "rep@vantage.com",
     password: "secret-pass",
-    role: "employee",
+    role: "sales",
   });
   assert.equal(String(calls[0]?.input), "/api/proxy/api/v1/admin/extension-users");
   assert.equal(calls[0]?.init?.method, "POST");
   assert.equal(calls[0]?.init?.body, JSON.stringify({
     email: "rep@vantage.com",
     password: "secret-pass",
-    role: "employee",
+    role: "sales",
   }));
-  assert.equal(result.role, "employee");
+  assert.equal(result.role, "sales");
 });

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import {
   createExtensionUser,
   fetchExtensionUsers,
+  type CreateExtensionRole,
   type ExtensionRole,
 } from "@/lib/api/extensionUsers";
 import { queryKeys } from "@/lib/query/keys";
@@ -24,8 +25,23 @@ type FormMessage = {
 const emptyDraft = {
   email: "",
   password: "",
-  role: "employee" as ExtensionRole,
+  role: "sales" as CreateExtensionRole,
 };
+
+function extensionRoleLabel(role: ExtensionRole | string): string {
+  switch (role) {
+    case "owner":
+      return EXTENSION_COPY.roleOwner;
+    case "sales":
+      return EXTENSION_COPY.roleSales;
+    case "customer_service":
+      return EXTENSION_COPY.roleCustomerService;
+    case "employee":
+      return EXTENSION_COPY.roleEmployee;
+    default:
+      return role || EXTENSION_COPY.roleEmployee;
+  }
+}
 
 export function ExtensionPage() {
   const queryClient = useQueryClient();
@@ -72,7 +88,8 @@ export function ExtensionPage() {
             {EXTENSION_COPY.rolesTitle}
           </p>
           <p>{EXTENSION_COPY.ownerRole}</p>
-          <p>{EXTENSION_COPY.employeeRole}</p>
+          <p>{EXTENSION_COPY.salesRole}</p>
+          <p>{EXTENSION_COPY.customerServiceRole}</p>
         </CardContent>
       </Card>
 
@@ -117,11 +134,12 @@ export function ExtensionPage() {
               onChange={(event) =>
                 setDraft((current) => ({
                   ...current,
-                  role: event.target.value as ExtensionRole,
+                  role: event.target.value as CreateExtensionRole,
                 }))
               }
             >
-              <option value="employee">{EXTENSION_COPY.employeeOption}</option>
+              <option value="sales">{EXTENSION_COPY.salesOption}</option>
+              <option value="customer_service">{EXTENSION_COPY.customerServiceOption}</option>
               <option value="owner">{EXTENSION_COPY.ownerOption}</option>
             </select>
           </div>
@@ -154,7 +172,7 @@ export function ExtensionPage() {
                 <div>
                   <p className="font-medium text-navy">{user.email}</p>
                   <p className="text-xs text-muted-foreground">
-                    {user.role === "owner" ? EXTENSION_COPY.roleOwner : EXTENSION_COPY.roleEmployee}
+                    {extensionRoleLabel(user.role)}
                   </p>
                 </div>
                 <span className="text-xs text-muted-foreground">

@@ -2,7 +2,8 @@
 
 import type { ApiResponse } from "./types";
 
-export type ExtensionRole = "owner" | "employee";
+export type ExtensionRole = "owner" | "sales" | "customer_service" | "employee";
+export type CreateExtensionRole = Exclude<ExtensionRole, "employee">;
 
 export type AdminExtensionUser = {
   id: string;
@@ -16,7 +17,7 @@ export type AdminExtensionUser = {
 export type CreateExtensionUserInput = {
   email: string;
   password: string;
-  role: ExtensionRole;
+  role: CreateExtensionRole;
 };
 
 function proxyUrl(path: string): string {

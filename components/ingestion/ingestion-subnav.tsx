@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { StatusBadge } from "@/components/data-table/status-badge";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import { cn } from "@/lib/utils";
 import { INGESTION_COPY } from "./ingestion-copy";
@@ -13,7 +12,6 @@ export const INGESTION_SUBNAV_ITEMS = [
     href: "/ingestion",
     label: INGESTION_COPY.bestRelocationTab,
     ownerOnly: false,
-    deprecated: true,
   },
 ] as const;
 
@@ -53,11 +51,6 @@ export function IngestionSubnavLinks({
                 )}
               >
                 {item.label}
-                {"deprecated" in item && item.deprecated ? (
-                  <StatusBadge tone="warning" className="px-1.5 py-0 text-[10px] font-semibold">
-                    {INGESTION_COPY.bestRelocationDeprecatedBadge}
-                  </StatusBadge>
-                ) : null}
               </Link>
             );
           })}

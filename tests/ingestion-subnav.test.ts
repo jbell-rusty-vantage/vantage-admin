@@ -8,7 +8,7 @@ import {
   IngestionSubnavLinks,
 } from "../components/ingestion/ingestion-subnav";
 
-test("ingestion subnav is Granot workflow then deprecated Best Relocation", () => {
+test("ingestion subnav is Granot workflow then Best Relocation", () => {
   assert.deepEqual(
     INGESTION_SUBNAV_ITEMS.map((item) => item.label),
     [INGESTION_COPY.granotWorkflowTab, INGESTION_COPY.bestRelocationTab],
@@ -26,7 +26,7 @@ test("ingestion subnav is Granot workflow then deprecated Best Relocation", () =
       ownerMarkup.indexOf(INGESTION_COPY.bestRelocationTab),
   );
   assert.match(ownerMarkup, /href="\/ingestion\/granot"/);
-  assert.match(ownerMarkup, new RegExp(INGESTION_COPY.bestRelocationDeprecatedBadge));
+  assert.doesNotMatch(ownerMarkup, /Deprecated/);
   assert.match(ownerMarkup, /aria-current="page"[^>]+href="\/ingestion"/);
 
   const granotActive = renderToStaticMarkup(
@@ -40,5 +40,5 @@ test("ingestion subnav is Granot workflow then deprecated Best Relocation", () =
   );
   assert.doesNotMatch(adminMarkup, new RegExp(INGESTION_COPY.granotWorkflowTab));
   assert.match(adminMarkup, new RegExp(INGESTION_COPY.bestRelocationTab));
-  assert.match(adminMarkup, new RegExp(INGESTION_COPY.bestRelocationDeprecatedBadge));
+  assert.doesNotMatch(adminMarkup, /Deprecated/);
 });
