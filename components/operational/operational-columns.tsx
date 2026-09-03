@@ -17,6 +17,7 @@ import {
 } from "@/components/operational/operational-actions";
 import type { ColumnConfig, DeleteTarget, ResourceConfig } from "@/components/operational/operational-configs";
 import { OPERATIONAL_COPY } from "@/components/operational/operational-copy";
+import { SelectionCheckbox } from "@/components/observational/observational-delete-controls";
 import {
   formatDate,
   formatMoney,
@@ -33,7 +34,7 @@ import {
   rowIdentity,
   rowStatusChips,
 } from "@/components/operational/operational-row";
-import type { AdminRecord, UiResource } from "@/lib/api/admin";
+import { getRecordId, type AdminRecord, type UiResource } from "@/lib/api/admin";
 import type { SortDirection, TableQueryParams } from "@/lib/api/types";
 
 function optionalRelationCount(
@@ -271,6 +272,12 @@ export function buildColumns(
     canDelete: boolean;
     onRequestDelete: (target: DeleteTarget) => void;
     granularityLabelByKey?: ReadonlyMap<string, string>;
+    selection?: {
+      selectedIds: ReadonlySet<string>;
+      allLoadedSelected: boolean;
+      onToggle: (id: string, checked: boolean) => void;
+      onToggleAllLoaded: (checked: boolean) => void;
+    };
   },
 ): DataTableColumn<AdminRecord>[] {
   const hiddenColumns = hiddenTableColumnsByResource[resource];
@@ -299,6 +306,35 @@ export function buildColumns(
       truncate: truncateTableColumns.has(column.key),
       className: getTableColumnClassName(column),
     }));
+
+  if (options.selection) {
+    const selection = options.selection;
+    columns.unshift({
+      key: "__select",
+      header: (
+        <SelectionCheckbox
+          label={OPERATIONAL_COPY.sheetContains.selectLoaded}
+          checked={selection.allLoadedSelected}
+          onChange={selection.onToggleAllLoaded}
+        />
+      ),
+      className: "w-10 px-2",
+      sticky: "left",
+      cell: (item) => {
+        const id = getRecordId(item);
+        if (!id) {
+          return null;
+        }
+        return (
+          <SelectionCheckbox
+            label={OPERATIONAL_COPY.sheetContains.selectRow}
+            checked={selection.selectedIds.has(id)}
+            onChange={(checked) => selection.onToggle(id, checked)}
+          />
+        );
+      },
+    });
+  }
 
   if (resourceShowsStatusChips(resource)) {
     const afterKey = statusAfterColumnByResource[resource];

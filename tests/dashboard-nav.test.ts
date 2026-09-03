@@ -12,7 +12,7 @@ function hrefs(items: { href: string }[]): string[] {
   return items.map((item) => item.href);
 }
 
-test("owner flat nav keeps Overview, Live Events, Lead Conversations, then Intakes and Form Leads", () => {
+test("owner flat nav keeps Overview, Live Events, Lead Conversations, then Intakes, Manual, and Form Leads", () => {
   const owner = visibleDashboardNav("owner");
 
   assert.equal(owner[0]?.label, "Overview");
@@ -26,8 +26,11 @@ test("owner flat nav keeps Overview, Live Events, Lead Conversations, then Intak
   assert.equal(owner[3]?.label, "Intakes");
   assert.equal(owner[3]?.href, "/intakes");
   assert.equal(owner[3]?.ownerOnly, true);
-  assert.equal(owner[4]?.label, "Form Leads");
-  assert.equal(owner[4]?.href, "/form-leads");
+  assert.equal(owner[4]?.label, "Manual");
+  assert.equal(owner[4]?.href, "/manual");
+  assert.equal(owner[4]?.ownerOnly, true);
+  assert.equal(owner[5]?.label, "Form Leads");
+  assert.equal(owner[5]?.href, "/form-leads");
   assert.equal(
     owner.some((item) => "isNew" in item && item.isNew),
     false,
@@ -52,6 +55,7 @@ test("admin flat nav omits owner-only destinations", () => {
     "/live-events",
     "/conversations",
     "/intakes",
+    "/manual",
     "/job-timeline",
     "/audit-log",
   ]) {
@@ -77,6 +81,7 @@ test("owner sections keep the five groups and admin Today and System shrink", ()
     "/live-events",
     "/conversations",
     "/intakes",
+    "/manual",
   ]);
   assert.deepEqual(hrefs(owner.find((section) => section.id === "records")!.items), [
     "/form-leads",
@@ -162,6 +167,7 @@ test("pageTitleForPath uses nav labels, then longer special prefixes", () => {
   assert.equal(pageTitleForPath("/search"), "Search");
   assert.equal(pageTitleForPath("/ingestion/granot/lifecycle"), "Ingestion");
   assert.equal(pageTitleForPath("/live-events"), "Live Events");
+  assert.equal(pageTitleForPath("/manual"), "Manual");
   assert.equal(pageTitleForPath("/cancellations/new"), "New Cancellation");
 });
 

@@ -7,6 +7,7 @@ import {
   BarChart3,
   BookOpenCheck,
   Boxes,
+  ClipboardPen,
   ClipboardX,
   Copy,
   Download,
@@ -65,6 +66,7 @@ export const dashboardNavSections: DashboardNavSection[] = [
       { label: "Live Events", href: "/live-events", icon: Radio, ownerOnly: true },
       { label: "Lead Conversations", href: "/conversations", icon: Headphones, ownerOnly: true },
       { label: "Intakes", href: "/intakes", icon: Inbox, ownerOnly: true },
+      { label: "Manual", href: "/manual", icon: ClipboardPen, ownerOnly: true },
     ],
   },
   {

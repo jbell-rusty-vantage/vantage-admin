@@ -374,6 +374,28 @@ export async function updateFormLeadBadLead<TRecord extends AdminRecord>(
   });
 }
 
+export type CreateFormLeadResult = {
+  lead: AdminRecord;
+  sheet_sync_status?: string;
+  crm_sync_status?: string;
+  crm_company_label?: string;
+  messaging_status?: string;
+};
+
+export async function createFormLead(body: Record<string, unknown>): Promise<CreateFormLeadResult> {
+  return requestJson<CreateFormLeadResult>(proxyUrl("api/v1/form-leads"), {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function createCallLead(body: Record<string, unknown>): Promise<AdminRecord> {
+  return requestJson<AdminRecord>(proxyUrl("api/v1/call-leads"), {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export async function createBookingFromSource(body: Record<string, unknown>) {
   return requestJson<unknown>(proxyUrl("api/v1/booked-leads/from-source"), {
     method: "POST",
@@ -932,6 +954,71 @@ export async function retrySheetSyncJobs(
   body: Record<string, unknown> = {},
 ): Promise<Record<string, unknown>> {
   return requestJson<Record<string, unknown>>(proxyUrl("api/v1/admin/sheet-sync/retry"), {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export type SheetContainsEntityModel = "FormLead" | "CallLead" | "BookedLead" | "CancelledLead";
+
+export type SheetContainsVerdict =
+  | "found"
+  | "missing"
+  | "wrong_tab"
+  | "not_expected"
+  | "not_found";
+
+export type SheetContainsEvidenceCell = {
+  header: string;
+  value: string;
+};
+
+export type SheetContainsLocation = {
+  workbook: string;
+  workbook_key: string;
+  spreadsheet_id: string;
+  tab_name: string;
+  target: string;
+  role: "expected" | "sibling";
+  row_number: number;
+  gid?: number;
+  sheet_url?: string;
+  evidence: SheetContainsEvidenceCell[];
+};
+
+export type SheetContainsItem = {
+  id: string;
+  entity_model: SheetContainsEntityModel;
+  label: string;
+  verdict: SheetContainsVerdict;
+  expected_tabs: string[];
+  missing_expected_tabs: string[];
+  found: SheetContainsLocation[];
+  reason?: "created_on_unmatched" | "missing_from_mongo";
+  sheet_sync_hint: Array<{
+    target: string;
+    tab_name: string;
+    row_number?: number;
+    status: string;
+  }>;
+  open_job?: {
+    job_id: string;
+    status: string;
+    resource: string;
+  };
+};
+
+export type SheetContainsResult = {
+  entity_model: SheetContainsEntityModel;
+  checked_at: string;
+  items: SheetContainsItem[];
+};
+
+export async function checkSheetContains(body: {
+  entity_model: SheetContainsEntityModel;
+  ids: string[];
+}): Promise<SheetContainsResult> {
+  return requestJson<SheetContainsResult>(proxyUrl("api/v1/admin/sheet-sync/contains"), {
     method: "POST",
     body: JSON.stringify(body),
   });

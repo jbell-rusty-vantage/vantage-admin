@@ -46,6 +46,7 @@ test("admin palette destinations omit owner-only hrefs", () => {
     "/live-events",
     "/conversations",
     "/intakes",
+    "/manual",
     "/job-timeline",
     "/audit-log",
   ]) {

@@ -83,6 +83,7 @@ test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/audit-log"), false);
   assert.equal(canAccessDashboardPath("admin", "/bookings/reconciliation"), false);
   assert.equal(canAccessDashboardPath("admin", "/intakes"), false);
+  assert.equal(canAccessDashboardPath("admin", "/manual"), false);
   assert.equal(canAccessDashboardPath("admin", "/job-timeline"), false);
   assert.equal(canAccessDashboardPath("admin", "/live-events"), false);
   assert.equal(canAccessDashboardPath("admin", "/form-leads"), true);
@@ -442,6 +443,33 @@ test("admin can read reporting but every reporting mutation is owner-only", () =
   }
 });
 
+test("admin cannot proxy owner-only sheet contains check", () => {
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/sheet-sync/contains",
+    }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "owner",
+      method: "POST",
+      path: "api/v1/admin/sheet-sync/contains",
+    }),
+    true,
+  );
+  assert.equal(
+    canProxyVantagePath({
+      role: "admin",
+      method: "POST",
+      path: "api/v1/admin/sheet-sync/retry",
+    }),
+    true,
+  );
+});
+
 test("admin cannot proxy owner-only Google Drive routes", () => {
   for (const path of [
     "api/v1/admin/google-drive/status",
@@ -559,6 +587,13 @@ test("Granot lifecycle standard reads allow admin while candidates and all write
   );
 });
 
+test("Manual Form Lead and Call Lead create POSTs are Owner-only at the proxy", () => {
+  for (const path of ["api/v1/form-leads", "api/v1/call-leads"]) {
+    assert.equal(canProxyVantagePath({ role: "owner", method: "POST", path }), true);
+    assert.equal(canProxyVantagePath({ role: "admin", method: "POST", path }), false);
+  }
+});
+
 test("Connect Booking to Lead GET and POST are Owner-only at the proxy", () => {
   for (const path of [
     "api/v1/admin/bookings/64b7f4d9e6c2a1b0f3d5e799/connect-lead-candidates",
@@ -605,6 +640,8 @@ test("Granot lifecycle pages remain owner-only in the Admin UI except health", (
   assert.equal(canAccessDashboardPath("owner", "/ingestion/granot/lifecycle/health"), true);
   assert.equal(canAccessDashboardPath("admin", "/intakes"), false);
   assert.equal(canAccessDashboardPath("owner", "/intakes"), true);
+  assert.equal(canAccessDashboardPath("admin", "/manual"), false);
+  assert.equal(canAccessDashboardPath("owner", "/manual"), true);
   assert.equal(canAccessDashboardPath("admin", "/job-timeline"), false);
   assert.equal(canAccessDashboardPath("owner", "/job-timeline"), true);
   assert.equal(canAccessDashboardPath("admin", "/conversations"), false);

@@ -48,6 +48,12 @@ Start here for Job Timeline Enhancement (Admin): HANDOFF-job-timeline-enhancemen
   — orientation for JTE-04 / JTE-05. Do not start until JTE-03 is complete
     on the server. Contract: vantage-main-server/docs/job-number-timeline/.
 
+Live: Manual tab at /manual
+  — Owner-only create Form Lead or Call Lead, plus Connect Booking
+    to Lead for a Leadless Booking. Reuses booking Connect
+    panel. Not Booking Lead Reconciliation. Authority:
+    .cursor/rules/project-organization.mdc (components/manual).
+
 Live: operational surfaces (Admin) — HANDOFF-operational-surfaces.md
   — OSE-01–05 shipped. Keep OperationalResourcePage. Tabbed
     detail panel, clustered row actions, grouped filters, no JSON.

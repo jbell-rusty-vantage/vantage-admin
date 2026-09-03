@@ -9,6 +9,7 @@ const OWNER_ONLY_PAGE_PREFIXES = [
   "/job-timeline",
   "/conversations",
   "/live-events",
+  "/manual",
 ] as const;
 
 const OPERATIONAL_PATCH_PREFIXES = [

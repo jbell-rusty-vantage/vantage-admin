@@ -274,6 +274,8 @@ export const queryKeys = {
         [...queryKeys.observability.sheetSync.all, "runs", stableFilters(filters)] as const,
       runDetail: (id: string) =>
         [...queryKeys.observability.sheetSync.all, "runs", "detail", id] as const,
+      contains: (entityModel: string, ids: string[]) =>
+        [...queryKeys.observability.sheetSync.all, "contains", entityModel, ...ids] as const,
     },
   },
 };

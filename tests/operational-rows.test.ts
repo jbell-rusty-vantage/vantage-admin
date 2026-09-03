@@ -201,6 +201,36 @@ function columnKeys(resource: keyof typeof operationalConfigs, canDelete = true)
   ).map((column) => column.key);
 }
 
+test("buildColumns prepends a sheet-check selection column only when asked", () => {
+  const keys = columnKeys("form-leads");
+  assert.equal(keys[0], "timestamp");
+
+  const selected = buildColumns(
+    operationalConfigs["form-leads"],
+    {
+      page: 1,
+      limit: 25,
+      sort: operationalConfigs["form-leads"].defaultSort,
+      direction: "desc",
+      database_scope: "production",
+    },
+    () => undefined,
+    "form-leads",
+    true,
+    {
+      canDelete: true,
+      onRequestDelete: () => undefined,
+      selection: {
+        selectedIds: new Set(),
+        allLoadedSelected: false,
+        onToggle: () => undefined,
+        onToggleAllLoaded: () => undefined,
+      },
+    },
+  ).map((column) => column.key);
+  assert.equal(selected[0], "__select");
+});
+
 test("buildColumns does not prepend action columns", () => {
   const formKeys = columnKeys("form-leads");
   const callKeys = columnKeys("call-leads");
@@ -273,5 +303,6 @@ test("buildColumns source no longer unshifts leading action keys", () => {
   assert.doesNotMatch(source, /key: "__cancel"/);
   assert.doesNotMatch(source, /key: "__delete"/);
   assert.doesNotMatch(source, /key: "__related"/);
-  assert.doesNotMatch(source, /columns\.unshift\(\{\s*key: "__/);
+  assert.match(source, /key: "__select"/);
+  assert.doesNotMatch(source, /columns\.unshift\(\{\s*key: "__(book|mark_bad|cancel|delete|related)/);
 });

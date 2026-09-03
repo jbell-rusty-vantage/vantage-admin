@@ -89,6 +89,33 @@ export const OPERATIONAL_COPY = {
     cancel: "Cancel",
     delete: "Delete",
   },
+  sheetContains: {
+    action: "Check Google Sheet contains",
+    selected: "selected",
+    clear: "Clear",
+    selectRow: "Select for sheet check",
+    selectLoaded: "Select loaded rows for sheet check",
+    maxSelected: "You can check 25 records at a time.",
+    panelTitle: "Google Sheet check",
+    panelDescription: "Live read of Master Leads or Master Booked. Mongo stays the source of truth.",
+    checking: "Checking the Google Sheet…",
+    close: "Close",
+    verdictFound: "Found",
+    verdictMissing: "Missing",
+    verdictWrongTab: "Wrong tab",
+    verdictNotExpected: "Not expected",
+    verdictNotFound: "Not in Mongo",
+    expected: "Expected",
+    row: "Row",
+    openSheet: "Open in Google Sheets",
+    pendingJob: "Sheet Sync job still open",
+    unmatchedCall:
+      "This Call Lead was created only to anchor a Booking. Sheet Sync does not write it to Master Leads.",
+    missingMongo: "This id is not in the production database.",
+    missingExpected: "Missing from",
+    hint: "Last Sheet Sync hint",
+    emptyEvidence: "No evidence cells on this row.",
+  },
 } as const;
 
 export function duplicateReadOnlyBannerCopy(resource: UiResource): string {
