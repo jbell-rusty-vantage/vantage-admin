@@ -46,6 +46,7 @@ export function CarrierManager({ readOnly = false }: { readOnly?: boolean }) {
         name: body.name,
         dot_number: body.dot_number,
         mc_number: body.mc_number,
+        granot_carrier_code: body.granot_carrier_code,
         active: body.active,
       }),
     onSuccess: async () => {
@@ -77,7 +78,8 @@ export function CarrierManager({ readOnly = false }: { readOnly?: boolean }) {
           <CardTitle>Moving Carriers</CardTitle>
           <CardDescription>
             Manage the active carrier list shown on the main site. DOT and MC together identify
-            each carrier.
+            each carrier. Granot Carrier Code maps the Forms View Agent short name for Tariff
+            Adjustment.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -94,7 +96,7 @@ export function CarrierManager({ readOnly = false }: { readOnly?: boolean }) {
           ) : null}
           {!readOnly ? (
             <form
-              className="grid gap-3 md:grid-cols-[1.4fr_0.7fr_0.7fr_auto_auto]"
+              className="grid gap-3 md:grid-cols-[1.4fr_0.7fr_0.7fr_0.7fr_auto_auto]"
               onSubmit={(event) => {
                 event.preventDefault();
                 const form = event.currentTarget;
@@ -102,6 +104,9 @@ export function CarrierManager({ readOnly = false }: { readOnly?: boolean }) {
                 const name = String(formData.get("name") ?? "").trim();
                 const dotNumber = String(formData.get("dot_number") ?? "").trim();
                 const mcNumber = String(formData.get("mc_number") ?? "").trim();
+                const granotCarrierCode = String(formData.get("granot_carrier_code") ?? "")
+                  .trim()
+                  .toUpperCase();
                 const active = formData.get("active") === "true";
 
                 if (!name || !dotNumber || !mcNumber) {
@@ -113,6 +118,7 @@ export function CarrierManager({ readOnly = false }: { readOnly?: boolean }) {
                   name,
                   dot_number: dotNumber,
                   mc_number: mcNumber,
+                  ...(granotCarrierCode ? { granot_carrier_code: granotCarrierCode } : {}),
                   active,
                 });
                 form.reset();
@@ -126,6 +132,9 @@ export function CarrierManager({ readOnly = false }: { readOnly?: boolean }) {
               </FilterField>
               <FilterField label="MC">
                 <Input name="mc_number" placeholder="MC" inputMode="numeric" />
+              </FilterField>
+              <FilterField label="Granot Carrier Code">
+                <Input name="granot_carrier_code" placeholder="C2C" />
               </FilterField>
               <FilterField label="Initial status">
                 <select
@@ -152,8 +161,10 @@ export function CarrierManager({ readOnly = false }: { readOnly?: boolean }) {
           <CardHeader>
             <CardTitle>CSV Import</CardTitle>
             <CardDescription>
-              Upload a CSV with `Carrier Name`, `DOT`, and `MC` columns. Patch mode leaves missing
-              carriers unchanged; replace mode deactivates active carriers missing from the upload.
+              Upload a CSV with `Carrier Name`, `DOT`, and `MC` columns. An optional
+              `Granot Carrier Code` column stamps the Forms View short name. Patch mode leaves
+              missing carriers unchanged; replace mode deactivates active carriers missing from
+              the upload.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -220,7 +231,7 @@ export function CarrierManager({ readOnly = false }: { readOnly?: boolean }) {
           <div className="space-y-3">
             {(carriersQuery.data ?? []).map((carrier) => (
               <CarrierRow
-                key={`${carrier.id}-${carrier.name}-${carrier.dot_number}-${carrier.mc_number}-${carrier.active}`}
+                key={`${carrier.id}-${carrier.name}-${carrier.dot_number}-${carrier.mc_number}-${carrier.granot_carrier_code ?? ""}-${carrier.active}`}
                 carrier={carrier}
                 isPending={updateMutation.isPending}
                 readOnly={readOnly}
@@ -275,14 +286,18 @@ function CarrierRow({
   const [name, setName] = useState(carrier.name);
   const [dotNumber, setDotNumber] = useState(carrier.dot_number);
   const [mcNumber, setMcNumber] = useState(carrier.mc_number);
+  const [granotCarrierCode, setGranotCarrierCode] = useState(
+    carrier.granot_carrier_code ?? "",
+  );
   const changed =
     name.trim() !== carrier.name ||
     dotNumber.trim() !== carrier.dot_number ||
-    mcNumber.trim() !== carrier.mc_number;
+    mcNumber.trim() !== carrier.mc_number ||
+    granotCarrierCode.trim().toUpperCase() !== (carrier.granot_carrier_code ?? "");
 
   return (
     <div className="rounded-md border bg-background p-3">
-      <div className="grid gap-3 lg:grid-cols-[1.5fr_0.6fr_0.6fr_auto] lg:items-end">
+      <div className="grid gap-3 lg:grid-cols-[1.4fr_0.55fr_0.55fr_0.6fr_auto] lg:items-end">
         <FilterField label="Carrier name">
           <Input
             value={name}
@@ -307,6 +322,15 @@ function CarrierRow({
             onChange={(event) => setMcNumber(event.target.value)}
           />
         </FilterField>
+        <FilterField label="Granot Carrier Code">
+          <Input
+            value={granotCarrierCode}
+            readOnly={readOnly}
+            disabled={readOnly}
+            placeholder="C2C"
+            onChange={(event) => setGranotCarrierCode(event.target.value.toUpperCase())}
+          />
+        </FilterField>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge tone={carrier.active ? "success" : "muted"}>
             {carrier.active ? "Active" : "Inactive"}
@@ -321,6 +345,7 @@ function CarrierRow({
                     name: name.trim(),
                     dot_number: dotNumber.trim(),
                     mc_number: mcNumber.trim(),
+                    granot_carrier_code: granotCarrierCode.trim().toUpperCase(),
                   })
                 }
               >

@@ -9,6 +9,7 @@ export type MovingCarrier = {
   normalized_name: string;
   dot_number: string;
   mc_number: string;
+  granot_carrier_code?: string;
   active: boolean;
   created_from: string;
   createdAt?: string;
@@ -19,6 +20,7 @@ export type MovingCarrierPayload = {
   name: string;
   dot_number: string;
   mc_number: string;
+  granot_carrier_code?: string;
   active?: boolean;
 };
 
