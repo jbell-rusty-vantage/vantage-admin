@@ -52,6 +52,27 @@ test("employee booking submit schema rejects unknown keys", () => {
   );
 });
 
+test("employee booking submit schema accepts $ and comma-formatted amounts", () => {
+  const result = employeeBookingSubmitBodySchema.safeParse({
+    submission_id: "05db9651-8a3b-4743-bf35-e5a3ebae0f91",
+    submission_nonce: "nonce",
+    lead_source_company_id: "company-id",
+    source_granularity_key: "granularity",
+    agent: "Agent One",
+    lead_name: "Casey Booker",
+    binder_amount: "$1,000.00",
+    deposit_amount: " $250 ",
+    merchant: "Merchant",
+    phone_number: "2125550100",
+    job_no: "JOB-100",
+  });
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.binder_amount, 1000);
+    assert.equal(result.data.deposit_amount, 250);
+  }
+});
+
 test("employee booking submit schema rejects blank required amounts", () => {
   const base = {
     submission_id: "05db9651-8a3b-4743-bf35-e5a3ebae0f91",

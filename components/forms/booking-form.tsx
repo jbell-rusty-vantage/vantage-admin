@@ -20,6 +20,7 @@ import {
   REFERRAL_SOURCE_COMPANY,
   SOURCE_COMPANY_OPTIONS,
 } from "@/lib/constants/domain";
+import { parseMoneyInput } from "@/lib/booking/parseMoneyInput";
 import { floridaCalendarDateInputValue } from "@/lib/floridaTime";
 import { queryKeys } from "@/lib/query/keys";
 
@@ -34,9 +35,8 @@ function today() {
   return floridaCalendarDateInputValue();
 }
 
-function asNumber(value: FormDataEntryValue | null): number {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
+function asMoney(value: string): number | undefined {
+  return parseMoneyInput(value);
 }
 
 function getString(formData: FormData, name: string): string {
@@ -167,8 +167,8 @@ export function BookingForm() {
         const merchant = getString(formData, "merchant");
         const binderAmount = getString(formData, "binder_amount");
         const depositAmount = getString(formData, "deposit_amount");
-        const binder = asNumber(binderAmount);
-        const deposit = asNumber(depositAmount);
+        const binder = asMoney(binderAmount);
+        const deposit = asMoney(depositAmount);
         const customerName = getString(formData, "customer_name");
         const customerPhone = getString(formData, "customer_phone");
         const formLeadId = getString(formData, "form_lead_id");
@@ -201,18 +201,10 @@ export function BookingForm() {
           return;
         }
 
-        if (!Number.isFinite(Number(binderAmount)) || !Number.isFinite(Number(depositAmount))) {
+        if (binder === undefined || deposit === undefined) {
           setMessage({
             tone: "error",
-            text: "Binder and deposit amounts must be valid numbers.",
-          });
-          return;
-        }
-
-        if (binder < 0 || deposit < 0) {
-          setMessage({
-            tone: "error",
-            text: "Binder and deposit amounts cannot be negative.",
+            text: "Binder and deposit amounts must be valid numbers. A leading $ is allowed.",
           });
           return;
         }
@@ -365,10 +357,10 @@ export function BookingForm() {
             </select>
           </FilterField>
           <FilterField label="Binder amount">
-            <Input name="binder_amount" type="number" step="0.01" min="0" required />
+            <Input name="binder_amount" inputMode="decimal" required />
           </FilterField>
           <FilterField label="Deposit amount">
-            <Input name="deposit_amount" type="number" step="0.01" min="0" required />
+            <Input name="deposit_amount" inputMode="decimal" required />
           </FilterField>
           <FilterField label="Merchant">
             <select name="merchant" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">

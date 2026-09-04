@@ -33,9 +33,11 @@ test("dashboard chrome scrolls the page body, not the navbar", () => {
     "utf8",
   );
 
-  assert.match(shell, /h-svh overflow-hidden/);
+  assert.match(shell, /h-full min-h-0 overflow-hidden/);
   assert.match(shell, /DASHBOARD_MAIN_ID/);
-  assert.match(shell, /min-h-0 flex-1 overflow-y-auto/);
+  assert.match(shell, /min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden/);
+  assert.match(shell, /document.documentElement/);
+  assert.match(shell, /overflow-hidden/);
   assert.doesNotMatch(shell, /sticky top-0 z-10/);
   assert.match(table, /isolate overflow-hidden/);
   assert.match(table, /Scroll row left/);

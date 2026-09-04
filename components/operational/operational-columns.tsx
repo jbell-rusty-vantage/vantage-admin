@@ -22,6 +22,7 @@ import {
   formatDate,
   formatMoney,
   formatPlain,
+  formatRate,
   getValue,
   isLeadRecordWithSourceMetadata,
   stringValue,
@@ -111,6 +112,9 @@ export function formatCell(
   }
   if (column.format === "money") {
     return formatMoney(value);
+  }
+  if (column.format === "rate") {
+    return formatRate(value);
   }
   return formatPlain(value);
 }

@@ -11,6 +11,7 @@ import { FilterField } from "@/components/filters/filter-field";
 import { createCancellation } from "@/lib/api/admin";
 import { CANCELLATION_REASON_OPTIONS } from "@/lib/constants/domain";
 import { floridaCalendarDateInputValue } from "@/lib/floridaTime";
+import { parseMoneyInput } from "@/lib/booking/parseMoneyInput";
 import { queryKeys } from "@/lib/query/keys";
 
 function today() {
@@ -42,11 +43,16 @@ export function CancellationForm() {
       onSubmit={(event) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
+        const refundAmount = parseMoneyInput(String(formData.get("refund_amount") ?? ""));
+        if (refundAmount === undefined) {
+          setMessage("Refund amount must be a valid number. A leading $ is allowed.");
+          return;
+        }
         const payload = {
           booked_lead: String(formData.get("booked_lead") ?? "").trim() || undefined,
           lead_id: String(formData.get("lead_id") ?? "").trim() || undefined,
           cancel_date: String(formData.get("cancel_date") ?? "").trim() || undefined,
-          refund_amount: Number(formData.get("refund_amount") ?? 0),
+          refund_amount: refundAmount,
           reason: String(formData.get("reason") ?? "").trim() || undefined,
           cancelled_by: String(formData.get("cancelled_by") ?? "").trim() || undefined,
           notes: String(formData.get("notes") ?? "").trim() || undefined,
@@ -78,7 +84,7 @@ export function CancellationForm() {
             <Input name="cancel_date" type="date" defaultValue={today()} />
           </FilterField>
           <FilterField label="Refund amount">
-            <Input name="refund_amount" type="number" min="0" step="0.01" required />
+            <Input name="refund_amount" inputMode="decimal" required />
           </FilterField>
           <FilterField label="Reason">
             <select name="reason" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">

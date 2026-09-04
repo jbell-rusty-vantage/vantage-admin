@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/brand/brand-logo";
@@ -49,13 +49,24 @@ export function DashboardShell({
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     );
 
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    html.classList.add("overflow-hidden");
+    body.classList.add("h-full", "min-h-0", "overflow-hidden");
+    return () => {
+      html.classList.remove("overflow-hidden");
+      body.classList.remove("h-full", "min-h-0", "overflow-hidden");
+    };
+  }, []);
+
   function toggleCollapsed() {
     setLocalStorageBoolean(sidebarStorageKey, !collapsed);
   }
 
   return (
     <DashboardRoleProvider role={adminRole}>
-      <div className="flex h-svh overflow-hidden bg-cool-white">
+      <div className="flex h-full min-h-0 overflow-hidden bg-cool-white">
       <aside
         className={cn(
           "hidden h-full shrink-0 flex-col border-r border-steel-200 bg-white px-2.5 py-4 shadow-sm transition-[width] duration-200 lg:flex",
@@ -99,7 +110,7 @@ export function DashboardShell({
             <UserMenu email={adminEmail} role={adminRole} />
           </div>
         </header>
-        <main id={DASHBOARD_MAIN_ID} className="min-h-0 flex-1 overflow-y-auto p-6">
+        <main id={DASHBOARD_MAIN_ID} className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-6">
           {pageAllowed ? (
             children
           ) : (

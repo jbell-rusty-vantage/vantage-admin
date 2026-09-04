@@ -115,7 +115,6 @@ export function BookingUpdateForm({ detail, release = false }: { detail: GranotL
         <fieldset className="grid gap-4 md:grid-cols-3" disabled={reviewing || submitting}>
           <legend className="mb-3 font-semibold">Complete official Booking replacement</legend>
           <div><Label htmlFor="granot-update-book-date">Book Date</Label><Input id="granot-update-book-date" type="date" value={bookDate} onChange={(event) => setBookDate(event.target.value)} /></div>
-          <div><Label htmlFor="granot-update-deposit">Deposit Amount</Label><Input id="granot-update-deposit" inputMode="decimal" value={deposit} onChange={(event) => setDeposit(event.target.value)} /></div>
           <OfficialBinderAgentsFields
             idPrefix="granot-update"
             binder={totalBinder}
@@ -125,6 +124,9 @@ export function BookingUpdateForm({ detail, release = false }: { detail: GranotL
             onPrimaryAgentChange={setPrimaryAgentId}
             onSecondaryAgentChange={setSecondaryAgentId}
             agents={agents}
+            afterBinder={
+              <div><Label htmlFor="granot-update-deposit">Deposit Amount</Label><Input id="granot-update-deposit" inputMode="decimal" value={deposit} onChange={(event) => setDeposit(event.target.value)} /></div>
+            }
           />
           <div><Label htmlFor="granot-update-merchant">Active Merchant</Label><select id="granot-update-merchant" className="h-10 w-full rounded-md border px-3" value={merchantId} onChange={(event) => setMerchantId(event.target.value)}><option value="">Select Merchant</option>{catalog.merchants.filter((item) => item.active).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
         </fieldset>

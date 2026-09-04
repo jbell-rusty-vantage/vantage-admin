@@ -99,7 +99,7 @@ function AgentRankingList({
         const primary = Number(agent[valueKey] ?? 0);
         const pct = topValue > 0 ? Math.round((primary / topValue) * 100) : 0;
         return (
-          <li key={agent.agent_name ?? index} className="space-y-1">
+          <li key={`${agent.agent_name ?? "unknown"}:${index}`} className="space-y-1">
             <div className="flex items-center justify-between text-sm">
               <span className="flex items-center gap-2 font-medium">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-semibold">

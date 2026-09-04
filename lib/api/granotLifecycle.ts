@@ -1265,6 +1265,7 @@ export type GranotWebhookReceiptListItem = {
     owner_label: string;
   } | null;
   intake_case_id: string | null;
+  granot_statement: unknown;
 };
 
 export type GranotWebhookReceiptListPage = {
@@ -1286,6 +1287,10 @@ function asBookingAction(value: unknown): GranotWebhookBookingAction | null {
   return GRANOT_WEBHOOK_BOOKING_ACTIONS.includes(value as GranotWebhookBookingAction)
     ? (value as GranotWebhookBookingAction)
     : null;
+}
+
+function asGranotStatement(value: unknown): unknown {
+  return value !== null && typeof value === "object" ? value : null;
 }
 
 export function asGranotWebhookReceiptListItem(value: unknown): GranotWebhookReceiptListItem | null {
@@ -1320,6 +1325,7 @@ export function asGranotWebhookReceiptListItem(value: unknown): GranotWebhookRec
     },
     source_company: sourceId && sourceLabel ? { id: sourceId, owner_label: sourceLabel } : null,
     intake_case_id: asNullableString(record.intake_case_id),
+    granot_statement: asGranotStatement(record.granot_statement),
   };
 }
 

@@ -16,7 +16,7 @@ export type ColumnConfig = {
   label: string;
   path: string;
   sort?: string;
-  format?: "date" | "money" | "boolean" | "scope" | "badges";
+  format?: "date" | "money" | "boolean" | "scope" | "badges" | "rate";
 };
 
 export type FilterConfig = {
@@ -359,7 +359,8 @@ export const operationalConfigs: Record<UiResource, ResourceConfig> = {
   agents: {
     uiResource: "agents",
     title: "Agents",
-    description: "Browse agents and inspect booking/cancellation performance.",
+    description:
+      "Booking performance for the selected date range (book date), not Agent created-at.",
     defaultSort: "name",
     defaultDirection: "asc",
     dateField: "createdAt",
@@ -371,7 +372,7 @@ export const operationalConfigs: Record<UiResource, ResourceConfig> = {
       { key: "binder", label: "Binder", path: "total_binder_amount", format: "money" },
       { key: "deposit", label: "Deposit", path: "total_deposit_amount", format: "money" },
       { key: "cancellations", label: "Cancellations", path: "cancellation_count" },
-      { key: "rate", label: "Cancel Rate", path: "cancellation_rate" },
+      { key: "rate", label: "Cancel Rate", path: "cancellation_rate", format: "rate" },
     ],
     filters: [
       { key: "name", label: "Name", type: "text" },

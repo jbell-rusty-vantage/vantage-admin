@@ -17,6 +17,7 @@ import {
   type AgentSalesReportResponse,
 } from "@/lib/api/admin";
 import { useCatalogOptions } from "@/lib/api/use-catalog-options";
+import { analyticsTableRowKey } from "@/lib/analytics/presentation";
 import { downloadCsvFromProxy } from "@/lib/api/csv";
 import type { SerializableFilters } from "@/lib/api/filters";
 import { queryKeys } from "@/lib/query/keys";
@@ -205,7 +206,7 @@ export function AgentSalesReport() {
             <DataTable<Record<string, unknown>>
               items={data.items}
               columns={columns}
-              getRowKey={(row) => String(row.agent_name ?? Math.random())}
+              getRowKey={analyticsTableRowKey}
             />
           )}
         </>

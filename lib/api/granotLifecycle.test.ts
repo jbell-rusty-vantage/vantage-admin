@@ -454,7 +454,7 @@ test("webhook receipt list client uses the exact GET path and drops extra DTO ke
         decision_outcome: "linked",
         ref_no: "DT_synthetic",
         job_no: "P5562401",
-        contact: { display_name: "A***", phone: "***0100", email: "a***@example.invalid" },
+        contact: { display_name: "Ada Lovelace", phone: "2125550100", email: "ada@example.invalid" },
         source_company: { id: "src-1", owner_label: "Synthetic Source" },
         intake_case_id: "66aaaaaaaaaaaaaaaaaaaaaa",
         granot_statement: { event_type: "Booked" },
@@ -495,13 +495,20 @@ test("webhook receipt list client uses the exact GET path and drops extra DTO ke
   assert.equal(page.items[0]?.receipt_id, "64aaaaaaaaaaaaaaaaaaaaaa");
   assert.equal(page.items[0]?.booking_action, "booked");
   assert.equal(page.next_cursor, "opaque+cursor");
-  assert.equal("granot_statement" in (page.items[0] ?? {}), false);
-  assert.equal(
-    "granot_statement" in (asGranotWebhookReceiptListPage({
-      items: [{ receipt_id: "r1", captured_at: "2026-08-28T15:00:00.000Z", route_event_class: "lead_created", granot_statement: {} }],
+  assert.deepEqual(page.items[0]?.granot_statement, { event_type: "Booked" });
+  assert.deepEqual(
+    asGranotWebhookReceiptListPage({
+      items: [{ receipt_id: "r1", captured_at: "2026-08-28T15:00:00.000Z", route_event_class: "lead_created", granot_statement: { job_no: "P5562401" } }],
       next_cursor: null,
-    }).items[0] ?? {}),
-    false,
+    }).items[0]?.granot_statement,
+    { job_no: "P5562401" },
+  );
+  assert.equal(
+    asGranotWebhookReceiptListPage({
+      items: [{ receipt_id: "r2", captured_at: "2026-08-28T15:00:00.000Z", route_event_class: "lead_created" }],
+      next_cursor: null,
+    }).items[0]?.granot_statement,
+    null,
   );
 });
 

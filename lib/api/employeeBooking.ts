@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseMoneyInput } from "@/lib/booking/parseMoneyInput";
 
 export const EMPLOYEE_BOOKING_HONEYPOT_FIELD = "company_fax";
 export const EMPLOYEE_BOOKING_NONCE_FIELD = "submission_nonce";
@@ -25,11 +26,12 @@ export const employeeBookingOptionsResponseSchema = z.object({
   merchants: z.array(employeeBookingCatalogOptionSchema),
 });
 
-const moneySchema = z.preprocess(
-  (value) =>
-    typeof value === "string" && value.trim() === "" ? undefined : value,
-  z.coerce.number().finite().min(0),
-);
+const moneySchema = z.preprocess((value) => {
+  if (typeof value === "number") return value;
+  if (typeof value !== "string") return value;
+  if (value.trim() === "") return undefined;
+  return parseMoneyInput(value);
+}, z.number().finite().min(0));
 
 export type EmployeeBookingRequestIssue = {
   field: string;

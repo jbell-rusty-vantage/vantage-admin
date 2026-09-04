@@ -5,7 +5,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DataTable } from "../components/data-table/table-shell";
-import { buildColumns } from "../components/operational/operational-columns";
+import { buildColumns, formatCell } from "../components/operational/operational-columns";
 import { operationalConfigs } from "../components/operational/operational-configs";
 import { OPERATIONAL_COPY } from "../components/operational/operational-copy";
 import {
@@ -282,6 +282,25 @@ test("floating bottom action bar is gone so Book and Cancel are not a third surf
   assert.match(page, /isRowSelected/);
   assert.doesNotMatch(page, /showSelectedActionBar|Start booking|Start cancellation/);
   assert.doesNotMatch(page, /fixed bottom-4 left-1\/2/);
+});
+
+test("agents cancel rate formats the API fraction as a percentage", () => {
+  const column = operationalConfigs.agents.columns.find((item) => item.key === "rate");
+  assert.ok(column);
+  assert.equal(column.format, "rate");
+  assert.equal(formatCell({ cancellation_rate: 0.125 }, column), "12.5%");
+  assert.equal(formatCell({ cancellation_rate: 0 }, column), "0.0%");
+  assert.equal(formatCell({}, column), "-");
+});
+
+test("agents booking and cancellation counts render zeros from numeric fields", () => {
+  const bookings = operationalConfigs.agents.columns.find((item) => item.key === "bookings");
+  const cancellations = operationalConfigs.agents.columns.find((item) => item.key === "cancellations");
+  assert.ok(bookings);
+  assert.ok(cancellations);
+  assert.equal(formatCell({ booking_count: 0 }, bookings), "0");
+  assert.equal(formatCell({ booking_count: 3 }, bookings), "3");
+  assert.equal(formatCell({ cancellation_count: 0 }, cancellations), "0");
 });
 
 test("buildColumns source no longer unshifts leading action keys", () => {

@@ -14,9 +14,8 @@ import {
   type ConfirmGranotCancellationBody,
   type GranotLifecycleCaseDetail,
 } from "@/lib/api/granotLifecycle";
+import { parseMoneyInput } from "@/lib/booking/parseMoneyInput";
 import { invalidateGranotLifecycleCommandViews } from "@/lib/query/granotLifecycle";
-
-const MONEY = /^\d+(?:\.\d{1,2})?$/;
 
 export function CancellationCommandForm({
   detail,
@@ -45,18 +44,19 @@ export function CancellationCommandForm({
   const buildBody = (): ConfirmGranotCancellationBody | undefined => {
     const nextErrors: string[] = [];
     if (!/^\d{4}-\d{2}-\d{2}$/.test(cancelDate)) nextErrors.push("Enter a valid Cancel Date.");
-    if (!MONEY.test(refundAmount)) nextErrors.push("Refund Amount must be nonnegative with no more than two decimals.");
+    const refund = parseMoneyInput(refundAmount);
+    if (refund === undefined) nextErrors.push("Refund Amount must be a nonnegative amount with no more than two decimals.");
     if (reason.trim().length > 500) nextErrors.push("Reason must be at most 500 characters.");
     if (notes.trim().length > 2000) nextErrors.push("Notes must be at most 2000 characters.");
     if (cancelledBy.trim().length > 200) nextErrors.push("Cancelled By must be at most 200 characters.");
     setErrors(nextErrors);
-    if (nextErrors.length) return undefined;
+    if (nextErrors.length || refund === undefined) return undefined;
     return {
       expected_case_revision: detail.case_revision,
       expected_booking_revision: booking.domain_revision,
       official_cancellation_details: {
         cancel_date: cancelDate,
-        refund_amount: Number(refundAmount),
+        refund_amount: refund,
         ...(reason.trim() ? { reason: reason.trim() } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
         ...(cancelledBy.trim() ? { cancelled_by: cancelledBy.trim() } : {}),

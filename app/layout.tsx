@@ -31,9 +31,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${archivo.variable} ${publicSans.variable} h-full antialiased`}
+      className={`${archivo.variable} ${publicSans.variable} h-full overflow-x-hidden antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex h-full min-h-0 flex-col overflow-x-hidden">{children}</body>
     </html>
   );
 }

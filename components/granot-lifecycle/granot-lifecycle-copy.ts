@@ -52,6 +52,13 @@ export const GRANOT_LIFECYCLE_COPY = {
   columnJobNo: "Job Number",
   columnCaptured: "Captured",
   columnActions: "Actions",
+  viewPayload: "View payload",
+  payloadPanelTitle: "Granot Observation Receipt",
+  factName: "Name",
+  factPhone: "Phone",
+  factEmail: "Email",
+  fullGranotPayload: "Full Granot payload",
+  emptyPayload: "No Granot payload is stored for this receipt.",
   backToIntakes: "Back to Intakes",
   backToIntakesHref: "/intakes",
 } as const;

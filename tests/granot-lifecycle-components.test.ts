@@ -305,6 +305,10 @@ test("[AC-22][AC-32] enabled Owner command renders blank labeled fields and an e
   // Who the booking is for is settled above this card, so the form only asks for the numbers.
   assert.match(formMarkup, /No strong match/);
   assert.equal(formMarkup.includes("Search by name, phone, email, job number, or reference"), false);
+  assert.ok(
+    formMarkup.indexOf("Binder amount") < formMarkup.indexOf("Deposit Amount"),
+    "Create-missing official money fields must be Binder then Deposit",
+  );
 
   const detailMarkup = renderToStaticMarkup(createElement(CaseDetail, {
     detail: commandDetail,
@@ -383,6 +387,10 @@ test("[AC-20][AC-24][AC-32] review-existing actions initialize from live values 
     "Review No Action",
   ]) assert.match(markup, new RegExp(value));
   assert.equal(markup.includes("Finish the booking"), false);
+  assert.ok(
+    markup.indexOf("Binder amount") < markup.indexOf("Deposit Amount"),
+    "Update official money fields must be Binder then Deposit",
+  );
 });
 
 test("review plus latest Release exposes Update, Confirm Cancellation, and No Action", () => {
@@ -456,6 +464,10 @@ test("[AC-20][AC-28] create-missing and Referral expose only their explicit Owne
   assert.match(referralMarkup, /Review Booking/);
   assert.match(referralMarkup, /No Action/);
   assert.equal(referralMarkup.includes("Who this booking is for"), false);
+  assert.ok(
+    referralMarkup.indexOf("Binder amount") < referralMarkup.indexOf("Deposit Amount"),
+    "Referral official money fields must be Binder then Deposit",
+  );
 });
 
 test("[AC-25][AC-32] open Release cases expose exactly the three explicit Owner actions", () => {

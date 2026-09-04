@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDateTime } from "@/components/data-table/formatters";
 import { StatusBadge } from "@/components/data-table/status-badge";
+import { SidePanel } from "@/components/ui/side-panel";
 import { serializeFilters } from "@/lib/api/filters";
 import {
   fetchGranotWebhookReceipts,
@@ -27,6 +28,7 @@ import { applyUrlStateUpdate } from "@/lib/api/url-state-update";
 import { buildJobTimelineHref } from "@/lib/api/jobNumberTimeline";
 import { queryKeys } from "@/lib/query/keys";
 import { GRANOT_LIFECYCLE_COPY } from "./granot-lifecycle-copy";
+import { prettyJson } from "./pretty-json";
 
 export const GRANOT_WEBHOOK_RECEIPT_FILTER_KEYS = [
   "ref_no",
@@ -43,6 +45,8 @@ export const GRANOT_WEBHOOK_RECEIPT_FILTER_KEYS = [
   "cursor",
   "limit",
 ] as const;
+
+export const GRANOT_WEBHOOK_RECEIPT_PANEL_KEY = "receipt";
 
 const PROCESSING_STATES = [
   "pending",
@@ -202,10 +206,109 @@ function intakeHref(caseId: string): string {
   return `/intakes?case=${encodeURIComponent(caseId)}`;
 }
 
-function contactLine(item: GranotWebhookReceiptListItem): string {
-  return [item.contact.display_name, item.contact.phone, item.contact.email]
-    .filter(Boolean)
-    .join(" · ") || "—";
+export function receiptIdFromSearchParams(params: URLSearchParams): string | null {
+  const value = params.get(GRANOT_WEBHOOK_RECEIPT_PANEL_KEY)?.trim();
+  return value || null;
+}
+
+function missingFact(value: string | null | undefined): string {
+  return value?.trim() ? value : "—";
+}
+
+export function ReceiptLeadContact({
+  contact,
+}: {
+  contact: GranotWebhookReceiptListItem["contact"];
+}) {
+  const name = contact.display_name?.trim() ?? "";
+  const phone = contact.phone?.trim() ?? "";
+  const email = contact.email?.trim() ?? "";
+  if (!name && !phone && !email) {
+    return <span>—</span>;
+  }
+  return (
+    <div className="space-y-0.5">
+      <div className="font-semibold text-navy">{missingFact(contact.display_name)}</div>
+      <div>{missingFact(contact.phone)}</div>
+      <div>{missingFact(contact.email)}</div>
+    </div>
+  );
+}
+
+export function ReceiptEventTypeChip({ value }: { value: GranotWebhookRouteEventClass }) {
+  return (
+    <span className="inline-flex max-w-[12rem] whitespace-normal leading-tight rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+      {labelForRouteEventClass(value)}
+    </span>
+  );
+}
+
+function ReceiptFact({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 wrap-break-word text-sm">{missingFact(value)}</dd>
+    </div>
+  );
+}
+
+function processingLine(item: GranotWebhookReceiptListItem): string {
+  return [
+    labelForProcessingState(item.processing_state),
+    item.decision_outcome ? item.decision_outcome.replaceAll("_", " ") : null,
+  ].filter(Boolean).join(" · ");
+}
+
+export function GranotWebhookReceiptPayloadPanel({
+  item,
+  open,
+  onClose,
+}: {
+  item: GranotWebhookReceiptListItem | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <SidePanel title={GRANOT_LIFECYCLE_COPY.payloadPanelTitle} open={open} onClose={onClose}>
+      {item ? (
+        <div className="space-y-5">
+          <dl className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+            <ReceiptFact label={GRANOT_LIFECYCLE_COPY.factName} value={item.contact.display_name} />
+            <ReceiptFact label={GRANOT_LIFECYCLE_COPY.factPhone} value={item.contact.phone} />
+            <ReceiptFact label={GRANOT_LIFECYCLE_COPY.factEmail} value={item.contact.email} />
+            <ReceiptFact label={GRANOT_LIFECYCLE_COPY.columnJobNo} value={item.job_no} />
+            <ReceiptFact label={GRANOT_LIFECYCLE_COPY.columnRefNo} value={item.ref_no} />
+            <ReceiptFact
+              label={GRANOT_LIFECYCLE_COPY.columnSourceCompany}
+              value={item.source_company?.owner_label}
+            />
+            <ReceiptFact
+              label={GRANOT_LIFECYCLE_COPY.columnCaptured}
+              value={formatDateTime(item.captured_at)}
+            />
+            <ReceiptFact
+              label={GRANOT_LIFECYCLE_COPY.columnProcessing}
+              value={processingLine(item) || undefined}
+            />
+          </dl>
+          {item.granot_statement == null ? (
+            <p className="text-sm text-muted-foreground">{GRANOT_LIFECYCLE_COPY.emptyPayload}</p>
+          ) : (
+            <div>
+              <h3 className="text-sm font-semibold text-navy">
+                {GRANOT_LIFECYCLE_COPY.fullGranotPayload}
+              </h3>
+              <pre className="mt-2 max-h-96 overflow-auto rounded-md border bg-steel-100 p-3 text-xs leading-5">
+                {prettyJson(item.granot_statement)}
+              </pre>
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">{GRANOT_LIFECYCLE_COPY.emptyPayload}</p>
+      )}
+    </SidePanel>
+  );
 }
 
 export function GranotWebhookReceiptsFilterBar({
@@ -344,17 +447,27 @@ export function GranotWebhookReceiptsFilterBar({
   );
 }
 
-export function GranotWebhookReceiptRow({ item }: { item: GranotWebhookReceiptListItem }) {
-  const processing = [
-    labelForProcessingState(item.processing_state),
-    item.decision_outcome ? item.decision_outcome.replaceAll("_", " ") : null,
-  ].filter(Boolean).join(" · ");
+export function GranotWebhookReceiptRow({
+  item,
+  selected,
+  onSelect,
+}: {
+  item: GranotWebhookReceiptListItem;
+  selected?: boolean;
+  onSelect?: (receiptId: string) => void;
+}) {
+  const processing = processingLine(item);
 
   return (
-    <tr>
-      <td className="px-3 py-3 align-top text-sm">{contactLine(item)}</td>
+    <tr
+      className={selected ? "cursor-pointer bg-steel-100" : "cursor-pointer hover:bg-steel-100"}
+      onClick={() => onSelect?.(item.receipt_id)}
+    >
+      <td className="px-3 py-3 align-top text-sm">
+        <ReceiptLeadContact contact={item.contact} />
+      </td>
       <td className="px-3 py-3 align-top">
-        <StatusBadge>{labelForRouteEventClass(item.route_event_class)}</StatusBadge>
+        <ReceiptEventTypeChip value={item.route_event_class} />
       </td>
       <td className="px-3 py-3 align-top">
         {item.booking_action ? (
@@ -374,10 +487,21 @@ export function GranotWebhookReceiptRow({ item }: { item: GranotWebhookReceiptLi
       </td>
       <td className="px-3 py-3 align-top">
         <div className="flex flex-col items-start gap-1">
+          <button
+            type="button"
+            className="text-sm font-semibold text-trust-blue hover:underline"
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect?.(item.receipt_id);
+            }}
+          >
+            {GRANOT_LIFECYCLE_COPY.viewPayload}
+          </button>
           {item.job_no ? (
             <Link
               className="text-sm font-semibold text-trust-blue hover:underline"
               href={buildJobTimelineHref({ job: item.job_no })}
+              onClick={(event) => event.stopPropagation()}
             >
               {GRANOT_LIFECYCLE_COPY.openJobTimeline}
             </Link>
@@ -386,6 +510,7 @@ export function GranotWebhookReceiptRow({ item }: { item: GranotWebhookReceiptLi
             <Link
               className="text-sm font-semibold text-trust-blue hover:underline"
               href={intakeHref(item.intake_case_id)}
+              onClick={(event) => event.stopPropagation()}
             >
               {GRANOT_LIFECYCLE_COPY.openIntake}
             </Link>
@@ -396,7 +521,15 @@ export function GranotWebhookReceiptRow({ item }: { item: GranotWebhookReceiptLi
   );
 }
 
-export function GranotWebhookReceiptsList({ items }: { items: GranotWebhookReceiptListItem[] }) {
+export function GranotWebhookReceiptsList({
+  items,
+  selectedReceiptId,
+  onSelectReceipt,
+}: {
+  items: GranotWebhookReceiptListItem[];
+  selectedReceiptId?: string | null;
+  onSelectReceipt?: (receiptId: string) => void;
+}) {
   if (items.length === 0) {
     return <p className="text-sm text-muted-foreground">{GRANOT_LIFECYCLE_COPY.empty}</p>;
   }
@@ -419,7 +552,12 @@ export function GranotWebhookReceiptsList({ items }: { items: GranotWebhookRecei
         </thead>
         <tbody className="divide-y">
           {items.map((item) => (
-            <GranotWebhookReceiptRow key={item.receipt_id} item={item} />
+            <GranotWebhookReceiptRow
+              key={item.receipt_id}
+              item={item}
+              selected={item.receipt_id === selectedReceiptId}
+              onSelect={onSelectReceipt}
+            />
           ))}
         </tbody>
       </table>
@@ -433,20 +571,29 @@ export function GranotWebhookReceiptsView({
   data,
   loading,
   error,
+  selectedReceiptId,
   onFilterSubmit,
   onReset,
   onNextPage,
+  onSelectReceipt,
+  onCloseReceipt,
 }: {
   filters: GranotWebhookReceiptListFilters;
   sourceCompanies?: Pick<LeadSourceCompany, "id" | "owner_label">[];
   data?: Partial<GranotWebhookReceiptListPage>;
   loading?: boolean;
   error?: string;
+  selectedReceiptId?: string | null;
   onFilterSubmit?: (next: GranotWebhookReceiptListFilters) => void;
   onReset?: () => void;
   onNextPage?: () => void;
+  onSelectReceipt?: (receiptId: string) => void;
+  onCloseReceipt?: () => void;
 }) {
   const items = data?.items ?? [];
+  const selected = selectedReceiptId
+    ? items.find((item) => item.receipt_id === selectedReceiptId) ?? null
+    : null;
 
   return (
     <div className="space-y-5">
@@ -479,7 +626,13 @@ export function GranotWebhookReceiptsView({
             <FeedbackMessage>{GRANOT_LIFECYCLE_COPY.loading}</FeedbackMessage>
           ) : null}
           {error ? <FeedbackMessage tone="error">{error}</FeedbackMessage> : null}
-          {!loading && !error && data ? <GranotWebhookReceiptsList items={items} /> : null}
+          {!loading && !error && data ? (
+            <GranotWebhookReceiptsList
+              items={items}
+              selectedReceiptId={selectedReceiptId}
+              onSelectReceipt={onSelectReceipt}
+            />
+          ) : null}
         </CardContent>
       </Card>
 
@@ -488,6 +641,12 @@ export function GranotWebhookReceiptsView({
           {GRANOT_LIFECYCLE_COPY.nextPage}
         </Button>
       ) : null}
+
+      <GranotWebhookReceiptPayloadPanel
+        item={selected}
+        open={Boolean(selectedReceiptId)}
+        onClose={onCloseReceipt ?? (() => undefined)}
+      />
     </div>
   );
 }
@@ -499,6 +658,10 @@ export function GranotWebhookReceiptsPage() {
   const queryString = searchParams?.toString() ?? "";
   const filters = useMemo(
     () => parseGranotWebhookReceiptUrlFilters(new URLSearchParams(queryString)),
+    [queryString],
+  );
+  const selectedReceiptId = useMemo(
+    () => receiptIdFromSearchParams(new URLSearchParams(queryString)),
     [queryString],
   );
 
@@ -525,12 +688,21 @@ export function GranotWebhookReceiptsPage() {
     router.push(query ? `${pathname}?${query}` : pathname);
   }
 
+  function writeReceipt(id: string | null) {
+    const params = applyUrlStateUpdate(queryString, {
+      [GRANOT_WEBHOOK_RECEIPT_PANEL_KEY]: id ?? "",
+    });
+    const query = params.toString();
+    router.push(query ? `${pathname}?${query}` : pathname);
+  }
+
   return (
     <GranotWebhookReceiptsView
       filters={filters}
       sourceCompanies={companies.data ?? []}
       data={receipts.data}
       loading={receipts.isPending}
+      selectedReceiptId={selectedReceiptId}
       error={
         receipts.isError
           ? (receipts.error instanceof Error ? receipts.error.message : GRANOT_LIFECYCLE_COPY.loadError)
@@ -543,6 +715,8 @@ export function GranotWebhookReceiptsPage() {
           ? () => writeFilters({ ...filters, cursor: receipts.data?.next_cursor ?? undefined })
           : undefined
       }
+      onSelectReceipt={(id) => writeReceipt(id)}
+      onCloseReceipt={() => writeReceipt(null)}
     />
   );
 }

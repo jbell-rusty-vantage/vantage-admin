@@ -87,6 +87,14 @@ export function formatMoney(value: unknown): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(number);
 }
 
+export function formatRate(value: unknown): string {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) {
+    return "-";
+  }
+  return `${(number * 100).toFixed(1)}%`;
+}
+
 export function formatPlain(value: unknown): React.ReactNode {
   if (value === null || value === undefined || value === "") {
     return "-";

@@ -44,6 +44,7 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { parseMoneyInput } from "@/lib/booking/parseMoneyInput";
 
 type QueueFilters = {
   status: BookingLeadReconciliationStatus | "";
@@ -639,6 +640,12 @@ export function BookingReconciliationDashboard() {
       return;
     }
 
+    const binderAmount = parseMoneyInput(pendingBookingForm.binder_amount);
+    const depositAmount = parseMoneyInput(pendingBookingForm.deposit_amount);
+    if (binderAmount === undefined || depositAmount === undefined) {
+      setQueueMessage("Binder and deposit amounts must be valid numbers. A leading $ is allowed.");
+      return;
+    }
     const [lead_source_company_id, source_granularity_key] = pendingBookingForm.source_key.split("::");
     updateBookingMutation.mutate({
       caseId: detail._id,
@@ -654,8 +661,8 @@ export function BookingReconciliationDashboard() {
         book_date: pendingBookingForm.book_date,
         agent: pendingBookingForm.agent,
         split_agent: pendingBookingForm.split_agent || undefined,
-        binder_amount: Number(pendingBookingForm.binder_amount),
-        deposit_amount: Number(pendingBookingForm.deposit_amount),
+        binder_amount: binderAmount,
+        deposit_amount: depositAmount,
         merchant: pendingBookingForm.merchant,
         notes: pendingBookingForm.notes || undefined,
       },
@@ -1604,9 +1611,7 @@ export function BookingReconciliationDashboard() {
                         <Field label="Binder amount" htmlFor="pending-binder">
                           <Input
                             id="pending-binder"
-                            type="number"
-                            min="0"
-                            step="0.01"
+                            inputMode="decimal"
                             value={pendingBookingForm.binder_amount}
                             onChange={(event) =>
                               setPendingBookingForm((current) =>
@@ -1618,9 +1623,7 @@ export function BookingReconciliationDashboard() {
                         <Field label="Deposit amount" htmlFor="pending-deposit">
                           <Input
                             id="pending-deposit"
-                            type="number"
-                            min="0"
-                            step="0.01"
+                            inputMode="decimal"
                             value={pendingBookingForm.deposit_amount}
                             onChange={(event) =>
                               setPendingBookingForm((current) =>

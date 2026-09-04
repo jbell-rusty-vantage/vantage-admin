@@ -4,9 +4,8 @@ import type { ReactNode } from "react";
 import { FilterField } from "@/components/filters/filter-field";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/components/data-table/formatters";
+import { parseMoneyInput } from "@/lib/booking/parseMoneyInput";
 import { splitBinderEvenly } from "@/lib/booking/splitBinderEvenly";
-
-const MONEY = /^\d+(?:\.\d{1,2})?$/;
 
 export function OfficialBinderAgentsFields({
   idPrefix,
@@ -31,8 +30,9 @@ export function OfficialBinderAgentsFields({
 }) {
   const primary = agents.find((item) => item.id === primaryAgentId);
   const secondary = agents.find((item) => item.id === secondaryAgentId);
-  const amounts = MONEY.test(binder) && primary
-    ? splitBinderEvenly(Number(binder), secondaryAgentId ? 2 : 1)
+  const binderAmount = parseMoneyInput(binder);
+  const amounts = binderAmount !== undefined && primary
+    ? splitBinderEvenly(binderAmount, secondaryAgentId ? 2 : 1)
     : undefined;
 
   return (

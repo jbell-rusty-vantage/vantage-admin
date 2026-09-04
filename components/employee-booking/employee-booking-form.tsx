@@ -10,6 +10,7 @@ import {
   type EmployeeBookingOptionsResponse,
   type EmployeeBookingSubmitResponse,
 } from "@/lib/api/employeeBooking";
+import { parseMoneyInput } from "@/lib/booking/parseMoneyInput";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
@@ -145,17 +146,24 @@ export function EmployeeBookingForm() {
       });
       return;
     }
-    const missingMoneyFields = [
-      ["binder_amount", "Binder amount is required.", form.binder_amount],
-      ["deposit_amount", "Deposit amount is required.", form.deposit_amount],
-    ]
-      .filter(([, , value]) => !value.trim())
-      .map(([field, message]) => ({ field, message }));
-    if (missingMoneyFields.length > 0) {
+    const binderAmount = parseMoneyInput(form.binder_amount);
+    const depositAmount = parseMoneyInput(form.deposit_amount);
+    const moneyIssues: Array<{ field: string; message: string }> = [];
+    if (!form.binder_amount.trim()) {
+      moneyIssues.push({ field: "binder_amount", message: "Binder amount is required." });
+    } else if (binderAmount === undefined) {
+      moneyIssues.push({ field: "binder_amount", message: "Enter a valid amount. A leading $ is allowed." });
+    }
+    if (!form.deposit_amount.trim()) {
+      moneyIssues.push({ field: "deposit_amount", message: "Deposit amount is required." });
+    } else if (depositAmount === undefined) {
+      moneyIssues.push({ field: "deposit_amount", message: "Enter a valid amount. A leading $ is allowed." });
+    }
+    if (moneyIssues.length > 0) {
       setSubmitState({
         kind: "error",
         message: "Complete the required amount fields.",
-        issues: missingMoneyFields,
+        issues: moneyIssues,
       });
       return;
     }
@@ -171,8 +179,8 @@ export function EmployeeBookingForm() {
         agent: form.agent,
         split_agent: form.split_agent,
         lead_name: form.lead_name,
-        binder_amount: Number(form.binder_amount),
-        deposit_amount: Number(form.deposit_amount),
+        binder_amount: binderAmount!,
+        deposit_amount: depositAmount!,
         merchant: form.merchant,
         phone_number: form.phone_number,
         email: form.email,
@@ -356,9 +364,7 @@ export function EmployeeBookingForm() {
               <Field label="Binder Amount" required htmlFor="binder_amount">
                 <Input
                   id="binder_amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  inputMode="decimal"
                   value={form.binder_amount}
                   onChange={(event) => updateField("binder_amount", event.target.value)}
                   disabled={isSubmitting}
@@ -368,9 +374,7 @@ export function EmployeeBookingForm() {
               <Field label="Deposit Amount" required htmlFor="deposit_amount">
                 <Input
                   id="deposit_amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  inputMode="decimal"
                   value={form.deposit_amount}
                   onChange={(event) => updateField("deposit_amount", event.target.value)}
                   disabled={isSubmitting}

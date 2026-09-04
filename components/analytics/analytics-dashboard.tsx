@@ -44,14 +44,16 @@ import { downloadCsvFromProxy } from "@/lib/api/csv";
 import {
   analyticsMetadataMessage,
   chartTooltipTitle,
+  analyticsTableRowKey,
+  columnsForReport,
   DEPOSIT_MIX_VALUE_KEY,
   depositMixSlices,
-  formatAnalyticsLeadType,
-  genericAnalyticsColumnKeys,
+  formatAnalyticsCell,
   isAnalyticsMoneyKey,
-  receiverAgentDisplayName,
-  receiverSourceBreakdownColumns,
-  receiverSourceLabel,
+  overviewTableRows,
+  rowsForReportTable,
+  sourceHierarchyMetricColumns,
+  type AnalyticsColumnFormat,
 } from "@/lib/analytics/presentation";
 import {
   selectedSourceGranularityKey,
@@ -205,15 +207,14 @@ const TAB_CONFIGS: TabConfig[] = [
 ];
 
 const TAB_SPECIFIC_FILTERS = ["agent", "receiver_agent", "merchant", "local", "lead_type", "granularity", "report"] as const;
-const SOURCE_HIERARCHY_IDENTITY_KEYS = new Set([
-  "_id",
-  "source_company",
-  "source_company_label",
-  "source_label",
-  "source_granularity_key",
-  "source_granularity_label",
-  "granularities",
+const STICKY_IDENTITY_KEYS = new Set([
+  "receiver_agent_name",
+  "agent_name",
+  "label",
+  "reason",
+  "state",
 ]);
+const TREND_REPORTS = new Set<AnalyticsReport>(["revenue-trend", "receiver-agent-trend"]);
 
 function defaultDateRange() {
   const to = new Date();
@@ -245,10 +246,6 @@ function isMoneyKey(key: string): boolean {
   return isAnalyticsMoneyKey(key);
 }
 
-function isRateKey(key: string): boolean {
-  return /rate$/i.test(key);
-}
-
 function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
 }
@@ -262,17 +259,16 @@ function formatCompact(value: number): string {
 }
 
 function formatCellValue(key: string, value: unknown, row?: Record<string, unknown>): string {
-  if (key === "receiver_agent_name" && row) return receiverAgentDisplayName(row);
-  if (key === "source_granularity_label" && row) return receiverSourceLabel(row);
-  if (key === "lead_type") return formatAnalyticsLeadType(value);
-  if (value === null || value === undefined || value === "") return "-";
-  if (typeof value === "number") {
-    if (isRateKey(key)) return `${(value * 100).toFixed(1)}%`;
-    if (isMoneyKey(key)) return formatMoney(value);
-    return Number.isInteger(value) ? formatNumber(value) : value.toLocaleString("en-US", { maximumFractionDigits: 2 });
-  }
-  if (typeof value === "string" || typeof value === "boolean") return String(value);
-  return JSON.stringify(value);
+  return formatAnalyticsCell(key, value, row);
+}
+
+function isNumericColumnFormat(format?: AnalyticsColumnFormat): boolean {
+  return format === "money" || format === "count" || format === "rate";
+}
+
+function isStickyColumn(key: string, reportId: AnalyticsReport): boolean {
+  if (STICKY_IDENTITY_KEYS.has(key)) return true;
+  return key === "period" && TREND_REPORTS.has(reportId);
 }
 
 function addDisplayFields(row: Record<string, unknown>, sourceKey?: string): Record<string, unknown> {
@@ -393,19 +389,14 @@ function buildFilters(filters: Record<string, unknown>, scope: DatabaseScope, ta
   return next;
 }
 
-function columnsForRows(
-  rows: Record<string, unknown>[],
-  reportId?: AnalyticsReport,
-): DataTableColumn<Record<string, unknown>>[] {
-  const specs =
-    reportId === "receiver-agent-source-breakdown"
-      ? receiverSourceBreakdownColumns()
-      : genericAnalyticsColumnKeys(rows).map((key) => ({ key, header: humanizeKey(key) }));
-  return specs.map((column) => ({
+function columnsForRows(reportId: AnalyticsReport): DataTableColumn<Record<string, unknown>>[] {
+  return columnsForReport(reportId).map((column) => ({
     key: column.key,
     header: column.header,
-    cell: (row) => formatCellValue(column.key, row[column.key], row),
-    sticky: column.key === "receiver_agent_name" || column.key === "label" ? "left" : undefined,
+    cell: (row) => formatAnalyticsCell(column.key, row[column.key], row, column.format),
+    sticky: isStickyColumn(column.key, reportId) ? "left" : undefined,
+    headerClassName: isNumericColumnFormat(column.format) ? "text-right" : undefined,
+    cellClassName: isNumericColumnFormat(column.format) ? "text-right tabular-nums" : undefined,
   }));
 }
 
@@ -420,25 +411,13 @@ function sourceCompanyRows(rows: Record<string, unknown>[]): AnalyticsSourceComp
     }));
 }
 
-function sourceHierarchyColumns(rows: AnalyticsSourceCompanyRow[]): SourceCompanyHierarchyColumn[] {
-  const keys = new Set<string>();
-  for (const row of rows) {
-    for (const key of Object.keys(row)) {
-      if (!SOURCE_HIERARCHY_IDENTITY_KEYS.has(key)) keys.add(key);
-    }
-    for (const child of row.granularities ?? []) {
-      for (const key of Object.keys(child)) {
-        if (!SOURCE_HIERARCHY_IDENTITY_KEYS.has(key)) keys.add(key);
-      }
-    }
-  }
-
-  return Array.from(keys).map((key) => ({
-    key,
-    header: humanizeKey(key),
-    cell: (row) => formatCellValue(key, row[key]),
-    headerClassName: typeof rows[0]?.[key] === "number" ? "text-right" : undefined,
-    cellClassName: typeof rows[0]?.[key] === "number" ? "text-right tabular-nums" : undefined,
+function sourceHierarchyColumns(reportId: AnalyticsReport): SourceCompanyHierarchyColumn[] {
+  return sourceHierarchyMetricColumns(reportId).map((column) => ({
+    key: column.key,
+    header: column.header,
+    cell: (row) => formatAnalyticsCell(column.key, row[column.key], row, column.format),
+    headerClassName: isNumericColumnFormat(column.format) ? "text-right" : undefined,
+    cellClassName: isNumericColumnFormat(column.format) ? "text-right tabular-nums" : undefined,
   }));
 }
 
@@ -516,7 +495,7 @@ function SummaryKpis({ filters }: { filters: SerializableFilters }) {
 function ReportChart({ rows, report }: { rows: Record<string, unknown>[]; report: ReportConfig }) {
   if (report.kind === "table") {
     const tableRows = report.id === "receiver-agent-source-breakdown" ? rows : rows.slice(0, 12);
-    return <DataTable items={tableRows} getRowKey={(row) => `${String(row.receiver_agent_id ?? row.label ?? row.period ?? "")}-${String(row.source_granularity_label ?? row.source_label ?? "")}-${String(row.lead_type ?? "")}`} columns={columnsForRows(rows, report.id)} horizontalControls />;
+    return <DataTable items={tableRows} getRowKey={analyticsTableRowKey} columns={columnsForRows(report.id)} horizontalControls />;
   }
   if (report.kind === "pie") {
     const items = depositMixSlices(rows);
@@ -598,27 +577,46 @@ function OverviewTable({ filters }: { filters: SerializableFilters }) {
     queryKey: queryKeys.analytics.report("summary", filters),
     queryFn: () => fetchAnalyticsReport("summary", filters),
   });
-  const totals = (query.data?.data as { totals?: Record<string, number> } | undefined)?.totals ?? {};
-  const rows = [
-    { area: "Leads", primary_metric: "Total leads", value: totals.total_leads, secondary_metric: "Form / Call", secondary_value: `${totals.form_leads ?? 0} / ${totals.call_leads ?? 0}` },
-    { area: "Revenue", primary_metric: "Binder", value: totals.total_binder_amount, secondary_metric: "Deposits", secondary_value: totals.total_deposit_amount },
-    { area: "Bookings", primary_metric: "Bookings", value: totals.bookings, secondary_metric: "Booking rate", secondary_value: totals.booking_rate },
-    { area: "Cancellations", primary_metric: "Cancellations", value: totals.cancellations, secondary_metric: "Cancellation rate", secondary_value: totals.cancellation_rate },
-    { area: "Cost", primary_metric: "Refunds", value: totals.total_refund_amount, secondary_metric: "Cancelled bookings", secondary_value: totals.cancelled_bookings },
-  ];
+  const totals = (query.data?.data as { totals?: Record<string, unknown> } | undefined)?.totals ?? {};
+  const rows = overviewTableRows(totals);
   if (query.isLoading) return <TableLoadingState label="Loading summary..." />;
   return (
-    <DataTable
-      items={rows}
-      getRowKey={(row) => row.area}
-      columns={[
-        { key: "area", header: "Business area", cell: (row) => row.area, sticky: "left" },
-        { key: "primary_metric", header: "Primary metric", cell: (row) => row.primary_metric },
-        { key: "value", header: "Value", cell: (row) => formatCellValue(String(row.primary_metric), row.value) },
-        { key: "secondary_metric", header: "Secondary metric", cell: (row) => row.secondary_metric },
-        { key: "secondary_value", header: "Secondary value", cell: (row) => formatCellValue(String(row.secondary_metric), row.secondary_value) },
-      ]}
-    />
+    <section className="space-y-3 rounded-lg border bg-background p-4">
+      <div>
+        <h2 className="text-sm font-semibold">Executive Summary Table</h2>
+        <p className="text-xs text-muted-foreground">Top-level business totals for the selected period.</p>
+      </div>
+      {query.data?.generated_at ? (
+        <p className="text-xs text-muted-foreground">
+          Last generated {new Date(query.data.generated_at).toLocaleString()}
+        </p>
+      ) : null}
+      {query.isError ? <TableErrorState error={query.error instanceof Error ? query.error.message : undefined} /> : null}
+      <DataTable
+        items={rows}
+        getRowKey={(row) => row.area}
+        columns={[
+          { key: "area", header: "Business area", cell: (row) => row.area, sticky: "left" },
+          { key: "primary_metric", header: "Primary metric", cell: (row) => row.primary_metric },
+          {
+            key: "value",
+            header: "Value",
+            cell: (row) => formatAnalyticsCell(row.primary_key, row.value, totals),
+            headerClassName: "text-right",
+            cellClassName: "text-right tabular-nums",
+          },
+          { key: "secondary_metric", header: "Secondary metric", cell: (row) => row.secondary_metric },
+          {
+            key: "secondary_value",
+            header: "Secondary value",
+            cell: (row) =>
+              row.secondary_display ?? formatAnalyticsCell(row.secondary_key, row.secondary_value, totals),
+            headerClassName: "text-right",
+            cellClassName: "text-right tabular-nums",
+          },
+        ]}
+      />
+    </section>
   );
 }
 
@@ -627,7 +625,7 @@ function TableView({ report, filters }: { report: ReportConfig; filters: Seriali
     queryKey: queryKeys.analytics.report(report.id, filters),
     queryFn: () => fetchAnalyticsReport(report.id, filters),
   });
-  const rows = flattenRows(query.data?.data);
+  const rows = rowsForReportTable(report.id, query.data?.data);
   const hierarchyRows = isSourceCompanyHierarchyReport(report.id)
     ? sourceCompanyRows(rows)
     : [];
@@ -649,16 +647,39 @@ function TableView({ report, filters }: { report: ReportConfig; filters: Seriali
       {showHierarchy ? (
         <SourceCompanyHierarchyTable
           rows={hierarchyRows}
-          columns={sourceHierarchyColumns(hierarchyRows)}
+          columns={sourceHierarchyColumns(report.id)}
           defaultExpanded
           stickyHeader
         />
       ) : rows.length ? (
-        <DataTable items={rows} getRowKey={(row) => `${String(row._id ?? row.receiver_agent_id ?? row.period ?? row.label ?? "")}-${String(row.source_granularity_label ?? row.source_label ?? "")}-${String(row.lead_type ?? "")}`} columns={columnsForRows(rows, report.id)} horizontalControls stickyHeader />
+        <DataTable items={rows} getRowKey={analyticsTableRowKey} columns={columnsForRows(report.id)} horizontalControls stickyHeader />
       ) : query.data ? (
         <FeedbackMessage>No table rows for these filters.</FeedbackMessage>
       ) : null}
     </section>
+  );
+}
+
+function TableReportSelector({
+  reports,
+  value,
+  fallback,
+  onChange,
+}: {
+  reports: ReportConfig[];
+  value: AnalyticsReport;
+  fallback: AnalyticsReport;
+  onChange: (reportId: string) => void;
+}) {
+  if (reports.length <= 1) return null;
+  return (
+    <div className="max-w-sm">
+      <SelectFilter
+        value={value}
+        options={reports.map((report) => ({ value: report.id, label: report.label }))}
+        onChange={(next) => onChange(next || fallback)}
+      />
+    </div>
   );
 }
 
@@ -874,7 +895,21 @@ export function AnalyticsDashboard() {
         </div>
       ) : null}
 
-      {activeTab.id === "overview" && view === "table" ? <OverviewTable filters={reportFilters} /> : null}
+      {activeTab.id === "overview" && view === "table" ? (
+        <div className="space-y-3">
+          <TableReportSelector
+            reports={activeTab.reports}
+            value={activeReport.id}
+            fallback={activeTab.primaryReport}
+            onChange={(reportId) => update({ report: reportId || activeTab.primaryReport })}
+          />
+          {activeReport.id === "summary" ? (
+            <OverviewTable filters={reportFilters} />
+          ) : (
+            <TableView report={activeReport} filters={reportFilters} />
+          )}
+        </div>
+      ) : null}
 
       {activeTab.id === "text-to-booked" && view === "visualization" && !productionOnlyHistoricalUnsupported ? (
         <TextToBookedPanel filters={reportFilters} />
@@ -893,15 +928,12 @@ export function AnalyticsDashboard() {
 
       {activeTab.id !== "overview" && view === "table" && !productionOnlyHistoricalUnsupported ? (
         <div className="space-y-3">
-          {activeTab.reports.length > 1 ? (
-            <div className="max-w-sm">
-              <SelectFilter
-                value={activeReport.id}
-                options={activeTab.reports.map((report) => ({ value: report.id, label: report.label }))}
-                onChange={(value) => update({ report: value || activeTab.primaryReport })}
-              />
-            </div>
-          ) : null}
+          <TableReportSelector
+            reports={activeTab.reports}
+            value={activeReport.id}
+            fallback={activeTab.primaryReport}
+            onChange={(reportId) => update({ report: reportId || activeTab.primaryReport })}
+          />
           <TableView report={activeReport} filters={reportFilters} />
         </div>
       ) : null}

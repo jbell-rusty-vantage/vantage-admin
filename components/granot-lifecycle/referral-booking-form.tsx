@@ -107,7 +107,6 @@ export function ReferralBookingForm({ detail }: { detail: GranotLifecycleCaseDet
         <fieldset className="grid gap-4 md:grid-cols-3" disabled={reviewing || submitting}>
           <legend className="mb-3 font-semibold">Blank official Booking details</legend>
           <div><Label htmlFor="referral-book-date">Book Date</Label><Input id="referral-book-date" type="date" value={bookDate} onChange={(event) => setBookDate(event.target.value)} /></div>
-          <div><Label htmlFor="referral-deposit">Deposit Amount</Label><Input id="referral-deposit" inputMode="decimal" value={deposit} onChange={(event) => setDeposit(event.target.value)} /></div>
           <OfficialBinderAgentsFields
             idPrefix="referral"
             binder={totalBinder}
@@ -117,6 +116,9 @@ export function ReferralBookingForm({ detail }: { detail: GranotLifecycleCaseDet
             onPrimaryAgentChange={setPrimaryAgentId}
             onSecondaryAgentChange={setSecondaryAgentId}
             agents={agents}
+            afterBinder={
+              <div><Label htmlFor="referral-deposit">Deposit Amount</Label><Input id="referral-deposit" inputMode="decimal" value={deposit} onChange={(event) => setDeposit(event.target.value)} /></div>
+            }
           />
           <div><Label htmlFor="referral-merchant">Active Merchant</Label><select id="referral-merchant" className="h-10 w-full rounded-md border px-3" value={merchantId} onChange={(event) => setMerchantId(event.target.value)}><option value="">Select Merchant</option>{catalog.merchants.filter((item) => item.active).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
         </fieldset>

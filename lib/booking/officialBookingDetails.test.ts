@@ -31,6 +31,20 @@ test("official booking details send one Binder and up to two Agent IDs", () => {
   assert.deepEqual(splitBinderEvenly(100.01, 2), [50.01, 50]);
 });
 
+test("official booking details accept $ and comma-formatted money", () => {
+  const parsed = parseOfficialBookingDetails({
+    bookDate: "2026-08-20",
+    deposit: "$1,000.25",
+    binder: " $50 ",
+    merchantId: "m".repeat(24),
+    primaryAgentId: "a".repeat(24),
+    secondaryAgentId: "",
+  });
+  assert.equal(parsed.errors.length, 0);
+  assert.equal(parsed.details?.deposit_amount, 1000.25);
+  assert.equal(parsed.details?.total_binder_amount, 50);
+});
+
 test("official booking details reject a matching secondary Agent or per-agent amounts", () => {
   const same = parseOfficialBookingDetails({
     bookDate: "2026-08-20",

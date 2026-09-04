@@ -51,7 +51,7 @@ export function IntakeList({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="min-w-0 max-w-full overflow-x-auto">
       <table className="min-w-full text-left text-sm">
         <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
           <tr>

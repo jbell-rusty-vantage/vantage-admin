@@ -12,6 +12,7 @@ import {
 import { GranotLifecycleSubnavLinks } from "../components/granot-lifecycle/granot-lifecycle-subnav";
 import {
   GRANOT_WEBHOOK_RECEIPT_FILTER_KEYS,
+  GRANOT_WEBHOOK_RECEIPT_PANEL_KEY,
   GranotWebhookReceiptsFilterBar,
   GranotWebhookReceiptsList,
   GranotWebhookReceiptsView,
@@ -19,10 +20,15 @@ import {
   labelForBookingAction,
   labelForRouteEventClass,
   parseGranotWebhookReceiptUrlFilters,
+  receiptIdFromSearchParams,
   shouldShowBookingActionFilter,
 } from "../components/granot-lifecycle/receipt-search";
+import { applyUrlStateUpdate } from "../lib/api/url-state-update";
 import { buildJobTimelineHref } from "../lib/api/jobNumberTimeline";
-import type { GranotWebhookReceiptListItem } from "../lib/api/granotLifecycle";
+import {
+  asGranotWebhookReceiptListItem,
+  type GranotWebhookReceiptListItem,
+} from "../lib/api/granotLifecycle";
 
 const bookedRow: GranotWebhookReceiptListItem = {
   receipt_id: "64aaaaaaaaaaaaaaaaaaaaaa",
@@ -35,12 +41,13 @@ const bookedRow: GranotWebhookReceiptListItem = {
   ref_no: "DT_synthetic",
   job_no: "P5562401",
   contact: {
-    display_name: "A***",
-    phone: "***0100",
-    email: "a***@example.invalid",
+    display_name: "Ada Lovelace",
+    phone: "2125550100",
+    email: "ada@example.invalid",
   },
   source_company: { id: "src-1", owner_label: "Synthetic Source" },
   intake_case_id: "66aaaaaaaaaaaaaaaaaaaaaa",
+  granot_statement: { event_type: "Booked", job_no: "P5562401", first_name: "Ada" },
 };
 
 const identityOnlyRow: GranotWebhookReceiptListItem = {
@@ -223,22 +230,101 @@ test("empty copy comes from the copy module", () => {
   );
 });
 
-test("a sample row never prints raw route_event_class, booking_action, or granot_statement", () => {
+test("contact stacks name, phone, and email instead of joining them", () => {
   const markup = renderToStaticMarkup(createElement(GranotWebhookReceiptsList, { items: [bookedRow] }));
-  assert.match(markup, /A\*\*\*/);
-  assert.match(markup, /\*\*\*0100/);
+  assert.match(markup, /Ada Lovelace/);
+  assert.match(markup, /2125550100/);
+  assert.match(markup, /ada@example.invalid/);
+  assert.doesNotMatch(markup, /Ada Lovelace · /);
+  assert.doesNotMatch(markup, /2125550100 · /);
+  assert.match(markup, /font-semibold[^"]*">Ada Lovelace</);
+});
+
+test("event type wraps and is not a single-line rounded-full pill", () => {
+  const markup = renderToStaticMarkup(createElement(GranotWebhookReceiptsList, { items: [bookedRow] }));
+  assert.match(markup, /Booking status changed/);
+  const eventType = markup.match(
+    /<span class="[^"]*whitespace-normal leading-tight[^"]*"[^>]*>Booking status changed<\/span>/,
+  );
+  assert.ok(eventType, "event type chip should wrap with whitespace-normal leading-tight");
+  assert.doesNotMatch(eventType[0], /rounded-full/);
+});
+
+test("View payload and panel copy come from the copy module", () => {
+  const listMarkup = renderToStaticMarkup(createElement(GranotWebhookReceiptsList, { items: [bookedRow] }));
+  assert.match(listMarkup, new RegExp(GRANOT_LIFECYCLE_COPY.viewPayload));
+  assert.equal(GRANOT_LIFECYCLE_COPY.payloadPanelTitle, "Granot Observation Receipt");
+  assert.equal(GRANOT_LIFECYCLE_COPY.fullGranotPayload, "Full Granot payload");
+  assert.equal(GRANOT_LIFECYCLE_COPY.emptyPayload, "No Granot payload is stored for this receipt.");
+
+  const openMarkup = renderToStaticMarkup(createElement(GranotWebhookReceiptsView, {
+    filters: {},
+    selectedReceiptId: bookedRow.receipt_id,
+    data: { items: [bookedRow], next_cursor: null },
+  }));
+  assert.match(openMarkup, new RegExp(GRANOT_LIFECYCLE_COPY.payloadPanelTitle));
+  assert.match(openMarkup, new RegExp(GRANOT_LIFECYCLE_COPY.fullGranotPayload));
+  assert.match(openMarkup, /event_type/);
+  assert.match(openMarkup, /Booked/);
+  assert.match(openMarkup, /<pre[\s\S]*event_type[\s\S]*<\/pre>/);
+  assert.match(openMarkup, new RegExp(GRANOT_LIFECYCLE_COPY.factName));
+  assert.match(openMarkup, new RegExp(GRANOT_LIFECYCLE_COPY.factPhone));
+  assert.match(openMarkup, new RegExp(GRANOT_LIFECYCLE_COPY.factEmail));
+
+  const emptyMarkup = renderToStaticMarkup(createElement(GranotWebhookReceiptsView, {
+    filters: {},
+    selectedReceiptId: bookedRow.receipt_id,
+    data: { items: [{ ...bookedRow, granot_statement: null }], next_cursor: null },
+  }));
+  assert.match(emptyMarkup, new RegExp(GRANOT_LIFECYCLE_COPY.emptyPayload));
+
+  const copySource = readFileSync(
+    path.join(process.cwd(), "components/granot-lifecycle/granot-lifecycle-copy.ts"),
+    "utf8",
+  );
+  assert.match(copySource, /View payload/);
+  assert.match(copySource, /Full Granot payload/);
+});
+
+test("a sample row never prints raw route_event_class or booking_action enums", () => {
+  const markup = renderToStaticMarkup(createElement(GranotWebhookReceiptsList, { items: [bookedRow] }));
+  assert.match(markup, /Ada Lovelace/);
   assert.match(markup, /Synthetic Source/);
   assert.match(markup, /DT_synthetic/);
   assert.match(markup, /P5562401/);
+  assert.match(markup, />Booked</);
   assert.doesNotMatch(markup, /route_event_class/);
   assert.doesNotMatch(markup, /booking_action/);
-  assert.doesNotMatch(markup, /granot_statement/);
   assert.doesNotMatch(markup, /booking_status_changed/);
   assert.doesNotMatch(markup, />booked</);
+});
 
-  const source = readFileSync(
-    path.join(process.cwd(), "components/granot-lifecycle/receipt-search.tsx"),
-    "utf8",
+test("adapter passes granot_statement through", () => {
+  const mapped = asGranotWebhookReceiptListItem({
+    ...bookedRow,
+    granot_statement: { event_type: "Booked", phone: "2125550100" },
+  });
+  assert.deepEqual(mapped?.granot_statement, { event_type: "Booked", phone: "2125550100" });
+  assert.equal(asGranotWebhookReceiptListItem({ ...bookedRow, granot_statement: "secret" })?.granot_statement, null);
+});
+
+test("receipt panel key is shareable and filter writes do not wipe it", () => {
+  assert.equal(GRANOT_WEBHOOK_RECEIPT_PANEL_KEY, "receipt");
+  assert.equal(GRANOT_WEBHOOK_RECEIPT_FILTER_KEYS.includes("receipt" as never), false);
+  const parsed = parseGranotWebhookReceiptUrlFilters(new URLSearchParams(
+    "receipt=64aaaaaaaaaaaaaaaaaaaaaa&job_no=P5562401",
+  ));
+  assert.equal(parsed.job_no, "P5562401");
+  assert.equal("receipt" in parsed, false);
+  assert.equal(
+    receiptIdFromSearchParams(new URLSearchParams("receipt=64aaaaaaaaaaaaaaaaaaaaaa&job_no=P5562401")),
+    "64aaaaaaaaaaaaaaaaaaaaaa",
   );
-  assert.doesNotMatch(source, /granot_statement/);
+
+  const cleared = applyUrlStateUpdate(
+    "receipt=64aaaaaaaaaaaaaaaaaaaaaa&job_no=P5562401",
+    Object.fromEntries(GRANOT_WEBHOOK_RECEIPT_FILTER_KEYS.map((key) => [key, ""])),
+  );
+  assert.equal(cleared.get("receipt"), "64aaaaaaaaaaaaaaaaaaaaaa");
+  assert.equal(cleared.get("job_no"), null);
 });

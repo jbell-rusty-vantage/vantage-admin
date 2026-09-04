@@ -2,14 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   analyticsMetadataMessage,
+  analyticsTableRowKey,
   chartTooltipTitle,
+  columnsForReport,
   depositMixSlices,
+  formatAnalyticsCell,
   formatAnalyticsLeadType,
+  formatMoveType,
   genericAnalyticsColumnKeys,
   isAnalyticsMoneyKey,
+  overviewTableRows,
   receiverAgentDisplayName,
   receiverSourceBreakdownColumns,
   receiverSourceLabel,
+  rowsForReportTable,
   textToBookedOriginRows,
   textToBookedSlices,
 } from "./presentation";
@@ -68,14 +74,21 @@ test("unresolved CPL count is not treated as money", () => {
 });
 
 test("receiver source breakdown leads with agent name, source, and lead type", () => {
-  const keys = receiverSourceBreakdownColumns().map((column) => column.key);
+  const columns = receiverSourceBreakdownColumns();
+  const keys = columns.map((column) => column.key);
   assert.deepEqual(keys.slice(0, 3), [
     "receiver_agent_name",
     "source_granularity_label",
     "lead_type",
   ]);
+  assert.equal(
+    columns.find((column) => column.key === "source_granularity_label")?.header,
+    "Source Granularity",
+  );
   assert.equal(keys.includes("receiver_agent_id"), false);
   assert.equal(keys.includes("source_granularity_key"), false);
+  assert.equal(keys.includes("form_leads"), false);
+  assert.equal(keys.includes("call_leads"), false);
 });
 
 test("receiver source breakdown display values hide raw ids", () => {
@@ -164,4 +177,145 @@ test("generic analytics tables hide receiver agent ObjectIds", () => {
     ]),
     ["receiver_agent_name", "received_leads"],
   );
+});
+
+test("formatAnalyticsCell formats rates and money by field key", () => {
+  assert.equal(formatAnalyticsCell("booking_rate", 0.125), "12.5%");
+  assert.match(formatAnalyticsCell("total_binder_amount", 12000), /\$/);
+});
+
+test("formatMoveType uses Owner move-type language", () => {
+  assert.equal(formatMoveType("long_distance"), "Long Distance Move");
+  assert.equal(formatMoveType("local"), "Local Move");
+  assert.equal(formatMoveType("unknown"), "Unknown");
+});
+
+test("booking-cancellation-ratio table prepends All sources from overall", () => {
+  const rows = rowsForReportTable("booking-cancellation-ratio", {
+    overall: {
+      booked_leads: 10,
+      cancelled_leads: 2,
+      active_booked_leads: 8,
+      cancellation_rate: 0.2,
+    },
+    by_source_company: [
+      {
+        source_company: "tbm_leads",
+        source_company_label: "TBM Leads",
+        booked_leads: 6,
+        granularities: [{ source_granularity_key: "tbm_form" }],
+      },
+    ],
+  });
+  assert.equal(rows[0]?.source_company_label, "All sources");
+  assert.equal(rows[0]?.source_company, "overall");
+  assert.equal(rows[0]?.booked_leads, 10);
+  assert.equal(rows[1]?.source_company, "tbm_leads");
+  assert.ok(Array.isArray(rows[1]?.granularities));
+});
+
+test("text-to-booked table rows exclude the All rollup", () => {
+  const rows = rowsForReportTable("sms-successfully-sent-then-booked", {
+    items: [
+      { origin: "all", label: "All", texted_leads: 3, booked_leads: 1, not_booked_leads: 2, booking_rate: 1 / 3 },
+      { origin: "public_form", label: "Public form", texted_leads: 3, booked_leads: 1, not_booked_leads: 2, booking_rate: 1 / 3 },
+    ],
+  });
+  assert.deepEqual(
+    rows.map((row) => row.label),
+    ["Public form"],
+  );
+});
+
+test("geographic-lanes table rows carry lead type without category or lane", () => {
+  const rows = rowsForReportTable("geographic-lanes", {
+    form_lanes: [{ pickup_state: "FL", delivery_state: "NY", leads: 2 }],
+    call_lanes: [{ pickup_state: "TX", delivery_state: "CA", leads: 1 }],
+  });
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0]?.lead_type, "form");
+  assert.equal(rows[1]?.lead_type, "call");
+  assert.equal("category" in (rows[0] ?? {}), false);
+  assert.equal("lane" in (rows[0] ?? {}), false);
+});
+
+test("receiver source breakdown catalog uses Source Granularity and omits form/call lead counts", () => {
+  const columns = columnsForReport("receiver-agent-source-breakdown");
+  assert.equal(
+    columns.find((column) => column.key === "source_granularity_label")?.header,
+    "Source Granularity",
+  );
+  assert.equal(columns.some((column) => column.key === "form_leads"), false);
+  assert.equal(columns.some((column) => column.key === "call_leads"), false);
+});
+
+test("source-company-performance catalog omits booking_rate", () => {
+  assert.equal(
+    columnsForReport("source-company-performance").some((column) => column.key === "booking_rate"),
+    false,
+  );
+});
+
+test("generic analytics tables hide leaked identity and blob keys", () => {
+  assert.deepEqual(
+    genericAnalyticsColumnKeys([
+      {
+        _id: "x",
+        granularities: [],
+        receiver_agent_id: "y",
+        origin: "all",
+        source_granularity_key: "paid_overflow",
+        source_company: "tbm_leads",
+        receiver_agent_group: "unassigned",
+        receiver_attribution_rate: 0.5,
+        cost_per_received_lead: 12,
+        category: "Form Lanes",
+        lane: "FL -> NY",
+        metadata: {},
+        received_leads: 2,
+      },
+    ]),
+    ["received_leads"],
+  );
+});
+
+test("analytics table row keys stay unique when identity fields are missing or shared", () => {
+  assert.notEqual(analyticsTableRowKey({}, 0), "--");
+  assert.notEqual(analyticsTableRowKey({}, 0), analyticsTableRowKey({}, 1));
+  assert.notEqual(
+    analyticsTableRowKey({ agent_name: "Ada" }, 0),
+    analyticsTableRowKey({ agent_name: "Ada" }, 1),
+  );
+  assert.notEqual(
+    analyticsTableRowKey({ lead_type: "form", pickup_state: "FL", delivery_state: "NY" }, 0),
+    analyticsTableRowKey({ lead_type: "form", pickup_state: "TX", delivery_state: "CA" }, 1),
+  );
+  assert.match(analyticsTableRowKey({ reason: "Moved herself" }, 0), /Moved herself/);
+});
+
+test("overview table rows format money by field key and do not label refunds as Cost", () => {
+  const rows = overviewTableRows({
+    total_leads: 10,
+    form_leads: 6,
+    call_leads: 4,
+    bookings: 3,
+    active_bookings: 2,
+    cancelled_bookings: 1,
+    cancellations: 1,
+    total_binder_amount: 12000,
+    total_deposit_amount: 5000,
+    total_refund_amount: 800,
+    booking_rate: 0.3,
+    cancellation_rate: 1 / 3,
+  });
+  assert.equal(rows.some((row) => row.area === "Cost"), false);
+  const refunds = rows.find((row) => row.area === "Refunds");
+  assert.equal(refunds?.primary_metric, "Refunds");
+  assert.equal(refunds?.primary_key, "total_refund_amount");
+  assert.equal(refunds?.secondary_key, "cancelled_bookings");
+  const revenue = rows.find((row) => row.area === "Revenue");
+  assert.equal(revenue?.primary_key, "total_binder_amount");
+  assert.match(formatAnalyticsCell(revenue?.primary_key ?? "", revenue?.value), /\$/);
+  const bookings = rows.find((row) => row.area === "Bookings");
+  assert.equal(bookings?.secondary_key, "active_bookings");
 });

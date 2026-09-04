@@ -97,7 +97,7 @@ export function DataTable<TItem>({
 }: {
   items: TItem[];
   columns: DataTableColumn<TItem>[];
-  getRowKey: (item: TItem) => string;
+  getRowKey: (item: TItem, index: number) => string;
   onRowClick?: (item: TItem) => void;
   isRowSelected?: (item: TItem) => boolean;
   className?: string;
@@ -247,11 +247,11 @@ export function DataTable<TItem>({
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => {
+            {items.map((item, index) => {
               const selected = isRowSelected?.(item) === true;
               return (
                 <tr
-                  key={getRowKey(item)}
+                  key={getRowKey(item, index)}
                   aria-selected={selected}
                   onClick={() => onRowClick?.(item)}
                   className={cn(

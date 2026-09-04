@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/granotLiveReceipts";
 import { buildJobTimelineHref } from "@/lib/api/jobNumberTimeline";
 import { intakeCaseHref } from "@/components/intakes/intake-copy";
+import { prettyJson } from "./pretty-json";
 
 export type LiveStreamStatus = "connecting" | "live" | "reconnecting";
 
@@ -33,14 +34,6 @@ function LeadFact({ label, value }: { label: string; value?: string | null }) {
       <dd className="mt-0.5 wrap-break-word text-sm">{value?.trim() ? value : "Not sent"}</dd>
     </div>
   );
-}
-
-function prettyJson(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
 }
 
 export function LiveWebhookLeadFacts({ lead }: { lead: LiveWebhookLead }) {

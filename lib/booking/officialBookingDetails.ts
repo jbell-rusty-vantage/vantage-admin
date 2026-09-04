@@ -1,4 +1,4 @@
-const MONEY = /^\d+(?:\.\d{1,2})?$/;
+import { parseMoneyInput } from "./parseMoneyInput";
 
 export type OfficialBookingDetails = {
   book_date: string;
@@ -21,8 +21,8 @@ export function parseOfficialBookingDetails(input: {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.bookDate)) {
     errors.push("Enter a valid Book Date.");
   }
-  const depositAmount = MONEY.test(input.deposit) ? Number(input.deposit) : undefined;
-  const binderAmount = MONEY.test(input.binder) ? Number(input.binder) : undefined;
+  const depositAmount = parseMoneyInput(input.deposit);
+  const binderAmount = parseMoneyInput(input.binder);
   if (depositAmount === undefined) {
     errors.push("Deposit must be a nonnegative amount with no more than two decimals.");
   }
