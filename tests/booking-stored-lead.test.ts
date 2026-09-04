@@ -67,7 +67,7 @@ test("Stored lead table chip renders owner labels without Lead IDs", () => {
   assert.doesNotMatch(referral, /Connect/);
 });
 
-test("Connect search and attached Form cards reuse the intake cycle helper and hide it on Call Leads", () => {
+test("Connect search and attached cards reuse the intake cycle helper for Form and Call", () => {
   const panel = readFileSync(
     path.join(process.cwd(), "components/bookings/connect-lead-panel.tsx"),
     "utf8",

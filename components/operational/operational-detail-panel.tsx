@@ -13,7 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { TableErrorState, TableLoadingState } from "@/components/data-table/table-states";
 import { DetailGrid, DetailItem } from "@/components/record-detail/detail-section";
-import { FormLeadContactsSection } from "@/components/operational/form-lead-contacts";
+import {
+  CallLeadContactsSection,
+  FormLeadContactsSection,
+} from "@/components/operational/form-lead-contacts";
 import { BookingStoredLeadSection } from "@/components/bookings/booking-stored-lead-section";
 import { DetailPanelTabStrip } from "@/components/operational/detail-panel-tab-strip";
 import { LeadMessageSection } from "@/components/operational/lead-message-section";
@@ -435,13 +438,7 @@ function ContactTab({
     return <FormLeadContactsSection record={record} />;
   }
   if (uiResource === "call-leads" || uiResource === "duplicate-call-leads") {
-    return (
-      <DetailGrid>
-        <DetailItem label="Name" value={formatPlain(getValue(record, "name"))} />
-        <DetailItem label="Phone" value={formatPlain(getValue(record, "phone_number"))} />
-        <DetailItem label="Email" value={formatPlain(getValue(record, "email"))} />
-      </DetailGrid>
-    );
+    return <CallLeadContactsSection record={record} />;
   }
   if (uiResource === "bookings") {
     return (

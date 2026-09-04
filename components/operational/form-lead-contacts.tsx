@@ -10,6 +10,9 @@ const EMPTY = "—";
 export const FORM_LEAD_CONTACTS_DESCRIPTION =
   "The landing-page contact stays on the lead. Granot contact is stored beside it when Granot has a qualified card.";
 
+export const CALL_LEAD_CONTACTS_DESCRIPTION =
+  "The Called contact stays on the lead. Granot contact is stored beside it when Granot has a qualified card.";
+
 export type ContactLeaves = {
   first_name?: unknown;
   last_name?: unknown;
@@ -75,16 +78,18 @@ export function FormSubmittedGranotCards({
   showNameParts = false,
   emptyGranotHint,
   compact = false,
+  liveTitle = "Form submitted",
 }: {
   formSubmitted: ContactLeaves;
   granot?: GranotContactFacts | null;
   showNameParts?: boolean;
   emptyGranotHint?: string;
   compact?: boolean;
+  liveTitle?: string;
 }) {
   return (
     <div className={cn("grid gap-4 sm:grid-cols-2", compact && "gap-2")}>
-      <ContactCard title="Form submitted" compact={compact}>
+      <ContactCard title={liveTitle} compact={compact}>
         <ContactField label="Name" value={formSubmitted.name} />
         {showNameParts ? (
           <>
@@ -120,11 +125,19 @@ export function FormSubmittedGranotCards({
   );
 }
 
-export function FormLeadContactsSection({ record }: { record: AdminRecord }) {
+export function FormLeadContactsSection({
+  record,
+  liveTitle = "Form submitted",
+  description = FORM_LEAD_CONTACTS_DESCRIPTION,
+}: {
+  record: AdminRecord;
+  liveTitle?: string;
+  description?: string;
+}) {
   const snapshot = readGranotContactSnapshot(record);
 
   return (
-    <DetailSection title="Contacts" description={FORM_LEAD_CONTACTS_DESCRIPTION}>
+    <DetailSection title="Contacts" description={description}>
       <FormSubmittedGranotCards
         formSubmitted={{
           name: record.name,
@@ -136,8 +149,19 @@ export function FormLeadContactsSection({ record }: { record: AdminRecord }) {
         granot={snapshot}
         showNameParts
         emptyGranotHint="No Granot contact yet"
+        liveTitle={liveTitle}
       />
     </DetailSection>
+  );
+}
+
+export function CallLeadContactsSection({ record }: { record: AdminRecord }) {
+  return (
+    <FormLeadContactsSection
+      record={record}
+      liveTitle="Called"
+      description={CALL_LEAD_CONTACTS_DESCRIPTION}
+    />
   );
 }
 

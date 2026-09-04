@@ -159,6 +159,16 @@ export type BookingLeadReconciliationCaseSummary = {
   };
 };
 
+export type BookingLeadKnownContact = {
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  phone_number?: string;
+  email?: string;
+  differs_from_ingested?: boolean;
+  captured_at?: string;
+};
+
 export type BookingLeadCandidateSnapshot = {
   name?: string;
   phone_number?: string;
@@ -170,6 +180,8 @@ export type BookingLeadCandidateSnapshot = {
   booked?: string;
   cancelled?: string;
   duplicate?: boolean;
+  ingested_contact_snapshot?: BookingLeadKnownContact;
+  granot_contact_snapshot?: BookingLeadKnownContact;
 };
 
 export type BookingLeadCandidate = {
@@ -261,6 +273,8 @@ export type BookingLeadCandidateSearchResult = {
   name?: string;
   phone_number?: string;
   email?: string;
+  ingested_contact_snapshot?: BookingLeadKnownContact;
+  granot_contact_snapshot?: BookingLeadKnownContact;
   lid?: string;
   job_no?: string;
   duplicate?: boolean;

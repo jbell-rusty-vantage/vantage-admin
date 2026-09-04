@@ -12,6 +12,10 @@ import {
 } from "@/lib/api/bookingLeadReconciliation";
 import type { LeadSourceCompany } from "@/lib/api/sourceCompanies";
 import { queryKeys } from "@/lib/query/keys";
+import {
+  ReconciliationLeadContacts,
+  reconciliationLeadDisplayName,
+} from "@/components/reconciliation/reconciliation-lead-contacts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
@@ -352,8 +356,10 @@ function LeadResultCard({
     <div className="rounded-md border p-3">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1 text-sm">
-          <p className="font-semibold">{candidate.lead_model} · {candidate.name ?? candidate._id}</p>
-          <p className="text-muted-foreground">{candidate.phone_number ?? "-"} · {candidate.email ?? "-"}</p>
+          <p className="font-semibold">
+            {candidate.lead_model} · {reconciliationLeadDisplayName(candidate, candidate._id)}
+          </p>
+          <ReconciliationLeadContacts source={candidate} />
           <p className="text-muted-foreground">Job {candidate.job_no ?? "-"} · LID {candidate.lid ?? "-"}</p>
           <p className="text-xs text-muted-foreground">{candidate.source_company ?? "-"} / {candidate.source_granularity_key ?? "-"}</p>
           {(candidate.warnings ?? []).length > 0 ? (

@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -26,7 +27,17 @@ import { useCatalogOptions } from "@/lib/api/use-catalog-options";
 import { MOVE_SIZE_OPTIONS } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
 import { runWithCaseWriteLock } from "@/lib/reconciliation/caseWriteLock";
+import {
+  buildBookingReconciliationHref,
+  nextSelectedBookingReconciliationCaseId,
+  readBookingReconciliationCaseId,
+} from "@/lib/reconciliation/queueSelection";
 import { BookingLeadBrowser } from "@/components/reconciliation/booking-lead-browser";
+import {
+  ReconciliationLeadContacts,
+  reconciliationLeadContactSourceFromSnapshot,
+  reconciliationLeadDisplayName,
+} from "@/components/reconciliation/reconciliation-lead-contacts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
@@ -243,6 +254,9 @@ async function invalidateReconciliationMutations(queryClient: ReturnType<typeof 
 }
 
 export function BookingReconciliationDashboard() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedCaseId = readBookingReconciliationCaseId(searchParams);
   const queryClient = useQueryClient();
   const catalog = useCatalogOptions();
   const sourceCompaniesQuery = useQuery({
@@ -251,8 +265,8 @@ export function BookingReconciliationDashboard() {
     staleTime: 5 * 60 * 1000,
   });
   const [filters, setFilters] = useState<QueueFilters>(initialQueueFilters);
-  const [selectedCaseId, setSelectedCaseId] = useState("");
-  const selectedCaseIdRef = useRef("");
+  const [selectedCaseId, setSelectedCaseId] = useState(requestedCaseId);
+  const selectedCaseIdRef = useRef(requestedCaseId);
   const [queueCursor, setQueueCursor] = useState<string | undefined>();
   const [queueCursorHistory, setQueueCursorHistory] = useState<string[]>([]);
   const [queueMessage, setQueueMessage] = useState<string | null>(null);
@@ -358,30 +372,29 @@ export function BookingReconciliationDashboard() {
     setPendingBookingForm(null);
   }, []);
   const selectCase = useCallback(
-    (caseId: string) => {
-      if (caseId === selectedCaseIdRef.current) {
-        return;
+    (caseId: string, options?: { skipUrl?: boolean }) => {
+      if (caseId !== selectedCaseIdRef.current) {
+        selectedCaseIdRef.current = caseId;
+        clearUnsafeDrafts();
+        setSelectedCaseId(caseId);
       }
-      selectedCaseIdRef.current = caseId;
-      clearUnsafeDrafts();
-      setSelectedCaseId(caseId);
+      if (!options?.skipUrl) {
+        router.replace(buildBookingReconciliationHref(caseId), { scroll: false });
+      }
     },
-    [clearUnsafeDrafts],
+    [clearUnsafeDrafts, router],
   );
 
   useEffect(() => {
-    const firstId = queueQuery.data?.items[0]?._id;
-    if (!selectedCaseId && firstId) {
-      selectCase(firstId);
+    const nextId = nextSelectedBookingReconciliationCaseId({
+      requestedCaseId,
+      selectedCaseId,
+      firstQueueId: queueQuery.data?.items[0]?._id ?? "",
+    });
+    if (nextId && nextId !== selectedCaseId) {
+      selectCase(nextId, { skipUrl: Boolean(requestedCaseId) });
     }
-    if (
-      selectedCaseId &&
-      queueQuery.data &&
-      !queueQuery.data.items.some((item) => item._id === selectedCaseId)
-    ) {
-      selectCase(queueQuery.data.items[0]?._id ?? "");
-    }
-  }, [queueQuery.data, selectCase, selectedCaseId]);
+  }, [queueQuery.data, requestedCaseId, selectCase, selectedCaseId]);
 
   const refreshMutation = useMutation({
     mutationFn: ({ caseId, revision }: { caseId: string; revision: number }) =>
@@ -662,7 +675,7 @@ export function BookingReconciliationDashboard() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <SummaryStat label="Pending shown" value={String(pendingCount)} />
           <SummaryStat label="Oldest pending" value={relativeAge(oldestPending?.createdAt)} />
-          <SummaryStat label="Selected case" value={detail?._id ?? "-"} />
+          <SummaryStat label="Selected case" value={detail?._id ?? selectedCaseId ?? "-"} />
         </div>
       </div>
 
@@ -803,6 +816,14 @@ export function BookingReconciliationDashboard() {
                 {queueQuery.error instanceof Error
                   ? queueQuery.error.message
                   : "Unable to load reconciliation queue."}
+              </FeedbackMessage>
+            ) : null}
+            {selectedCaseId &&
+            queueQuery.data &&
+            !queueQuery.data.items.some((item) => item._id === selectedCaseId) ? (
+              <FeedbackMessage>
+                This case is open from a direct link. It may not appear in the current queue
+                filter.
               </FeedbackMessage>
             ) : null}
 
@@ -1986,11 +2007,18 @@ function CandidateCard({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1 text-sm">
           <p className="font-semibold">
-            {candidate.lead_model} · {candidate.snapshot.name ?? candidate.lead_id}
+            {candidate.lead_model} ·{" "}
+            {reconciliationLeadDisplayName(
+              reconciliationLeadContactSourceFromSnapshot(candidate.lead_model, candidate.snapshot),
+              candidate.lead_id,
+            )}
           </p>
-          <p className="text-muted-foreground">
-            {candidate.snapshot.phone_number ?? "-"} · {candidate.snapshot.email ?? "-"}
-          </p>
+          <ReconciliationLeadContacts
+            source={reconciliationLeadContactSourceFromSnapshot(
+              candidate.lead_model,
+              candidate.snapshot,
+            )}
+          />
           <p className="text-muted-foreground">
             Confidence {candidate.confidence} · {candidate.source_compatibility} · {candidate.eligibility}
           </p>

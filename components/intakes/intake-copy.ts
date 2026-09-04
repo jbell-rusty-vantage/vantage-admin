@@ -276,6 +276,7 @@ export const BOOKING_INTAKE_STORY = {
   },
   contactCycle: {
     line: "Form submitted is what they typed on the website. Granot is the later card from the CRM when we have one.",
+    callLine: "Called is the phone contact. Granot is the later card from the CRM when we have one.",
     changed: "Granot later changed this contact.",
   },
   finishTheBooking: {

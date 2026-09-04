@@ -659,9 +659,16 @@ test("Granot lifecycle pages remain owner-only in the Admin UI except health", (
 });
 
 test("Extension User proxy routes are Owner-only", () => {
-  for (const method of ["GET", "POST"] as const) {
-    assert.equal(canProxyVantagePath({ role: "admin", method, path: "api/v1/admin/extension-users" }), false);
-    assert.equal(canProxyVantagePath({ role: "owner", method, path: "api/v1/admin/extension-users" }), true);
+  const paths = [
+    "api/v1/admin/extension-users",
+    "api/v1/admin/extension-users/",
+    "api/v1/admin/extension-users/user-1",
+  ];
+  for (const method of ["GET", "POST", "PATCH", "DELETE"] as const) {
+    for (const path of paths) {
+      assert.equal(canProxyVantagePath({ role: "admin", method, path }), false);
+      assert.equal(canProxyVantagePath({ role: "owner", method, path }), true);
+    }
   }
 });
 

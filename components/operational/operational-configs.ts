@@ -146,6 +146,7 @@ const callLeadColumns: ColumnConfig[] = [
   { key: "first_name", label: "First", path: "first_name" },
   { key: "last_name", label: "Last", path: "last_name" },
   { key: "phone", label: "Phone", path: "phone_number" },
+  { key: "granot_contact", label: "Granot contact", path: "granot_contact_snapshot" },
   { key: "email", label: "Email", path: "email" },
   { key: "pickup_city", label: "Pickup City", path: "pickup_city" },
   { key: "delivery_city", label: "Delivery City", path: "delivery_city" },

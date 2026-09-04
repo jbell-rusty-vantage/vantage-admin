@@ -5,6 +5,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  CallLeadContactsSection,
   FormLeadContactsSection,
   GranotContactChip,
 } from "../components/operational/form-lead-contacts";
@@ -24,6 +25,10 @@ function renderChip(record: AdminRecord) {
 
 function renderContacts(record: AdminRecord) {
   return renderToStaticMarkup(createElement(FormLeadContactsSection, { record }));
+}
+
+function renderCallContacts(record: AdminRecord) {
+  return renderToStaticMarkup(createElement(CallLeadContactsSection, { record }));
 }
 
 test("no snapshot shows an empty chip and Form submitted only", () => {
@@ -110,5 +115,46 @@ test("operational form lead edit fields omit snapshot keys", () => {
     source.indexOf("const callLeadColumns"),
     source.indexOf("const callLeadFilters"),
   );
-  assert.doesNotMatch(callBlock, /granot_contact/);
+  assert.match(callBlock, /key: "granot_contact"/);
+  assert.match(callBlock, /path: "granot_contact_snapshot"/);
+  assert.match(callBlock, /path: "name"/);
+  assert.match(callBlock, /path: "phone_number"/);
+});
+
+test("Call contacts section titles the live card Called and shows Granot", () => {
+  const record: AdminRecord = {
+    name: "Called Name",
+    phone_number: "555-0001",
+    email: "called@example.com",
+    granot_contact_snapshot: {
+      name: "Granot Name",
+      phone_number: "555-9999",
+      differs_from_ingested: true,
+    },
+  };
+  const contacts = renderCallContacts(record);
+  const chip = renderChip(record);
+
+  assert.match(contacts, /Called/);
+  assert.match(contacts, /Called Name/);
+  assert.match(contacts, /Changed in Granot/);
+  assert.match(contacts, /Granot Name/);
+  assert.doesNotMatch(contacts, /Form submitted/);
+  assert.doesNotMatch(contacts, /granot_contact_snapshot/);
+  assert.match(chip, /Changed in Granot/);
+});
+
+test("Call contacts section without a snapshot keeps Called and omits Granot", () => {
+  const record: AdminRecord = {
+    name: "Called Name",
+    phone_number: "555-0001",
+    email: "called@example.com",
+  };
+  const contacts = renderCallContacts(record);
+
+  assert.match(contacts, /Called/);
+  assert.match(contacts, /Called Name/);
+  assert.match(contacts, /No Granot contact yet/);
+  assert.doesNotMatch(contacts, /Form submitted/);
+  assert.doesNotMatch(contacts, />Granot</);
 });

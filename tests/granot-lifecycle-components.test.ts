@@ -337,14 +337,14 @@ test("[AC-19][AC-39] review detail shows deterministic official Booking and Empl
       employee_booking_lead_reconciliation: {
         case_id: "employee-case-1",
         status: "pending",
-        href: "/bookings/reconciliation?record=employee-case-1",
+        href: "/bookings/reconciliation?case=employee-case-1",
       },
     }),
   }));
   assert.match(markup, /Current Booking/);
   assert.match(markup, /booking-safe-id/);
   assert.match(markup, /separate Employee Booking Lead Reconciliation workflow/);
-  assert.match(markup, /\/bookings\/reconciliation\?record=employee-case-1/);
+  assert.match(markup, /\/bookings\/reconciliation\?case=employee-case-1/);
 });
 
 test("[AC-20][AC-24][AC-32] review-existing actions initialize from live values and expose exact final labels", () => {
@@ -704,6 +704,7 @@ test("Call Lead fixture has no Granot card and owner strings come from intake-co
   }));
   const rows = renderToStaticMarkup(createElement(LeadCandidateResults, { items: [ownerWorkCandidate] }));
   for (const markup of [hero, rows]) {
+    assert.match(markup, /Called/);
     assert.doesNotMatch(markup, />Granot</);
     assert.doesNotMatch(markup, /Changed in Granot/);
     assert.doesNotMatch(markup, /Form submitted/);
@@ -713,6 +714,39 @@ test("Call Lead fixture has no Granot card and owner strings come from intake-co
     }
   }
   assert.match(hero, new RegExp(BOOKING_INTAKE_STORY.whoThisIsFor.title));
+});
+
+test("Call Lead snapshot shows Called headline, Granot chip, and Changed in Granot", () => {
+  const callChanged: GranotLifecycleCandidateItem = {
+    ...ownerWorkCandidate,
+    known_contacts: {
+      form_submitted: {
+        name: "Synthetic Owner Work",
+        phone_number: "(305) 555-0142",
+        email: "synthetic.owner@example.invalid",
+      },
+      granot: {
+        name: "Granot Later",
+        phone_number: "555-9999",
+        differs_from_ingested: true,
+        captured_at: "2026-08-01T12:00:00.000Z",
+      },
+    },
+  };
+  const hero = renderToStaticMarkup(createElement(MatchedLeadPanel, {
+    matched: { lead: callChanged, origin: "vantage_matched", stillSearching: false, chooseLead: () => {} },
+  }));
+  const rows = renderToStaticMarkup(createElement(LeadCandidateResults, { items: [callChanged] }));
+  for (const markup of [hero, rows]) {
+    assert.match(markup, /Called/);
+    assert.match(markup, /Synthetic Owner Work/);
+    assert.match(markup, /Changed in Granot/);
+    assert.match(markup, /Granot Later/);
+    assert.doesNotMatch(markup, /Form submitted/);
+    for (const forbidden of forbiddenFieldNames) {
+      assert.doesNotMatch(markup, new RegExp(forbidden));
+    }
+  }
 });
 
 test("selectable candidate rows show full Lead data and mark the row already on the booking", () => {

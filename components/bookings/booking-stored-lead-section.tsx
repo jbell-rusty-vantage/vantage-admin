@@ -103,20 +103,8 @@ function AttachedLeadCards({
   lead: AdminRecord;
   model: "FormLead" | "CallLead";
 }) {
-  const granot = model === "FormLead" ? readGranotContactSnapshot(lead) : null;
+  const granot = readGranotContactSnapshot(lead);
   const name = attachedLeadName(lead);
-  if (model === "CallLead") {
-    return (
-      <div className="space-y-2">
-        <p className="font-semibold text-navy">{name}</p>
-        <p className="text-sm text-muted-foreground">
-          {typeof lead.phone_number === "string" && lead.phone_number.trim() ? lead.phone_number : "—"}
-          {" · "}
-          {typeof lead.email === "string" && lead.email.trim() ? lead.email : "—"}
-        </p>
-      </div>
-    );
-  }
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -125,7 +113,11 @@ function AttachedLeadCards({
       </div>
       {granot ? (
         <>
-          <p className="text-sm text-muted-foreground">{BOOKINGS_CONNECT_COPY.contactCycle.line}</p>
+          <p className="text-sm text-muted-foreground">
+            {model === "CallLead"
+              ? BOOKINGS_CONNECT_COPY.contactCycle.callLine
+              : BOOKINGS_CONNECT_COPY.contactCycle.line}
+          </p>
           {granot.differs_from_ingested === true ? (
             <p className="text-sm text-muted-foreground">{BOOKINGS_CONNECT_COPY.contactCycle.changed}</p>
           ) : null}
@@ -140,6 +132,7 @@ function AttachedLeadCards({
           email: lead.email,
         }}
         granot={granot}
+        liveTitle={model === "CallLead" ? "Called" : "Form submitted"}
       />
     </div>
   );
