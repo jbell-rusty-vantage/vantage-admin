@@ -23,6 +23,8 @@ export const MANUAL_COPY = {
   refNumber: "Ref number",
   postToGranot: "Also send this Form Lead to Granot",
   postToGranotHint: "Skipped automatically when the lead is a Duplicate Lead.",
+  hideFromMasterLeads: "Hide from Master Leads",
+  hideFromMasterLeadsHint: "Booked Deals still updates if this lead is booked.",
   createForm: "Create Form Lead",
   createCall: "Create Call Lead",
   creatingForm: "Creating Form Lead…",

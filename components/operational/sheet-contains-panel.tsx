@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/data-table/status-badge";
 import { OPERATIONAL_COPY } from "@/components/operational/operational-copy";
 import { SidePanel } from "@/components/ui/side-panel";
 import type { SheetContainsItem, SheetContainsResult, SheetContainsVerdict } from "@/lib/api/admin";
+import { isHiddenFromMasterLeadsContainsReason } from "@/lib/sheet-contains";
 
 const copy = OPERATIONAL_COPY.sheetContains;
 
@@ -70,6 +71,9 @@ function SheetContainsResultCard({ item }: { item: SheetContainsItem }) {
 
       {item.reason === "created_on_unmatched" ? (
         <p className="mt-2 text-sm">{copy.unmatchedCall}</p>
+      ) : null}
+      {isHiddenFromMasterLeadsContainsReason(item.reason) ? (
+        <p className="mt-2 text-sm">{copy.hiddenFromMasterLeads}</p>
       ) : null}
       {item.reason === "missing_from_mongo" ? (
         <p className="mt-2 text-sm">{copy.missingMongo}</p>

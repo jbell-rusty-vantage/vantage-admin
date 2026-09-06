@@ -1,6 +1,7 @@
 import type { AdminRecord, UiResource } from "@/lib/api/admin";
 import type { SerializableFilters } from "@/lib/api/filters";
 import type { DatabaseScope, SelectOption, SortDirection } from "@/lib/api/types";
+import { OPERATIONAL_COPY } from "@/components/operational/operational-copy";
 import {
   CANCELLATION_REASON_OPTIONS,
   LOCAL_TYPE_OPTIONS,
@@ -88,6 +89,12 @@ const formLeadColumns: ColumnConfig[] = [
   { key: "sms_message_sent", label: "SMS Sent", path: "sms_message_sent", format: "boolean" },
   { key: "booked", label: "Booked", path: "booked", format: "boolean" },
   { key: "cancelled", label: "Cancelled", path: "cancelled", format: "boolean" },
+  {
+    key: "no_sync",
+    label: OPERATIONAL_COPY.hideFromMasterLeads.hiddenLabel,
+    path: "no_sync",
+    format: "boolean",
+  },
 ];
 
 const formLeadFilters: FilterConfig[] = [
@@ -99,6 +106,12 @@ const formLeadFilters: FilterConfig[] = [
   { key: "ref_no", label: "Ref number", type: "text" },
   { key: "booked", label: "Booked", type: "select", options: yesNoOptions },
   { key: "cancelled", label: "Cancelled", type: "select", options: yesNoOptions },
+  {
+    key: "no_sync",
+    label: OPERATIONAL_COPY.hideFromMasterLeads.hiddenLabel,
+    type: "select",
+    options: yesNoOptions,
+  },
   {
     key: "past_move_date",
     label: "Move date before created",
@@ -153,6 +166,12 @@ const callLeadColumns: ColumnConfig[] = [
   { key: "local", label: "Local", path: "local" },
   { key: "booked", label: "Booked", path: "booked", format: "boolean" },
   { key: "cancelled", label: "Cancelled", path: "cancelled", format: "boolean" },
+  {
+    key: "no_sync",
+    label: OPERATIONAL_COPY.hideFromMasterLeads.hiddenLabel,
+    path: "no_sync",
+    format: "boolean",
+  },
 ];
 
 const callLeadFilters: FilterConfig[] = [
@@ -164,6 +183,12 @@ const callLeadFilters: FilterConfig[] = [
   { key: "job_no", label: "Job number", type: "text" },
   { key: "booked", label: "Booked", type: "select", options: yesNoOptions },
   { key: "cancelled", label: "Cancelled", type: "select", options: yesNoOptions },
+  {
+    key: "no_sync",
+    label: OPERATIONAL_COPY.hideFromMasterLeads.hiddenLabel,
+    type: "select",
+    options: yesNoOptions,
+  },
   { key: "local", label: "Local type", type: "select", options: LOCAL_TYPE_OPTIONS },
 ];
 

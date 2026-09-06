@@ -19,6 +19,10 @@ export function isSheetContainsResource(resource: UiResource): resource is Sheet
   return (SHEET_CONTAINS_RESOURCES as readonly string[]).includes(resource);
 }
 
+export function isHiddenFromMasterLeadsContainsReason(reason: string | undefined): boolean {
+  return reason === "no_sync";
+}
+
 export function sheetContainsEntityModel(resource: SheetContainsResource): SheetContainsEntityModel {
   switch (resource) {
     case "form-leads":

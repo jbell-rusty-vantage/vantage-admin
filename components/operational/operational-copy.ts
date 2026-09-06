@@ -77,6 +77,24 @@ export const OPERATIONAL_COPY = {
     dateSorting: "Date sorting",
     dateRange: "Date range",
   },
+  hideFromMasterLeads: {
+    hideAction: "Hide from Master Leads",
+    showAction: "Show on Master Leads",
+    helper: "Booked Deals still updates if this lead is booked.",
+    confirmHideTitle: "Hide from Master Leads?",
+    confirmHideBody:
+      "Hide this lead from the Forms and Calls tabs on Master Leads? The lead stays in the database. A Booking still writes Booked Deals.",
+    confirmHideButton: "Hide from Master Leads",
+    confirmShowTitle: "Show on Master Leads?",
+    confirmShowBody:
+      "Show this lead on the Forms and Calls tabs again? Sheet Sync will write it on the next drain.",
+    confirmShowButton: "Show on Master Leads",
+    confirmCancel: "Cancel",
+    successHide: "Hidden from Master Leads. Sheet Sync will remove the Forms or Calls row.",
+    successShow: "This lead will show on Master Leads again after Sheet Sync.",
+    failure: "Could not update Master Leads visibility.",
+    hiddenLabel: "Hidden from Master Leads",
+  },
   row: {
     status: "Status",
     actions: "Actions",
@@ -120,6 +138,8 @@ export const OPERATIONAL_COPY = {
     pendingJob: "Sheet Sync job still open",
     unmatchedCall:
       "This Call Lead was created only to anchor a Booking. Sheet Sync does not write it to Master Leads.",
+    hiddenFromMasterLeads:
+      "This lead is hidden from Master Leads. Sheet Sync does not write it to Forms or Calls.",
     missingMongo: "This id is not in the production database.",
     missingExpected: "Missing from",
     hint: "Last Sheet Sync hint",

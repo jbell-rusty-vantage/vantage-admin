@@ -15,6 +15,7 @@ export type ManualCreateLeadDraft = {
   move_date: string;
   job_no: string;
   post_to_granot: boolean;
+  hide_from_master_leads: boolean;
 };
 
 export type ManualSourceChoice = {
@@ -48,6 +49,7 @@ export const emptyManualCreateLeadDraft = (kind: ManualLeadKind = "FormLead"): M
   move_date: "",
   job_no: "",
   post_to_granot: false,
+  hide_from_master_leads: true,
 });
 
 export const emptyManualLeadSearchDraft = (): ManualLeadSearchDraft => ({
@@ -144,6 +146,8 @@ export function buildManualCreateLeadPayload(draft: ManualCreateLeadDraft): Reco
     email: optionalField(draft.email),
   };
 
+  const optInToMasterLeads = draft.hide_from_master_leads === false ? { no_sync: false } : {};
+
   if (draft.kind === "FormLead") {
     return {
       ...source,
@@ -153,6 +157,7 @@ export function buildManualCreateLeadPayload(draft: ManualCreateLeadDraft): Reco
       move_size: trim(draft.move_size),
       move_date: optionalField(draft.move_date),
       post_to_granot: draft.post_to_granot,
+      ...optInToMasterLeads,
     };
   }
 
@@ -160,6 +165,7 @@ export function buildManualCreateLeadPayload(draft: ManualCreateLeadDraft): Reco
     ...source,
     phone_number: optionalField(draft.phone_number),
     job_no: optionalField(draft.job_no),
+    ...optInToMasterLeads,
   };
 }
 

@@ -5,7 +5,7 @@ export type FilterGroupId = (typeof FILTER_GROUP_IDS)[number];
 
 export const FIND_URL_KEYS = ["q", "from", "to", "sort", "direction", "date_field"] as const;
 
-const STATUS_FILTER_KEYS = ["booked", "cancelled", "leadless", "past_move_date"] as const;
+const STATUS_FILTER_KEYS = ["booked", "cancelled", "leadless", "past_move_date", "no_sync"] as const;
 const ATTRIBUTION_FILTER_KEYS = [
   "source_granularity_key",
   "source",

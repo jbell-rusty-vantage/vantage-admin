@@ -186,6 +186,16 @@ test("cancellations omit an empty Status group", () => {
   assert.equal(filtersInGroup(operationalConfigs.cancellations.filters, "status").length, 0);
 });
 
+test("Hidden from Master Leads Status filter is grouped and does not throw", () => {
+  assert.equal(filterGroupForKey("no_sync"), "status");
+  assert.equal(filterGroupForKey("cancelled"), "status");
+
+  const formKeys = operationalConfigs["form-leads"].filters.map((filter) => filter.key);
+  const callKeys = operationalConfigs["call-leads"].filters.map((filter) => filter.key);
+  assert.equal(formKeys[formKeys.indexOf("cancelled") + 1], "no_sync");
+  assert.equal(callKeys[callKeys.indexOf("cancelled") + 1], "no_sync");
+});
+
 test("Owner group titles live in the copy module", () => {
   assert.equal(filterGroupTitle("find"), "Find");
   assert.equal(filterGroupTitle("status"), "Status");

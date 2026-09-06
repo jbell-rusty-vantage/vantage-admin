@@ -374,6 +374,16 @@ export async function updateFormLeadBadLead<TRecord extends AdminRecord>(
   });
 }
 
+export async function updateLeadNoSync<TRecord extends AdminRecord>(
+  resource: "form-leads" | "call-leads",
+  id: string,
+  no_sync: boolean,
+): Promise<TRecord> {
+  return updateProductionRecord<TRecord>(resource, id, {
+    no_sync,
+  });
+}
+
 export type CreateFormLeadResult = {
   lead: AdminRecord;
   sheet_sync_status?: string;
@@ -994,7 +1004,7 @@ export type SheetContainsItem = {
   expected_tabs: string[];
   missing_expected_tabs: string[];
   found: SheetContainsLocation[];
-  reason?: "created_on_unmatched" | "missing_from_mongo";
+  reason?: "created_on_unmatched" | "missing_from_mongo" | "no_sync";
   sheet_sync_hint: Array<{
     target: string;
     tab_name: string;

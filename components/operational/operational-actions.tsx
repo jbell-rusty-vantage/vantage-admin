@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowUpRight, PlusCircle, XCircle } from "lucide-react";
 import { DetailSection } from "@/components/record-detail/detail-section";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
+import { HideFromMasterLeadsControl } from "@/components/operational/hide-from-master-leads-control";
 import { MarkBadLeadControl } from "@/components/operational/mark-bad-lead-control";
 import type { DeleteDialogCopy, DeleteTarget } from "@/components/operational/operational-configs";
 import {
@@ -211,6 +212,11 @@ export function WorkflowActions({
       {uiResource === "form-leads" ? (
         <div className="rounded-md border bg-muted/30 p-3">
           <MarkBadLeadControl record={record} onSaved={onSaved} />
+        </div>
+      ) : null}
+      {uiResource === "form-leads" || uiResource === "call-leads" ? (
+        <div className="rounded-md border bg-muted/30 p-3">
+          <HideFromMasterLeadsControl resource={uiResource} record={record} onSaved={onSaved} />
         </div>
       ) : null}
     </div>

@@ -274,6 +274,20 @@ export function CreateLeadForm() {
             </label>
           </>
         )}
+        <label className="flex items-start gap-2 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={draft.hide_from_master_leads}
+            onChange={(event) => patch({ hide_from_master_leads: event.target.checked })}
+          />
+          <span>
+            {MANUAL_COPY.hideFromMasterLeads}
+            <span className="mt-1 block text-xs text-muted-foreground">
+              {MANUAL_COPY.hideFromMasterLeadsHint}
+            </span>
+          </span>
+        </label>
       </div>
       <Button type="submit" disabled={mutation.isPending}>
         {mutation.isPending
