@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+import { AnimatedNumber } from "@/components/daily/animated-number";
 import { DAILY_COPY, dailyOperationsFloridaHour } from "@/components/daily/daily-copy";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -77,7 +79,9 @@ function TrendChip({
 /**
  * Twenty-four bars — one per Florida hour — for today's facts on this tile.
  * Hours after `nowHour` stay empty so the shape reads left-to-right as the
- * day fills in. Inline SVG: no chart library, SSR-safe.
+ * day fills in. Each bar is drawn full height and scaled from the baseline
+ * (`daily-svg-bar`), so a live fact grows its hour instead of redrawing it.
+ * Inline SVG: no chart library, SSR-safe.
  */
 export function HourlySparkline({
   today,
@@ -107,24 +111,55 @@ export function HourlySparkline({
       data-sparkline={field}
     >
       {values.map((value, hour) => {
-        const barHeight = value === 0 ? 1 : Math.max(2, Math.round((value / max) * height));
+        const ratio = value === 0 ? 1 / height : Math.max(2 / height, value / max);
         const x = hour * (barWidth + gap);
         const future = hour > nowHour;
         return (
           <rect
             key={hour}
             x={x}
-            y={height - barHeight}
+            y={0}
             width={barWidth}
-            height={barHeight}
+            height={height}
             rx={0.5}
+            style={{ transform: `scaleY(${ratio})` }}
             className={cn(
+              "daily-svg-bar",
               future ? "fill-steel-200/50" : hour === nowHour ? "fill-trust-blue" : "fill-trust-blue/55",
             )}
+            data-value={value}
           />
         );
       })}
     </svg>
+  );
+}
+
+/**
+ * Form against Call as one two-tone bar. The Form / Call tile is a split of
+ * the Leads tile, so it does not repeat the Leads trend chip (that would read
+ * as a second, identical signal); the share bar is the fact that is new here.
+ */
+function SplitShareBar({ form, call }: { form: number; call: number }) {
+  const total = form + call;
+  const formPct = total === 0 ? 0 : Math.round((form / total) * 100);
+  return (
+    <div className="mt-2 space-y-1" data-split-bar>
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-steel-100">
+        <div className="daily-bar h-full bg-trust-blue" style={{ width: `${formPct}%` }} />
+        <div className="daily-bar h-full bg-sky-400" style={{ width: `${total === 0 ? 0 : 100 - formPct}%` }} />
+      </div>
+      <p className="flex justify-between text-[11px] tabular-nums text-muted-foreground">
+        <span>
+          <span className="inline-block size-2 rounded-sm bg-trust-blue align-middle" aria-hidden="true" />{" "}
+          {total === 0 ? DAILY_COPY.missingYesterday : `${formPct}%`} {DAILY_COPY.formShare}
+        </span>
+        <span>
+          {total === 0 ? DAILY_COPY.missingYesterday : `${100 - formPct}%`} {DAILY_COPY.callShare}{" "}
+          <span className="inline-block size-2 rounded-sm bg-sky-400 align-middle" aria-hidden="true" />
+        </span>
+      </p>
+    </div>
   );
 }
 
@@ -144,8 +179,8 @@ function HeadlineTile({
 }: {
   id: DailyOperationsTileId;
   label: string;
-  value: string;
-  secondary?: string;
+  value: ReactNode;
+  secondary?: ReactNode;
   trend: DailyOperationsTrend | null;
   sparkline?: { today: DailyOperationsHourlyBucket[]; field: SparkField };
   nowHour: number;
@@ -184,7 +219,7 @@ function HeadlineTile({
                 )}
                 title={`+${sessionDelta} ${DAILY_COPY.live.toLowerCase()}`}
               >
-                +{sessionDelta}
+                +<AnimatedNumber value={sessionDelta} />
               </span>
             ) : null}
           </div>
@@ -237,12 +272,20 @@ function HeadlineTile({
             </p>
           ) : null}
           {secondary ? (
-            <p className="mt-1.5 text-xs leading-snug text-navy/80">{secondary}</p>
+            typeof secondary === "string" ? (
+              <p className="mt-1.5 text-xs leading-snug text-navy/80">{secondary}</p>
+            ) : (
+              secondary
+            )
           ) : null}
         </CardContent>
       </Card>
     </button>
   );
+}
+
+function Count({ value }: { value: number | null | undefined }) {
+  return <AnimatedNumber value={value ?? 0} format={formatCount} />;
 }
 
 export function HeadlineTiles({
@@ -251,6 +294,7 @@ export function HeadlineTiles({
   flashedTiles,
   lane,
   loading,
+  nowHour: liveNowHour,
   onSelectLane,
 }: {
   snapshot?: DailyOperationsSnapshot | null;
@@ -258,6 +302,8 @@ export function HeadlineTiles({
   flashedTiles: DailyOperationsTileId[];
   lane: string | null;
   loading?: boolean;
+  /** Browser-clock Florida hour; falls back to the snapshot stamp on the server render. */
+  nowHour?: number;
   onSelectLane: (lane: DailyOperationsLane) => void;
 }) {
   const leads = snapshot?.metrics.leads;
@@ -267,7 +313,7 @@ export function HeadlineTiles({
   const granotToday = granotTileToday(snapshot ?? null);
   const flashing = new Set(flashedTiles);
   const hourlyToday = snapshot?.hourly.today ?? [];
-  const nowHour = snapshot ? dailyOperationsFloridaHour(snapshot.generated_at) : 23;
+  const nowHour = liveNowHour ?? (snapshot ? dailyOperationsFloridaHour(snapshot.generated_at) : 23);
   const spark = (id: DailyOperationsTileId) => {
     const field = TILE_SPARK_FIELD[id];
     return field ? { today: hourlyToday, field } : undefined;
@@ -289,7 +335,7 @@ export function HeadlineTiles({
         <HeadlineTile
           id="leads"
           label={DAILY_COPY.tiles.leads}
-          value={formatCount(leads?.today ?? 0)}
+          value={<Count value={leads?.today} />}
           trend={trendFromPace(leads)}
           sparkline={spark("leads")}
           nowHour={nowHour}
@@ -302,8 +348,13 @@ export function HeadlineTiles({
         <HeadlineTile
           id="form_call"
           label={DAILY_COPY.tiles.formCall}
-          value={`${formatCount(leads?.form ?? 0)} / ${formatCount(leads?.call ?? 0)}`}
-          trend={trendFromPace(leads)}
+          value={
+            <>
+              <Count value={leads?.form} /> / <Count value={leads?.call} />
+            </>
+          }
+          secondary={leads ? <SplitShareBar form={leads.form} call={leads.call} /> : undefined}
+          trend={null}
           sparkline={spark("form_call")}
           nowHour={nowHour}
           sessionDelta={sessionDeltas.form_call}
@@ -315,7 +366,7 @@ export function HeadlineTiles({
         <HeadlineTile
           id="duplicates"
           label={DAILY_COPY.tiles.duplicates}
-          value={formatCount((leads?.duplicate_form ?? 0) + (leads?.duplicate_call ?? 0))}
+          value={<Count value={(leads?.duplicate_form ?? 0) + (leads?.duplicate_call ?? 0)} />}
           secondary={
             leads
               ? `${formatCount(leads.duplicate_form)} ${DAILY_COPY.form.toLowerCase()} · ${formatCount(leads.duplicate_call)} ${DAILY_COPY.call.toLowerCase()}`
@@ -332,7 +383,7 @@ export function HeadlineTiles({
         <HeadlineTile
           id="bookings"
           label={DAILY_COPY.tiles.bookings}
-          value={formatCount(snapshot?.metrics.bookings.today ?? 0)}
+          value={<Count value={snapshot?.metrics.bookings.today} />}
           trend={trendFromPace(snapshot?.metrics.bookings)}
           sparkline={spark("bookings")}
           nowHour={nowHour}
@@ -345,7 +396,7 @@ export function HeadlineTiles({
         <HeadlineTile
           id="cancellations"
           label={DAILY_COPY.tiles.cancellations}
-          value={formatCount(snapshot?.metrics.cancellations.today ?? 0)}
+          value={<Count value={snapshot?.metrics.cancellations.today} />}
           trend={trendFromPace(snapshot?.metrics.cancellations)}
           sparkline={spark("cancellations")}
           nowHour={nowHour}
@@ -358,7 +409,7 @@ export function HeadlineTiles({
         <HeadlineTile
           id="texts"
           label={DAILY_COPY.tiles.texts}
-          value={formatCount(texts?.today ?? 0)}
+          value={<Count value={texts?.today} />}
           secondary={
             texts
               ? `${texts.held_now} ${DAILY_COPY.heldChip}${
@@ -378,7 +429,7 @@ export function HeadlineTiles({
         <HeadlineTile
           id="granot"
           label={DAILY_COPY.tiles.granot}
-          value={formatCount(granotToday)}
+          value={<Count value={granotToday} />}
           secondary={
             webhooks
               ? `${webhooks.lead_created.today} ${DAILY_COPY.granotClasses.lead_created} · ${webhooks.priority_updated.today} ${DAILY_COPY.granotClasses.priority_updated} · ${webhooks.booked.today} / ${webhooks.release.today} ${DAILY_COPY.granotClasses.booked} / ${DAILY_COPY.granotClasses.release}`
@@ -396,7 +447,7 @@ export function HeadlineTiles({
         <HeadlineTile
           id="intakes"
           label={DAILY_COPY.tiles.intakes}
-          value={formatCount(intakes?.opened_today ?? 0)}
+          value={<Count value={intakes?.opened_today} />}
           secondary={
             intakes
               ? `${intakes.opened_today} ${DAILY_COPY.opened} · ${intakes.still_open} ${DAILY_COPY.waitingForYou}`

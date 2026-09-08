@@ -48,6 +48,7 @@ const emptySnapshot: DailyOperationsSnapshot = {
     },
     intakes: { opened_today: 0, still_open: 0 },
     exceptions: { zip_missing: 0, crm_failed: 0, dead_letter: 0, adoption_conflict: 0 },
+    sheet_sync: { completed: 0, failed: 0 },
   },
   origins: {
     granot_lead_created: 0,
@@ -112,13 +113,35 @@ test("tiles and panels show percent versus yesterday at this hour plus both prio
       onSelectLane: () => undefined,
     }),
   );
-  // Focus keeps every panel on the board and puts the focused one first.
+  // `?lane=booking` is the solo view: one panel on the board, every lane still
+  // reachable from the tab strip, and a tab back to all panels.
   const order = [...panels.matchAll(/data-panel="([a-z_]+)"/g)].map((match) => match[1]);
-  assert.equal(order[0], "booking");
-  assert.deepEqual([...order].sort(), ["booking", "cancellation", "exception", "granot", "intake", "lead", "text"]);
+  assert.deepEqual(order, ["booking"]);
+  assert.match(panels, /data-panels-view="solo"/);
   assert.match(panels, /data-focused="true"/);
+  const tabs = [...panels.matchAll(/data-panel-tab="([a-z_]+)"/g)].map((match) => match[1]);
+  assert.equal(tabs[0], "all");
+  assert.deepEqual([...tabs.slice(1)].sort(), ["booking", "cancellation", "exception", "granot", "intake", "lead", "text"]);
+  assert.match(panels, /role="tab"[^>]*aria-selected="true"[^>]*data-panel-tab="booking"|data-panel-tab="booking"[^>]*aria-selected="true"/);
   assert.match(panels, /−50% vs yesterday at this hour/);
-  assert.match(panels, new RegExp(`${DAILY_COPY.collapse} ${DAILY_COPY.panelsLabels.booking}`));
+  assert.match(panels, new RegExp(`${DAILY_COPY.allPanels}: ${DAILY_COPY.panelsLabels.booking}`));
+
+  const all = renderToStaticMarkup(
+    createElement(CategoryPanels, {
+      events: [],
+      snapshot,
+      sessionDeltas: EMPTY_DAILY_OPERATIONS_SESSION_DELTAS,
+      lane: null,
+      company: null,
+      quietPriorities: false,
+      sheetSyncOptIn: false,
+      onSelectLane: () => undefined,
+    }),
+  );
+  const allOrder = [...all.matchAll(/data-panel="([a-z_]+)"/g)].map((match) => match[1]);
+  assert.deepEqual([...allOrder].sort(), ["booking", "cancellation", "exception", "granot", "intake", "lead", "text"]);
+  assert.match(all, /data-panels-view="all"/);
+  assert.doesNotMatch(all, /data-focused="true"/);
 });
 
 test("Owner nav places Daily Operations second; Admin cannot see it", () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatedNumber } from "@/components/daily/animated-number";
 import { DAILY_COPY, dailyOperationsFloridaHour } from "@/components/daily/daily-copy";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -44,22 +45,26 @@ function hourLabel(hour: number): string {
  * against yesterday and the day before as ghost bars. A `now` marker sits on
  * the current hour so the Owner reads "where the day is" at a glance. The
  * header states today-so-far against both prior days at this hour in plain
- * numbers and percent.
+ * numbers and percent. Bars are drawn full height and scaled from the
+ * baseline so a live fact grows its hour; the header counts roll.
  */
 export function HourlyRhythm({
   snapshot,
   defaultSeries = "leads",
+  nowHour: liveNowHour,
 }: {
   snapshot: DailyOperationsSnapshot | null | undefined;
   defaultSeries?: RhythmSeries;
+  /** Browser-clock Florida hour; falls back to the snapshot stamp on the server render. */
+  nowHour?: number;
 }) {
   const [series, setSeries] = useState<RhythmSeries>(defaultSeries);
   const today = snapshot?.hourly.today ?? [];
   const yesterday = snapshot?.hourly.yesterday ?? [];
   const dayBefore = snapshot?.hourly.day_before;
-  const hasYesterday = snapshot?.metrics.leads.yesterday_by_now != null;
-  const hasDayBefore = snapshot?.metrics.leads.day_before_by_now != null && dayBefore != null;
-  const nowHour = snapshot ? dailyOperationsFloridaHour(snapshot.generated_at) : 23;
+  const hasYesterday = snapshot?.metrics.leads.yesterday != null;
+  const hasDayBefore = snapshot?.metrics.leads.day_before != null && dayBefore != null;
+  const nowHour = liveNowHour ?? (snapshot ? dailyOperationsFloridaHour(snapshot.generated_at) : 23);
 
   const todaySoFar = sumThrough(today, nowHour, series);
   const yesterdaySoFar = hasYesterday ? sumThrough(yesterday, nowHour, series) : null;
@@ -116,7 +121,9 @@ export function HourlyRhythm({
         </div>
 
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs tabular-nums">
-          <span className="text-2xl font-semibold leading-none text-navy">{todaySoFar}</span>
+          <span className="text-2xl font-semibold leading-none text-navy">
+            <AnimatedNumber value={todaySoFar} />
+          </span>
           <span className="text-muted-foreground">
             {DAILY_COPY.rhythmToday} {DAILY_COPY.byNow}
           </span>
@@ -124,7 +131,7 @@ export function HourlyRhythm({
             <span className="inline-block size-2 rounded-sm bg-steel-300" aria-hidden="true" />
             <span className="text-muted-foreground">{DAILY_COPY.rhythmYesterday}</span>
             <span className="font-medium text-navy">
-              {yesterdaySoFar ?? DAILY_COPY.missingYesterday}
+              <AnimatedNumber value={yesterdaySoFar} />
             </span>
             <span
               className={cn(
@@ -141,7 +148,7 @@ export function HourlyRhythm({
             <span className="inline-block size-2 rounded-sm bg-steel-200" aria-hidden="true" />
             <span className="text-muted-foreground">{DAILY_COPY.rhythmDayBefore}</span>
             <span className="font-medium text-navy">
-              {dayBeforeSoFar ?? DAILY_COPY.missingYesterday}
+              <AnimatedNumber value={dayBeforeSoFar} />
             </span>
             <span
               className={cn(
@@ -176,44 +183,52 @@ export function HourlyRhythm({
               const t = bucketValue(today, hour, series);
               const y = hasYesterday ? bucketValue(yesterday, hour, series) : 0;
               const d = hasDayBefore ? bucketValue(dayBefore, hour, series) : 0;
-              const scale = (value: number) => (value === 0 ? 0 : Math.max(2, (value / max) * (height - 4)));
-              const tH = scale(t);
-              const yH = scale(y);
-              const dH = scale(d);
+              // Full-height rects scaled from the baseline; 0 collapses to nothing.
+              const ratio = (value: number) => (value === 0 ? 0 : Math.max(2 / height, ((value / max) * (height - 4)) / height));
               const isNow = hour === nowHour;
               const future = hour > nowHour;
               return (
                 <g key={hour}>
                   {isNow ? (
-                    <rect x={x} y={0} width={slot} height={height} className="fill-trust-blue/10" />
-                  ) : null}
-                  {dH > 0 ? (
                     <rect
-                      x={x + (slot - ghostWidth) / 2}
-                      y={height - dH}
-                      width={ghostWidth}
-                      height={dH}
-                      className="fill-steel-200"
+                      x={x}
+                      y={0}
+                      width={slot}
+                      height={height}
+                      className="daily-now-pulse fill-trust-blue/15"
+                      data-now-column
                     />
                   ) : null}
-                  {yH > 0 ? (
-                    <rect
-                      x={x + (slot - ghostWidth) / 2}
-                      y={height - yH}
-                      width={ghostWidth}
-                      height={yH}
-                      className="fill-steel-300/80"
-                    />
-                  ) : null}
-                  {tH > 0 ? (
-                    <rect
-                      x={x + (slot - todayWidth) / 2}
-                      y={height - tH}
-                      width={todayWidth}
-                      height={tH}
-                      className={cn(future ? "fill-trust-blue/30" : "fill-trust-blue")}
-                    />
-                  ) : null}
+                  <rect
+                    x={x + (slot - ghostWidth) / 2}
+                    y={0}
+                    width={ghostWidth}
+                    height={height}
+                    style={{ transform: `scaleY(${ratio(d)})` }}
+                    className="daily-svg-bar fill-steel-200"
+                    data-series="day_before"
+                    data-value={d}
+                  />
+                  <rect
+                    x={x + (slot - ghostWidth) / 2}
+                    y={0}
+                    width={ghostWidth}
+                    height={height}
+                    style={{ transform: `scaleY(${ratio(y)})` }}
+                    className="daily-svg-bar fill-steel-300/80"
+                    data-series="yesterday"
+                    data-value={y}
+                  />
+                  <rect
+                    x={x + (slot - todayWidth) / 2}
+                    y={0}
+                    width={todayWidth}
+                    height={height}
+                    style={{ transform: `scaleY(${ratio(t)})` }}
+                    className={cn("daily-svg-bar", future ? "fill-trust-blue/30" : "fill-trust-blue")}
+                    data-series="today"
+                    data-value={t}
+                  />
                 </g>
               );
             })}

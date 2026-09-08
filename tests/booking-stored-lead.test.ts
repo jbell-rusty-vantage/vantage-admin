@@ -38,9 +38,18 @@ test("Leadless non-referral rows get No stored lead; Referral never gets Connect
   const referral: AdminRecord = { is_referral_booking: true, is_leadless_booking: false };
   const cancelled: AdminRecord = { is_leadless_booking: true, cancelled: "2026-08-01" };
   const attached: AdminRecord = { lead_ref: "a".repeat(24), lead_model: "FormLead" };
+  const ownerPending: AdminRecord = { is_leadless_booking: true, booking_origin: "owner_booking" };
+  const employeePending: AdminRecord = { is_leadless_booking: true, booking_origin: "employee_booking" };
+  const openCase: AdminRecord = {
+    is_leadless_booking: true,
+    has_open_booking_lead_reconciliation_case: true,
+  };
 
   assert.equal(isLeadlessNonReferralBooking(leadless), true);
   assert.equal(canConnectBookingToLead(leadless), true);
+  assert.equal(canConnectBookingToLead(ownerPending), false);
+  assert.equal(canConnectBookingToLead(employeePending), false);
+  assert.equal(canConnectBookingToLead(openCase), false);
   assert.deepEqual(storedLeadChip(leadless), { label: "No stored lead", tone: "warning" });
 
   assert.equal(canConnectBookingToLead(referral), false);

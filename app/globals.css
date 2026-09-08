@@ -350,6 +350,158 @@
   animation: daily-arrival-enter 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/*
+ * Stream rows. Every list on /daily wraps each card in `.daily-row`, a
+ * one-track grid so the track itself can grow (enter) or collapse (exit) —
+ * no fixed heights. The 2px padding / negative margin leaves room for the
+ * card's ring and shadow while the row is clipped mid-animation. The lists
+ * use `gap-2`; the exit keyframe eats its own gap so the rows below glide up
+ * instead of jumping when the leaving row is removed.
+ */
+.daily-row {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+
+.daily-row > * {
+  min-height: 0;
+}
+
+@keyframes daily-row-enter {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translateY(-0.5rem);
+    margin-bottom: -0.5rem;
+  }
+  60% {
+    grid-template-rows: 1fr;
+    margin-bottom: -2px;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transform: none;
+    margin-bottom: -2px;
+  }
+}
+
+.daily-row-enter {
+  animation: daily-row-enter 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  overflow: clip;
+  padding: 2px;
+  margin: -2px;
+}
+
+@keyframes daily-row-exit {
+  from {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transform: none;
+    margin-bottom: 0;
+  }
+  45% {
+    opacity: 0;
+    transform: translateX(1.5rem);
+  }
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translateX(1.5rem);
+    margin-bottom: -0.5rem;
+  }
+}
+
+.daily-row-exit {
+  animation: daily-row-exit 380ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  overflow: clip;
+  pointer-events: none;
+}
+
+/* Counts: one short pop when a number changes; up reads green, down reads red. */
+@keyframes daily-number-bump {
+  0% {
+    transform: translateY(-0.12em) scale(1.08);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.daily-number-bump {
+  animation: daily-number-bump 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: color 700ms ease-out;
+}
+
+.daily-number-bump[data-direction="up"] {
+  color: rgb(4 120 87);
+}
+
+.daily-number-bump[data-direction="down"] {
+  color: rgb(185 28 28);
+}
+
+/* Share bars (origins, companies, form / call split): width eases to the new share. */
+.daily-bar {
+  transition:
+    width 720ms cubic-bezier(0.22, 1, 0.36, 1),
+    flex-basis 720ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 300ms ease-out;
+}
+
+/* SVG bars (hourly rhythm, tile sparklines): drawn full height, scaled from the baseline. */
+.daily-svg-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  transition:
+    transform 720ms cubic-bezier(0.22, 1, 0.36, 1),
+    fill 300ms ease-out;
+}
+
+/* The `now` hour column breathes while the day is live. */
+@keyframes daily-now-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.daily-now-pulse {
+  animation: daily-now-pulse 2.6s ease-in-out infinite;
+}
+
+/* Full-stream overlay. */
+@keyframes daily-overlay-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes daily-overlay-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.daily-overlay-backdrop {
+  animation: daily-overlay-fade 180ms ease-out both;
+}
+
+.daily-overlay-panel {
+  animation: daily-overlay-rise 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
 /* Headline tile: one soft flash when a live fact touches its metric. */
 @keyframes daily-tile-flash {
   0% {
@@ -379,7 +531,23 @@
   .daily-arrival-highlight,
   .daily-arrival-enter,
   .daily-live-ripple,
-  .daily-tile-flash {
+  .daily-tile-flash,
+  .daily-row-enter,
+  .daily-row-exit,
+  .daily-number-bump,
+  .daily-now-pulse,
+  .daily-overlay-backdrop,
+  .daily-overlay-panel {
     animation: none;
+  }
+
+  .daily-row-exit {
+    display: none;
+  }
+
+  .daily-bar,
+  .daily-svg-bar,
+  .daily-number-bump {
+    transition: none;
   }
 }

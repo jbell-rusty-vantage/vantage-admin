@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,6 +9,11 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { FilterField } from "@/components/filters/filter-field";
 import { SelectFilter } from "@/components/filters/select-filter";
+import { BOOKING_FORM_COPY, preciseBookingReconciliationHref } from "@/components/forms/booking-form-copy";
+import {
+  getPreciseBookingFormMissingFields,
+  readOwnerCreateReconciliationCaseId,
+} from "@/components/forms/booking-form-fields";
 import { createBookingFromSource, createLeadlessBooking, createReferralBooking } from "@/lib/api/admin";
 import {
   fetchLeadSourceCompanies,
@@ -29,6 +35,8 @@ type BookingMode = "source" | "referral" | "leadless";
 type FormMessage = {
   tone: "success" | "error" | "info";
   text: string;
+  href?: string;
+  hrefLabel?: string;
 };
 
 function today() {
@@ -95,7 +103,7 @@ export function BookingForm() {
   const mutation = useMutation({
     mutationFn: ({ payload, bookingMode: mode }: { payload: Record<string, unknown>; bookingMode: BookingMode }) =>
       submitBooking(payload, mode),
-    onSuccess: async (_data, variables) => {
+    onSuccess: async (data, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.lists.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.details.all }),
@@ -103,14 +111,22 @@ export function BookingForm() {
         queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.auditLog.all }),
       ]);
+      const caseId = readOwnerCreateReconciliationCaseId(data);
+      if (caseId || variables.bookingMode === "leadless") {
+        setMessage({
+          tone: "success",
+          text: BOOKING_FORM_COPY.successPending,
+          href: preciseBookingReconciliationHref(caseId),
+          hrefLabel: BOOKING_FORM_COPY.openReconciliation,
+        });
+        return;
+      }
       setMessage({
         tone: "success",
         text:
           variables.bookingMode === "referral"
-            ? "Referral booking created. The backend will sync it to the Master Booked Sheet."
-            : variables.bookingMode === "leadless"
-              ? "Leadless booking created. The backend will sync it to the Master Booked Sheet."
-              : "Booking created. The backend handled booking rules and sheet sync side effects.",
+            ? BOOKING_FORM_COPY.successReferral
+            : BOOKING_FORM_COPY.successLinked,
       });
     },
     onError: (error) =>
@@ -123,6 +139,7 @@ export function BookingForm() {
     () => ({
       form_lead_id: searchParams.get("lead_id") ?? "",
       call_phone_number: searchParams.get("call_phone_number") ?? "",
+      call_job_no: searchParams.get("call_job_no") ?? "",
     }),
     [searchParams],
   );
@@ -180,23 +197,24 @@ export function BookingForm() {
         const jobNo = isReferralSubmission || isLeadlessSubmission
           ? getString(formData, "job_no")
           : getString(formData, leadType === "FormLead" ? "job_no" : "call_job_no");
-        const missingFields = [
-          !bookDate ? "book date" : null,
-          !agent ? "primary agent" : null,
-          !merchant ? "merchant" : null,
-          !binderAmount ? "binder amount" : null,
-          !depositAmount ? "deposit amount" : null,
-          !jobNo ? "job number" : null,
-          isReferralSubmission && !customerName ? "customer name" : null,
-          isLeadlessSubmission && !sourceCompanyOverride ? "source company" : null,
-          submissionMode === "source" && leadType === "FormLead" && !formLeadId ? "form lead Mongo ID" : null,
-          submissionMode === "source" && leadType === "CallLead" && !callPhoneNumber ? "call lead phone number" : null,
-        ].filter(Boolean);
+        const missingFields = getPreciseBookingFormMissingFields({
+          bookDate,
+          agent,
+          merchant,
+          binderAmount,
+          depositAmount,
+          jobNo,
+          customerName,
+          sourceCompany: sourceCompanyOverride,
+          formLeadId,
+          mode: submissionMode,
+          leadType,
+        });
 
         if (missingFields.length > 0) {
           setMessage({
             tone: "error",
-            text: `Please enter the required ${missingFields.join(", ")} before creating the booking.`,
+            text: `${BOOKING_FORM_COPY.missingFieldsPrefix} ${missingFields.join(", ")} ${BOOKING_FORM_COPY.missingFieldsSuffix}`,
           });
           return;
         }
@@ -267,13 +285,24 @@ export function BookingForm() {
         mutation.mutate({ payload, bookingMode: submissionMode });
       }}
     >
-      {message ? <FeedbackMessage tone={message.tone}>{message.text}</FeedbackMessage> : null}
+      {message ? (
+        <FeedbackMessage tone={message.tone}>
+          {message.text}
+          {message.href ? (
+            <>
+              {" "}
+              <Link href={message.href} className="font-medium underline underline-offset-4">
+                {message.hrefLabel ?? BOOKING_FORM_COPY.openReconciliation}
+              </Link>
+            </>
+          ) : null}
+        </FeedbackMessage>
+      ) : null}
 
       <section className="rounded-lg border bg-background p-4">
         <h2 className="text-sm font-semibold">1. Lead Source</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Book from a form lead, call lead, referral, or leadless booking. Leadless bookings do not require a Mongo
-          lead id and are created as standalone booked rows.
+          {BOOKING_FORM_COPY.leadSourceHint}
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <FilterField label="Lead type">
@@ -320,10 +349,11 @@ export function BookingForm() {
           ) : (
             <>
               <FilterField label="Call job number">
-                <Input name="call_job_no" required />
+                <Input name="call_job_no" defaultValue={initial.call_job_no} required />
               </FilterField>
               <FilterField label="Call phone number">
-                <Input name="call_phone_number" defaultValue={initial.call_phone_number} required />
+                <Input name="call_phone_number" defaultValue={initial.call_phone_number} />
+                <p className="text-xs text-muted-foreground">{BOOKING_FORM_COPY.callPhoneHint}</p>
               </FilterField>
             </>
           )}

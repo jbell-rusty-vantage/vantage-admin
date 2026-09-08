@@ -133,6 +133,11 @@ export function pairGranotEvents(events: DailyOperationsEventItem[]): DailyOpera
   for (const receipt of receiptSorted) {
     grouped.push(receipt);
     const parentId = receipt.links.receipt_id ?? receipt.event_id;
+    // Two receipt-shaped facts can share one receipt id (the receipt itself and
+    // a pending match on it); the outcomes hang under the first, once.
+    if (usedParents.has(parentId)) {
+      continue;
+    }
     const outcomes = (outcomesByParent.get(parentId) ?? []).sort(compareDailyOperationsEventsNewestFirst);
     if (outcomes.length > 0) {
       usedParents.add(parentId);
@@ -155,10 +160,52 @@ export function eventsForDailyOperationsArrivals(input: {
   company?: string | null;
   quietPriorities?: boolean;
   lane?: string | null;
+  /** `null` returns every in-memory fact (the full-stream overlay). */
+  limit?: number | null;
 }): DailyOperationsEventItem[] {
   const companyFiltered = filterDailyOperationsEventsByCompany(input.events, input.company);
   const quietFiltered = applyQuietPriorities(companyFiltered, Boolean(input.quietPriorities));
-  return [...quietFiltered].sort(compareDailyOperationsEventsNewestFirst).slice(0, DAILY_OPERATIONS_ARRIVALS_LIMIT);
+  const sorted = [...quietFiltered].sort(compareDailyOperationsEventsNewestFirst);
+  if (input.limit === null) {
+    return sorted;
+  }
+  return sorted.slice(0, input.limit ?? DAILY_OPERATIONS_ARRIVALS_LIMIT);
+}
+
+/**
+ * `Load earlier` pages backwards from the oldest fact **this lane** already
+ * holds, so switching lanes never reuses a cursor another lane moved. `null`
+ * lane pages every lane at once (full-stream overlay). No facts yet → `null`
+ * (nothing to page from; the hydration fetch owns the first page).
+ */
+export function earlierDailyOperationsCursor(
+  events: readonly DailyOperationsEventItem[],
+  lane: DailyOperationsPanelLane | null,
+): string | null {
+  let oldest: DailyOperationsEventItem | null = null;
+  for (const event of events) {
+    if (lane && event.lane !== lane) {
+      continue;
+    }
+    if (!oldest || compareDailyOperationsEventsNewestFirst(event, oldest) > 0) {
+      oldest = event;
+    }
+  }
+  return oldest ? `${oldest.occurred_at}:${oldest.event_id}` : null;
+}
+
+/**
+ * The panel strip: `?lane=` absent shows every panel; a panel lane shows that
+ * panel alone (Owner-chosen tab). Sheet Sync joins the strip only when opted
+ * in or when it is the chosen lane.
+ */
+export function panelsForDailyOperationsView(input: {
+  lane: string | null;
+  sheetSyncOptIn: boolean;
+}): { tabs: DailyOperationsPanelLane[]; visible: DailyOperationsPanelLane[]; solo: DailyOperationsPanelLane | null } {
+  const tabs = visibleDailyOperationsPanels(input);
+  const solo = isDailyOperationsPanelLane(input.lane) && tabs.includes(input.lane) ? input.lane : null;
+  return { tabs, visible: solo ? [solo] : tabs, solo };
 }
 
 export function newlyArrivedDailyOperationsEventIds(
@@ -452,6 +499,38 @@ export function dailyOperationsPanelEmptyCopy(input: {
   return DAILY_COPY.panelsEmpty;
 }
 
+/**
+ * Panels whose count says the day has more facts than the board holds for
+ * that lane — enough more that the panel cannot even fill its default card
+ * slots. The first events page is newest-N across every lane, so a Granot
+ * flood can push most (or every) Lead, Text, or Booking of the day out of it;
+ * a panel reading "16" over two cards looks broken. Those panels fetch their
+ * own newest page once. `exception` is excluded: its count is rebuilt from
+ * lead ZIP state, not from facts of that lane.
+ */
+export function lanesNeedingBackfill(input: {
+  snapshot: DailyOperationsSnapshot | null | undefined;
+  events: readonly DailyOperationsEventItem[];
+  panels: readonly DailyOperationsPanelLane[];
+  attempted: ReadonlySet<string>;
+}): DailyOperationsPanelLane[] {
+  if (!input.snapshot) {
+    return [];
+  }
+  const held = new Map<string, number>();
+  for (const event of input.events) {
+    held.set(event.lane, (held.get(event.lane) ?? 0) + 1);
+  }
+  return input.panels.filter((lane) => {
+    if (lane === "exception" || input.attempted.has(lane)) {
+      return false;
+    }
+    const count = dailyOperationsPanelCount(input.snapshot, lane);
+    const wanted = Math.min(count, DAILY_OPERATIONS_PANEL_DEFAULT_LIMIT);
+    return wanted > 0 && (held.get(lane) ?? 0) < wanted;
+  });
+}
+
 export function dailyOperationsPanelCount(
   snapshot: DailyOperationsSnapshot | null | undefined,
   lane: DailyOperationsPanelLane,
@@ -479,6 +558,9 @@ export function dailyOperationsPanelCount(
       metrics.exceptions.dead_letter +
       metrics.exceptions.adoption_conflict
     );
+  }
+  if (lane === "sheet_sync") {
+    return metrics.sheet_sync.completed + metrics.sheet_sync.failed;
   }
   return 0;
 }
@@ -691,6 +773,17 @@ export function dailyOperationsCardDetails(event: DailyOperationsEventItem): Dai
     push(DAILY_COPY.factLabels.exceptionDetail, card.exception.detail, "alert");
   }
 
+  if (card.sheet_sync) {
+    push(DAILY_COPY.factLabels.sheetSyncResource, card.sheet_sync.resource?.replace(/_/g, " "));
+    push(DAILY_COPY.factLabels.sheetSyncOperation, card.sheet_sync.operation?.replace(/_/g, " "), "muted");
+    push(
+      DAILY_COPY.factLabels.sheetSyncAttempts,
+      card.sheet_sync.attempts != null ? String(card.sheet_sync.attempts) : null,
+      "muted",
+    );
+    push(DAILY_COPY.factLabels.sheetSyncError, card.sheet_sync.error, "alert");
+  }
+
   if (links.receipt_id && event.kind.startsWith("granot.") && !event.parent_receipt_id) {
     push(DAILY_COPY.factLabels.receipt, shortId(links.receipt_id), "muted");
   }
@@ -724,20 +817,6 @@ export function panelVisibleLimit(input: { focused: boolean; showAll: boolean; t
     return input.total;
   }
   return input.focused ? DAILY_OPERATIONS_PANEL_FOCUSED_LIMIT : DAILY_OPERATIONS_PANEL_DEFAULT_LIMIT;
-}
-
-/**
- * Grid order when a lane is focused: the focused panel first (it spans the
- * grid), every other panel keeps its default order. Nothing is hidden.
- */
-export function orderPanelsForFocus(
-  panels: readonly DailyOperationsPanelLane[],
-  focused: DailyOperationsPanelLane | null,
-): DailyOperationsPanelLane[] {
-  if (!focused || !panels.includes(focused)) {
-    return [...panels];
-  }
-  return [focused, ...panels.filter((panel) => panel !== focused)];
 }
 
 /** Facts that landed in the last `windowMs` — the stream pulse in the Arrivals header. */

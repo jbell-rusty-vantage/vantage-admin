@@ -29,6 +29,7 @@ import {
   dailyOperationsHasConfirmControl,
   dailyOperationsPanelCount,
   dailyOperationsPanelEmptyCopy,
+  earlierDailyOperationsCursor,
   eventsForDailyOperationsArrivals,
   eventsForDailyOperationsPanel,
   newlyArrivedDailyOperationsEventIds,
@@ -37,11 +38,12 @@ import {
   seedOrArriveDailyOperationsEventIds,
   fanOutDailyOperationsEvents,
   filterDailyOperationsEventsByCompany,
+  lanesNeedingBackfill,
   leadDeskHref,
   newestDailyOperationsEventAt,
-  orderPanelsForFocus,
   pairGranotEvents,
   panelVisibleLimit,
+  panelsForDailyOperationsView,
   readPreferenceFlag,
   resolveDailyOperationsOpenHref,
   visibleDailyOperationsPanels,
@@ -107,6 +109,7 @@ function snapshotFixture(): DailyOperationsSnapshot {
       },
       intakes: { opened_today: 3, still_open: 2 },
       exceptions: { zip_missing: 2, crm_failed: 0, dead_letter: 0, adoption_conflict: 0 },
+      sheet_sync: { completed: 4, failed: 1 },
     },
     origins: {
       granot_lead_created: 20,
@@ -314,6 +317,21 @@ test("Granot pairing shows the receipt before minted or linked or observed", () 
     paired.map((row) => row.kind),
     ["granot.lead_created", "granot.minted"],
   );
+  // A pending match on the same receipt is receipt-shaped too; the outcome
+  // hangs under the receipt once, never twice (duplicate React keys).
+  const pending = eventItem({
+    event_id: "p1",
+    lane: "granot",
+    kind: "granot.pending_match",
+    occurred_at: "2026-09-08T18:15:30.000Z",
+    links: { receipt_id: "r1" },
+  });
+  const withPending = pairGranotEvents([minted, pending, receipt]);
+  assert.deepEqual(
+    withPending.map((row) => row.event_id),
+    ["p1", "m1", "r-event"],
+  );
+  assert.equal(new Set(withPending.map((row) => row.event_id)).size, withPending.length);
 });
 
 test("Sheet Sync stays hidden until opt-in or lane=sheet_sync", () => {
@@ -648,14 +666,149 @@ test("relative stamps read Just now, seconds, minutes, hours and never go negati
   assert.match(markup, /dateTime="2026-09-08T18:14:00.000Z"/);
 });
 
-test("focus reorders panels without dropping any; visible limit grows in focus and on Show all", () => {
-  const panels = visibleDailyOperationsPanels({ lane: "booking", sheetSyncOptIn: false });
-  assert.deepEqual(orderPanelsForFocus(panels, "booking")[0], "booking");
-  assert.equal(orderPanelsForFocus(panels, "booking").length, panels.length);
-  assert.deepEqual(orderPanelsForFocus(panels, null), panels);
+test("visible limit grows in the solo view and on Show all", () => {
   assert.equal(panelVisibleLimit({ focused: false, showAll: false, total: 60 }), DAILY_OPERATIONS_PANEL_DEFAULT_LIMIT);
   assert.equal(panelVisibleLimit({ focused: true, showAll: false, total: 60 }), DAILY_OPERATIONS_PANEL_FOCUSED_LIMIT);
   assert.equal(panelVisibleLimit({ focused: false, showAll: true, total: 60 }), 60);
+});
+
+test("panel view: a lane in the URL is a solo view; anything else is every panel", () => {
+  const all = panelsForDailyOperationsView({ lane: null, sheetSyncOptIn: false });
+  assert.equal(all.solo, null);
+  assert.deepEqual(all.visible, all.tabs);
+  assert.equal(all.tabs.includes("sheet_sync"), false);
+  const solo = panelsForDailyOperationsView({ lane: "granot", sheetSyncOptIn: false });
+  assert.equal(solo.solo, "granot");
+  assert.deepEqual(solo.visible, ["granot"]);
+  assert.deepEqual(solo.tabs, all.tabs);
+  // Sheet Sync is a tab only after opt-in; the URL alone does not make it solo.
+  const hidden = panelsForDailyOperationsView({ lane: "sheet_sync", sheetSyncOptIn: false });
+  assert.equal(hidden.solo, "sheet_sync");
+  assert.deepEqual(hidden.visible, ["sheet_sync"]);
+  const optedIn = panelsForDailyOperationsView({ lane: "sheet_sync", sheetSyncOptIn: true });
+  assert.equal(optedIn.solo, "sheet_sync");
+  assert.equal(optedIn.tabs.includes("sheet_sync"), true);
+  // A tile lane that has no panel (form_call) shows every panel.
+  const noPanel = panelsForDailyOperationsView({ lane: "form_call", sheetSyncOptIn: false });
+  assert.equal(noPanel.solo, null);
+  assert.deepEqual(noPanel.visible, noPanel.tabs);
+});
+
+test("a panel with a count but no in-memory facts is backfilled once from its own lane", () => {
+  const snapshot = snapshotFixture(); // leads 42, bookings 6, cancellations 1, texts 19, intakes 3, granot 183
+  // Eight Granot facts fill that panel's slots, so only the starved lanes are asked.
+  const granotOnly = Array.from({ length: 8 }, (_, index) =>
+    eventItem({ event_id: `g${index}`, lane: "granot", kind: "granot.priority_updated" }),
+  );
+  const panels = visibleDailyOperationsPanels({ lane: null, sheetSyncOptIn: true });
+  const needed = lanesNeedingBackfill({ snapshot, events: granotOnly, panels, attempted: new Set() });
+  assert.deepEqual([...needed].sort(), ["booking", "cancellation", "intake", "lead", "sheet_sync", "text"]);
+  // Exceptions never backfill; Sheet Sync does once opted in; an attempted lane is not asked again.
+  assert.equal(needed.includes("exception"), false);
+  assert.equal(
+    lanesNeedingBackfill({
+      snapshot,
+      events: granotOnly,
+      panels: visibleDailyOperationsPanels({ lane: null, sheetSyncOptIn: false }),
+      attempted: new Set(),
+    }).includes("sheet_sync"),
+    false,
+  );
+  // One Lead in memory against a count of 42 still starves the panel (8 slots): backfill.
+  const afterLead = lanesNeedingBackfill({
+    snapshot,
+    events: [...granotOnly, eventItem({ event_id: "l1", lane: "lead", kind: "form_lead.created" })],
+    panels,
+    attempted: new Set(["booking", "sheet_sync"]),
+  });
+  assert.deepEqual([...afterLead].sort(), ["cancellation", "intake", "lead", "text"]);
+  // Eight Leads fill the default slots; the one Cancellation of the day is all of them.
+  const filled = lanesNeedingBackfill({
+    snapshot,
+    events: [
+      ...granotOnly,
+      ...Array.from({ length: 8 }, (_, index) =>
+        eventItem({ event_id: `l${index}`, lane: "lead", kind: "form_lead.created" }),
+      ),
+      eventItem({ event_id: "c1", lane: "cancellation", kind: "cancellation.created" }),
+    ],
+    panels,
+    attempted: new Set(["booking", "sheet_sync"]),
+  });
+  assert.deepEqual([...filled].sort(), ["intake", "text"]);
+  // A zero count wants nothing; no snapshot wants nothing.
+  const quiet = { ...snapshot, metrics: { ...snapshot.metrics, cancellations: { today: 0, yesterday: 0, yesterday_by_now: 0 } } };
+  assert.equal(lanesNeedingBackfill({ snapshot: quiet, events: granotOnly, panels, attempted: new Set() }).includes("cancellation"), false);
+  assert.deepEqual(lanesNeedingBackfill({ snapshot: null, events: [], panels, attempted: new Set() }), []);
+});
+
+test("Sheet Sync panel counts drained jobs and its cards show the job, trigger, attempts and error", () => {
+  const snapshot = snapshotFixture();
+  assert.equal(dailyOperationsPanelCount(snapshot, "sheet_sync"), 5);
+  const event = eventItem({
+    event_id: "s1",
+    lane: "sheet_sync",
+    kind: "sheet_sync.failed",
+    source_company: null,
+    ingestion_origin: null,
+    lead_kind: null,
+    entity_type: "SheetSyncJob",
+    entity_id: "job1",
+    links: { booking_id: "b1" },
+    card: {
+      sheet_sync: {
+        resource: "booking_chain",
+        operation: "booked_lead.create",
+        attempts: 2,
+        error: "Google Sheets 429",
+      },
+    },
+  });
+  const details = dailyOperationsCardDetails(event);
+  const byLabel = new Map(details.map((row) => [row.label, row]));
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.sheetSyncResource)?.value, "booking chain");
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.sheetSyncOperation)?.value, "booked lead.create");
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.sheetSyncAttempts)?.value, "2");
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.sheetSyncError)?.value, "Google Sheets 429");
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.sheetSyncError)?.tone, "alert");
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.entity)?.value, "Sheet Sync Job");
+  assert.ok(dailyOperationsAttentionChips(event).some((chip) => chip.value === DAILY_COPY.failed));
+  const completed = dailyOperationsCardDetails(
+    eventItem({
+      event_id: "s2",
+      lane: "sheet_sync",
+      kind: "sheet_sync.completed",
+      card: { sheet_sync: { resource: "source_lead", operation: "form_lead.create" } },
+    }),
+  );
+  assert.equal(completed.some((row) => row.label === DAILY_COPY.factLabels.sheetSyncError), false);
+});
+
+test("Load earlier pages from the oldest fact of the lane being read, not the whole board", () => {
+  const events = [
+    eventItem({ event_id: "g-new", lane: "granot", kind: "granot.priority_updated", occurred_at: "2026-09-08T18:13:00.000Z" }),
+    eventItem({ event_id: "l-old", lane: "lead", kind: "form_lead.created", occurred_at: "2026-09-08T12:00:00.000Z" }),
+    eventItem({ event_id: "g-old", lane: "granot", kind: "granot.priority_updated", occurred_at: "2026-09-08T15:00:00.000Z" }),
+  ];
+  assert.equal(earlierDailyOperationsCursor(events, null), "2026-09-08T12:00:00.000Z:l-old");
+  assert.equal(earlierDailyOperationsCursor(events, "granot"), "2026-09-08T15:00:00.000Z:g-old");
+  assert.equal(earlierDailyOperationsCursor(events, "booking"), null);
+  assert.equal(earlierDailyOperationsCursor([], null), null);
+});
+
+test("the full-stream overlay reads every in-memory fact; the Arrivals band keeps its slice", () => {
+  const events = Array.from({ length: 30 }, (_, index) =>
+    eventItem({
+      event_id: `e${index}`,
+      lane: "lead",
+      kind: "form_lead.created",
+      occurred_at: `2026-09-08T17:${String(index).padStart(2, "0")}:00.000Z`,
+    }),
+  );
+  assert.equal(eventsForDailyOperationsArrivals({ events }).length, DAILY_OPERATIONS_ARRIVALS_LIMIT);
+  assert.equal(eventsForDailyOperationsArrivals({ events, limit: null }).length, 30);
+  assert.equal(eventsForDailyOperationsArrivals({ events, limit: null })[0]?.event_id, "e29");
+  assert.equal(eventsForDailyOperationsArrivals({ events, limit: 5 }).length, 5);
 });
 
 test("Arrivals pulse counts facts in the window and finds the newest stamp", () => {

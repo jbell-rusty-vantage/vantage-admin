@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatedNumber } from "@/components/daily/animated-number";
 import { DAILY_COPY } from "@/components/daily/daily-copy";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -11,6 +12,8 @@ import {
 function formatCount(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
 }
+
+/** Share bars ease to their new width (`daily-bar`); counts roll (`AnimatedNumber`). */
 
 export function OriginsPanel({
   origins,
@@ -38,11 +41,11 @@ export function OriginsPanel({
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="font-medium text-navy">{DAILY_COPY.originsLabels[key]}</span>
                 <span className="tabular-nums text-navy">
-                  {loading ? DAILY_COPY.missingYesterday : formatCount(value)}
+                  {loading ? DAILY_COPY.missingYesterday : <AnimatedNumber value={value} format={formatCount} />}
                 </span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-steel-100">
-                <div className="h-full rounded-full bg-trust-blue" style={{ width: `${pct}%` }} />
+                <div className="daily-bar h-full rounded-full bg-trust-blue" style={{ width: `${pct}%` }} />
               </div>
             </div>
           );

@@ -20,6 +20,7 @@ import {
   toggleSearchParam,
   trendFromPace,
   twoDayAverageByNow,
+  withLiveDailyOperationsClock,
   type DailyOperationsSnapshot,
 } from "./dailyOperations";
 
@@ -74,6 +75,7 @@ function snapshotFixture(overrides: Partial<DailyOperationsSnapshot> = {}): Dail
       },
       intakes: { opened_today: 3, still_open: 2 },
       exceptions: { zip_missing: 2, crm_failed: 0, dead_letter: 0, adoption_conflict: 0 },
+      sheet_sync: { completed: 4, failed: 1 },
     },
     origins: {
       granot_lead_created: 20,
@@ -239,4 +241,48 @@ test("tile and company clicks toggle lane and company search params", () => {
   const company = toggleSearchParam(new URLSearchParams("lane=lead"), "company", "top10_leads");
   assert.equal(company.get("lane"), "lead");
   assert.equal(company.get("company"), "top10_leads");
+});
+
+test("live clock rebases like-hour baselines as the Florida hour advances", () => {
+  // generated_at 18:14Z is 14:14 Florida (EDT). Yesterday had 2 webhooks per hour through 14.
+  const snapshot = snapshotFixture({
+    day_before: "2026-09-06",
+    metrics: {
+      ...snapshotFixture().metrics,
+      leads: { ...snapshotFixture().metrics.leads, yesterday_by_now: 20, day_before_by_now: 10 },
+      texts: { ...snapshotFixture().metrics.texts, yesterday_by_now: null },
+    },
+    hourly: {
+      today: [],
+      yesterday: Array.from({ length: 24 }, (_, hour) => ({
+        hour,
+        leads: 2,
+        bookings: 0,
+        cancellations: 0,
+        webhooks: 0,
+        messages: 5,
+      })),
+      day_before: Array.from({ length: 24 }, (_, hour) => ({
+        hour,
+        leads: 1,
+        bookings: 0,
+        cancellations: 0,
+        webhooks: 0,
+        messages: 0,
+      })),
+    },
+  });
+  // Same hour: the snapshot is returned untouched (same reference, no churn).
+  assert.equal(withLiveDailyOperationsClock(snapshot, Date.parse("2026-09-08T18:40:00.000Z")), snapshot);
+  // Two hours later (16:xx Florida) the baseline is hours 0..16 of yesterday = 17 * 2.
+  const later = withLiveDailyOperationsClock(snapshot, Date.parse("2026-09-08T20:05:00.000Z"));
+  assert.equal(later.metrics.leads.yesterday_by_now, 34);
+  assert.equal(later.metrics.leads.day_before_by_now, 17);
+  assert.equal(later.generated_at, "2026-09-08T20:05:00.000Z");
+  // A baseline the server left null stays null: no hourly data is not zero.
+  assert.equal(later.metrics.texts.yesterday_by_now, null);
+  // Past midnight Florida the snapshot belongs to a different day: leave it to the resync.
+  assert.equal(withLiveDailyOperationsClock(snapshot, Date.parse("2026-09-09T05:00:00.000Z")), snapshot);
+  // No clock yet (server render): untouched.
+  assert.equal(withLiveDailyOperationsClock(snapshot, undefined), snapshot);
 });

@@ -24,11 +24,27 @@ export function isLeadlessNonReferralBooking(record: AdminRecord | null | undefi
   return record.is_leadless_booking === true || !bookingHasStoredLead(record);
 }
 
+const FENCED_BOOKING_ORIGINS = new Set(["employee_booking", "owner_booking"]);
+
+function bookingOrigin(record: AdminRecord | null | undefined): string | undefined {
+  return typeof record?.booking_origin === "string" ? record.booking_origin : undefined;
+}
+
+function hasOpenBookingLeadReconciliationCase(record: AdminRecord | null | undefined): boolean {
+  return (
+    record?.has_open_booking_lead_reconciliation_case === true
+    || record?.has_pending_reconciliation_case === true
+  );
+}
+
 export function canConnectBookingToLead(record: AdminRecord | null | undefined): boolean {
+  const origin = bookingOrigin(record);
   return Boolean(
     record
     && isLeadlessNonReferralBooking(record)
-    && !isCancelledBookingRecord(record),
+    && !isCancelledBookingRecord(record)
+    && !(origin && FENCED_BOOKING_ORIGINS.has(origin))
+    && !hasOpenBookingLeadReconciliationCase(record),
   );
 }
 

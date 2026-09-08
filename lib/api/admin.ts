@@ -406,22 +406,30 @@ export async function createCallLead(body: Record<string, unknown>): Promise<Adm
   });
 }
 
+export type OwnerBookingCreateResult = {
+  booking?: unknown;
+  message?: string;
+  warnings?: unknown;
+  total_binder_amount?: number;
+  reconciliation_case_id?: string;
+};
+
 export async function createBookingFromSource(body: Record<string, unknown>) {
-  return requestJson<unknown>(proxyUrl("api/v1/booked-leads/from-source"), {
+  return requestJson<OwnerBookingCreateResult>(proxyUrl("api/v1/booked-leads/from-source"), {
     method: "POST",
     body: JSON.stringify(body),
   });
 }
 
 export async function createReferralBooking(body: Record<string, unknown>) {
-  return requestJson<unknown>(proxyUrl("api/v1/referral-bookings"), {
+  return requestJson<OwnerBookingCreateResult>(proxyUrl("api/v1/referral-bookings"), {
     method: "POST",
     body: JSON.stringify(body),
   });
 }
 
 export async function createLeadlessBooking(body: Record<string, unknown>) {
-  return requestJson<unknown>(proxyUrl("api/v1/leadless-bookings"), {
+  return requestJson<OwnerBookingCreateResult>(proxyUrl("api/v1/leadless-bookings"), {
     method: "POST",
     body: JSON.stringify(body),
   });

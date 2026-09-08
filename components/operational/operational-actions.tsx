@@ -89,6 +89,8 @@ export function getBookingQuery(resource: UiResource, record: AdminRecord) {
     params.set("lead_type", "CallLead");
     const phone = getValue(record, "phone_number");
     if (phone) params.set("call_phone_number", String(phone));
+    const jobNo = getValue(record, "job_no");
+    if (jobNo) params.set("call_job_no", String(jobNo));
   }
   return params.toString();
 }

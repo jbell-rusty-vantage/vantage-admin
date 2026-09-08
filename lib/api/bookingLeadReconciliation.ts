@@ -16,6 +16,11 @@ export type BookingLeadReconciliationReason =
 
 export type BookingLeadModel = "FormLead" | "CallLead";
 
+export type BookingLeadReconciliationOrigin =
+  | "employee_booking"
+  | "owner_booking"
+  | "external_sheet_ingestion";
+
 export type BookingLeadSourceResolution =
   | "preserve_lead_source"
   | "apply_submission_source";
@@ -106,7 +111,7 @@ export type BookingLeadReconciliationCaseSummary = {
   id: string;
   _id: string;
   booking_id: string;
-  origin: "employee_booking" | "external_sheet_ingestion";
+  origin: BookingLeadReconciliationOrigin;
   booking?: {
     id?: string;
     _id?: string;

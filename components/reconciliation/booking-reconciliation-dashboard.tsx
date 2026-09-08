@@ -17,11 +17,16 @@ import {
   type BookingLeadCandidate,
   type BookingLeadModel,
   type BookingLeadReconciliationCaseDetail,
+  type BookingLeadReconciliationOrigin,
   type BookingLeadReconciliationReason,
   type BookingLeadReconciliationStatus,
   type BookingLeadSourceResolution,
   type UpdatePendingEmployeeBookingBody,
 } from "@/lib/api/bookingLeadReconciliation";
+import {
+  BOOKING_RECONCILIATION_COPY,
+  bookingReconciliationOriginLabel,
+} from "@/components/reconciliation/booking-reconciliation-copy";
 import { fetchLeadSourceCompanies, type LeadSourceCompany } from "@/lib/api/sourceCompanies";
 import { useCatalogOptions } from "@/lib/api/use-catalog-options";
 import { MOVE_SIZE_OPTIONS } from "@/lib/constants/domain";
@@ -48,7 +53,7 @@ import { parseMoneyInput } from "@/lib/booking/parseMoneyInput";
 
 type QueueFilters = {
   status: BookingLeadReconciliationStatus | "";
-  origin: "" | "employee_booking" | "external_sheet_ingestion";
+  origin: "" | BookingLeadReconciliationOrigin;
   reason: BookingLeadReconciliationReason | "";
   q: string;
   lead_source_company: string;
@@ -673,10 +678,9 @@ export function BookingReconciliationDashboard() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Booking Reconciliation</h1>
+          <h1 className="text-2xl font-semibold">{BOOKING_RECONCILIATION_COPY.pageTitle}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Owner-only queue for employee bookings that need lead review, correction, or
-            attachment.
+            {BOOKING_RECONCILIATION_COPY.pageHint}
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -726,10 +730,15 @@ export function BookingReconciliationDashboard() {
                   }
                   className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
                 >
-                  <option value="">All origins</option>
-                  <option value="employee_booking">Employee booking</option>
+                  <option value="">{BOOKING_RECONCILIATION_COPY.allOrigins}</option>
+                  <option value="employee_booking">
+                    {BOOKING_RECONCILIATION_COPY.origin.employee_booking}
+                  </option>
+                  <option value="owner_booking">
+                    {BOOKING_RECONCILIATION_COPY.origin.owner_booking}
+                  </option>
                   <option value="external_sheet_ingestion">
-                    External sheet ingestion
+                    {BOOKING_RECONCILIATION_COPY.origin.external_sheet_ingestion}
                   </option>
                 </select>
               </Field>
@@ -864,9 +873,7 @@ export function BookingReconciliationDashboard() {
                       <span>{item.reason}</span>
                       <span>•</span>
                       <span>
-                        {item.origin === "external_sheet_ingestion"
-                          ? "External sheet"
-                          : "Employee booking"}
+                        {bookingReconciliationOriginLabel(item.origin)}
                       </span>
                       <span>•</span>
                       <span>{formatDateTime(item.createdAt)}</span>
@@ -965,11 +972,7 @@ export function BookingReconciliationDashboard() {
                           <Button
                             variant="destructive"
                             onClick={() => {
-                              if (
-                                window.confirm(
-                                  "Dismiss this pending reconciliation case? It can be reopened later.",
-                                )
-                              ) {
+                              if (window.confirm(BOOKING_RECONCILIATION_COPY.dismissConfirm)) {
                                 resolveMutation.mutate({
                                   caseId: detail._id,
                                   command: {
@@ -982,7 +985,9 @@ export function BookingReconciliationDashboard() {
                             }}
                             disabled={caseActionsDisabled}
                           >
-                            {selectedCaseWritePending ? "Updating..." : "Dismiss"}
+                            {selectedCaseWritePending
+                              ? "Updating..."
+                              : BOOKING_RECONCILIATION_COPY.dismissButton}
                           </Button>
                         </>
                       ) : (
@@ -1932,12 +1937,15 @@ export function BookingReconciliationDashboard() {
                   <CardTitle className="text-xl">Dismiss and reopen notes</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-4 xl:grid-cols-2">
-                  <Field label="Dismiss notes" htmlFor="dismiss-notes">
+                  <Field label={BOOKING_RECONCILIATION_COPY.dismissNotesLabel} htmlFor="dismiss-notes">
                     <Textarea
                       id="dismiss-notes"
                       value={dismissNotes}
                       onChange={(event) => setDismissNotes(event.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      {BOOKING_RECONCILIATION_COPY.dismissHelper}
+                    </p>
                   </Field>
                   <Field label="Reopen notes" htmlFor="reopen-notes">
                     <Textarea

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrivalsStream } from "@/components/daily/arrivals-stream";
@@ -10,41 +10,64 @@ import {
   DAILY_COPY,
   DAILY_QUIET_PRIORITIES_STORAGE_KEY,
   DAILY_SHEET_SYNC_STORAGE_KEY,
+  dailyOperationsFloridaHour,
   formatDailyOperationsClock,
   formatDailyOperationsDay,
 } from "@/components/daily/daily-copy";
+import {
+  DailyOperationsEventsOverlay,
+  type DailyOperationsOverlayScope,
+} from "@/components/daily/events-overlay";
 import { HeadlineTiles } from "@/components/daily/headline-tiles";
 import { HourlyRhythm } from "@/components/daily/hourly-rhythm";
 import { KindColorsProvider, useStoredKindTones } from "@/components/daily/kind-colors-context";
 import { KindColorsPanel } from "@/components/daily/kind-colors-panel";
 import { LiveDot } from "@/components/daily/live-dot";
 import { OriginsPanel } from "@/components/daily/origins-panel";
+import { useArrivalHighlights } from "@/components/daily/use-arrival-highlights";
+import { useNowMs } from "@/components/daily/use-now";
+import { useStoredPreferenceFlag } from "@/components/daily/use-preference-flag";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import {
+  dailyOperationsDayKey,
   fetchDailyOperationsEvents,
   fetchDailyOperationsSnapshot,
-  normalizeDailyOperationsSnapshot,
   toggleSearchParam,
+  withLiveDailyOperationsClock,
   writeSearchParam,
   type DailyOperationsLane,
   type DailyOperationsPanelLane,
 } from "@/lib/api/dailyOperations";
 import {
+  dailyOperationsPanelCount,
+  earlierDailyOperationsCursor,
+  eventsForDailyOperationsArrivals,
+  eventsForDailyOperationsPanel,
   focusLaneFromSearch,
+  lanesNeedingBackfill,
+  pairGranotEvents,
   readPreferenceFlag,
-  writePreferenceFlag,
+  visibleDailyOperationsPanels,
 } from "@/lib/api/dailyOperationsBoard";
 import {
   applyDailyOperationsSsePayload,
   DAILY_OPERATIONS_LIVE_PATH,
   EMPTY_DAILY_OPERATIONS_LIVE_BOARD,
+  granotTileToday,
   mergeDailyOperationsEvents,
+  receiveDailyOperationsSnapshot,
   type DailyOperationsLiveStatus,
   type DailyOperationsTileId,
 } from "@/lib/api/dailyOperationsLive";
 import { queryKeys } from "@/lib/query/keys";
 import { cn } from "@/lib/utils";
+
+/** Same as the server's `LIVE_DAILY_OPERATIONS_MAX_MS`: hidden longer than this and the stream may have missed a reconnect. */
+const HIDDEN_RESYNC_MS = 240_000;
+/** Snapshot resync cadence while the tab is visible — refreshes `held_now` / `still_open` and corrects drift. Not a live poll. */
+const SNAPSHOT_RESYNC_MS = 5 * 60_000;
+const TILE_FLASH_MS = 2_000;
 
 function LiveChrome({
   status,
@@ -108,6 +131,14 @@ function storageOrNull(): Storage | null {
   }
 }
 
+/**
+ * The Owner's day. One EventSource feeds one in-memory board; every band
+ * reads from it. Counts move per fact (`applyDailyOperationsSsePayload`); the
+ * like-hour baselines and the `now` marker follow the browser clock
+ * (`withLiveDailyOperationsClock`) so a board left open all day stays honest.
+ * The snapshot resyncs from Mongo every five minutes, when the tab returns
+ * after a long hide, and when the Florida day rolls over.
+ */
 export function DailyOperationsPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -121,24 +152,27 @@ export function DailyOperationsPage() {
   const [tabHidden, setTabHidden] = useState(false);
   const [streamGeneration, setStreamGeneration] = useState(0);
   const [flashedTiles, setFlashedTiles] = useState<DailyOperationsTileId[]>([]);
-  const [quietPriorities, setQuietPriorities] = useState(quietFromUrl);
-  const [sheetSyncOptIn, setSheetSyncOptIn] = useState(false);
-  const [eventsCursor, setEventsCursor] = useState<string | null>(null);
-  const [eventsHydrated, setEventsHydrated] = useState(false);
+  const [storedQuiet, writeStoredQuiet] = useStoredPreferenceFlag(DAILY_QUIET_PRIORITIES_STORAGE_KEY);
+  const [storedSheet, writeStoredSheet] = useStoredPreferenceFlag(DAILY_SHEET_SYNC_STORAGE_KEY);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
+  const [exhaustedScopes, setExhaustedScopes] = useState<ReadonlySet<string>>(new Set());
+  const [overlay, setOverlay] = useState<DailyOperationsOverlayScope | null>(null);
   const { overrides: kindTones, pick: pickKindTone, reset: resetKindTones } = useStoredKindTones();
   const [colorsOpen, setColorsOpen] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const preferencesHydrated = useRef(false);
+  const pendingFlashes = useRef<DailyOperationsTileId[]>([]);
+  const preferencesSeeded = useRef(false);
+  const hiddenSince = useRef<number | null>(null);
   const focusedLane = focusLaneFromSearch(lane);
+  const nowMs = useNowMs();
   const snapshotQuery = useQuery({
     queryKey: queryKeys.dailyOperations.snapshot(),
     queryFn: fetchDailyOperationsSnapshot,
-    staleTime: Infinity,
+    staleTime: SNAPSHOT_RESYNC_MS,
     refetchOnWindowFocus: false,
-    refetchInterval: false,
+    refetchInterval: SNAPSHOT_RESYNC_MS,
+    refetchIntervalInBackground: false,
   });
-  const querySnapshotRef = useRef(snapshotQuery.data);
   const eventsQuery = useQuery({
     queryKey: queryKeys.dailyOperations.events("all"),
     queryFn: () => fetchDailyOperationsEvents({ limit: 80 }),
@@ -146,88 +180,174 @@ export function DailyOperationsPage() {
     refetchOnWindowFocus: false,
     refetchInterval: false,
   });
+  const eventsHydrated = eventsQuery.isFetched;
+  const highlights = useArrivalHighlights(board.events, eventsHydrated);
 
-  useEffect(() => {
-    querySnapshotRef.current = snapshotQuery.data;
-  }, [snapshotQuery.data]);
+  // Fetched data folds into the board during render (React's "adjust state
+  // from the previous render" pattern) so the first paint after a fetch is
+  // already correct and no effect copies query state into React state.
+  //
+  // Every fetched snapshot (first load, 5-minute resync, focus resync, day
+  // rollover) is authoritative: Mongo is the book. Live increments that landed
+  // during the fetch are re-added by the next fact, not lost.
+  // The markers start empty on purpose: a remount (route change and back,
+  // Fast Refresh) finds both queries already cached and must still fold them.
+  const [syncedSnapshot, setSyncedSnapshot] = useState<typeof snapshotQuery.data>(undefined);
+  if (snapshotQuery.data !== syncedSnapshot) {
+    setSyncedSnapshot(snapshotQuery.data);
+    const data = snapshotQuery.data;
+    if (data) {
+      setBoard((current) => receiveDailyOperationsSnapshot(current, data));
+    }
+  }
 
-  useEffect(() => {
-    if (eventsQuery.data) {
-      const items = eventsQuery.data.items;
+  const [syncedEvents, setSyncedEvents] = useState<typeof eventsQuery.data>(undefined);
+  if (eventsQuery.data !== syncedEvents) {
+    setSyncedEvents(eventsQuery.data);
+    const page = eventsQuery.data;
+    if (page) {
       setBoard((current) => ({
         ...current,
-        events: mergeDailyOperationsEvents(current.events, items),
+        events: mergeDailyOperationsEvents(current.events, page.items),
       }));
-      setEventsCursor(eventsQuery.data.next_cursor ?? null);
-      setEventsHydrated(true);
-      return;
+      if (page.next_cursor === null) {
+        // Fewer than a page today: every lane is fully loaded.
+        setExhaustedScopes(new Set(["all", ...page.items.map((item) => item.lane)]));
+      }
     }
-    if (eventsQuery.isFetched) {
-      setEventsHydrated(true);
-    }
-  }, [eventsQuery.data, eventsQuery.isFetched]);
+  }
 
+  // A Granot flood can push every Lead or Booking of the day out of the first
+  // newest-80 page. A panel whose count says otherwise fetches its own newest
+  // page once, so no panel reads "Nothing yet today" against a non-zero count.
+  const [backfilledLanes, setBackfilledLanes] = useState<ReadonlySet<string>>(new Set());
+  const backfillKey = (
+    eventsHydrated
+      ? lanesNeedingBackfill({
+          snapshot: board.snapshot,
+          events: board.events,
+          panels: visibleDailyOperationsPanels({ lane, sheetSyncOptIn: storedSheet }),
+          attempted: backfilledLanes,
+        })
+      : []
+  ).join(",");
   useEffect(() => {
-    if (preferencesHydrated.current) {
+    if (!backfillKey) {
       return;
     }
-    preferencesHydrated.current = true;
-    const storage = storageOrNull();
-    const storedQuiet = readPreferenceFlag(storage, DAILY_QUIET_PRIORITIES_STORAGE_KEY);
-    const storedSheet = readPreferenceFlag(storage, DAILY_SHEET_SYNC_STORAGE_KEY);
-    setSheetSyncOptIn(storedSheet || lane === "sheet_sync");
+    const lanes = backfillKey.split(",") as DailyOperationsPanelLane[];
+    for (const scope of lanes) {
+      void fetchDailyOperationsEvents({ lane: scope, limit: 40 })
+        .then((page) => {
+          setBoard((current) => ({
+            ...current,
+            events: mergeDailyOperationsEvents(current.events, page.items),
+          }));
+          if (page.next_cursor === null) {
+            setExhaustedScopes((current) => new Set([...current, scope]));
+          }
+        })
+        .catch(() => {
+          // The panel keeps its count; Load earlier in the solo view still works.
+        })
+        .finally(() => {
+          setBackfilledLanes((current) => new Set([...current, scope]));
+        });
+    }
+  }, [backfillKey]);
+
+  // Preferences live in localStorage (external store). A shared link with
+  // `?quiet_priorities=1` persists the preference on arrival; a stored
+  // preference is written back into the link once so the URL stays shareable.
+  const quietPriorities = storedQuiet || quietFromUrl;
+  const sheetSyncOn = storedSheet || lane === "sheet_sync";
+  useEffect(() => {
+    if (preferencesSeeded.current) {
+      return;
+    }
+    preferencesSeeded.current = true;
     if (quietFromUrl) {
-      setQuietPriorities(true);
-      writePreferenceFlag(storage, DAILY_QUIET_PRIORITIES_STORAGE_KEY, true);
+      writeStoredQuiet(true);
       return;
     }
-    if (storedQuiet) {
-      setQuietPriorities(true);
+    if (readPreferenceFlag(storageOrNull(), DAILY_QUIET_PRIORITIES_STORAGE_KEY)) {
       const next = writeSearchParam(searchParams, "quiet_priorities", "1");
       const query = next.toString();
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     }
-  }, [lane, pathname, quietFromUrl, router, searchParams]);
+  }, [pathname, quietFromUrl, router, searchParams, writeStoredQuiet]);
+
+  const resync = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.dailyOperations.snapshot() });
+  }, [queryClient]);
 
   useEffect(() => {
     function onVisibility() {
-      setTabHidden(document.hidden);
+      const hidden = document.hidden;
+      setTabHidden(hidden);
+      if (hidden) {
+        hiddenSince.current = Date.now();
+        return;
+      }
+      const since = hiddenSince.current;
+      hiddenSince.current = null;
+      if (since !== null && Date.now() - since >= HIDDEN_RESYNC_MS) {
+        resync();
+      }
     }
     onVisibility();
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, []);
+  }, [resync]);
+
+  // Florida day rollover while the tab is open: yesterday's board is not
+  // today's. Refetch both queries; `receiveDailyOperationsSnapshot` drops the
+  // old day's facts and session badges when the new-day snapshot lands.
+  const liveDayKey = nowMs === undefined ? null : dailyOperationsDayKey(nowMs);
+  const snapshotDay = board.snapshot?.today ?? null;
+  useEffect(() => {
+    if (!liveDayKey || !snapshotDay || liveDayKey === snapshotDay) {
+      return;
+    }
+    void queryClient.invalidateQueries({ queryKey: queryKeys.dailyOperations.snapshot() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.dailyOperations.events("all") });
+  }, [liveDayKey, snapshotDay, queryClient]);
+
+  // The live socket is bound to the day it opened on; reconnect once the
+  // board has moved to a new day so the new day's facts start flowing.
+  const [streamDay, setStreamDay] = useState(snapshotDay);
+  if (snapshotDay !== streamDay) {
+    setStreamDay(snapshotDay);
+    if (streamDay !== null && snapshotDay !== null) {
+      setStreamGeneration((value) => value + 1);
+    }
+  }
+
+  // Tile flashes queued by the SSE reducer drain here, outside the state updater.
+  useEffect(() => {
+    if (pendingFlashes.current.length === 0) {
+      return;
+    }
+    const tiles = [...new Set(pendingFlashes.current)];
+    pendingFlashes.current = [];
+    setFlashedTiles(tiles);
+    if (flashTimer.current) {
+      clearTimeout(flashTimer.current);
+    }
+    flashTimer.current = setTimeout(() => setFlashedTiles([]), TILE_FLASH_MS);
+  }, [board]);
 
   useEffect(() => {
     const source = new EventSource(DAILY_OPERATIONS_LIVE_PATH);
     const applyEvent = (eventName: string, rawData: string) => {
       setBoard((current) => {
-        const seeded =
-          current.snapshot || !querySnapshotRef.current
-            ? current
-            : {
-                ...current,
-                snapshot: normalizeDailyOperationsSnapshot(querySnapshotRef.current),
-                lastGoodAt: current.lastGoodAt ?? querySnapshotRef.current.generated_at,
-              };
-        const next = applyDailyOperationsSsePayload(eventName, rawData, seeded);
-        if (next.board.snapshot) {
-          queryClient.setQueryData(queryKeys.dailyOperations.snapshot(), next.board.snapshot);
-        }
+        const next = applyDailyOperationsSsePayload(eventName, rawData, current);
         if (next.flashedTiles.length > 0) {
-          setFlashedTiles(next.flashedTiles);
-          if (flashTimer.current) {
-            clearTimeout(flashTimer.current);
-          }
-          flashTimer.current = setTimeout(() => setFlashedTiles([]), 2000);
-        }
-        if (eventName === "error") {
-          setStreamStatus("off");
-        } else if (eventName !== "error") {
-          setStreamStatus(document.hidden ? "paused" : "live");
+          pendingFlashes.current.push(...next.flashedTiles);
         }
         return next.board;
       });
+      setStreamStatus(eventName === "error" ? "off" : document.hidden ? "paused" : "live");
     };
     source.addEventListener("snapshot", (event) => {
       applyEvent("snapshot", (event as MessageEvent).data);
@@ -257,67 +377,91 @@ export function DailyOperationsPage() {
         clearTimeout(flashTimer.current);
       }
     };
-  }, [queryClient, streamGeneration]);
+  }, [streamGeneration]);
 
   const status: DailyOperationsLiveStatus =
     streamStatus === "live" && tabHidden ? "paused" : streamStatus;
-  const snapshot = board.snapshot ?? (snapshotQuery.data
-    ? normalizeDailyOperationsSnapshot(snapshotQuery.data)
-    : null);
+  const snapshot = board.snapshot ? withLiveDailyOperationsClock(board.snapshot, nowMs) : null;
+  const nowHour = nowMs === undefined ? undefined : dailyOperationsFloridaHour(new Date(nowMs));
   const loading = snapshotQuery.isLoading && !snapshot;
 
-  function writeParam(key: "lane" | "company", value: string) {
-    const next = toggleSearchParam(searchParams, key, value);
+  function replaceQuery(next: URLSearchParams) {
     const query = next.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
+
+  function writeParam(key: "lane" | "company", value: string) {
+    replaceQuery(toggleSearchParam(searchParams, key, value));
+  }
+
+  function showAllPanels() {
+    replaceQuery(writeSearchParam(searchParams, "lane", null));
   }
 
   function writeQuietPriorities(nextValue: boolean) {
-    setQuietPriorities(nextValue);
-    writePreferenceFlag(storageOrNull(), DAILY_QUIET_PRIORITIES_STORAGE_KEY, nextValue);
-    const next = writeSearchParam(searchParams, "quiet_priorities", nextValue ? "1" : null);
-    const query = next.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    writeStoredQuiet(nextValue);
+    replaceQuery(writeSearchParam(searchParams, "quiet_priorities", nextValue ? "1" : null));
   }
 
   function writeSheetSync(nextValue: boolean) {
-    setSheetSyncOptIn(nextValue);
-    writePreferenceFlag(storageOrNull(), DAILY_SHEET_SYNC_STORAGE_KEY, nextValue);
+    writeStoredSheet(nextValue);
     if (nextValue) {
-      const next = writeSearchParam(searchParams, "lane", "sheet_sync");
-      const query = next.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+      replaceQuery(writeSearchParam(searchParams, "lane", "sheet_sync"));
       return;
     }
     if (lane === "sheet_sync") {
-      const next = writeSearchParam(searchParams, "lane", null);
-      const query = next.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+      replaceQuery(writeSearchParam(searchParams, "lane", null));
     }
   }
 
-  async function loadEarlier() {
-    if (!eventsCursor || loadingEarlier) {
+  function scopeKey(scope: DailyOperationsPanelLane | null): string {
+    return scope ?? "all";
+  }
+
+  function canLoadEarlierFor(scope: DailyOperationsPanelLane | null): boolean {
+    return !exhaustedScopes.has(scopeKey(scope)) && earlierDailyOperationsCursor(board.events, scope) !== null;
+  }
+
+  async function loadEarlier(scope: DailyOperationsPanelLane | null) {
+    const cursor = earlierDailyOperationsCursor(board.events, scope);
+    if (!cursor || loadingEarlier || exhaustedScopes.has(scopeKey(scope))) {
       return;
     }
     setLoadingEarlier(true);
     try {
-      const page = await fetchDailyOperationsEvents({
-        lane: focusedLane,
-        cursor: eventsCursor,
-        limit: 40,
-      });
+      const page = await fetchDailyOperationsEvents({ lane: scope, cursor, limit: 40 });
       setBoard((current) => ({
         ...current,
         events: mergeDailyOperationsEvents(current.events, page.items),
       }));
-      setEventsCursor(page.next_cursor);
+      if (page.items.length === 0 || page.next_cursor === null) {
+        setExhaustedScopes((current) => new Set([...current, scopeKey(scope)]));
+      }
     } finally {
       setLoadingEarlier(false);
     }
   }
 
-  const sheetSyncOn = sheetSyncOptIn || lane === "sheet_sync";
+  const overlayLane: DailyOperationsPanelLane | null = overlay && overlay !== "all" ? overlay : null;
+  const overlayEvents =
+    overlay === null
+      ? []
+      : overlayLane
+        ? eventsForDailyOperationsPanel({ events: board.events, lane: overlayLane, company, quietPriorities })
+        : eventsForDailyOperationsArrivals({ events: board.events, company, quietPriorities, limit: null });
+  const overlayGrouped = new Set(
+    overlayLane === "granot"
+      ? pairGranotEvents(overlayEvents)
+          .filter((event) => event.parent_receipt_id)
+          .map((event) => event.event_id)
+      : [],
+  );
+  const overlayToday =
+    overlayLane === null
+      ? null
+      : overlayLane === "granot"
+        ? granotTileToday(snapshot)
+        : dailyOperationsPanelCount(snapshot, overlayLane);
 
   return (
     <KindColorsProvider overrides={kindTones}>
@@ -339,6 +483,7 @@ export function DailyOperationsPage() {
               onRetry={() => {
                 setStreamStatus("reconnecting");
                 setStreamGeneration((value) => value + 1);
+                resync();
               }}
             />
             <span className="hidden h-5 w-px bg-steel-200 sm:inline-block" aria-hidden="true" />
@@ -399,12 +544,13 @@ export function DailyOperationsPage() {
             flashedTiles={flashedTiles}
             lane={lane}
             loading={loading}
+            nowHour={nowHour}
             onSelectLane={(nextLane: DailyOperationsLane) => writeParam("lane", nextLane)}
           />
         </section>
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
-          <HourlyRhythm snapshot={snapshot} />
+          <HourlyRhythm snapshot={snapshot} nowHour={nowHour} />
           <OriginsPanel origins={snapshot?.origins} loading={loading} />
           <CompaniesTable
             companies={snapshot?.companies}
@@ -421,6 +567,8 @@ export function DailyOperationsPage() {
             quietPriorities={quietPriorities}
             hydrated={eventsHydrated}
             liveState={status}
+            highlights={highlights}
+            onOpenFullStream={() => setOverlay("all")}
             className="xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto"
           />
 
@@ -434,13 +582,38 @@ export function DailyOperationsPage() {
             sheetSyncOptIn={sheetSyncOn}
             loading={loading}
             loadingEarlier={loadingEarlier}
-            canLoadEarlier={Boolean(focusedLane && eventsCursor)}
+            canLoadEarlier={Boolean(focusedLane && canLoadEarlierFor(focusedLane as DailyOperationsPanelLane))}
+            highlights={highlights}
             onSelectLane={(nextLane: DailyOperationsPanelLane) => writeParam("lane", nextLane)}
+            onShowAll={showAllPanels}
             onLoadEarlier={() => {
-              void loadEarlier();
+              if (focusedLane) {
+                void loadEarlier(focusedLane as DailyOperationsPanelLane);
+              }
             }}
+            onOpenAll={(panel) => setOverlay(panel)}
           />
         </div>
+
+        {overlay ? (
+          <DailyOperationsEventsOverlay
+            scope={overlay}
+            events={overlayEvents}
+            todayCount={overlayToday}
+            highlights={highlights}
+            groupedIds={overlayGrouped}
+            nowMs={overlayLane ? undefined : nowMs}
+            liveState={status}
+            company={company}
+            loadingEarlier={loadingEarlier}
+            canLoadEarlier={canLoadEarlierFor(overlayLane)}
+            exhausted={exhaustedScopes.has(scopeKey(overlayLane))}
+            onLoadEarlier={() => {
+              void loadEarlier(overlayLane);
+            }}
+            onClose={() => setOverlay(null)}
+          />
+        ) : null}
       </div>
     </KindColorsProvider>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatedNumber } from "@/components/daily/animated-number";
 import { DAILY_COPY } from "@/components/daily/daily-copy";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -54,18 +55,21 @@ export function CompaniesTable({
                   {sourceCompanyLabel(row.source_company)}
                 </span>
                 <span className="tabular-nums text-navy">
-                  {loading ? DAILY_COPY.missingYesterday : formatCount(row.total)}
+                  {loading ? DAILY_COPY.missingYesterday : <AnimatedNumber value={row.total} format={formatCount} />}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {DAILY_COPY.form} {formatCount(row.form)} · {DAILY_COPY.call}{" "}
-                {formatCount(row.call)}
+              <p className="text-xs tabular-nums text-muted-foreground">
+                {DAILY_COPY.form} <AnimatedNumber value={row.form} format={formatCount} /> · {DAILY_COPY.call}{" "}
+                <AnimatedNumber value={row.call} format={formatCount} />
                 {row.yesterday_total == null
                   ? ` · ${DAILY_COPY.yesterdayFull} ${DAILY_COPY.missingYesterday}`
                   : ` · ${DAILY_COPY.yesterdayFull} ${formatCount(row.yesterday_total)}`}
               </p>
               <div className="h-2 w-full overflow-hidden rounded-full bg-steel-100">
-                <div className="h-full rounded-full bg-trust-blue" style={{ width: `${pct}%` }} />
+                <div
+                  className={cn("daily-bar h-full rounded-full", selected ? "bg-navy" : "bg-trust-blue")}
+                  style={{ width: `${pct}%` }}
+                />
               </div>
             </button>
           );

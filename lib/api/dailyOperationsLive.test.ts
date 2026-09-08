@@ -7,6 +7,7 @@ import {
   DAILY_OPERATIONS_LIVE_PATH,
   EMPTY_DAILY_OPERATIONS_LIVE_BOARD,
   mergeDailyOperationsEvents,
+  receiveDailyOperationsSnapshot,
   sessionDeltaIncrements,
   type DailyOperationsEventItem,
 } from "./dailyOperationsLive";
@@ -48,6 +49,7 @@ function snapshotFixture(): DailyOperationsSnapshot {
       },
       intakes: { opened_today: 3, still_open: 2 },
       exceptions: { zip_missing: 2, crm_failed: 0, dead_letter: 0, adoption_conflict: 0 },
+      sheet_sync: { completed: 4, failed: 1 },
     },
     origins: {
       granot_lead_created: 20,
@@ -134,7 +136,26 @@ test("metrics touches increment snapshot today counts and session deltas", () =>
   });
 });
 
-test("SSE apply replaces snapshot, merges events, and applies metrics without inventing a poll", () => {
+test("sheet_sync touches move the Sheet Sync panel count and nothing else; old servers normalize to zero", () => {
+  const snapshot = applyDailyOperationsMetricTouches(snapshotFixture(), [
+    "sheet_sync.completed",
+    "sheet_sync.completed",
+    "sheet_sync.failed",
+  ]);
+  assert.deepEqual(snapshot.metrics.sheet_sync, { completed: 6, failed: 2 });
+  assert.equal(snapshot.metrics.leads.today, 42);
+  assert.equal(snapshot.metrics.texts.today, 19);
+  assert.deepEqual(sessionDeltaIncrements(["sheet_sync.completed"]), {});
+
+  const legacy = snapshotFixture();
+  delete (legacy.metrics as Partial<typeof legacy.metrics>).sheet_sync;
+  assert.deepEqual(
+    applyDailyOperationsMetricTouches(legacy, ["sheet_sync.failed"]).metrics.sheet_sync,
+    { completed: 0, failed: 1 },
+  );
+});
+
+test("SSE apply replaces snapshot, counts per fact, and ignores the metrics summary", () => {
   const first = applyDailyOperationsSsePayload(
     "snapshot",
     JSON.stringify(snapshotFixture()),
@@ -144,22 +165,99 @@ test("SSE apply replaces snapshot, merges events, and applies metrics without in
   assert.equal(first.board.snapshot?.origins.wordpress_form, 0);
   const withEvent = applyDailyOperationsSsePayload(
     "event",
-    JSON.stringify(eventItem("e1", "2026-09-08T18:15:00.000Z")),
+    JSON.stringify({
+      ...eventItem("e1", "2026-09-08T18:15:00.000Z"),
+      metric_touches: ["leads.total", "leads.form", "hourly.leads"],
+    }),
     first.board,
   );
   assert.equal(withEvent.board.events[0]?.event_id, "e1");
+  // The fact itself moves the tile, the badge, the hourly bucket, and the flash.
+  assert.equal(withEvent.board.snapshot?.metrics.leads.today, 43);
+  assert.equal(withEvent.board.sessionDeltas.leads, 1);
+  assert.equal(withEvent.board.snapshot?.hourly.today.find((bucket) => bucket.hour === 14)?.leads, 1);
+  assert.deepEqual(withEvent.flashedTiles, ["leads", "form_call"]);
+  // A replay of the same fact after reconnect counts nothing twice.
+  const replay = applyDailyOperationsSsePayload(
+    "event",
+    JSON.stringify({
+      ...eventItem("e1", "2026-09-08T18:15:00.000Z"),
+      metric_touches: ["leads.total", "leads.form"],
+    }),
+    withEvent.board,
+  );
+  assert.equal(replay.board.snapshot?.metrics.leads.today, 43);
+  assert.equal(replay.board.sessionDeltas.leads, 1);
+  assert.deepEqual(replay.flashedTiles, []);
+  // The server's batch summary is acknowledged, not counted again.
   const withMetrics = applyDailyOperationsSsePayload(
     "metrics",
     JSON.stringify({ metric_touches: ["leads.total", "leads.form"] }),
-    withEvent.board,
+    replay.board,
   );
   assert.equal(withMetrics.board.snapshot?.metrics.leads.today, 43);
   assert.equal(withMetrics.board.sessionDeltas.leads, 1);
-  assert.deepEqual(withMetrics.flashedTiles, ["leads", "form_call"]);
+  assert.deepEqual(withMetrics.flashedTiles, []);
   const heartbeat = applyDailyOperationsSsePayload(
     "heartbeat",
     JSON.stringify({ ts: "2026-09-08T18:16:00.000Z" }),
     withMetrics.board,
   );
   assert.equal(heartbeat.board.lastGoodAt, "2026-09-08T18:16:00.000Z");
+});
+
+test("a held text flashes the Texts tile but does not move its +N badge", () => {
+  const seeded = applyDailyOperationsSsePayload(
+    "snapshot",
+    JSON.stringify(snapshotFixture()),
+    EMPTY_DAILY_OPERATIONS_LIVE_BOARD,
+  );
+  const held = applyDailyOperationsSsePayload(
+    "event",
+    JSON.stringify({
+      ...eventItem("t1", "2026-09-08T18:15:00.000Z"),
+      lane: "text",
+      kind: "text.deferred",
+      metric_touches: ["messages.deferred"],
+    }),
+    seeded.board,
+  );
+  assert.deepEqual(held.flashedTiles, ["texts"]);
+  assert.equal(held.board.sessionDeltas.texts, 0);
+  assert.equal(held.board.snapshot?.metrics.texts.today, seeded.board.snapshot?.metrics.texts.today);
+});
+
+test("a new-day snapshot drops yesterday's facts and session badges, keeps today's", () => {
+  const seeded = applyDailyOperationsSsePayload(
+    "snapshot",
+    JSON.stringify(snapshotFixture()),
+    EMPTY_DAILY_OPERATIONS_LIVE_BOARD,
+  );
+  const withFacts = applyDailyOperationsSsePayload(
+    "event",
+    JSON.stringify({ ...eventItem("old", "2026-09-08T18:15:00.000Z"), metric_touches: ["leads.total"] }),
+    seeded.board,
+  );
+  const straddle = applyDailyOperationsSsePayload(
+    "event",
+    JSON.stringify({ ...eventItem("new", "2026-09-09T04:05:00.000Z"), metric_touches: ["leads.total"] }),
+    withFacts.board,
+  );
+  assert.equal(straddle.board.sessionDeltas.leads, 2);
+  const rolled = receiveDailyOperationsSnapshot(straddle.board, {
+    ...snapshotFixture(),
+    today: "2026-09-09",
+    yesterday: "2026-09-08",
+    generated_at: "2026-09-09T04:06:00.000Z",
+  });
+  assert.deepEqual(
+    rolled.events.map((event) => event.event_id),
+    ["new"],
+  );
+  assert.equal(rolled.sessionDeltas.leads, 0);
+  assert.equal(rolled.snapshot?.today, "2026-09-09");
+  // Same day: a resync is a plain replace.
+  const same = receiveDailyOperationsSnapshot(straddle.board, snapshotFixture());
+  assert.equal(same.events.length, 2);
+  assert.equal(same.sessionDeltas.leads, 2);
 });

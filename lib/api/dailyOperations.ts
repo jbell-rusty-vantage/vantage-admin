@@ -103,6 +103,8 @@ export type DailyOperationsSnapshot = {
       dead_letter: number;
       adoption_conflict: number;
     };
+    /** Drained Sheet Sync jobs (DOP-11). Older servers omit it; the normalizer fills zeros. */
+    sheet_sync: { completed: number; failed: number };
   };
   origins: Record<DailyOperationsOriginKey, number>;
   companies: DailyOperationsSnapshotCompany[];
@@ -189,6 +191,13 @@ export type DailyOperationsCard = {
   exception?: {
     code?: string;
     detail?: string;
+  };
+  sheet_sync?: {
+    resource?: string;
+    operation?: string;
+    entity_model?: string | null;
+    attempts?: number;
+    error?: string | null;
   };
 };
 
@@ -464,10 +473,84 @@ function sumHourlyFieldThroughNow(
   if (!buckets.length) {
     return null;
   }
-  const currentHour = easternHour(new Date(generatedAt));
+  return sumHourlyFieldThroughHour(buckets, easternHour(new Date(generatedAt)), field);
+}
+
+export function sumHourlyFieldThroughHour(
+  buckets: readonly DailyOperationsHourlyBucket[],
+  throughHour: number,
+  field: Exclude<keyof DailyOperationsHourlyBucket, "hour">,
+): number {
+  const capped = Math.min(23, Math.max(0, throughHour));
   return buckets
-    .filter((bucket) => bucket.hour <= currentHour)
+    .filter((bucket) => bucket.hour <= capped)
     .reduce((sum, bucket) => sum + Number(bucket[field] ?? 0), 0);
+}
+
+/**
+ * The server stamps `generated_at` and every `*_by_now` baseline at the moment
+ * the snapshot was built. A board that stays open for hours would otherwise
+ * keep comparing a growing today against yesterday **at page-load hour**, and
+ * the `now` marker would never move. This re-derives the like-hour baselines
+ * from the hourly buckets the snapshot already carries, at the browser clock.
+ * Same day only: once the Florida day rolls over the server snapshot is the
+ * authority again (the shell refetches).
+ */
+export function withLiveDailyOperationsClock(
+  snapshot: DailyOperationsSnapshot,
+  nowMs: number | undefined,
+): DailyOperationsSnapshot {
+  if (nowMs === undefined || !Number.isFinite(nowMs)) {
+    return snapshot;
+  }
+  const now = new Date(nowMs);
+  if (Number.isNaN(now.getTime()) || easternDayKeyOf(now) !== snapshot.today) {
+    return snapshot;
+  }
+  const generatedHour = easternHour(new Date(snapshot.generated_at));
+  const hour = easternHour(now);
+  if (hour === generatedHour) {
+    return snapshot;
+  }
+  const yesterday = snapshot.hourly.yesterday ?? [];
+  const dayBefore = snapshot.hourly.day_before ?? [];
+  const rebase = <T extends DailyOperationsHeadlinePace>(
+    pace: T,
+    field: Exclude<keyof DailyOperationsHourlyBucket, "hour">,
+  ): T => ({
+    ...pace,
+    yesterday_by_now:
+      pace.yesterday_by_now == null ? null : sumHourlyFieldThroughHour(yesterday, hour, field),
+    day_before_by_now:
+      pace.day_before_by_now == null ? null : sumHourlyFieldThroughHour(dayBefore, hour, field),
+  });
+  return {
+    ...snapshot,
+    generated_at: now.toISOString(),
+    metrics: {
+      ...snapshot.metrics,
+      leads: rebase(snapshot.metrics.leads, "leads"),
+      bookings: rebase(snapshot.metrics.bookings, "bookings"),
+      cancellations: rebase(snapshot.metrics.cancellations, "cancellations"),
+      texts: rebase(snapshot.metrics.texts, "messages"),
+    },
+  };
+}
+
+/** Florida calendar day (`YYYY-MM-DD`) of an instant — the snapshot's `today` key. */
+export function dailyOperationsDayKey(value: Date | number): string {
+  return easternDayKeyOf(value instanceof Date ? value : new Date(value));
+}
+
+function easternDayKeyOf(value: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: FLORIDA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${pick("year")}-${pick("month")}-${pick("day")}`;
 }
 
 export function easternHourOf(value: string | Date): number {
@@ -511,8 +594,16 @@ export function ensureSnapshotCompanies(
 export function normalizeDailyOperationsSnapshot(
   snapshot: DailyOperationsSnapshot,
 ): DailyOperationsSnapshot {
+  const sheetSync = (snapshot.metrics as Partial<DailyOperationsSnapshot["metrics"]>).sheet_sync;
   return {
     ...snapshot,
+    metrics: {
+      ...snapshot.metrics,
+      sheet_sync: {
+        completed: Number(sheetSync?.completed ?? 0),
+        failed: Number(sheetSync?.failed ?? 0),
+      },
+    },
     origins: ensureSnapshotOrigins(snapshot.origins),
     companies: ensureSnapshotCompanies(snapshot.companies),
   };
