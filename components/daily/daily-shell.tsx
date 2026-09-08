@@ -14,6 +14,10 @@ import {
   formatDailyOperationsDay,
 } from "@/components/daily/daily-copy";
 import { HeadlineTiles } from "@/components/daily/headline-tiles";
+import { HourlyRhythm } from "@/components/daily/hourly-rhythm";
+import { KindColorsProvider, useStoredKindTones } from "@/components/daily/kind-colors-context";
+import { KindColorsPanel } from "@/components/daily/kind-colors-panel";
+import { LiveDot } from "@/components/daily/live-dot";
 import { OriginsPanel } from "@/components/daily/origins-panel";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
@@ -53,17 +57,27 @@ function LiveChrome({
 }) {
   const label =
     status === "live"
-      ? `● ${DAILY_COPY.live}`
+      ? DAILY_COPY.live
       : status === "paused"
-        ? `◌ ${DAILY_COPY.paused}`
+        ? DAILY_COPY.paused
         : status === "reconnecting"
-          ? `⚠ ${DAILY_COPY.reconnecting}`
-          : `○ ${DAILY_COPY.liveOff}`;
+          ? DAILY_COPY.reconnecting
+          : DAILY_COPY.liveOff;
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm" aria-live="polite">
+    <div
+      className={cn(
+        "inline-flex flex-wrap items-center gap-2 rounded-full border px-3 py-1 text-sm",
+        status === "live" && "border-emerald-200 bg-emerald-50/60",
+        status === "reconnecting" && "border-amber-200 bg-amber-50/60",
+        (status === "paused" || status === "off") && "border-steel-200 bg-card",
+      )}
+      aria-live="polite"
+      data-live-status={status}
+    >
+      <LiveDot state={status} />
       <span
         className={cn(
-          "font-medium",
+          "font-semibold uppercase tracking-wide text-xs",
           status === "live" && "text-emerald-700",
           status === "paused" && "text-muted-foreground",
           status === "reconnecting" && "text-amber-700",
@@ -78,7 +92,7 @@ function LiveChrome({
         </span>
       ) : null}
       {status === "off" ? (
-        <Button variant="outline" className="h-8 px-3 text-xs" onClick={onRetry}>
+        <Button variant="outline" className="h-7 px-2.5 text-xs" onClick={onRetry}>
           {DAILY_COPY.retry}
         </Button>
       ) : null}
@@ -112,6 +126,8 @@ export function DailyOperationsPage() {
   const [eventsCursor, setEventsCursor] = useState<string | null>(null);
   const [eventsHydrated, setEventsHydrated] = useState(false);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
+  const { overrides: kindTones, pick: pickKindTone, reset: resetKindTones } = useStoredKindTones();
+  const [colorsOpen, setColorsOpen] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preferencesHydrated = useRef(false);
   const focusedLane = focusLaneFromSearch(lane);
@@ -301,76 +317,131 @@ export function DailyOperationsPage() {
     }
   }
 
+  const sheetSyncOn = sheetSyncOptIn || lane === "sheet_sync";
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">{DAILY_COPY.title}</p>
-          <h1 className="text-3xl font-extrabold tracking-tight">{DAILY_COPY.title}</h1>
-          <p className="mt-2 text-sm text-steel">
-            {snapshot
-              ? formatDailyOperationsDay(snapshot.generated_at)
-              : DAILY_COPY.timezone}
-          </p>
+    <KindColorsProvider overrides={kindTones}>
+      <div className="space-y-5">
+        <header className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="eyebrow">{DAILY_COPY.title}</p>
+            <h1 className="text-3xl font-extrabold tracking-tight">{DAILY_COPY.title}</h1>
+            <p className="mt-1.5 text-sm text-steel">
+              {snapshot
+                ? formatDailyOperationsDay(snapshot.generated_at)
+                : DAILY_COPY.timezone}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2" aria-label={DAILY_COPY.boardToolbar}>
+            <LiveChrome
+              status={status}
+              lastGoodAt={board.lastGoodAt}
+              onRetry={() => {
+                setStreamStatus("reconnecting");
+                setStreamGeneration((value) => value + 1);
+              }}
+            />
+            <span className="hidden h-5 w-px bg-steel-200 sm:inline-block" aria-hidden="true" />
+            <Button
+              type="button"
+              variant={quietPriorities ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              aria-pressed={quietPriorities}
+              onClick={() => writeQuietPriorities(!quietPriorities)}
+            >
+              {DAILY_COPY.quietPriorities}
+            </Button>
+            <Button
+              type="button"
+              variant={sheetSyncOn ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              aria-pressed={sheetSyncOn}
+              onClick={() => writeSheetSync(!sheetSyncOn)}
+            >
+              {sheetSyncOn ? DAILY_COPY.sheetSyncHide : DAILY_COPY.sheetSyncShow}
+            </Button>
+            <Button
+              type="button"
+              variant={colorsOpen ? "default" : "outline"}
+              className="h-8 px-3 text-xs"
+              aria-pressed={colorsOpen}
+              aria-expanded={colorsOpen}
+              onClick={() => setColorsOpen((current) => !current)}
+            >
+              {DAILY_COPY.colors}
+              {Object.keys(kindTones).length > 0 ? (
+                <span className="ml-1 rounded-full bg-card/30 px-1 text-[10px] tabular-nums">
+                  {Object.keys(kindTones).length}
+                </span>
+              ) : null}
+            </Button>
+          </div>
+        </header>
+
+        {colorsOpen ? (
+          <KindColorsPanel
+            overrides={kindTones}
+            onPick={pickKindTone}
+            onReset={resetKindTones}
+            onClose={() => setColorsOpen(false)}
+          />
+        ) : null}
+
+        {snapshotQuery.error && !snapshot ? (
+          <FeedbackMessage tone="error">{DAILY_COPY.loadFailed}</FeedbackMessage>
+        ) : null}
+
+        <section className="space-y-2" aria-label={DAILY_COPY.headline}>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-navy">{DAILY_COPY.headline}</h2>
+          <HeadlineTiles
+            snapshot={snapshot}
+            sessionDeltas={board.sessionDeltas}
+            flashedTiles={flashedTiles}
+            lane={lane}
+            loading={loading}
+            onSelectLane={(nextLane: DailyOperationsLane) => writeParam("lane", nextLane)}
+          />
+        </section>
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <HourlyRhythm snapshot={snapshot} />
+          <OriginsPanel origins={snapshot?.origins} loading={loading} />
+          <CompaniesTable
+            companies={snapshot?.companies}
+            selectedCompany={company}
+            loading={loading}
+            onSelectCompany={(slug) => writeParam("company", slug)}
+          />
         </div>
-        <LiveChrome
-          status={status}
-          lastGoodAt={board.lastGoodAt}
-          onRetry={() => {
-            setStreamStatus("reconnecting");
-            setStreamGeneration((value) => value + 1);
-          }}
-        />
+
+        <div className="grid items-start gap-4 xl:grid-cols-[340px_minmax(0,1fr)] 2xl:grid-cols-[380px_minmax(0,1fr)]">
+          <ArrivalsStream
+            events={board.events}
+            company={company}
+            quietPriorities={quietPriorities}
+            hydrated={eventsHydrated}
+            liveState={status}
+            className="xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto"
+          />
+
+          <CategoryPanels
+            events={board.events}
+            snapshot={snapshot}
+            sessionDeltas={board.sessionDeltas}
+            lane={lane}
+            company={company}
+            quietPriorities={quietPriorities}
+            sheetSyncOptIn={sheetSyncOn}
+            loading={loading}
+            loadingEarlier={loadingEarlier}
+            canLoadEarlier={Boolean(focusedLane && eventsCursor)}
+            onSelectLane={(nextLane: DailyOperationsPanelLane) => writeParam("lane", nextLane)}
+            onLoadEarlier={() => {
+              void loadEarlier();
+            }}
+          />
+        </div>
       </div>
-
-      {snapshotQuery.error && !snapshot ? (
-        <FeedbackMessage tone="error">{DAILY_COPY.loadFailed}</FeedbackMessage>
-      ) : null}
-
-      <HeadlineTiles
-        snapshot={snapshot}
-        sessionDeltas={board.sessionDeltas}
-        flashedTiles={flashedTiles}
-        lane={lane}
-        loading={loading}
-        onSelectLane={(nextLane: DailyOperationsLane) => writeParam("lane", nextLane)}
-      />
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <OriginsPanel origins={snapshot?.origins} loading={loading} />
-        <CompaniesTable
-          companies={snapshot?.companies}
-          selectedCompany={company}
-          loading={loading}
-          onSelectCompany={(slug) => writeParam("company", slug)}
-        />
-      </div>
-
-      <ArrivalsStream
-        events={board.events}
-        company={company}
-        quietPriorities={quietPriorities}
-        hydrated={eventsHydrated}
-      />
-
-      <CategoryPanels
-        events={board.events}
-        snapshot={snapshot}
-        sessionDeltas={board.sessionDeltas}
-        lane={lane}
-        company={company}
-        quietPriorities={quietPriorities}
-        sheetSyncOptIn={sheetSyncOptIn || lane === "sheet_sync"}
-        loading={loading}
-        loadingEarlier={loadingEarlier}
-        canLoadEarlier={Boolean(focusedLane && eventsCursor)}
-        onSelectLane={(nextLane: DailyOperationsPanelLane) => writeParam("lane", nextLane)}
-        onToggleQuietPriorities={() => writeQuietPriorities(!quietPriorities)}
-        onToggleSheetSync={() => writeSheetSync(!(sheetSyncOptIn || lane === "sheet_sync"))}
-        onLoadEarlier={() => {
-          void loadEarlier();
-        }}
-      />
-    </div>
+    </KindColorsProvider>
   );
 }

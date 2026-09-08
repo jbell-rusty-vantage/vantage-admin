@@ -1055,8 +1055,20 @@ test("live webhook accordion shows lead facts and the three Granot event classes
   assert.match(markup, /Open job timeline/);
   assert.match(markup, /Show details/);
   assert.match(markup, /Hide details/);
-  assert.match(markup, /Click a row to open the lead facts/);
+  assert.match(markup, /Every lead fact is on the row/);
   assert.doesNotMatch(markup, /Open booking intake/);
+  // Facts are visible on the row, not behind the details toggle; only the raw payload is.
+  const firstCard = markup.indexOf('data-receipt-id="64aaaaaaaaaaaaaaaaaaaaaa"');
+  const brooklyn = markup.indexOf("Brooklyn, NY", firstCard);
+  const toggle = markup.indexOf("Show details", firstCard);
+  const payload = markup.indexOf("Full Granot payload", firstCard);
+  assert.ok(firstCard < brooklyn && brooklyn < toggle && toggle < payload);
+  // Each class carries its Daily Operations kind colour.
+  assert.match(markup, /data-event-class="lead_created"/);
+  assert.match(markup, /data-event-class="priority_updated"/);
+  assert.match(markup, /data-event-class="booking_status_changed"/);
+  assert.match(markup, /data-live-dot="live"/);
+  assert.match(markup, /Open Daily Operations/);
 });
 
 test("LiveWebhookReceiptCard shows Open booking intake only when intake_link is present", () => {

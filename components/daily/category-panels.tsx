@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   DAILY_COPY,
   dailyOperationsTextsHeader,
@@ -8,20 +9,26 @@ import { DailyOperationsEventCard } from "@/components/daily/event-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  dailyOperationsTrend,
+  granotDayBeforeByNow,
   granotYesterdayByNow,
-  paceVersusYesterdayByNow,
   type DailyOperationsPanelLane,
+  type DailyOperationsPercentChange,
   type DailyOperationsSnapshot,
+  type DailyOperationsTrend,
 } from "@/lib/api/dailyOperations";
 import {
   dailyOperationsPanelCount,
   dailyOperationsPanelEmptyCopy,
   eventsForDailyOperationsPanel,
   focusLaneFromSearch,
+  orderPanelsForFocus,
   pairGranotEvents,
+  panelVisibleLimit,
   sliceDailyOperationsPanelEvents,
   visibleDailyOperationsPanels,
 } from "@/lib/api/dailyOperationsBoard";
+import { laneToneFor, toneClasses } from "@/lib/api/dailyOperationsColors";
 import {
   granotTileToday,
   type DailyOperationsEventItem,
@@ -29,52 +36,58 @@ import {
 } from "@/lib/api/dailyOperationsLive";
 import { cn } from "@/lib/utils";
 
-function formatCount(value: number): string {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
+function formatCount(value: number | null): string {
+  if (value == null) {
+    return DAILY_COPY.missingYesterday;
+  }
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value);
 }
 
-function PanelPace({
-  today,
-  yesterdayByNow,
-}: {
-  today: number;
-  yesterdayByNow: number | null;
-}) {
-  const pace = paceVersusYesterdayByNow(today, yesterdayByNow);
-  const label =
-    pace.tone === "missing"
-      ? DAILY_COPY.missingYesterday
-      : pace.delta === 0
-        ? DAILY_COPY.even
-        : pace.delta! > 0
-          ? `+${pace.delta}`
-          : `${pace.delta}`;
-  return (
-    <span
-      className={cn(
-        "inline-flex rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
-        pace.tone === "ahead" && "bg-emerald-50 text-emerald-700",
-        pace.tone === "behind" && "bg-red-50 text-red-700/80",
-        (pace.tone === "even" || pace.tone === "missing") && "bg-steel-100 text-muted-foreground",
-      )}
-    >
-      {label}
-    </span>
-  );
+function chipTone(tone: DailyOperationsPercentChange["tone"]): string {
+  if (tone === "ahead") {
+    return "bg-emerald-50 text-emerald-700";
+  }
+  if (tone === "behind") {
+    return "bg-red-50 text-red-700/80";
+  }
+  return "bg-steel-100 text-muted-foreground";
 }
 
-function panelYesterdayByNow(
+function panelTrend(
   snapshot: DailyOperationsSnapshot | null | undefined,
   lane: DailyOperationsPanelLane,
-): number | null {
+  today: number,
+): DailyOperationsTrend | null {
   if (!snapshot) {
     return null;
   }
-  if (lane === "lead") return snapshot.metrics.leads.yesterday_by_now;
-  if (lane === "text") return snapshot.metrics.texts.yesterday_by_now;
-  if (lane === "booking") return snapshot.metrics.bookings.yesterday_by_now;
-  if (lane === "cancellation") return snapshot.metrics.cancellations.yesterday_by_now;
-  if (lane === "granot") return granotYesterdayByNow(snapshot);
+  const m = snapshot.metrics;
+  const pace =
+    lane === "lead"
+      ? m.leads
+      : lane === "text"
+        ? m.texts
+        : lane === "booking"
+          ? m.bookings
+          : lane === "cancellation"
+            ? m.cancellations
+            : null;
+  if (pace) {
+    return dailyOperationsTrend({
+      today,
+      yesterdayByNow: pace.yesterday_by_now,
+      dayBeforeByNow: pace.day_before_by_now,
+      yesterday: pace.yesterday,
+      dayBefore: pace.day_before,
+    });
+  }
+  if (lane === "granot") {
+    return dailyOperationsTrend({
+      today,
+      yesterdayByNow: granotYesterdayByNow(snapshot),
+      dayBeforeByNow: granotDayBeforeByNow(snapshot),
+    });
+  }
   return null;
 }
 
@@ -86,6 +99,7 @@ function panelSecondary(snapshot: DailyOperationsSnapshot | null | undefined, la
   const texts = snapshot.metrics.texts;
   const intakes = snapshot.metrics.intakes;
   const webhooks = snapshot.metrics.webhooks;
+  const exceptions = snapshot.metrics.exceptions;
   if (lane === "lead") {
     return `${formatCount(leads.form)} ${DAILY_COPY.form} / ${formatCount(leads.call)} ${DAILY_COPY.call} · ${formatCount(leads.duplicate_form + leads.duplicate_call)} ${DAILY_COPY.tiles.duplicates}`;
   }
@@ -101,6 +115,13 @@ function panelSecondary(snapshot: DailyOperationsSnapshot | null | undefined, la
   }
   if (lane === "intake") {
     return `${intakes.opened_today} ${DAILY_COPY.opened} · ${intakes.still_open} ${DAILY_COPY.waitingForYou}`;
+  }
+  if (lane === "exception") {
+    const total = exceptions.zip_missing + exceptions.crm_failed + exceptions.dead_letter + exceptions.adoption_conflict;
+    if (total === 0) {
+      return null;
+    }
+    return `${exceptions.zip_missing} ZIP · ${exceptions.crm_failed} CRM · ${exceptions.dead_letter} dead letter · ${exceptions.adoption_conflict} adoption`;
   }
   return null;
 }
@@ -118,6 +139,13 @@ function sessionDeltaForLane(
   return 0;
 }
 
+/**
+ * The category grid. Every panel stays on the board at all times: focusing a
+ * lane moves it to the top, lets it span the full width and show up to 40
+ * cards with `Load earlier`; the rest of the panels keep their places
+ * underneath. Board-wide controls (Quiet priorities, Sheet Sync, Colours)
+ * live in the shell chrome, not here.
+ */
 export function CategoryPanels({
   events,
   snapshot,
@@ -130,8 +158,6 @@ export function CategoryPanels({
   loadingEarlier,
   canLoadEarlier,
   onSelectLane,
-  onToggleQuietPriorities,
-  onToggleSheetSync,
   onLoadEarlier,
 }: {
   events: DailyOperationsEventItem[];
@@ -145,75 +171,39 @@ export function CategoryPanels({
   loadingEarlier?: boolean;
   canLoadEarlier?: boolean;
   onSelectLane: (nextLane: DailyOperationsPanelLane) => void;
-  onToggleQuietPriorities: () => void;
-  onToggleSheetSync: () => void;
+  /** Kept for callers that still wire the toggles here; the shell renders them. */
+  onToggleQuietPriorities?: () => void;
+  onToggleSheetSync?: () => void;
   onLoadEarlier?: () => void;
 }) {
-  const focused = focusLaneFromSearch(lane);
-  const panels = visibleDailyOperationsPanels({ lane, sheetSyncOptIn });
-  const rail = focused ? panels.filter((panel) => panel !== focused) : [];
+  const focusedPanel = focusLaneFromSearch(lane) as DailyOperationsPanelLane | null;
+  const panels = orderPanelsForFocus(visibleDailyOperationsPanels({ lane, sheetSyncOptIn }), focusedPanel);
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {DAILY_COPY.panels}
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant={quietPriorities ? "default" : "outline"}
-            className="h-8 px-3 text-xs"
-            aria-pressed={quietPriorities}
-            onClick={onToggleQuietPriorities}
-          >
-            {DAILY_COPY.quietPriorities}
-          </Button>
-          <Button
-            type="button"
-            variant={sheetSyncOptIn || focused === "sheet_sync" ? "default" : "outline"}
-            className="h-8 px-3 text-xs"
-            aria-pressed={sheetSyncOptIn || focused === "sheet_sync"}
-            onClick={onToggleSheetSync}
-          >
-            {sheetSyncOptIn || focused === "sheet_sync" ? DAILY_COPY.sheetSyncHide : DAILY_COPY.sheetSyncShow}
-          </Button>
+    <section className="space-y-3" data-panels-focused={focusedPanel ?? "none"}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-navy">{DAILY_COPY.panels}</h2>
+          <p className="text-[11px] text-steel">{DAILY_COPY.panelsSubtitle}</p>
         </div>
+        {focusedPanel ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-7 px-2.5 text-xs"
+            onClick={() => onSelectLane(focusedPanel)}
+          >
+            {DAILY_COPY.collapse} {DAILY_COPY.panelsLabels[focusedPanel]}
+          </Button>
+        ) : null}
       </div>
 
-      {focused && rail.length > 0 ? (
-        <div className="flex flex-wrap gap-2" data-testid="daily-count-rail">
-          {rail.map((panel) => {
-            const count =
-              panel === "granot" ? granotTileToday(snapshot ?? null) : dailyOperationsPanelCount(snapshot, panel);
-            return (
-              <button
-                key={panel}
-                type="button"
-                onClick={() => onSelectLane(panel)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-steel-200 bg-card px-2.5 py-1 text-xs font-medium text-navy hover:border-trust-blue/40"
-              >
-                <span>{DAILY_COPY.panelsLabels[panel]}</span>
-                <span className="tabular-nums text-muted-foreground">{formatCount(count)}</span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-
-      <div
-        className={cn(
-          "grid gap-4",
-          focused
-            ? "grid-cols-1"
-            : "xl:grid-cols-2 2xl:grid-cols-3",
-        )}
-      >
-        {(focused ? [focused] : panels).map((panel) => (
+      <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+        {panels.map((panel) => (
           <CategoryPanel
             key={panel}
             lane={panel}
-            focused={focused === panel}
+            focused={focusedPanel === panel}
             events={events}
             snapshot={snapshot}
             sessionDeltas={sessionDeltas}
@@ -221,7 +211,7 @@ export function CategoryPanels({
             quietPriorities={quietPriorities}
             loading={loading}
             loadingEarlier={loadingEarlier}
-            canLoadEarlier={Boolean(focused === panel && canLoadEarlier)}
+            canLoadEarlier={Boolean(focusedPanel === panel && canLoadEarlier)}
             onSelectLane={onSelectLane}
             onLoadEarlier={onLoadEarlier}
           />
@@ -258,18 +248,23 @@ function CategoryPanel({
   onSelectLane: (nextLane: DailyOperationsPanelLane) => void;
   onLoadEarlier?: () => void;
 }) {
+  const [showAll, setShowAll] = useState(false);
   const panelEvents = eventsForDailyOperationsPanel({
     events,
     lane,
     company,
     quietPriorities,
   });
-  const visible = sliceDailyOperationsPanelEvents(panelEvents, focused);
+  const limit = panelVisibleLimit({ focused, showAll, total: panelEvents.length });
+  const visible = sliceDailyOperationsPanelEvents(panelEvents, focused, limit);
+  const hidden = panelEvents.length - visible.length;
   const today =
     lane === "granot" ? granotTileToday(snapshot ?? null) : dailyOperationsPanelCount(snapshot, lane);
   const sessionDelta = sessionDeltaForLane(sessionDeltas, lane);
   const empty = dailyOperationsPanelEmptyCopy({ lane, company });
   const secondary = panelSecondary(snapshot, lane);
+  const trend = panelTrend(snapshot, lane, today);
+  const tone = toneClasses(laneToneFor(lane));
   const pairedIds = new Set(
     lane === "granot"
       ? pairGranotEvents(panelEvents)
@@ -277,33 +272,71 @@ function CategoryPanel({
           .map((event) => event.event_id)
       : [],
   );
+  const exceptionsLive = lane === "exception" && panelEvents.length > 0;
 
   return (
     <Card
-      className={cn(focused && lane === "exception" && "xl:col-span-2 2xl:col-span-3")}
+      className={cn(
+        "flex flex-col overflow-hidden border-t-4 transition-shadow",
+        tone.edge,
+        focused && "col-span-full ring-2 ring-trust-blue/30 shadow-md",
+        exceptionsLive && "bg-amber-50/60",
+      )}
       data-panel={lane}
       data-focused={focused ? "true" : "false"}
     >
-      <CardHeader className="p-4 pb-2">
-        <button type="button" className="w-full text-left" onClick={() => onSelectLane(lane)}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <CardHeader className="p-3.5 pb-2">
+        <button
+          type="button"
+          className="w-full rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trust-blue/40"
+          aria-pressed={focused}
+          aria-label={`${focused ? DAILY_COPY.collapse : DAILY_COPY.lookCloser}: ${DAILY_COPY.panelsLabels[lane]}`}
+          onClick={() => onSelectLane(lane)}
+        >
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className={cn("size-2 rounded-full", tone.dot)} aria-hidden="true" />
+            <CardTitle className="text-xs font-semibold uppercase tracking-wide text-navy">
               {DAILY_COPY.panelsLabels[lane]}
             </CardTitle>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="font-semibold tabular-nums text-navy">
+            <span className="ml-auto flex flex-wrap items-center gap-1.5">
+              {sessionDelta > 0 ? (
+                <span className="rounded-full bg-emerald-50 px-1.5 text-xs font-semibold tabular-nums text-emerald-700">
+                  +{sessionDelta}
+                </span>
+              ) : null}
+              <span className="text-xl font-semibold leading-none tabular-nums text-navy">
                 {loading ? DAILY_COPY.missingYesterday : formatCount(today)}
               </span>
-              <PanelPace today={today} yesterdayByNow={panelYesterdayByNow(snapshot, lane)} />
-              {sessionDelta > 0 ? (
-                <span className="text-xs font-semibold tabular-nums text-emerald-700">+{sessionDelta}</span>
-              ) : null}
-            </div>
+              <span className="text-[11px] text-muted-foreground">{focused ? DAILY_COPY.collapse : DAILY_COPY.lookCloser} ↗</span>
+            </span>
           </div>
+          {trend ? (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] tabular-nums">
+              {trend.yesterdayByNow == null && trend.dayBeforeByNow == null ? (
+                <span className="text-muted-foreground">
+                  {DAILY_COPY.missingYesterday} {DAILY_COPY.noBaseline}
+                </span>
+              ) : (
+                <>
+                  <span
+                    className={cn("inline-flex rounded-full px-1.5 py-0.5 font-semibold", chipTone(trend.versusYesterday.tone))}
+                    title={DAILY_COPY.vsYesterdayByNow}
+                  >
+                    {trend.versusYesterday.label} {DAILY_COPY.vsYesterdayByNow}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {DAILY_COPY.yesterdayFull} {formatCount(trend.yesterdayByNow)}
+                    {trend.dayBeforeByNow != null ? ` · ${DAILY_COPY.dayBefore} ${formatCount(trend.dayBeforeByNow)}` : ""}{" "}
+                    {DAILY_COPY.byNow}
+                  </span>
+                </>
+              )}
+            </div>
+          ) : null}
           {secondary ? <p className="mt-1 text-xs text-muted-foreground">{secondary}</p> : null}
         </button>
       </CardHeader>
-      <CardContent className="space-y-2 p-4 pt-2">
+      <CardContent className={cn("flex-1 space-y-2 p-3.5 pt-2", focused && "xl:columns-2 2xl:columns-3 xl:gap-3 xl:space-y-0 [&>*]:mb-2 [&>*]:break-inside-avoid")}>
         {loading ? (
           <div className="space-y-2">
             <div className="h-12 animate-pulse rounded-md bg-steel-100" />
@@ -320,6 +353,16 @@ function CategoryPanel({
             />
           ))
         )}
+        {hidden > 0 || showAll ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-8 w-full px-3 text-xs text-trust-blue"
+            onClick={() => setShowAll((current) => !current)}
+          >
+            {showAll ? DAILY_COPY.showFewer : `${DAILY_COPY.showAll} (${hidden} more)`}
+          </Button>
+        ) : null}
         {focused && canLoadEarlier ? (
           <Button
             type="button"

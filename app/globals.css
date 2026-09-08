@@ -11,6 +11,8 @@
   --cool-white: #f5f8fb;
   --near-black: #111827;
   --steel: #64748b;
+  --steel-400: #94a3b8;
+  --steel-300: #cbd5e1;
   --steel-200: #e2e8f0;
   --steel-100: #eef2f7;
 
@@ -73,6 +75,8 @@
   --color-pale-gold: var(--pale-gold);
   --color-cool-white: var(--cool-white);
   --color-steel: var(--steel);
+  --color-steel-400: var(--steel-400);
+  --color-steel-300: var(--steel-300);
   --color-steel-200: var(--steel-200);
   --color-steel-100: var(--steel-100);
   --radius-lg: var(--radius-lg);
@@ -314,8 +318,68 @@
   animation: daily-arrival-slide-in 280ms ease-out;
 }
 
+/* Broadcast dot: an expanding ring that fades, looping while the stream is live. */
+@keyframes daily-live-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.daily-live-ripple {
+  animation: daily-live-ripple 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Arrivals list item wrapper: the row grows in so the stream visibly scrolls. */
+@keyframes daily-arrival-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.75rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.daily-arrival-enter {
+  animation: daily-arrival-enter 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Headline tile: one soft flash when a live fact touches its metric. */
+@keyframes daily-tile-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgb(16 185 129 / 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgb(16 185 129 / 0);
+  }
+}
+
+.daily-tile-flash {
+  animation: daily-tile-flash 900ms ease-out;
+}
+
+/* Stream body: a faint fade at the bottom hints there is more below. */
+.daily-stream-body::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2rem;
+  background: linear-gradient(to bottom, transparent, var(--card));
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .daily-arrival-highlight {
+  .daily-arrival-highlight,
+  .daily-arrival-enter,
+  .daily-live-ripple,
+  .daily-tile-flash {
     animation: none;
   }
 }

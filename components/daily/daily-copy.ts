@@ -26,12 +26,79 @@ export const DAILY_COPY = {
   yesterdayByNow: "Yesterday at this hour",
   arrivals: "Arrivals",
   arrivalsEmpty: "Nothing has arrived yet today.",
+  arrivalsSubtitle: "Newest first · every lane",
+  arrivalsToday: "today",
+  arrivalsInMemory: "in view",
+  lastFact: "last fact",
+  noFactYet: "no fact yet",
   justNow: "Just now",
+  ago: "ago",
   panels: "Panels",
+  panelsSubtitle: "One stack per category · click a header to look closer",
   quietPriorities: "Quiet priorities",
   sheetSyncShow: "Show Sheet Sync",
   sheetSyncHide: "Hide Sheet Sync",
+  colors: "Colours",
+  colorsTitle: "Event type colours",
+  colorsSubtitle: "Pick a colour for each event type. Saved on this browser.",
+  colorsReset: "Reset colours",
+  colorsClose: "Done",
+  colorsCustom: "custom",
+  lookCloser: "Look closer",
+  collapse: "Collapse",
+  showAll: "Show all",
+  showFewer: "Show fewer",
   loadEarlier: "Load earlier",
+  vsYesterdayByNow: "vs yesterday at this hour",
+  vsTwoDayAverage: "vs 2-day avg at this hour",
+  dayBefore: "Day before",
+  byNow: "by now",
+  noBaseline: "no prior day yet",
+  rhythm: "Hourly rhythm",
+  rhythmSubtitle: "Facts per hour · today against the two prior days",
+  rhythmNow: "now",
+  rhythmToday: "Today",
+  rhythmYesterday: "Yesterday",
+  rhythmDayBefore: "Day before",
+  rhythmSeries: {
+    leads: "Leads",
+    bookings: "Bookings",
+    cancellations: "Cancellations",
+    webhooks: "Granot receipts",
+    messages: "Texts",
+  },
+  boardToolbar: "Board controls",
+  factLabels: {
+    customer: "Customer",
+    phone: "Phone",
+    company: "Source Company",
+    origin: "Ingestion Origin",
+    leadKind: "Lead",
+    job: "Job Number",
+    route: "Route",
+    from: "From",
+    to: "To",
+    moveType: "Move",
+    local: "local",
+    longDistance: "long distance",
+    textPurpose: "Purpose",
+    textStatus: "Status",
+    textSendAt: "Send at",
+    textSkipReason: "Skipped because",
+    granotClass: "Granot class",
+    granotAction: "Booking action",
+    granotDecision: "Decision",
+    bookingKind: "Booking kind",
+    exceptionCode: "Code",
+    exceptionDetail: "Detail",
+    entity: "Record",
+    kind: "Kind",
+    receipt: "Receipt",
+  },
+  textPurposes: {
+    quote_request_confirmation: "quote request confirmation",
+    granot_create_confirmation: "Granot create confirmation",
+  },
   sent: "sent",
   failed: "failed",
   skipped: "skipped",
@@ -122,6 +189,47 @@ export const DAILY_COPY = {
 export const DAILY_QUIET_PRIORITIES_STORAGE_KEY = "vantage-admin-daily-quiet-priorities";
 export const DAILY_SHEET_SYNC_STORAGE_KEY = "vantage-admin-daily-sheet-sync";
 
+/**
+ * Short Owner label for a kind slug — used on the coloured kind badge and in
+ * the Colours panel. Falls back to the catalog title, then the slug.
+ */
+export function dailyOperationsKindLabel(kind: string): string {
+  const title = DAILY_COPY.kindTitles[kind as keyof typeof DAILY_COPY.kindTitles];
+  if (title) {
+    return title.replace(" {time}", "");
+  }
+  return kind.replace(/[._]/g, " ");
+}
+
+/**
+ * Relative stamp for Arrivals: `Just now` under 10s, then seconds, minutes,
+ * hours. Never negative (a server clock slightly ahead still reads Just now).
+ */
+export function formatDailyOperationsRelative(occurredAt: string | Date, nowMs: number): string {
+  const then = occurredAt instanceof Date ? occurredAt.getTime() : Date.parse(occurredAt);
+  if (!Number.isFinite(then)) {
+    return DAILY_COPY.missingYesterday;
+  }
+  const seconds = Math.max(0, Math.floor((nowMs - then) / 1000));
+  if (seconds < 10) {
+    return DAILY_COPY.justNow;
+  }
+  if (seconds < 60) {
+    return `${seconds}s ${DAILY_COPY.ago}`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m ${DAILY_COPY.ago}`;
+  }
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${DAILY_COPY.ago}`;
+}
+
+export function dailyOperationsTextPurposeLabel(purpose: string): string {
+  const catalog = DAILY_COPY.textPurposes[purpose as keyof typeof DAILY_COPY.textPurposes];
+  return catalog ?? purpose.replace(/_/g, " ");
+}
+
 export function dailyOperationsFilteredEmpty(category: string, companyLabel: string): string {
   return `No ${category} for ${companyLabel} today.`;
 }
@@ -172,6 +280,22 @@ export function formatDailyOperationsDay(value: string | Date): string {
     return DAILY_COPY.missingYesterday;
   }
   return `${easternDayFormatter.format(date)} · ${FLORIDA_TIME_ZONE}`;
+}
+
+const easternHourFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: FLORIDA_TIME_ZONE,
+  hour: "numeric",
+  hourCycle: "h23",
+});
+
+/** Florida hour (0–23) of an instant; 23 when the instant cannot be parsed. */
+export function dailyOperationsFloridaHour(value: string | Date): number {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 23;
+  }
+  const parsed = Number.parseInt(easternHourFormatter.format(date), 10);
+  return Number.isFinite(parsed) ? Math.min(23, Math.max(0, parsed)) : 23;
 }
 
 export function formatDailyOperationsClock(value: string | Date): string {

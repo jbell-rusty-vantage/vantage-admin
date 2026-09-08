@@ -8,6 +8,7 @@ import {
   dailyOperationsHeldTextTitle,
   dailyOperationsTextsHeader,
   dailyOperationsZipChip,
+  formatDailyOperationsRelative,
 } from "../../components/daily/daily-copy";
 import { CategoryPanels } from "../../components/daily/category-panels";
 import { DailyOperationsEventCard } from "../../components/daily/event-card";
@@ -16,8 +17,13 @@ import type { DailyOperationsEventItem } from "./dailyOperationsLive";
 import type { DailyOperationsSnapshot } from "./dailyOperations";
 import {
   applyQuietPriorities,
+  countRecentDailyOperationsEvents,
   DAILY_OPERATIONS_ARRIVAL_HIGHLIGHT_MS,
   DAILY_OPERATIONS_ARRIVALS_LIMIT,
+  DAILY_OPERATIONS_PANEL_DEFAULT_LIMIT,
+  DAILY_OPERATIONS_PANEL_FOCUSED_LIMIT,
+  dailyOperationsAttentionChips,
+  dailyOperationsCardDetails,
   dailyOperationsEventLinks,
   dailyOperationsEventTitle,
   dailyOperationsHasConfirmControl,
@@ -32,7 +38,10 @@ import {
   fanOutDailyOperationsEvents,
   filterDailyOperationsEventsByCompany,
   leadDeskHref,
+  newestDailyOperationsEventAt,
+  orderPanelsForFocus,
   pairGranotEvents,
+  panelVisibleLimit,
   readPreferenceFlag,
   resolveDailyOperationsOpenHref,
   visibleDailyOperationsPanels,
@@ -547,6 +556,119 @@ test("Arrivals insert highlight applies to a new event_id and clears after 1.5s"
   } finally {
     mock.timers.reset();
   }
+});
+
+test("card details expose every stored fact with a label; nothing hides behind a click", () => {
+  const event = eventItem({
+    event_id: "full",
+    lane: "granot",
+    kind: "granot.booked",
+    job_no: "5562924",
+    entity_type: "GranotWebhookReceipt",
+    ingestion_origin: "granot_lead_created",
+    lead_kind: null,
+    links: { receipt_id: "receipt-0123456789", lead_id: "lead1", lead_model: "CallLead" },
+    card: {
+      customer_name: "Maria Chen",
+      phone_last4: "4192",
+      move: {
+        pickup_zip: "33101",
+        pickup_state: "FL",
+        delivery_zip: "10001",
+        delivery_state: "NY",
+        move_type: "long_distance",
+      },
+      granot: { route_event_class: "booking_status_changed", booking_action: "booked", decision: "attach_exact_job" },
+      booking_kind: "exact_job",
+    },
+  });
+  const details = dailyOperationsCardDetails(event);
+  const byLabel = new Map(details.map((row) => [row.label, row.value]));
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.route), "33101 · FL → 10001 · NY");
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.moveType), DAILY_COPY.factLabels.longDistance);
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.job), "5562924");
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.granotClass), "booking status changed");
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.granotAction), "Booked");
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.granotDecision), "attach exact job");
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.bookingKind), "exact job");
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.receipt), "…456789");
+  assert.equal(byLabel.get(DAILY_COPY.factLabels.entity), "Granot Webhook Receipt");
+  const markup = renderToStaticMarkup(createElement(DailyOperationsEventCard, { event }));
+  for (const row of details) {
+    assert.ok(markup.includes(row.value), `card shows ${row.label}`);
+  }
+  assert.match(markup, /Maria Chen · ••4192/);
+  assert.match(markup, /Granot lead created/);
+  assert.match(markup, /data-tone="/);
+  // `Open list` goes to the desk list, not the same record URL as `Open lead`.
+  const links = dailyOperationsEventLinks(event);
+  const openLead = links.find((link) => link.label === DAILY_COPY.openLead);
+  const openList = links.find((link) => link.label === DAILY_COPY.openList);
+  assert.equal(openLead?.href, "/call-leads?record=lead1");
+  assert.equal(openList?.href, "/call-leads");
+});
+
+test("attention chips flag zip miss, held, skipped, failed, duplicate", () => {
+  const held = eventItem({
+    event_id: "h",
+    lane: "text",
+    kind: "text.deferred",
+    card: { text: { deferred: true, send_at: "2026-09-08T17:45:00.000Z" } },
+  });
+  assert.deepEqual(
+    dailyOperationsAttentionChips(held).map((chip) => chip.value),
+    [DAILY_COPY.heldChip],
+  );
+  const failed = eventItem({ event_id: "f", lane: "text", kind: "text.failed" });
+  assert.equal(dailyOperationsAttentionChips(failed)[0]?.tone, "alert");
+  const dup = eventItem({ event_id: "d", lane: "lead", kind: "form_lead.duplicate" });
+  assert.equal(dailyOperationsAttentionChips(dup).some((chip) => chip.value === "duplicate"), true);
+  const zip = eventItem({
+    event_id: "z",
+    lane: "lead",
+    kind: "form_lead.created",
+    card: { zip_miss: { pickup: true, delivery: false }, move: { pickup_zip: "33101" } },
+  });
+  assert.deepEqual(
+    dailyOperationsAttentionChips(zip).map((chip) => chip.value),
+    [dailyOperationsZipChip("33101")],
+  );
+});
+
+test("relative stamps read Just now, seconds, minutes, hours and never go negative", () => {
+  const now = Date.parse("2026-09-08T18:14:00.000Z");
+  assert.equal(formatDailyOperationsRelative("2026-09-08T18:13:55.000Z", now), DAILY_COPY.justNow);
+  assert.equal(formatDailyOperationsRelative("2026-09-08T18:14:05.000Z", now), DAILY_COPY.justNow);
+  assert.equal(formatDailyOperationsRelative("2026-09-08T18:13:30.000Z", now), "30s ago");
+  assert.equal(formatDailyOperationsRelative("2026-09-08T18:02:00.000Z", now), "12m ago");
+  assert.equal(formatDailyOperationsRelative("2026-09-08T15:14:00.000Z", now), "3h ago");
+  const event = eventItem({ event_id: "rel", lane: "lead", kind: "form_lead.created" });
+  const markup = renderToStaticMarkup(createElement(DailyOperationsEventCard, { event, nowMs: now + 90_000 }));
+  assert.match(markup, /1m ago/);
+  assert.match(markup, /dateTime="2026-09-08T18:14:00.000Z"/);
+});
+
+test("focus reorders panels without dropping any; visible limit grows in focus and on Show all", () => {
+  const panels = visibleDailyOperationsPanels({ lane: "booking", sheetSyncOptIn: false });
+  assert.deepEqual(orderPanelsForFocus(panels, "booking")[0], "booking");
+  assert.equal(orderPanelsForFocus(panels, "booking").length, panels.length);
+  assert.deepEqual(orderPanelsForFocus(panels, null), panels);
+  assert.equal(panelVisibleLimit({ focused: false, showAll: false, total: 60 }), DAILY_OPERATIONS_PANEL_DEFAULT_LIMIT);
+  assert.equal(panelVisibleLimit({ focused: true, showAll: false, total: 60 }), DAILY_OPERATIONS_PANEL_FOCUSED_LIMIT);
+  assert.equal(panelVisibleLimit({ focused: false, showAll: true, total: 60 }), 60);
+});
+
+test("Arrivals pulse counts facts in the window and finds the newest stamp", () => {
+  const now = Date.parse("2026-09-08T18:14:00.000Z");
+  const events = [
+    eventItem({ event_id: "a", lane: "lead", kind: "form_lead.created", occurred_at: "2026-09-08T18:13:00.000Z" }),
+    eventItem({ event_id: "b", lane: "lead", kind: "form_lead.created", occurred_at: "2026-09-08T18:00:00.000Z" }),
+    eventItem({ event_id: "c", lane: "lead", kind: "form_lead.created", occurred_at: "2026-09-08T17:00:00.000Z" }),
+  ];
+  assert.equal(countRecentDailyOperationsEvents(events, now, 15 * 60_000), 2);
+  assert.equal(countRecentDailyOperationsEvents([], now, 15 * 60_000), 0);
+  assert.equal(newestDailyOperationsEventAt(events), "2026-09-08T18:13:00.000Z");
+  assert.equal(newestDailyOperationsEventAt([]), null);
 });
 
 test("a second insert does not cancel the first event_id 1.5s highlight clear", () => {

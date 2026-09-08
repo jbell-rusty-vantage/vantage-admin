@@ -60,6 +60,67 @@ const emptySnapshot: DailyOperationsSnapshot = {
   hourly: { today: [], yesterday: [] },
 };
 
+test("tiles and panels show percent versus yesterday at this hour plus both prior-day numbers", () => {
+  const snapshot: DailyOperationsSnapshot = {
+    ...emptySnapshot,
+    day_before: "2026-09-06",
+    metrics: {
+      ...emptySnapshot.metrics,
+      leads: {
+        today: 42,
+        yesterday: 38,
+        yesterday_by_now: 30,
+        day_before: 50,
+        day_before_by_now: 40,
+        form: 28,
+        call: 14,
+        duplicate_form: 3,
+        duplicate_call: 1,
+      },
+      bookings: { today: 2, yesterday: 4, yesterday_by_now: 4, day_before: 1, day_before_by_now: 0 },
+    },
+    hourly: {
+      today: [{ hour: 9, leads: 20, bookings: 1, cancellations: 0, webhooks: 0, messages: 0 }],
+      yesterday: [{ hour: 9, leads: 10, bookings: 2, cancellations: 0, webhooks: 0, messages: 0 }],
+      day_before: [{ hour: 9, leads: 30, bookings: 0, cancellations: 0, webhooks: 0, messages: 0 }],
+    },
+  };
+  const tiles = renderToStaticMarkup(
+    createElement(HeadlineTiles, {
+      snapshot,
+      sessionDeltas: EMPTY_DAILY_OPERATIONS_SESSION_DELTAS,
+      flashedTiles: [],
+      lane: null,
+      onSelectLane: () => undefined,
+    }),
+  );
+  assert.match(tiles, /\+40%/); // 42 vs 30 yesterday by now
+  assert.match(tiles, /\+20%/); // 42 vs 2-day average 35
+  assert.match(tiles, /−50%/); // bookings 2 vs 4
+  assert.match(tiles, /Yesterday<\/span> 30 by now · 38/);
+  assert.match(tiles, /Day before<\/span> 40 by now · 50/);
+  assert.match(tiles, /data-sparkline="leads"/);
+  const panels = renderToStaticMarkup(
+    createElement(CategoryPanels, {
+      events: [],
+      snapshot,
+      sessionDeltas: EMPTY_DAILY_OPERATIONS_SESSION_DELTAS,
+      lane: "booking",
+      company: null,
+      quietPriorities: false,
+      sheetSyncOptIn: false,
+      onSelectLane: () => undefined,
+    }),
+  );
+  // Focus keeps every panel on the board and puts the focused one first.
+  const order = [...panels.matchAll(/data-panel="([a-z_]+)"/g)].map((match) => match[1]);
+  assert.equal(order[0], "booking");
+  assert.deepEqual([...order].sort(), ["booking", "cancellation", "exception", "granot", "intake", "lead", "text"]);
+  assert.match(panels, /data-focused="true"/);
+  assert.match(panels, /−50% vs yesterday at this hour/);
+  assert.match(panels, new RegExp(`${DAILY_COPY.collapse} ${DAILY_COPY.panelsLabels.booking}`));
+});
+
 test("Owner nav places Daily Operations second; Admin cannot see it", () => {
   const owner = visibleDashboardNav("owner");
   const admin = visibleDashboardNav("admin");

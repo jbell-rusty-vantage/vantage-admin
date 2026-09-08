@@ -1,12 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { formatDateTime } from "@/components/data-table/formatters";
 import { StatusBadge } from "@/components/data-table/status-badge";
+import {
+  DAILY_COPY,
+  DAILY_OPERATIONS_HREF,
+  formatDailyOperationsClock,
+  formatDailyOperationsRelative,
+} from "@/components/daily/daily-copy";
+import { LiveDot, type LiveDotState } from "@/components/daily/live-dot";
+import { bumpNow, useNowMs } from "@/components/daily/use-now";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
+import {
+  clearAllArrivalHighlightTimers,
+  schedulePerIdArrivalHighlightClear,
+  seedOrArriveDailyOperationsEventIds,
+} from "@/lib/api/dailyOperationsBoard";
+import { kindToneFor, toneClasses, type DailyOperationsToneClasses } from "@/lib/api/dailyOperationsColors";
 import {
   GRANOT_LIVE_RECEIPTS_STREAM_PATH,
   LIVE_WEBHOOK_EVENT_LABELS,
@@ -17,28 +31,51 @@ import {
 } from "@/lib/api/granotLiveReceipts";
 import { buildJobTimelineHref } from "@/lib/api/jobNumberTimeline";
 import { intakeCaseHref } from "@/components/intakes/intake-copy";
+import { cn } from "@/lib/utils";
 import { prettyJson } from "./pretty-json";
 
 export type LiveStreamStatus = "connecting" | "live" | "reconnecting";
 
-function eventTone(eventClass: LiveWebhookEventClass): "default" | "success" | "warning" {
-  if (eventClass === "lead_created") return "success";
-  if (eventClass === "priority_updated") return "warning";
-  return "default";
+/**
+ * Live Events shares the Daily Operations colour catalog: a Granot receipt
+ * class maps onto the Daily Operations Event kind it produces, so a Booked
+ * receipt is the same green on `/live-events` and on `/daily`.
+ */
+export const LIVE_WEBHOOK_CLASS_KINDS: Record<LiveWebhookEventClass, string> = {
+  lead_created: "granot.lead_created",
+  priority_updated: "granot.priority_updated",
+  booking_status_changed: "granot.booked",
+};
+
+function classTone(eventClass: LiveWebhookEventClass, eventType: string | null): DailyOperationsToneClasses {
+  const kind =
+    eventClass === "booking_status_changed" && eventType?.toLowerCase().includes("release")
+      ? "granot.release"
+      : LIVE_WEBHOOK_CLASS_KINDS[eventClass];
+  return toneClasses(kindToneFor(kind, null, "granot"));
+}
+
+function liveDotState(status: LiveStreamStatus): LiveDotState {
+  if (status === "live") return "live";
+  if (status === "reconnecting") return "reconnecting";
+  return "paused";
 }
 
 function LeadFact({ label, value }: { label: string; value?: string | null }) {
+  const sent = Boolean(value?.trim());
   return (
-    <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 wrap-break-word text-sm">{value?.trim() ? value : "Not sent"}</dd>
+    <div className="min-w-0">
+      <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className={cn("wrap-break-word text-sm leading-snug", sent ? "text-navy" : "text-steel/70")}>
+        {sent ? value : "Not sent"}
+      </dd>
     </div>
   );
 }
 
 export function LiveWebhookLeadFacts({ lead }: { lead: LiveWebhookLead }) {
   return (
-    <dl className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+    <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
       <LeadFact label="Name" value={lead.display_name} />
       <LeadFact label="Phone" value={lead.phone} />
       <LeadFact label="Email" value={lead.email} />
@@ -52,74 +89,94 @@ export function LiveWebhookLeadFacts({ lead }: { lead: LiveWebhookLead }) {
   );
 }
 
-export function LiveWebhookReceiptCard({ receipt }: { receipt: LiveWebhookReceipt }) {
+/**
+ * One Granot receipt with every lead fact visible. Only the raw Granot
+ * payload sits behind `Show details`.
+ */
+export function LiveWebhookReceiptCard({
+  receipt,
+  nowMs,
+  highlight = false,
+}: {
+  receipt: LiveWebhookReceipt;
+  nowMs?: number;
+  highlight?: boolean;
+}) {
   const jobHref = receipt.lead.job_no
     ? buildJobTimelineHref({ job: receipt.lead.job_no })
     : null;
+  const tone = classTone(receipt.route_event_class, receipt.lead.event_type);
+  const absolute = formatDateTime(receipt.captured_at);
+  const stamp = nowMs !== undefined ? formatDailyOperationsRelative(receipt.captured_at, nowMs) : formatDailyOperationsClock(receipt.captured_at);
   return (
-    <details className="group rounded-md border bg-background">
-      <summary className="cursor-pointer list-none px-4 py-3 hover:bg-steel-100 [&::-webkit-details-marker]:hidden">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-navy">
-              <StatusBadge tone={eventTone(receipt.route_event_class)}>
-                {LIVE_WEBHOOK_EVENT_LABELS[receipt.route_event_class]}
-              </StatusBadge>
-              <span>{receipt.lead.display_name ?? "No name sent"}</span>
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {receipt.lead.job_no ? `Job ${receipt.lead.job_no}` : "No job number"}
-              {receipt.lead.phone ? ` · ${receipt.lead.phone}` : ""}
-              {receipt.lead.priority ? ` · Priority ${receipt.lead.priority}` : ""}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-start gap-3">
-            {receipt.intake_link?.kind === "booking" ? (
-              <Link
-                className="inline-flex h-7 items-center rounded-md border border-trust-blue/25 bg-white px-2 text-xs font-semibold text-trust-blue hover:bg-steel-100"
-                href={intakeCaseHref(receipt.intake_link.case_id, {
-                  state: receipt.intake_link.state,
-                  job: receipt.lead.job_no ?? undefined,
-                })}
-                onClick={(event) => event.stopPropagation()}
-                onPointerDown={(event) => event.stopPropagation()}
-              >
-                Open booking intake
-              </Link>
-            ) : null}
-            <div className="text-right text-xs text-muted-foreground">
-              <time dateTime={receipt.captured_at}>{formatDateTime(receipt.captured_at)}</time>
-              <div className="mt-1">
-                <StatusBadge tone="muted">{receipt.processing_state}</StatusBadge>
-              </div>
-            </div>
-            <span className="inline-flex items-center gap-1 pt-0.5 text-sm font-semibold text-trust-blue">
-              <span className="group-open:hidden">Show details</span>
-              <span className="hidden group-open:inline">Hide details</span>
-              <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
-            </span>
-          </div>
-        </div>
-      </summary>
-      <div className="space-y-3 border-t px-4 py-3">
-        <LiveWebhookLeadFacts lead={receipt.lead} />
-        {jobHref ? (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <Link className="inline-flex text-sm font-medium text-trust-blue hover:underline" href={jobHref}>
-              Open job timeline
-            </Link>
-          </div>
+    <article
+      data-receipt-id={receipt.receipt_id}
+      data-event-class={receipt.route_event_class}
+      className={cn(
+        "relative rounded-md border bg-background py-3 pl-5 pr-4 transition-colors",
+        highlight && "daily-arrival-highlight bg-amber-50 ring-1 ring-trust-blue/30",
+      )}
+    >
+      <span aria-hidden="true" className={cn("absolute inset-y-2 left-2 w-1 rounded-full", tone.dot)} />
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+            tone.badge,
+          )}
+        >
+          <span className={cn("size-1.5 rounded-full", tone.dot)} aria-hidden="true" />
+          {LIVE_WEBHOOK_EVENT_LABELS[receipt.route_event_class]}
+        </span>
+        <span className="text-sm font-semibold text-navy">{receipt.lead.display_name ?? "No name sent"}</span>
+        {receipt.lead.job_no ? (
+          <span className="text-sm tabular-nums text-muted-foreground">Job {receipt.lead.job_no}</span>
         ) : null}
-        <details className="rounded-md border bg-steel-100">
-          <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-navy">
-            Full Granot payload
-          </summary>
+        <span className="ml-auto flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <StatusBadge tone="muted">{receipt.processing_state}</StatusBadge>
+          <time dateTime={receipt.captured_at} title={absolute} className="tabular-nums font-medium text-navy">
+            {stamp}
+          </time>
+          <span className="tabular-nums">{absolute}</span>
+        </span>
+      </div>
+
+      <div className="mt-2">
+        <LiveWebhookLeadFacts lead={receipt.lead} />
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+        {receipt.intake_link?.kind === "booking" ? (
+          <Link
+            className="inline-flex h-7 items-center rounded-md border border-trust-blue/25 bg-white px-2 text-xs font-semibold text-trust-blue hover:bg-steel-100"
+            href={intakeCaseHref(receipt.intake_link.case_id, {
+              state: receipt.intake_link.state,
+              job: receipt.lead.job_no ?? undefined,
+            })}
+          >
+            Open booking intake
+          </Link>
+        ) : null}
+        {jobHref ? (
+          <Link className="inline-flex text-xs font-semibold text-trust-blue hover:underline" href={jobHref}>
+            Open job timeline
+          </Link>
+        ) : null}
+      </div>
+      <details className="group mt-1">
+        <summary className="flex cursor-pointer list-none items-center justify-end gap-1 text-xs font-semibold text-trust-blue [&::-webkit-details-marker]:hidden">
+          <span className="group-open:hidden">Show details</span>
+          <span className="hidden group-open:inline">Hide details</span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <div className="mt-2 rounded-md border bg-steel-100">
+          <p className="px-3 py-1.5 text-xs font-semibold text-navy">Full Granot payload</p>
           <pre className="max-h-96 overflow-auto border-t p-3 text-xs leading-5">
             {prettyJson(receipt.granot_statement)}
           </pre>
-        </details>
-      </div>
-    </details>
+        </div>
+      </details>
+    </article>
   );
 }
 
@@ -127,37 +184,64 @@ export function LiveWebhooksView({
   receipts,
   status,
   error,
+  nowMs,
+  highlightedIds,
 }: {
   receipts: LiveWebhookReceipt[];
   status: LiveStreamStatus;
   error?: string | null;
+  nowMs?: number;
+  highlightedIds?: ReadonlySet<string>;
 }) {
   const statusLabel =
     status === "live" ? "Live" : status === "reconnecting" ? "Reconnecting…" : "Connecting…";
+  const newest = receipts.reduce<string | null>(
+    (best, receipt) => (best === null || receipt.captured_at > best ? receipt.captured_at : best),
+    null,
+  );
+  const lastFact =
+    newest && nowMs !== undefined ? formatDailyOperationsRelative(newest, nowMs) : null;
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Live Granot webhooks</CardTitle>
-        <CardDescription>
-          Lead created, priority updated, and booking status changed — as Granot delivers them.
-          Click a row to open the lead facts.
-        </CardDescription>
-        <p className="text-sm font-medium text-navy" aria-live="polite">
+      <CardHeader className="border-b border-steel-100">
+        <div className="flex flex-wrap items-center gap-2">
+          <LiveDot state={liveDotState(status)} />
+          <CardTitle>Live Granot webhooks</CardTitle>
           <span
-            className={
+            className={cn(
+              "text-xs font-semibold uppercase tracking-wide",
               status === "live"
                 ? "text-emerald-700"
                 : status === "reconnecting"
                   ? "text-amber-700"
-                  : "text-muted-foreground"
-            }
+                  : "text-muted-foreground",
+            )}
+            aria-live="polite"
           >
-            ● {statusLabel}
+            {statusLabel}
           </span>
-          {receipts.length > 0 ? ` · ${receipts.length} in the last 30 minutes` : ""}
-        </p>
+          <span className="ml-auto flex flex-wrap items-center gap-3 text-xs tabular-nums text-muted-foreground">
+            {receipts.length > 0 ? (
+              <span>
+                <span className="font-semibold text-navy">{receipts.length}</span> in the last 30 minutes
+              </span>
+            ) : null}
+            {lastFact ? (
+              <span data-last-fact>
+                {DAILY_COPY.lastFact} {lastFact}
+              </span>
+            ) : null}
+            <Link href={DAILY_OPERATIONS_HREF} className="font-semibold text-trust-blue hover:underline">
+              Open Daily Operations
+            </Link>
+          </span>
+        </div>
+        <CardDescription>
+          Lead created, priority updated, and booking status changed — as Granot delivers them.
+          Every lead fact is on the row; Show details opens the raw Granot payload.
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="daily-stream-body relative space-y-3 pt-4">
         {error ? <FeedbackMessage tone="warning">{error}</FeedbackMessage> : null}
         {receipts.length === 0 && status !== "connecting" ? (
           <p className="text-sm text-muted-foreground">
@@ -165,9 +249,20 @@ export function LiveWebhooksView({
             status changed receipts will appear here.
           </p>
         ) : null}
-        {receipts.map((receipt) => (
-          <LiveWebhookReceiptCard key={receipt.receipt_id} receipt={receipt} />
-        ))}
+        <ol className="space-y-3">
+          {receipts.map((receipt) => (
+            <li
+              key={receipt.receipt_id}
+              className={cn(highlightedIds?.has(receipt.receipt_id) && "daily-arrival-enter")}
+            >
+              <LiveWebhookReceiptCard
+                receipt={receipt}
+                nowMs={nowMs}
+                highlight={highlightedIds?.has(receipt.receipt_id) ?? false}
+              />
+            </li>
+          ))}
+        </ol>
       </CardContent>
     </Card>
   );
@@ -177,6 +272,12 @@ export function LiveWebhooks() {
   const [receipts, setReceipts] = useState<LiveWebhookReceipt[]>([]);
   const [status, setStatus] = useState<LiveStreamStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
+  const [highlightedIds, setHighlightedIds] = useState<ReadonlySet<string>>(new Set());
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const seededRef = useRef(false);
+  const highlightTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const nowMs = useNowMs();
+  const receiptKey = receipts.map((receipt) => receipt.receipt_id).join("\0");
 
   useEffect(() => {
     const source = new EventSource(GRANOT_LIVE_RECEIPTS_STREAM_PATH);
@@ -219,5 +320,42 @@ export function LiveWebhooks() {
     };
   }, []);
 
-  return <LiveWebhooksView receipts={receipts} status={status} error={error} />;
+  useEffect(() => {
+    const ids = receiptKey === "" ? [] : receiptKey.split("\0");
+    const { arrived, seen, seeded } = seedOrArriveDailyOperationsEventIds(seenIdsRef.current, ids, {
+      hydrated: status !== "connecting",
+      seeded: seededRef.current,
+    });
+    seenIdsRef.current = seen;
+    seededRef.current = seeded;
+    if (arrived.length === 0) {
+      return;
+    }
+    bumpNow();
+    setHighlightedIds((current) => new Set([...current, ...arrived]));
+    schedulePerIdArrivalHighlightClear(highlightTimersRef.current, arrived, (expired) => {
+      setHighlightedIds((current) => {
+        const next = new Set(current);
+        for (const id of expired) {
+          next.delete(id);
+        }
+        return next;
+      });
+    });
+  }, [receiptKey, status]);
+
+  useEffect(() => {
+    const timers = highlightTimersRef.current;
+    return () => clearAllArrivalHighlightTimers(timers);
+  }, []);
+
+  return (
+    <LiveWebhooksView
+      receipts={receipts}
+      status={status}
+      error={error}
+      nowMs={nowMs}
+      highlightedIds={highlightedIds}
+    />
+  );
 }

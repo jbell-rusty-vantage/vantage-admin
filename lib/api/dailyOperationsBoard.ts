@@ -3,7 +3,9 @@ import {
   dailyOperationsFilteredEmpty,
   dailyOperationsHeldTextTitle,
   dailyOperationsPhoneLast4,
+  dailyOperationsTextPurposeLabel,
   dailyOperationsZipChip,
+  formatDailyOperationsClock,
 } from "@/components/daily/daily-copy";
 import { GRANOT_LIFECYCLE_HEALTH_HREF } from "@/components/granot-lifecycle/granot-lifecycle-copy";
 import {
@@ -302,6 +304,21 @@ export function zipMissChips(event: DailyOperationsEventItem): string[] {
   return chips;
 }
 
+export function leadDeskBase(input: {
+  leadModel?: DailyOperationsLinks["lead_model"] | null;
+  leadKind?: "form" | "call" | null;
+  duplicate?: boolean;
+}): string {
+  const form = input.leadModel === "FormLead" || input.leadKind === "form" || !input.leadModel && input.leadKind !== "call";
+  return input.duplicate
+    ? form
+      ? "/duplicate-form-leads"
+      : "/duplicate-call-leads"
+    : form
+      ? "/form-leads"
+      : "/call-leads";
+}
+
 export function leadDeskHref(input: {
   leadId: string;
   leadModel?: DailyOperationsLinks["lead_model"] | null;
@@ -309,14 +326,7 @@ export function leadDeskHref(input: {
   duplicate?: boolean;
   panel?: "message";
 }): string {
-  const form = input.leadModel === "FormLead" || input.leadKind === "form" || !input.leadModel && input.leadKind !== "call";
-  const base = input.duplicate
-    ? form
-      ? "/duplicate-form-leads"
-      : "/duplicate-call-leads"
-    : form
-      ? "/form-leads"
-      : "/call-leads";
+  const base = leadDeskBase(input);
   const params = new URLSearchParams({ record: input.leadId });
   if (input.panel) {
     params.set("panel", input.panel);
@@ -377,8 +387,7 @@ export function dailyOperationsEventLinks(event: DailyOperationsEventItem): Dail
       DAILY_COPY.openLead,
     );
     add(
-      leadDeskHref({
-        leadId: links.lead_id,
+      leadDeskBase({
         leadModel: links.lead_model,
         leadKind: event.lead_kind,
         duplicate,
@@ -517,9 +526,14 @@ export function dailyOperationsCardFacts(event: DailyOperationsEventItem): strin
   if (event.source_company) {
     facts.push(sourceCompanyLabel(event.source_company));
   }
-  if (event.ingestion_origin && event.ingestion_origin in DAILY_COPY.originsLabels) {
-    facts.push(DAILY_COPY.originsLabels[event.ingestion_origin as keyof typeof DAILY_COPY.originsLabels]);
-  } else if (event.lead_kind === "form") {
+  if (event.ingestion_origin) {
+    facts.push(
+      event.ingestion_origin in DAILY_COPY.originsLabels
+        ? DAILY_COPY.originsLabels[event.ingestion_origin as keyof typeof DAILY_COPY.originsLabels]
+        : event.ingestion_origin.replace(/_/g, " "),
+    );
+  }
+  if (event.lead_kind === "form") {
     facts.push(DAILY_COPY.form);
   } else if (event.lead_kind === "call") {
     facts.push(DAILY_COPY.call);
@@ -556,6 +570,201 @@ export function dailyOperationsUsefulChips(event: DailyOperationsEventItem): str
     chips.push(job);
   }
   return chips;
+}
+
+export type DailyOperationsCardDetail = {
+  label: string;
+  value: string;
+  /** `alert` draws the amber / destructive treatment (zip miss, failed, dead letter). */
+  tone?: "alert" | "muted";
+};
+
+/**
+ * Chips that flag attention on the card: zip miss, held, skipped, failed,
+ * duplicate. Everything else the payload stores is a labelled detail
+ * (`dailyOperationsCardDetails`) so nothing hides behind a click.
+ */
+export function dailyOperationsAttentionChips(event: DailyOperationsEventItem): DailyOperationsCardDetail[] {
+  const card = eventCard(event);
+  const chips: DailyOperationsCardDetail[] = zipMissChips(event).map((value) => ({
+    label: DAILY_COPY.factLabels.route,
+    value,
+    tone: "alert",
+  }));
+  if (card.text?.deferred || event.kind === "text.deferred") {
+    chips.push({ label: DAILY_COPY.factLabels.textStatus, value: DAILY_COPY.heldChip, tone: "alert" });
+  }
+  if (event.kind === "text.skipped") {
+    chips.push({ label: DAILY_COPY.factLabels.textStatus, value: DAILY_COPY.skipped, tone: "muted" });
+  }
+  if (event.kind === "text.failed" || event.kind === "sheet_sync.failed") {
+    chips.push({ label: DAILY_COPY.factLabels.textStatus, value: DAILY_COPY.failed, tone: "alert" });
+  }
+  if (event.kind.includes("duplicate")) {
+    chips.push({ label: DAILY_COPY.factLabels.leadKind, value: "duplicate", tone: "muted" });
+  }
+  return chips;
+}
+
+function formatZipState(zip: string | null | undefined, state: string | null | undefined): string | null {
+  const z = zip?.trim();
+  const s = state?.trim();
+  if (!z && !s) {
+    return null;
+  }
+  if (z && s && s !== "not_found") {
+    return `${z} · ${s}`;
+  }
+  if (z && (!s || s === "not_found")) {
+    return s === "not_found" ? `${z} · ${DAILY_COPY.zipStateNotFound}` : z;
+  }
+  return s ?? null;
+}
+
+/**
+ * Every populated stored field on the small card payload, labelled. Order is
+ * the order the Owner reads: where, what kind of move, which job, then the
+ * lane-specific facts, then the record type. Never raw JSON.
+ */
+export function dailyOperationsCardDetails(event: DailyOperationsEventItem): DailyOperationsCardDetail[] {
+  const card = eventCard(event);
+  const links = eventLinks(event);
+  const details: DailyOperationsCardDetail[] = [];
+  const push = (label: string, value: string | null | undefined, tone?: DailyOperationsCardDetail["tone"]) => {
+    const text = value?.toString().trim();
+    if (!text) {
+      return;
+    }
+    details.push(tone ? { label, value: text, tone } : { label, value: text });
+  };
+
+  const from = formatZipState(card.move?.pickup_zip, card.move?.pickup_state);
+  const to = formatZipState(card.move?.delivery_zip, card.move?.delivery_state);
+  if (from && to) {
+    push(DAILY_COPY.factLabels.route, `${from} → ${to}`);
+  } else {
+    push(DAILY_COPY.factLabels.from, from);
+    push(DAILY_COPY.factLabels.to, to);
+  }
+  if (card.move?.move_type) {
+    push(
+      DAILY_COPY.factLabels.moveType,
+      card.move.move_type === "local" ? DAILY_COPY.factLabels.local : DAILY_COPY.factLabels.longDistance,
+    );
+  }
+  push(DAILY_COPY.factLabels.job, event.job_no || card.job_no);
+
+  if (card.text) {
+    push(
+      DAILY_COPY.factLabels.textPurpose,
+      card.text.purpose ? dailyOperationsTextPurposeLabel(card.text.purpose) : null,
+    );
+    push(DAILY_COPY.factLabels.textStatus, card.text.status);
+    push(
+      DAILY_COPY.factLabels.textSendAt,
+      card.text.send_at ? formatDailyOperationsClock(card.text.send_at) : null,
+    );
+    push(DAILY_COPY.factLabels.textSkipReason, card.text.skip_reason, "muted");
+  }
+
+  if (card.granot) {
+    const klass = card.granot.route_event_class;
+    push(
+      DAILY_COPY.factLabels.granotClass,
+      klass
+        ? (DAILY_COPY.granotClasses[klass as keyof typeof DAILY_COPY.granotClasses] ?? klass.replace(/_/g, " "))
+        : null,
+    );
+    push(
+      DAILY_COPY.factLabels.granotAction,
+      card.granot.booking_action
+        ? DAILY_COPY.granotClasses[card.granot.booking_action]
+        : null,
+    );
+    push(DAILY_COPY.factLabels.granotDecision, card.granot.decision?.replace(/_/g, " "));
+  }
+
+  push(DAILY_COPY.factLabels.bookingKind, card.booking_kind?.replace(/_/g, " "));
+
+  if (card.exception) {
+    push(DAILY_COPY.factLabels.exceptionCode, card.exception.code?.replace(/_/g, " "), "alert");
+    push(DAILY_COPY.factLabels.exceptionDetail, card.exception.detail, "alert");
+  }
+
+  if (links.receipt_id && event.kind.startsWith("granot.") && !event.parent_receipt_id) {
+    push(DAILY_COPY.factLabels.receipt, shortId(links.receipt_id), "muted");
+  }
+  push(DAILY_COPY.factLabels.entity, entityLabel(event.entity_type), "muted");
+
+  const serverTitle = event.title?.trim();
+  const catalogTitle = dailyOperationsEventTitle(event);
+  if (serverTitle && serverTitle !== catalogTitle && serverTitle !== event.kind) {
+    details.unshift({ label: DAILY_COPY.factLabels.kind, value: serverTitle });
+  }
+
+  return details;
+}
+
+function shortId(value: string): string {
+  return value.length > 10 ? `…${value.slice(-6)}` : value;
+}
+
+function entityLabel(entityType: string | null | undefined): string | null {
+  if (!entityType) {
+    return null;
+  }
+  return entityType
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ");
+}
+
+/** Cards visible for a panel before the Owner asks for the rest. */
+export function panelVisibleLimit(input: { focused: boolean; showAll: boolean; total: number }): number {
+  if (input.showAll) {
+    return input.total;
+  }
+  return input.focused ? DAILY_OPERATIONS_PANEL_FOCUSED_LIMIT : DAILY_OPERATIONS_PANEL_DEFAULT_LIMIT;
+}
+
+/**
+ * Grid order when a lane is focused: the focused panel first (it spans the
+ * grid), every other panel keeps its default order. Nothing is hidden.
+ */
+export function orderPanelsForFocus(
+  panels: readonly DailyOperationsPanelLane[],
+  focused: DailyOperationsPanelLane | null,
+): DailyOperationsPanelLane[] {
+  if (!focused || !panels.includes(focused)) {
+    return [...panels];
+  }
+  return [focused, ...panels.filter((panel) => panel !== focused)];
+}
+
+/** Facts that landed in the last `windowMs` — the stream pulse in the Arrivals header. */
+export function countRecentDailyOperationsEvents(
+  events: readonly DailyOperationsEventItem[],
+  nowMs: number,
+  windowMs: number,
+): number {
+  const floor = nowMs - windowMs;
+  let count = 0;
+  for (const event of events) {
+    const at = Date.parse(event.occurred_at);
+    if (Number.isFinite(at) && at >= floor && at <= nowMs + 60_000) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+export function newestDailyOperationsEventAt(events: readonly DailyOperationsEventItem[]): string | null {
+  let newest: string | null = null;
+  for (const event of events) {
+    if (!newest || event.occurred_at > newest) {
+      newest = event.occurred_at;
+    }
+  }
+  return newest;
 }
 
 export function dailyOperationsHasConfirmControl(markup: string): boolean {
