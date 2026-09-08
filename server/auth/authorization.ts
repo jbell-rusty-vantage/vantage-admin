@@ -9,6 +9,7 @@ const OWNER_ONLY_PAGE_PREFIXES = [
   "/intakes",
   "/job-timeline",
   "/conversations",
+  "/daily",
   "/live-events",
   "/manual",
   "/extension",
@@ -113,6 +114,12 @@ export function canProxyVantagePath(input: {
   if (
     path === "/api/v1/admin/conversations" ||
     path.startsWith("/api/v1/admin/conversations/")
+  ) {
+    return false;
+  }
+  if (
+    path === "/api/v1/admin/daily-operations" ||
+    path.startsWith("/api/v1/admin/daily-operations/")
   ) {
     return false;
   }

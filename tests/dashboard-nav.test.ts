@@ -12,25 +12,28 @@ function hrefs(items: { href: string }[]): string[] {
   return items.map((item) => item.href);
 }
 
-test("owner flat nav keeps Overview, Live Events, Lead Conversations, then Intakes, Manual, and Form Leads", () => {
+test("owner flat nav keeps Overview, Daily Operations, Live Events, Lead Conversations, then Intakes, Manual, and Form Leads", () => {
   const owner = visibleDashboardNav("owner");
 
   assert.equal(owner[0]?.label, "Overview");
   assert.equal(owner[0]?.href, "/");
-  assert.equal(owner[1]?.label, "Live Events");
-  assert.equal(owner[1]?.href, "/live-events");
+  assert.equal(owner[1]?.label, "Daily Operations");
+  assert.equal(owner[1]?.href, "/daily");
   assert.equal(owner[1]?.ownerOnly, true);
-  assert.equal(owner[2]?.label, "Lead Conversations");
-  assert.equal(owner[2]?.href, "/conversations");
+  assert.equal(owner[2]?.label, "Live Events");
+  assert.equal(owner[2]?.href, "/live-events");
   assert.equal(owner[2]?.ownerOnly, true);
-  assert.equal(owner[3]?.label, "Intakes");
-  assert.equal(owner[3]?.href, "/intakes");
+  assert.equal(owner[3]?.label, "Lead Conversations");
+  assert.equal(owner[3]?.href, "/conversations");
   assert.equal(owner[3]?.ownerOnly, true);
-  assert.equal(owner[4]?.label, "Manual");
-  assert.equal(owner[4]?.href, "/manual");
+  assert.equal(owner[4]?.label, "Intakes");
+  assert.equal(owner[4]?.href, "/intakes");
   assert.equal(owner[4]?.ownerOnly, true);
-  assert.equal(owner[5]?.label, "Form Leads");
-  assert.equal(owner[5]?.href, "/form-leads");
+  assert.equal(owner[5]?.label, "Manual");
+  assert.equal(owner[5]?.href, "/manual");
+  assert.equal(owner[5]?.ownerOnly, true);
+  assert.equal(owner[6]?.label, "Form Leads");
+  assert.equal(owner[6]?.href, "/form-leads");
   assert.equal(
     owner.some((item) => "isNew" in item && item.isNew),
     false,
@@ -40,7 +43,7 @@ test("owner flat nav keeps Overview, Live Events, Lead Conversations, then Intak
   const duplicateFormIndex = owner.findIndex((item) => item.href === "/duplicate-form-leads");
   const callIndex = owner.findIndex((item) => item.href === "/call-leads");
   const duplicateCallIndex = owner.findIndex((item) => item.href === "/duplicate-call-leads");
-  assert.ok(formIndex > 2);
+  assert.ok(formIndex > 3);
   assert.equal(duplicateFormIndex, formIndex + 1);
   assert.equal(owner[duplicateFormIndex]?.label, "Duplicate Form Leads");
   assert.equal(duplicateCallIndex, callIndex + 1);
@@ -52,6 +55,7 @@ test("admin flat nav omits owner-only destinations", () => {
   const adminHrefs = hrefs(admin);
 
   for (const href of [
+    "/daily",
     "/live-events",
     "/conversations",
     "/intakes",
@@ -80,6 +84,7 @@ test("owner sections keep the five groups and admin Today and System shrink", ()
   );
   assert.deepEqual(hrefs(owner.find((section) => section.id === "today")!.items), [
     "/",
+    "/daily",
     "/live-events",
     "/conversations",
     "/intakes",
@@ -185,6 +190,7 @@ test("pageTitleForPath uses nav labels, then longer special prefixes", () => {
   assert.equal(pageTitleForPath("/granot-lifecycle"), "Granot Lifecycle");
   assert.equal(pageTitleForPath("/granot-lifecycle/receipts"), "Granot Lifecycle");
   assert.equal(pageTitleForPath("/granot-lifecycle/health"), "Granot Lifecycle");
+  assert.equal(pageTitleForPath("/daily"), "Daily Operations");
   assert.equal(pageTitleForPath("/live-events"), "Live Events");
   assert.equal(pageTitleForPath("/manual"), "Manual");
   assert.equal(pageTitleForPath("/extension"), "Extension");

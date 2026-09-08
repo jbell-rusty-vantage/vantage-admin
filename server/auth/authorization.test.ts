@@ -87,6 +87,7 @@ test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/extension"), false);
   assert.equal(canAccessDashboardPath("admin", "/job-timeline"), false);
   assert.equal(canAccessDashboardPath("admin", "/live-events"), false);
+  assert.equal(canAccessDashboardPath("admin", "/daily"), false);
   assert.equal(canAccessDashboardPath("admin", "/form-leads"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry?tab=cpl"), true);
@@ -656,6 +657,22 @@ test("Granot lifecycle pages remain owner-only in the Admin UI except health", (
   assert.equal(canAccessDashboardPath("owner", "/conversations"), true);
   assert.equal(canAccessDashboardPath("admin", "/live-events"), false);
   assert.equal(canAccessDashboardPath("owner", "/live-events"), true);
+  assert.equal(canAccessDashboardPath("admin", "/daily"), false);
+  assert.equal(canAccessDashboardPath("owner", "/daily"), true);
+});
+
+test("Daily Operations proxy routes are Owner-only on every method", () => {
+  for (const path of [
+    "api/v1/admin/daily-operations",
+    "api/v1/admin/daily-operations/live",
+    "api/v1/admin/daily-operations/events",
+    "api/v1/admin/daily-operations/rebuild",
+  ]) {
+    for (const method of ["GET", "POST", "PATCH", "DELETE"] as const) {
+      assert.equal(canProxyVantagePath({ role: "admin", method, path }), false);
+      assert.equal(canProxyVantagePath({ role: "owner", method, path }), true);
+    }
+  }
 });
 
 test("Extension User proxy routes are Owner-only", () => {

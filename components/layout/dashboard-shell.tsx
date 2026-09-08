@@ -20,6 +20,7 @@ const ownerOnlyPagePrefixes = [
   "/granot-lifecycle",
   "/ingestion/granot",
   "/intakes",
+  "/daily",
   "/live-events",
   "/manual",
   "/extension",

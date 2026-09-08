@@ -189,6 +189,12 @@ export const queryKeys = {
     list: () => [...queryKeys.conversations.all, "list"] as const,
     detail: (id: string) => [...queryKeys.conversations.all, "detail", id] as const,
   },
+  dailyOperations: {
+    all: ["daily-operations"] as const,
+    snapshot: () => [...queryKeys.dailyOperations.all, "snapshot"] as const,
+    events: (lane?: string) =>
+      [...queryKeys.dailyOperations.all, "events", lane ?? "all"] as const,
+  },
   extensionUsers: {
     all: ["extension-users"] as const,
     list: () => [...queryKeys.extensionUsers.all, "list"] as const,

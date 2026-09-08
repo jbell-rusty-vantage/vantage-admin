@@ -7,6 +7,7 @@ import {
   BarChart3,
   BookOpenCheck,
   Boxes,
+  Calendar,
   ClipboardPen,
   ClipboardX,
   Copy,
@@ -66,6 +67,7 @@ export const dashboardNavSections: DashboardNavSection[] = [
     label: "Today",
     items: [
       { label: "Overview", href: "/", icon: Home },
+      { label: "Daily Operations", href: "/daily", icon: Calendar, ownerOnly: true },
       { label: "Live Events", href: "/live-events", icon: Radio, ownerOnly: true },
       { label: "Lead Conversations", href: "/conversations", icon: Headphones, ownerOnly: true },
       { label: "Intakes", href: "/intakes", icon: Inbox, ownerOnly: true },

@@ -1,0 +1,32 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { DAILY_COPY, DAILY_OPERATIONS_HREF } from "../components/daily/daily-copy";
+
+test("Daily Operations copy uses glossary labels, not Daily View", () => {
+  assert.equal(DAILY_COPY.title, "Daily Operations");
+  assert.equal(DAILY_OPERATIONS_HREF, "/daily");
+  assert.equal(DAILY_COPY.origins, "Ingestion Origin");
+  assert.equal(DAILY_COPY.companies, "Source Company");
+  assert.equal(DAILY_COPY.waitingForYou, "Waiting for you");
+  assert.equal(DAILY_COPY.originsLabels.wordpress_form, "WordPress form");
+  assert.equal(DAILY_COPY.originsLabels.granot_lead_created, "Granot lead created");
+  assert.equal(DAILY_COPY.originsLabels.ringcentral, "RingCentral");
+  assert.equal(DAILY_COPY.originsLabels.best_relocation_sheet, "Best Relocation");
+  assert.equal(DAILY_COPY.originsLabels.vantage_admin, "Vantage Admin");
+  assert.equal(DAILY_COPY.live, "Live");
+  assert.equal(DAILY_COPY.paused, "Paused");
+  assert.equal(DAILY_COPY.reconnecting, "Reconnecting…");
+  assert.equal(DAILY_COPY.liveOff, "Live off");
+  assert.equal(DAILY_COPY.tiles.texts, "Texts sent");
+  assert.equal(DAILY_COPY.panelsEmpty, "Nothing in this category yet today.");
+  assert.equal(DAILY_COPY.exceptionsEmpty, "No exceptions so far today.");
+  assert.equal(DAILY_COPY.quietPriorities, "Quiet priorities");
+  assert.equal(DAILY_COPY.openInLiveEvents, "Open in Live Events");
+  assert.equal(DAILY_COPY.arrivals, "Arrivals");
+  assert.equal(DAILY_COPY.arrivalsEmpty, "Nothing has arrived yet today.");
+  assert.equal(DAILY_COPY.justNow, "Just now");
+  assert.equal(DAILY_COPY.kindTitles["text.deferred"], "Text held until {time}");
+  assert.doesNotMatch(JSON.stringify(DAILY_COPY), /Daily View/);
+  assert.doesNotMatch(JSON.stringify(DAILY_COPY), /Live facts/);
+  assert.doesNotMatch(JSON.stringify(DAILY_COPY), /still open/i);
+});

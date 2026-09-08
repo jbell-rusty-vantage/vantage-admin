@@ -79,19 +79,23 @@ test("duration and match line use the seeded inbound facts", () => {
   assert.equal(conversationStatusLabel(fixture), "BOOKED");
 });
 
-test("Owner nav shows Overview, then Live Events, then Lead Conversations; Admin does not", () => {
+test("Owner nav shows Overview, Daily Operations, Live Events, then Lead Conversations; Admin does not", () => {
   const owner = visibleDashboardNav("owner");
   const admin = visibleDashboardNav("admin");
   assert.equal(owner[0]?.label, "Overview");
   assert.equal(owner[0]?.href, "/");
-  assert.equal(owner[1]?.label, "Live Events");
-  assert.equal(owner[1]?.href, "/live-events");
+  assert.equal(owner[1]?.label, "Daily Operations");
+  assert.equal(owner[1]?.href, "/daily");
   assert.equal(owner[1]?.ownerOnly, true);
-  assert.equal(owner[2]?.label, "Lead Conversations");
-  assert.equal(owner[2]?.href, "/conversations");
+  assert.equal(owner[2]?.label, "Live Events");
+  assert.equal(owner[2]?.href, "/live-events");
   assert.equal(owner[2]?.ownerOnly, true);
+  assert.equal(owner[3]?.label, "Lead Conversations");
+  assert.equal(owner[3]?.href, "/conversations");
+  assert.equal(owner[3]?.ownerOnly, true);
   const formIndex = owner.findIndex((item) => item.href === "/form-leads");
-  assert.ok(formIndex > 2);
+  assert.ok(formIndex > 3);
+  assert.equal(admin.some((item) => item.href === "/daily"), false);
   assert.equal(admin.some((item) => item.href === "/live-events"), false);
   assert.equal(admin.some((item) => item.href === "/conversations"), false);
 });

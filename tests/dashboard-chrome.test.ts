@@ -43,6 +43,7 @@ test("admin palette destinations omit owner-only hrefs", () => {
   const hrefs = destinations.map((destination) => destination.href);
 
   for (const href of [
+    "/daily",
     "/live-events",
     "/conversations",
     "/intakes",

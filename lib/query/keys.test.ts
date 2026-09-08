@@ -255,6 +255,12 @@ test("Job Number timeline keys live in their own namespace", () => {
   assert.equal(JSON.stringify(first).includes("view"), false);
 });
 
+test("Daily Operations snapshot key is isolated from Live Events", () => {
+  assert.deepEqual(queryKeys.dailyOperations.snapshot(), ["daily-operations", "snapshot"]);
+  assert.equal(queryKeys.dailyOperations.all[0], "daily-operations");
+  assert.notEqual(queryKeys.dailyOperations.all[0], queryKeys.granotLifecycle.all[0]);
+});
+
 test("Lead Conversation keys isolate list and detail and never cache an audio URL", () => {
   assert.deepEqual(queryKeys.conversations.list(), ["conversations", "list"]);
   assert.deepEqual(queryKeys.conversations.detail("6a905b5cf7dda52cfacb721e"), [
