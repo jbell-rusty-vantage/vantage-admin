@@ -13,6 +13,7 @@ import { canProxyVantagePath } from "@/server/auth/authorization";
 import { writeAuditLog, buildProxyAuditRequestPayload, proxyAuditPathname } from "@/server/audit";
 import { requestVantageApi, type VantageApiMethod } from "@/server/vantage-api/client";
 import { VantageApiError } from "@/server/vantage-api/errors";
+import { publicProxyErrorMessage } from "@/server/vantage-api/publicError";
 
 type ProxyContext = {
   params: Promise<{
@@ -275,7 +276,7 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
     return NextResponse.json(
       {
         ok: false,
-        error: status >= 500 ? "Vantage API request failed." : message,
+        error: publicProxyErrorMessage(status, message),
         issues: error instanceof VantageApiError ? error.issues : undefined,
         request_id:
           (error instanceof VantageApiError ? error.requestId : undefined) ?? requestId,

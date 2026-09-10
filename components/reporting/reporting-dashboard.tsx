@@ -17,7 +17,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import { DestinationSelector } from "@/components/reporting/destination-selector";
-import { GoogleSettingsPanel } from "@/components/reporting/google-settings-panel";
 import { ExternalHref, InternalReportingLink } from "@/components/reporting/reporting-links";
 import { RunStatusBadge } from "@/components/reporting/reporting-status";
 import { Button } from "@/components/ui/button";
@@ -55,43 +54,39 @@ import {
   validateDraft,
 } from "@/lib/reporting/builder";
 import { destinationDeliveryExplanation } from "@/lib/reporting/destinationSnapshot";
+import { REPORTING_COPY, REPORTING_HREFS } from "@/components/reporting/reporting-copy";
 
 const REVISION_SAVED_NOTICE_KEY = "vantage-admin-reporting-revision-saved";
 
 function revisionSavedMessage(strategy?: ReportingDefinitionDraft["strategy"]) {
-  const snapshotNote =
-    strategy === "snapshot"
-      ? " For a snapshot destination, the sheet is created in the destination folder."
-      : "";
-  return `Revision saved. Choose Run current revision, then Confirm, to write the Google Sheet.${snapshotNote}`;
+  const snapshotNote = strategy === "snapshot" ? REPORTING_COPY.savedNoticeSnapshot : "";
+  return `${REPORTING_COPY.savedNotice}${snapshotNote}`;
 }
 
 function HowReportingWritesSheet() {
   return (
     <Card>
       <CardHeader className="p-4 pb-2">
-        <CardTitle className="text-base">How a Google Sheet is written</CardTitle>
-        <CardDescription>Preview and save do not write to Google. A folder is not a spreadsheet.</CardDescription>
+        <CardTitle className="text-base">{REPORTING_COPY.howTitle}</CardTitle>
+        <CardDescription>{REPORTING_COPY.howHint}</CardDescription>
       </CardHeader>
       <CardContent className="p-4 pt-0">
         <ol className="grid gap-3 text-sm text-steel sm:grid-cols-2 xl:grid-cols-4">
           <li>
-            <span className="font-semibold text-navy">1. Destination</span>
-            <span className="mt-1 block">
-              Pick or create a Drive folder (snapshot) or managed tab. A folder is not a sheet.
-            </span>
+            <span className="font-semibold text-navy">{REPORTING_COPY.stepDestination}</span>
+            <span className="mt-1 block">{REPORTING_COPY.stepDestinationBody}</span>
           </li>
           <li>
-            <span className="font-semibold text-navy">2. Preview</span>
-            <span className="mt-1 block">Sample rows only. Does not write Google.</span>
+            <span className="font-semibold text-navy">{REPORTING_COPY.stepPreview}</span>
+            <span className="mt-1 block">{REPORTING_COPY.stepPreviewBody}</span>
           </li>
           <li>
-            <span className="font-semibold text-navy">3. Save revision</span>
-            <span className="mt-1 block">Locks the recipe. Still no sheet.</span>
+            <span className="font-semibold text-navy">{REPORTING_COPY.stepSave}</span>
+            <span className="mt-1 block">{REPORTING_COPY.stepSaveBody}</span>
           </li>
           <li>
-            <span className="font-semibold text-navy">4. Run + confirm</span>
-            <span className="mt-1 block">This is what creates or updates the Google Sheet.</span>
+            <span className="font-semibold text-navy">{REPORTING_COPY.stepSheet}</span>
+            <span className="mt-1 block">{REPORTING_COPY.stepSheetBody}</span>
           </li>
         </ol>
       </CardContent>
@@ -145,7 +140,13 @@ function newDraft(dataset: ReportingCatalogDataset, timezone: string): Reporting
   };
 }
 
-export function ReportingDashboard({ definitionId }: { definitionId?: string }) {
+export function ReportingDashboard({
+  definitionId,
+  mode = definitionId ? "detail" : "list",
+}: {
+  definitionId?: string;
+  mode?: "list" | "create" | "edit" | "detail";
+}) {
   const role = useDashboardRole();
   const owner = role === "owner";
   const router = useRouter();
@@ -159,12 +160,14 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
     key: string;
   } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageTone, setMessageTone] = useState<"info" | "error" | "success">("info");
 
   useEffect(() => {
     const pending = sessionStorage.getItem(REVISION_SAVED_NOTICE_KEY);
     if (!pending) return;
     sessionStorage.removeItem(REVISION_SAVED_NOTICE_KEY);
     setMessage(pending);
+    setMessageTone("success");
   }, []);
 
   const catalog = useQuery({
@@ -240,6 +243,18 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
     clearRunConfirmation();
   }
 
+  useEffect(() => {
+    if (mode === "create" && !draft && catalog.data?.datasets[0]) {
+      startCreate();
+    }
+  }, [mode, catalog.data, draft]);
+
+  useEffect(() => {
+    if (mode === "edit" && !draft && detail.data?.current_revision) {
+      startEdit();
+    }
+  }, [mode, detail.data, draft]);
+
   const previewMutation = useMutation({
     mutationFn: async () => {
       if (!draft) throw new Error("No draft is open.");
@@ -255,10 +270,12 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
     onSuccess: (result) => {
       setPreview(result);
       setPreviewError(null);
-      setMessage("Preview generated. Review all warnings and blocking reasons.");
+      setMessageTone("success");
+      setMessage("Preview generated. Review the sample, then save the report before creating the sheet.");
     },
     onError: (error) => {
       setPreviewError(error.message);
+      setMessageTone("error");
       setMessage(error.message);
     },
   });
@@ -278,27 +295,34 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
     },
     onSuccess: async (result) => {
       const savedMessage = revisionSavedMessage(draft?.strategy);
+      setMessageTone("success");
       setMessage(savedMessage);
       setDraft(null);
       setPreview(null);
       setPreviewError(null);
       clearRunConfirmation();
       await refresh();
-      if (!definitionId) {
-        sessionStorage.setItem(REVISION_SAVED_NOTICE_KEY, savedMessage);
-        router.push(`/reporting/${result.definitionId}`);
-      }
+      sessionStorage.setItem(REVISION_SAVED_NOTICE_KEY, savedMessage);
+      router.push(REPORTING_HREFS.report(result.definitionId));
     },
-    onError: (error) => setMessage(error.message),
+    onError: (error) => {
+      setMessageTone("error");
+      setMessage(error.message);
+    },
   });
 
   const archiveMutation = useMutation({
     mutationFn: () => archiveReportingDefinition(definitionId!),
     onSuccess: async () => {
-      setMessage("Definition archived; its immutable revisions remain available.");
+      setMessageTone("success");
+      setMessage(REPORTING_COPY.archivedNotice);
       await refresh();
+      router.push(REPORTING_HREFS.reports);
     },
-    onError: (error) => setMessage(error.message),
+    onError: (error) => {
+      setMessageTone("error");
+      setMessage(error.message);
+    },
   });
 
   const prepareRunMutation = useMutation({
@@ -306,8 +330,9 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
       prepareReportingRun(definitionId!, attempt.revisionId, attempt.key),
     onSuccess: (result) => {
       if ("status" in result) {
+        setMessageTone("success");
         setMessage(
-          `Run ${result.run_id} queued${result.idempotent_replay ? " (idempotent replay)" : ""}.${
+          `Sheet run ${result.run_id} queued${result.idempotent_replay ? " (idempotent replay)" : ""}.${
             result.wakeup_published === false
               ? " Immediate worker wakeup was unavailable; heartbeat recovery is pending."
               : ""
@@ -319,9 +344,13 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
       }
       setConfirmation(result);
       setRunAttempt({ revisionId: result.revision_id, key: result.idempotency_key });
-      setMessage("Fresh run estimate ready. Confirm only after reviewing destination impact and PII.");
+      setMessageTone("info");
+      setMessage("Sheet estimate ready. Confirm only after reviewing destination impact and PII.");
     },
-    onError: (error) => setMessage(error.message),
+    onError: (error) => {
+      setMessageTone("error");
+      setMessage(error.message);
+    },
   });
 
   const confirmRunMutation = useMutation({
@@ -336,8 +365,9 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
       });
     },
     onSuccess: async (result) => {
+      setMessageTone("success");
       setMessage(
-        `Run ${result.run_id} queued${result.idempotent_replay ? " (idempotent replay)" : ""}. Delivery runs asynchronously.${
+        `Sheet run ${result.run_id} queued${result.idempotent_replay ? " (idempotent replay)" : ""}. Delivery runs asynchronously.${
           result.wakeup_published === false
             ? " Immediate worker wakeup was unavailable; heartbeat recovery is pending."
             : ""
@@ -346,7 +376,10 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
       clearRunConfirmation();
       await refresh();
     },
-    onError: (error) => setMessage(error.message),
+    onError: (error) => {
+      setMessageTone("error");
+      setMessage(error.message);
+    },
   });
 
   const loadingError =
@@ -357,28 +390,37 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-trust-blue">
-            Production reporting
+            {REPORTING_COPY.eyebrow}
           </p>
           <h1 className="text-2xl font-semibold text-navy">
-            {detail.data?.definition.name ?? "Reporting definitions"}
+            {mode === "create"
+              ? REPORTING_COPY.createTitle
+              : mode === "edit"
+                ? REPORTING_COPY.editTitle
+                : detail.data?.definition.name ?? REPORTING_COPY.listTitle}
           </h1>
           <p className="mt-1 max-w-3xl text-sm text-steel">
-            Versioned, manual-only projections from canonical production data. Every edit creates
-            an immutable revision.
+            {mode === "create"
+              ? REPORTING_COPY.createHint
+              : mode === "edit"
+                ? REPORTING_COPY.editHint
+                : definitionId
+                  ? REPORTING_COPY.detailHint
+                  : REPORTING_COPY.listHint}
           </p>
         </div>
         <div className="flex gap-2">
           {definitionId ? (
-            <Link className="inline-flex h-10 items-center text-sm font-semibold text-trust-blue" href="/reporting">
-              All definitions
+            <Link className="inline-flex h-10 items-center text-sm font-semibold text-trust-blue" href={REPORTING_HREFS.reports}>
+              {REPORTING_COPY.allReports}
             </Link>
           ) : null}
           <Button variant="outline" onClick={() => void refresh()}>
-            <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+            <RefreshCw className="mr-2 h-4 w-4" /> {REPORTING_COPY.refresh}
           </Button>
-          {!definitionId && owner ? (
-            <Button onClick={startCreate} disabled={!catalog.data?.datasets.length}>
-              <FilePlus2 className="mr-2 h-4 w-4" /> New definition
+          {mode === "list" && owner ? (
+            <Button onClick={() => router.push(REPORTING_HREFS.create)} disabled={!catalog.data?.datasets.length}>
+              <FilePlus2 className="mr-2 h-4 w-4" /> {REPORTING_COPY.newReport}
             </Button>
           ) : null}
         </div>
@@ -387,21 +429,18 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
       {!owner ? (
         <FeedbackMessage tone="info">
           <LockKeyhole className="mr-2 inline h-4 w-4" />
-          Read-only admin access. Only an owner can connect Google, manage destinations, preview,
-          save, archive, or run reports.
+          {REPORTING_COPY.readOnly}
         </FeedbackMessage>
       ) : null}
-      {message ? <FeedbackMessage>{message}</FeedbackMessage> : null}
+      {message ? <FeedbackMessage tone={messageTone}>{message}</FeedbackMessage> : null}
       {loadingError ? <FeedbackMessage tone="error">{loadingError.message}</FeedbackMessage> : null}
 
-      {!definitionId || draft ? <HowReportingWritesSheet /> : null}
+      <HowReportingWritesSheet />
 
-      {!definitionId && owner ? <GoogleSettingsPanel /> : null}
-
-      {!definitionId ? (
+      {mode === "list" ? (
         <div className="flex flex-wrap gap-3 text-sm">
-          <InternalReportingLink href="/reporting/destinations">
-            Manage destinations
+          <InternalReportingLink href={REPORTING_HREFS.sheets}>
+            {REPORTING_COPY.manageSheets}
           </InternalReportingLink>
         </div>
       ) : null}
@@ -420,6 +459,7 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
             setPreview(null);
             setPreviewError(null);
             clearRunConfirmation();
+            router.push(definitionId ? REPORTING_HREFS.report(definitionId) : REPORTING_HREFS.reports);
           }}
           onPreview={() => previewMutation.mutate()}
           onSave={() => saveMutation.mutate()}
@@ -430,13 +470,15 @@ export function ReportingDashboard({ definitionId }: { definitionId?: string }) 
           dateWindowContract={catalog.data!.date_window}
           owner={owner}
         />
+      ) : mode === "create" || mode === "edit" ? (
+        <p className="text-sm text-steel">Loading report setup…</p>
       ) : definitionId ? (
         <DefinitionDetail
           detail={detail.data}
           runs={(runs.data ?? []).filter((run) => run.definition_id === definitionId)}
           owner={owner}
           confirmation={activeConfirmation}
-          onEdit={startEdit}
+          onEdit={() => router.push(REPORTING_HREFS.edit(definitionId!))}
           onArchive={() => archiveMutation.mutate()}
           onPrepareRun={() => {
             const key = idempotencyKeyForRunAttempt(
@@ -472,13 +514,13 @@ function ReportingOverview({
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(22rem,1fr)]">
       <Card>
         <CardHeader>
-          <CardTitle>Definitions</CardTitle>
-          <CardDescription>Stable definitions pointing to immutable current revisions.</CardDescription>
+          <CardTitle>{REPORTING_COPY.reportsTable}</CardTitle>
+          <CardDescription>{REPORTING_COPY.reportsTableHint}</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="border-b text-xs uppercase text-steel">
-              <tr><th className="py-2">Name</th><th>Dataset</th><th>Revision</th><th>Updated</th><th>Status</th></tr>
+              <tr><th className="py-2">Report</th><th>Type</th><th>Version</th><th>Updated</th><th>Status</th></tr>
             </thead>
             <tbody>
               {definitions.map((definition) => (
@@ -494,13 +536,13 @@ function ReportingOverview({
                   <td>{definition.state}</td>
                 </tr>
               ))}
-              {!definitions.length ? <tr><td colSpan={5} className="py-8 text-center text-steel">No reporting definitions.</td></tr> : null}
+              {!definitions.length ? <tr><td colSpan={5} className="py-8 text-center text-steel">{REPORTING_COPY.emptyReports}</td></tr> : null}
             </tbody>
           </table>
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>Recent runs</CardTitle><CardDescription>Manual run preparation and delivery status.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>{REPORTING_COPY.recentSheets}</CardTitle><CardDescription>{REPORTING_COPY.recentSheetsHint}</CardDescription></CardHeader>
         <CardContent className="space-y-3">
           {runs.slice(0, 12).map((run) => (
             <div key={run.id ?? run._id} className="rounded-md border border-steel-100 p-3">
@@ -518,7 +560,7 @@ function ReportingOverview({
               </p>
             </div>
           ))}
-          {!runs.length ? <p className="text-sm text-steel">No reporting runs.</p> : null}
+          {!runs.length ? <p className="text-sm text-steel">{REPORTING_COPY.emptyRuns}</p> : null}
         </CardContent>
       </Card>
     </div>
@@ -560,11 +602,11 @@ function Builder(props: BuilderProps) {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader><CardTitle>Immutable revision builder</CardTitle><CardDescription>Only catalog-declared datasets, filters, columns, and sorts are available.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>{REPORTING_COPY.builderTitle}</CardTitle><CardDescription>{REPORTING_COPY.builderHint}</CardDescription></CardHeader>
         <CardContent className="space-y-6">
           <fieldset className="grid gap-4 md:grid-cols-2">
-            <label className="text-sm font-semibold text-navy">Definition name<Input className="mt-1" value={draft.name} onChange={(event) => patch({ name: event.target.value })} /></label>
-            <label className="text-sm font-semibold text-navy">Dataset
+            <label className="text-sm font-semibold text-navy">{REPORTING_COPY.nameLabel}<Input className="mt-1" value={draft.name} onChange={(event) => patch({ name: event.target.value })} /></label>
+            <label className="text-sm font-semibold text-navy">{REPORTING_COPY.datasetLabel}
               <select className={`${fieldClass} mt-1`} value={draft.dataset_key} disabled={!props.canChangeDataset} onChange={(event) => {
                 const nextDataset = props.catalog.find((item) => item.key === event.target.value)!;
                 onChange({ ...newDraft(nextDataset, draft.timezone), name: draft.name, description: draft.description });
@@ -572,7 +614,7 @@ function Builder(props: BuilderProps) {
                 {props.catalog.map((item) => <option key={item.key} value={item.key}>{displayName(item.key)} @ {item.schema_version}</option>)}
               </select>
             </label>
-            <label className="text-sm font-semibold text-navy md:col-span-2">Description<Textarea className="mt-1" value={draft.description} onChange={(event) => patch({ description: event.target.value })} /></label>
+            <label className="text-sm font-semibold text-navy md:col-span-2">{REPORTING_COPY.descriptionLabel}<Textarea className="mt-1" value={draft.description} onChange={(event) => patch({ description: event.target.value })} /></label>
           </fieldset>
           <div className="rounded-md bg-steel-100 p-3 text-sm text-steel"><strong className="text-navy">Grain:</strong> {dataset.grain}<br /><strong className="text-navy">Date semantic:</strong> {dataset.date_semantic}<br /><strong className="text-navy">Sample policy:</strong> version {dataset.sample_policy_version} · up to 50 representative rows</div>
 
@@ -729,23 +771,23 @@ function Builder(props: BuilderProps) {
       <div className="space-y-3">
         {props.previewError ? <FeedbackMessage tone="error">{props.previewError}</FeedbackMessage> : null}
         <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="ghost" onClick={props.onCancel}>Cancel</Button>
+          <Button variant="ghost" onClick={props.onCancel}>{REPORTING_COPY.cancel}</Button>
           <Button variant="outline" disabled={props.previewing || props.saving} onClick={props.onPreview}>
-            {props.previewing ? "Previewing…" : "Generate preview (sample only)"}
+            {props.previewing ? REPORTING_COPY.previewing : REPORTING_COPY.previewSample}
           </Button>
           <Button
             disabled={!props.preview || props.preview.blocking_reasons.length > 0 || props.saving}
             onClick={props.onSave}
           >
-            {props.saving ? "Saving…" : "Save revision (no sheet yet)"}
+            {props.saving ? REPORTING_COPY.savingReport : REPORTING_COPY.saveReport}
           </Button>
         </div>
         {saveBlocked ? (
           <FeedbackMessage tone="warning">{saveBlocked}</FeedbackMessage>
         ) : props.preview && !props.previewing ? (
           <FeedbackMessage tone="success">
-            Preview is ready. Saving locks the recipe. A Google Sheet is written only after you
-            Run current revision and Confirm on the saved definition.
+            Preview is ready. Saving locks the report. A Google Sheet is written only after you
+            create the sheet and confirm.
           </FeedbackMessage>
         ) : null}
       </div>
@@ -869,7 +911,7 @@ function RollingWindowFields({
 function PreviewPanel({ preview, columns }: { preview: ReportingPreview; columns: ReportingDefinitionDraft["selected_columns"] }) {
   const bounded = preview.estimate.kind === "upper_bound";
   return <Card>
-    <CardHeader><CardTitle>Preview</CardTitle><CardDescription>Expires {formatDate(preview.expires_at)} · checksum {preview.preview_checksum} · sample evidence {preview.sample_evidence}</CardDescription></CardHeader>
+    <CardHeader><CardTitle>Preview</CardTitle><CardDescription>Expires {formatDate(preview.expires_at)}. This sample does not write a Google Sheet.</CardDescription></CardHeader>
     <CardContent className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Metric label={bounded ? "Safe upper-bound rows" : "Exact rows"} value={preview.estimate.rows} />
@@ -911,7 +953,7 @@ function DefinitionDetail({
   onConfirmRun: () => void;
   busy: boolean;
 }) {
-  if (!detail) return <p className="text-sm text-steel">Loading definition…</p>;
+  if (!detail) return <p className="text-sm text-steel">Loading report…</p>;
   const revision = detail.current_revision;
   const definition = detail.definition;
   const latestSheetRun = [...runs]
@@ -927,27 +969,26 @@ function DefinitionDetail({
     })[0];
   const latestSheetUrl = latestSheetRun?.delivery?.workbook_url ?? null;
   return <div className="space-y-6">
-    <Card><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle>Current revision #{revision.revision_number}</CardTitle><CardDescription>{displayName(revision.dataset_key)} @ {revision.dataset_schema_version} · {revision.revision_snapshot_checksum}</CardDescription></div>{owner && definition.state === "active" ? <div className="flex gap-2"><Button variant="outline" onClick={onEdit}>Create new revision</Button><Button variant="destructive" disabled={busy} onClick={onArchive}>Archive</Button></div> : null}</div></CardHeader><CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"><Metric label="Timezone" value={revision.draft.timezone} /><Metric label="Window" value={windowLabel(revision.draft.date_window_spec)} /><Metric label="Window policy" value={windowPolicy(revision.draft.date_window_spec)} /><Metric label="Columns" value={revision.draft.selected_columns.length} /><Metric label="Sources" value={revision.draft.source_selection.length} /><Metric label="Strategy" value={revision.draft.strategy} /><Metric label="Destination" value={revision.draft.destination_id} /><Metric label="Sample evidence" value={revision.sample_evidence ?? "—"} /><Metric label="Created" value={formatDate(revision.created_at)} /></CardContent></Card>
+    <Card><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle>{REPORTING_COPY.currentVersion} #{revision.revision_number}</CardTitle><CardDescription>{displayName(revision.dataset_key)}</CardDescription></div>{owner && definition.state === "active" ? <div className="flex gap-2"><Button variant="outline" onClick={onEdit}>{REPORTING_COPY.editReport}</Button><Button variant="destructive" disabled={busy} onClick={onArchive}>{REPORTING_COPY.archiveReport}</Button></div> : null}</div></CardHeader><CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"><Metric label={REPORTING_COPY.timezoneLabel} value={revision.draft.timezone} /><Metric label={REPORTING_COPY.windowLabel} value={windowLabel(revision.draft.date_window_spec)} /><Metric label="Window policy" value={windowPolicy(revision.draft.date_window_spec)} /><Metric label={REPORTING_COPY.columnsLabel} value={revision.draft.selected_columns.length} /><Metric label={REPORTING_COPY.sourcesLabel} value={revision.draft.source_selection.length} /><Metric label="Sheet style" value={revision.draft.strategy === "snapshot" ? "New spreadsheet in folder" : "Replace managed tab"} /><Metric label={REPORTING_COPY.destinationLabel} value={revision.draft.destination_id} /><Metric label={REPORTING_COPY.createdLabel} value={formatDate(revision.created_at)} /></CardContent></Card>
 
     {latestSheetUrl ? (
       <FeedbackMessage tone="success">
-        Latest sheet: <ExternalHref href={latestSheetUrl}>Open workbook</ExternalHref>
+        {REPORTING_COPY.latestSheet} <ExternalHref href={latestSheetUrl}>{REPORTING_COPY.openWorkbook}</ExternalHref>
       </FeedbackMessage>
     ) : null}
 
     {owner && definition.state === "active" ? (
       <Card>
         <CardHeader>
-          <CardTitle>Run current revision</CardTitle>
+          <CardTitle>{REPORTING_COPY.createSheetCard}</CardTitle>
           <CardDescription>
-            Saving did not write to Google. {destinationDeliveryExplanation(revision.draft.strategy)}{" "}
-            After you Confirm, open the run detail for the workbook link.
+            {REPORTING_COPY.createSheetHint} {destinationDeliveryExplanation(revision.draft.strategy)}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {confirmation ? (
             <>
-              <div className="grid gap-3 md:grid-cols-5">
+              <div className="grid gap-3 md:grid-cols-4">
                 <Metric
                   label={confirmation.estimate.kind === "upper_bound" ? "Fresh upper-bound rows" : "Fresh exact rows"}
                   value={confirmation.estimate.rows}
@@ -957,8 +998,7 @@ function DefinitionDetail({
                   value={confirmation.estimate.cells_including_header}
                 />
                 <Metric label="Warnings" value={confirmation.warnings.length} />
-                <Metric label="Confirmation ID" value={confirmation.confirmation_id} />
-                <Metric label="Expires" value={formatDate(confirmation.expires_at)} />
+                <Metric label="Estimate expires" value={formatDate(confirmation.expires_at)} />
               </div>
               {confirmation.estimate.kind === "upper_bound" ? (
                 <FeedbackMessage tone="info">
@@ -966,28 +1006,28 @@ function DefinitionDetail({
                 </FeedbackMessage>
               ) : null}
               <p className="text-sm text-steel">
-                These are the Google mutations this confirmed run would apply. Saving the revision did not write them.
+                These are the Google changes this sheet creation would apply. Saving the report did not write them.
               </p>
               <details className="rounded border border-steel-100 p-3 text-sm">
                 <summary className="cursor-pointer font-semibold text-navy">Intended Google mutations</summary>
                 <pre className="mt-2 overflow-auto text-xs">{JSON.stringify(confirmation.intended_changes, null, 2)}</pre>
               </details>
               <FeedbackMessage tone="warning">
-                Confirming queues one manual run for revision #{revision.revision_number} ({revision.draft.strategy}).
-                PII may appear in the authorized Google artifact.
+                Confirming creates or updates the Google Sheet for this saved report.
+                Personal data may appear in that spreadsheet.
               </FeedbackMessage>
               <Button disabled={busy} onClick={onConfirmRun}>
-                <Play className="mr-2 h-4 w-4" /> Confirm and queue run
+                <Play className="mr-2 h-4 w-4" /> {REPORTING_COPY.confirmSheet}
               </Button>
             </>
           ) : (
-            <Button disabled={busy} onClick={onPrepareRun}>Review fresh estimate</Button>
+            <Button disabled={busy} onClick={onPrepareRun}>{REPORTING_COPY.createSheet}</Button>
           )}
         </CardContent>
       </Card>
     ) : null}
 
-    <div className="grid gap-6 xl:grid-cols-2"><Card><CardHeader><CardTitle>Revision history</CardTitle></CardHeader><CardContent className="space-y-2">{detail.revisions.map((item) => <div key={item.id ?? item._id} className="rounded-md border border-steel-100 p-3"><div className="flex justify-between"><strong>Revision #{item.revision_number}</strong><span className="text-xs text-steel">{formatDate(item.created_at)}</span></div><p className="mt-1 truncate font-mono text-xs text-steel">{item.revision_snapshot_checksum}</p>{item.sample_evidence ? <p className="mt-1 truncate font-mono text-xs text-steel">Sample evidence: {item.sample_evidence}</p> : null}</div>)}</CardContent></Card><Card><CardHeader><CardTitle>Run history</CardTitle></CardHeader><CardContent className="space-y-2">{runs.map((run) => <div key={run.id ?? run._id} className="rounded-md border border-steel-100 p-3"><div className="flex justify-between gap-2"><Link className="font-mono text-xs text-trust-blue hover:underline" href={`/reporting/runs/${run.id ?? run._id}`}>{run.id ?? run._id}</Link><RunStatusBadge value={run.status} /></div><p className="mt-1 text-xs text-steel">{formatDate(run.created_at)} · revision {run.definition_revision_id}</p>{run.failure ? <p className="mt-1 text-xs text-red-700">{run.failure.summary ?? run.failure.code}{run.failure.metadata?.remediation ? ` — ${run.failure.metadata.remediation}` : ""}</p> : null}</div>)}{!runs.length ? <p className="text-sm text-steel">No runs for this definition.</p> : null}</CardContent></Card></div>
+    <div className="grid gap-6 xl:grid-cols-2"><Card><CardHeader><CardTitle>{REPORTING_COPY.versionHistory}</CardTitle></CardHeader><CardContent className="space-y-2">{detail.revisions.map((item) => <div key={item.id ?? item._id} className="rounded-md border border-steel-100 p-3"><div className="flex justify-between"><strong>Version #{item.revision_number}</strong><span className="text-xs text-steel">{formatDate(item.created_at)}</span></div></div>)}</CardContent></Card><Card><CardHeader><CardTitle>{REPORTING_COPY.sheetHistory}</CardTitle></CardHeader><CardContent className="space-y-2">{runs.map((run) => <div key={run.id ?? run._id} className="rounded-md border border-steel-100 p-3"><div className="flex justify-between gap-2"><Link className="font-mono text-xs text-trust-blue hover:underline" href={REPORTING_HREFS.run(String(run.id ?? run._id))}>{run.id ?? run._id}</Link><RunStatusBadge value={run.status} /></div><p className="mt-1 text-xs text-steel">{formatDate(run.created_at)}</p>{run.failure ? <p className="mt-1 text-xs text-red-700">{run.failure.summary ?? run.failure.code}{run.failure.metadata?.remediation ? ` — ${run.failure.metadata.remediation}` : ""}</p> : null}</div>)}{!runs.length ? <p className="text-sm text-steel">{REPORTING_COPY.noRunsForReport}</p> : null}</CardContent></Card></div>
   </div>;
 }
 

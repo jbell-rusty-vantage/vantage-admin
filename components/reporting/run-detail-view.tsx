@@ -103,9 +103,10 @@ export function RunDetailView({ runId }: { runId: string }) {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link className="text-sm font-semibold text-trust-blue" href="/reporting">
-            ← Reporting
+            ← All reports
           </Link>
-          <h1 className="mt-2 font-mono text-lg font-semibold text-navy">{runId}</h1>
+          <h1 className="mt-2 text-lg font-semibold text-navy">Sheet run</h1>
+          <p className="mt-1 font-mono text-xs text-steel">{runId}</p>
           {run ? (
             <div className="mt-2 flex items-center gap-2">
               <RunStatusBadge value={run.status} />

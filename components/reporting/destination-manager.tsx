@@ -31,6 +31,8 @@ import {
 } from "@/lib/reporting/destinationSnapshot";
 import { queryKeys } from "@/lib/query/keys";
 import { ExternalHref } from "@/components/reporting/reporting-links";
+import { GoogleSettingsPanel } from "@/components/reporting/google-settings-panel";
+import { REPORTING_COPY, REPORTING_HREFS } from "@/components/reporting/reporting-copy";
 import {
   DestinationHealthBadge,
   DestinationStatusBadge,
@@ -56,18 +58,16 @@ export function DestinationManager() {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-trust-blue">
-            Reporting destinations
+            {REPORTING_COPY.eyebrow}
           </p>
-          <h2 className="text-xl font-semibold text-navy">Google delivery targets</h2>
+          <h2 className="text-xl font-semibold text-navy">{REPORTING_COPY.sheetsTitle}</h2>
           <p className="mt-1 max-w-3xl text-sm text-steel">
-            Snapshot destinations are Drive folders. A spreadsheet appears only after you run a saved
-            definition and confirm. Replace-tab destinations point at a managed tab inside a workbook.
-            Operational workbooks are hard-denylisted with no override.
+            {REPORTING_COPY.sheetsHint}
           </p>
         </div>
         <div className="flex gap-2">
-          <Link className="inline-flex h-10 items-center text-sm font-semibold text-trust-blue" href="/reporting">
-            Reporting home
+          <Link className="inline-flex h-10 items-center text-sm font-semibold text-trust-blue" href={REPORTING_HREFS.reports}>
+            {REPORTING_COPY.allReports}
           </Link>
           <Button variant="outline" onClick={() => void destinationsQuery.refetch()}>
             <RefreshCw className="mr-2 h-4 w-4" /> Refresh
@@ -75,7 +75,7 @@ export function DestinationManager() {
           {owner ? (
             <Button onClick={() => setShowCreate((value) => !value)}>
               <FolderPlus className="mr-2 h-4 w-4" />
-              {showCreate ? "Hide create form" : "New destination"}
+              {showCreate ? "Hide create form" : "New folder or tab"}
             </Button>
           ) : null}
         </div>
@@ -88,6 +88,8 @@ export function DestinationManager() {
         </FeedbackMessage>
       ) : null}
       {message ? <FeedbackMessage>{message}</FeedbackMessage> : null}
+
+      {owner ? <GoogleSettingsPanel /> : null}
 
       {showCreate && owner ? (
         <DestinationCreateForm
@@ -105,7 +107,7 @@ export function DestinationManager() {
           <CardTitle>Active destinations</CardTitle>
           <CardDescription>
             Folder links open Drive folders. A spreadsheet link appears only after a run writes a
-            workbook. Health older than 24 hours must be verified again before preview or run.
+            workbook. Health older than 24 hours must be verified again before you preview or create a sheet.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -207,7 +209,7 @@ function DestinationRow({
           </p>
         ) : (
           <p className="mt-1 text-xs text-steel">
-            No spreadsheet yet — write one by running a saved definition.
+            No spreadsheet yet. Create the sheet from a saved report.
           </p>
         )}
         {destination.managed_tab ? (

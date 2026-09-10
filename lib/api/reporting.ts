@@ -1,4 +1,6 @@
-type ApiEnvelope<T> = { ok: true; data: T } | { ok: false; error: string; issues?: unknown };
+type ApiEnvelope<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; issues?: unknown; remediation?: string };
 
 export type ReportingDatasetKey =
   | "lead_outcome_detail"
@@ -802,7 +804,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const envelope = (await response.json()) as ApiEnvelope<T>;
   if (!response.ok || !envelope.ok) {
-    throw new Error(envelope.ok ? `Reporting request failed (${response.status}).` : envelope.error);
+    const base = envelope.ok
+      ? `Reporting request failed (${response.status}).`
+      : envelope.error;
+    const remediation =
+      !envelope.ok && envelope.remediation ? ` ${envelope.remediation}` : "";
+    throw new Error(`${base}${remediation}`);
   }
   return envelope.data;
 }

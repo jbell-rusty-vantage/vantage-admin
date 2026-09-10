@@ -195,6 +195,9 @@ test("pageTitleForPath uses nav labels, then longer special prefixes", () => {
   assert.equal(pageTitleForPath("/manual"), "Manual");
   assert.equal(pageTitleForPath("/extension"), "Extension");
   assert.equal(pageTitleForPath("/cancellations/new"), "New Cancellation");
+  assert.equal(pageTitleForPath("/reporting"), "Reporting");
+  assert.equal(pageTitleForPath("/reporting/new"), "Create New Report");
+  assert.equal(pageTitleForPath("/reporting/destinations"), "Sheets");
 });
 
 test("isActivePath treats Overview as exact and prefixes other destinations", () => {

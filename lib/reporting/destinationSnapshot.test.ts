@@ -90,7 +90,7 @@ test("stale or unverified destinations cannot be bound for preview", () => {
 
 test("snapshot destinations explain that the folder is empty until a run", () => {
   assert.match(destinationDeliveryExplanation("snapshot"), /folder/i);
-  assert.match(destinationDeliveryExplanation("snapshot"), /run/i);
+  assert.match(destinationDeliveryExplanation("snapshot"), /create the sheet/i);
   assert.doesNotMatch(destinationDeliveryExplanation("snapshot"), /managed tab/i);
   assert.match(destinationDeliveryExplanation("replace_tab"), /managed tab/i);
 });

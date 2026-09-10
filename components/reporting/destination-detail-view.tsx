@@ -208,7 +208,7 @@ export function DestinationDetailView({ destinationId }: { destinationId: string
                 </p>
               ) : (
                 <p className="text-steel">
-                  No spreadsheet yet — write one by running a saved definition.
+                  No spreadsheet yet. Create the sheet from a saved report.
                 </p>
               )}
               {destination.managed_tab ? (

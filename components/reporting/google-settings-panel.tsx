@@ -73,8 +73,8 @@ export function GoogleSettingsPanel() {
           <div>
             <CardTitle>Owner Google connection</CardTitle>
             <CardDescription>
-              Reporting delivery uses owner OAuth with least-privilege <code>drive.file</code> access.
-              Ingestion service-account credentials are never used for reporting.
+              Connect Google here, then create a folder or tab destination. Reporting uses limited
+              Drive access. Ingestion service-account credentials are never used for reporting.
             </CardDescription>
           </div>
           <Button

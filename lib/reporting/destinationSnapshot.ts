@@ -13,7 +13,7 @@ export function destinationSnapshotChecksumFromSummary(
     return destination.snapshot_checksum;
   }
   throw new Error(
-    "Destination snapshot checksum is unavailable. Verify the destination and refresh.",
+    "This folder or tab is not ready. Verify it on the Sheets tab, then refresh.",
   );
 }
 
@@ -55,7 +55,7 @@ export function destinationDeliveryExplanation(
   strategy: ReportingDestinationStrategy,
 ): string {
   if (strategy === "snapshot") {
-    return "This destination is a Drive folder. Vantage creates a new spreadsheet in that folder only after you run a saved revision.";
+    return "This destination is a Drive folder. Vantage creates a new spreadsheet in that folder only after you create the sheet.";
   }
-  return "This destination is a managed tab inside a workbook. A run replaces that tab; it does not create a new file.";
+  return "This destination is a managed tab inside a workbook. Creating the sheet replaces that tab; it does not create a new file.";
 }

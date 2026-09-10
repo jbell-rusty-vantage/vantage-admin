@@ -24,6 +24,7 @@ import {
   DestinationStatusBadge,
 } from "@/components/reporting/reporting-status";
 import { ExternalHref, InternalReportingLink } from "@/components/reporting/reporting-links";
+import { REPORTING_HREFS } from "@/components/reporting/reporting-copy";
 
 const fieldClass =
   "h-10 w-full rounded-md border border-input bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
@@ -101,10 +102,9 @@ export function DestinationSelector({
 
   return (
     <section>
-      <h3 className="font-heading text-lg font-semibold text-navy">6. Destination & strategy</h3>
+      <h3 className="font-heading text-lg font-semibold text-navy">6. Sheet destination</h3>
       <p className="text-sm text-steel">
-        Choose a verified destination with health checked in the last 24 hours. Snapshot checksum and
-        strategy are bound from the server-validated destination record.
+        Choose a verified folder or tab. Health must have been checked in the last 24 hours.
       </p>
 
       {destinationsQuery.isLoading ? (
@@ -161,24 +161,23 @@ export function DestinationSelector({
 
           {destinations.length > 0 && bindableCount === 0 ? (
             <FeedbackMessage tone="warning">
-              Destinations exist but none can be bound. They are unverified or their health is older
-              than 24 hours. Verify on{" "}
-              <InternalReportingLink href="/reporting/destinations">Destinations</InternalReportingLink>
-              , then refresh.
+              Folders and tabs exist, but none are ready. They are unverified or their health is older
+              than 24 hours. Verify on the{" "}
+              <InternalReportingLink href={REPORTING_HREFS.sheets}>Sheets</InternalReportingLink>
+              {" "}tab, then refresh.
             </FeedbackMessage>
           ) : null}
 
           {selectedMissing || (selected && !selectedBindable) ? (
             <FeedbackMessage tone="warning">
-              This destination cannot be used for preview or run. It is unverified or its health is
-              older than 24 hours.{" "}
-              <InternalReportingLink href="/reporting/destinations">
-                Open Destinations
+              This folder or tab cannot be used until it is verified.{" "}
+              <InternalReportingLink href={REPORTING_HREFS.sheets}>
+                Open Sheets
               </InternalReportingLink>
               {draft.destination_id ? (
                 <>
                   {" · "}
-                  <InternalReportingLink href={`/reporting/destinations/${draft.destination_id}`}>
+                  <InternalReportingLink href={REPORTING_HREFS.destination(draft.destination_id)}>
                     Open this destination
                   </InternalReportingLink>
                 </>
@@ -216,7 +215,7 @@ export function DestinationSelector({
                 </p>
               ) : (
                 <p className="text-steel">
-                  No spreadsheet yet — write one by running a saved definition.
+                  No spreadsheet yet. Create the sheet after you save this report.
                 </p>
               )}
               {selected.managed_tab ? (
@@ -237,12 +236,11 @@ export function DestinationSelector({
 
           {selectedBindable && draft.destination_snapshot_checksum ? (
             <FeedbackMessage tone="success">
-              Snapshot checksum bound:{" "}
-              <span className="font-mono text-xs">{draft.destination_snapshot_checksum}</span>
+              This folder or tab is ready. You can preview the report.
             </FeedbackMessage>
           ) : selectedMissing || (selected && !selectedBindable) ? null : (
             <FeedbackMessage tone="warning">
-              Select a verified destination with an available snapshot checksum before previewing.
+              Choose a verified folder or tab before you preview.
             </FeedbackMessage>
           )}
 

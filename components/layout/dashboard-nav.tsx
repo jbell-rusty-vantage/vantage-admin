@@ -59,6 +59,8 @@ const extraPageTitles: { href: string; title: string }[] = [
   { href: "/bookings/reconciliation", title: "Booking Reconciliation" },
   { href: "/bookings/new", title: "Precise Booking Form" },
   { href: "/cancellations/new", title: "New Cancellation" },
+  { href: "/reporting/new", title: "Create New Report" },
+  { href: "/reporting/destinations", title: "Sheets" },
 ];
 
 export const dashboardNavSections: DashboardNavSection[] = [
