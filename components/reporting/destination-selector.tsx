@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { TableErrorState, TableLoadingState } from "@/components/data-table/table-states";
@@ -17,6 +17,7 @@ import {
   destinationDeliveryExplanation,
   destinationSnapshotChecksumFromSummary,
   isDestinationHealthFresh,
+  refreshDraftDestinationBind,
 } from "@/lib/reporting/destinationSnapshot";
 import { queryKeys } from "@/lib/query/keys";
 import {
@@ -47,6 +48,18 @@ export function DestinationSelector({
 
   const destinations = destinationsQuery.data ?? [];
   const selected = destinations.find((destination) => destination.id === draft.destination_id);
+
+  useEffect(() => {
+    const next = refreshDraftDestinationBind(draft, destinations);
+    if (!next) return;
+    onChange({ ...draft, ...next });
+    // Rebind only when the live destination snapshot changes, not on every draft keystroke.
+  }, [
+    destinations,
+    draft.destination_id,
+    draft.destination_snapshot_checksum,
+    draft.strategy,
+  ]);
   const bindableCount = destinations.filter((destination) =>
     canBindDestinationToDraft(destination),
   ).length;

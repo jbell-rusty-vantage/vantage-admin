@@ -438,6 +438,7 @@ test("admin can read reporting but every reporting mutation is owner-only", () =
     "api/v1/admin/reporting/definitions/report-1/run",
     "api/v1/admin/reporting/destinations",
     "api/v1/admin/reporting/destinations/dest-1/verify",
+    "api/v1/admin/reporting/destinations/dest-1/archive",
     "api/v1/admin/reporting/runs/run-1/cancel",
   ]) {
     assert.equal(canProxyVantagePath({ role: "admin", method: "POST", path }), false);

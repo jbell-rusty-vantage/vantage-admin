@@ -330,7 +330,10 @@ function sanitizeReportingAuditBody(
     };
   }
 
-  if (/\/destinations\/[^/]+$/.test(normalized) && method === "DELETE") {
+  if (
+    (/\/destinations\/[^/]+$/.test(normalized) && method === "DELETE")
+    || (/\/destinations\/[^/]+\/archive$/.test(normalized) && method === "POST")
+  ) {
     return {
       operation: "reporting_destination_archive",
       destination_id: pathSegment(path, "destinations"),

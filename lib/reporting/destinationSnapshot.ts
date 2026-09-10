@@ -51,6 +51,37 @@ export function canBindDestinationToDraft(
   );
 }
 
+/** Rebind a saved/cloned draft to the live destination snapshot after Verify. */
+export function refreshDraftDestinationBind(
+  draft: {
+    destination_id: string;
+    destination_snapshot_checksum: string;
+    strategy: ReportingDestinationStrategy;
+  },
+  destinations: ReportingDestinationSummary[],
+  now = Date.now(),
+): {
+  destination_id: string;
+  destination_snapshot_checksum: string;
+  strategy: ReportingDestinationStrategy;
+} | null {
+  if (!draft.destination_id) return null;
+  const destination = destinations.find((item) => item.id === draft.destination_id);
+  if (!destination || !canBindDestinationToDraft(destination, now)) return null;
+  const checksum = destinationSnapshotChecksumFromSummary(destination);
+  if (
+    checksum === draft.destination_snapshot_checksum
+    && destination.strategy === draft.strategy
+  ) {
+    return null;
+  }
+  return {
+    destination_id: destination.id,
+    destination_snapshot_checksum: checksum,
+    strategy: destination.strategy,
+  };
+}
+
 export function destinationDeliveryExplanation(
   strategy: ReportingDestinationStrategy,
 ): string {

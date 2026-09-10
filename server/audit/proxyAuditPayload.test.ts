@@ -344,6 +344,39 @@ test("destination create audit uses presence flags instead of free-form names", 
   ]);
 });
 
+test("destination archive audit covers DELETE and POST archive", () => {
+  const expected = {
+    operation: "reporting_destination_archive",
+    destination_id: "dest-1",
+    expected_version: 2,
+  };
+
+  assert.deepEqual(
+    buildProxyAuditRequestPayload({
+      method: "DELETE",
+      path: "api/v1/admin/reporting/destinations/dest-1",
+      body: { expected_version: 2 },
+    }),
+    {
+      method: "DELETE",
+      path: "api/v1/admin/reporting/destinations/dest-1",
+      ...expected,
+    },
+  );
+  assert.deepEqual(
+    buildProxyAuditRequestPayload({
+      method: "POST",
+      path: "api/v1/admin/reporting/destinations/dest-1/archive",
+      body: { expected_version: 2 },
+    }),
+    {
+      method: "POST",
+      path: "api/v1/admin/reporting/destinations/dest-1/archive",
+      ...expected,
+    },
+  );
+});
+
 test("forbidden audit key scanner catches nested secret fields", () => {
   const findings = collectForbiddenAuditFindings(
     {

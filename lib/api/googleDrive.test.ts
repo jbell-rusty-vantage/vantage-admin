@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { bootstrapGooglePicker } from "./googleDrive";
+import { bootstrapGooglePicker, createGoogleDriveFolder } from "./googleDrive";
 
 const validBootstrap = {
   picker_api_key: "picker-key",
@@ -42,6 +42,31 @@ test("Picker bootstrap client accepts the documented allowlist", async () => {
     })) as typeof fetch;
   try {
     assert.deepEqual(await bootstrapGooglePicker("folder"), validBootstrap);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("create folder maps folder_id and folder_url from the server", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        ok: true,
+        data: {
+          folder_id: "folder-created-1",
+          name: "Vantage Reporting Exports",
+          folder_url: "https://drive.google.com/drive/folders/folder-created-1",
+        },
+      }),
+      { status: 201, headers: { "content-type": "application/json" } },
+    )) as typeof fetch;
+  try {
+    assert.deepEqual(await createGoogleDriveFolder({ name: "Vantage Reporting Exports" }), {
+      id: "folder-created-1",
+      name: "Vantage Reporting Exports",
+      url: "https://drive.google.com/drive/folders/folder-created-1",
+    });
   } finally {
     globalThis.fetch = original;
   }

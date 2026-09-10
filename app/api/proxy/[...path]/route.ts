@@ -119,7 +119,7 @@ function getForwardHeaders(
 }
 
 async function readRequestBody(request: NextRequest, method: VantageApiMethod): Promise<unknown> {
-  if (method === "GET" || method === "DELETE") {
+  if (method === "GET") {
     return undefined;
   }
 

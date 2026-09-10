@@ -6,6 +6,7 @@ import {
   canBindDestinationToDraft,
   destinationDeliveryExplanation,
   isDestinationHealthFresh,
+  refreshDraftDestinationBind,
 } from "./destinationSnapshot";
 
 const now = Date.parse("2026-09-10T17:00:00.000Z");
@@ -85,6 +86,36 @@ test("stale or unverified destinations cannot be bound for preview", () => {
   assert.equal(
     canBindDestinationToDraft(destination({ access_status: "unverified" }), now),
     false,
+  );
+});
+
+test("saved drafts pick up a newer destination snapshot after verify", () => {
+  const staleChecksum = "b".repeat(64);
+  const next = refreshDraftDestinationBind(
+    {
+      destination_id: "dest-1",
+      destination_snapshot_checksum: staleChecksum,
+      strategy: "snapshot",
+    },
+    [destination()],
+    now,
+  );
+  assert.deepEqual(next, {
+    destination_id: "dest-1",
+    destination_snapshot_checksum: "a".repeat(64),
+    strategy: "snapshot",
+  });
+  assert.equal(
+    refreshDraftDestinationBind(
+      {
+        destination_id: "dest-1",
+        destination_snapshot_checksum: "a".repeat(64),
+        strategy: "snapshot",
+      },
+      [destination()],
+      now,
+    ),
+    null,
   );
 });
 

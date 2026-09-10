@@ -103,11 +103,24 @@ export const verifyGooglePickerSelection = (input: {
     body: JSON.stringify(input),
   });
 
-export const createGoogleDriveFolder = (input: {
+export const createGoogleDriveFolder = async (input: {
   name: string;
   parent_folder_id?: string;
-}) =>
-  request<{ id: string; name: string; url: string }>("/folders", {
+}) => {
+  const created = await request<{
+    folder_id?: string;
+    folder_url?: string;
+    id?: string;
+    name: string;
+    url?: string;
+  }>("/folders", {
     method: "POST",
     body: JSON.stringify(input),
   });
+  const id = created.folder_id ?? created.id;
+  const url = created.folder_url ?? created.url;
+  if (!id || !url) {
+    throw new Error("Google Drive did not return a folder id.");
+  }
+  return { id, name: created.name, url };
+};

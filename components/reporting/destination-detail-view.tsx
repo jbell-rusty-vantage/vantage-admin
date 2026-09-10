@@ -80,6 +80,9 @@ export function DestinationDetailView({ destinationId }: { destinationId: string
     onSuccess: async () => {
       setMessage("Destination archived.");
       await queryClient.invalidateQueries({ queryKey: queryKeys.reporting.destinations() });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.reporting.destination(destinationId),
+      });
     },
     onError: (error) => setMessage(error.message),
   });
@@ -145,6 +148,7 @@ export function DestinationDetailView({ destinationId }: { destinationId: string
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Metric label="State" value={destination.state} />
               <Metric label="Strategy" value={destination.strategy} />
               <Metric
                 label="Access"
