@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import { DestinationSelector } from "@/components/reporting/destination-selector";
+import { ReportSheetExamples } from "@/components/reporting/report-sheet-examples";
 import { ExternalHref, InternalReportingLink } from "@/components/reporting/reporting-links";
 import { RunStatusBadge } from "@/components/reporting/reporting-status";
 import { Button } from "@/components/ui/button";
@@ -617,6 +618,7 @@ function Builder(props: BuilderProps) {
             <label className="text-sm font-semibold text-navy md:col-span-2">{REPORTING_COPY.descriptionLabel}<Textarea className="mt-1" value={draft.description} onChange={(event) => patch({ description: event.target.value })} /></label>
           </fieldset>
           <div className="rounded-md bg-steel-100 p-3 text-sm text-steel"><strong className="text-navy">Grain:</strong> {dataset.grain}<br /><strong className="text-navy">Date semantic:</strong> {dataset.date_semantic}<br /><strong className="text-navy">Sample policy:</strong> version {dataset.sample_policy_version} · up to 50 representative rows</div>
+          <ReportSheetExamples selectedDatasetKey={draft.dataset_key} />
 
           <section>
             <h3 className="font-heading text-lg font-semibold text-navy">1. Cohort window</h3>

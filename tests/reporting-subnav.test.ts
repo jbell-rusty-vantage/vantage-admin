@@ -18,4 +18,6 @@ test("reporting copy uses sheet-creating language", () => {
   assert.equal(REPORTING_COPY.saveReport, "Save Report Before Sheet Creation");
   assert.equal(REPORTING_COPY.createSheet, "Create or Edit Sheet");
   assert.match(REPORTING_COPY.listHint, /Save a report/);
+  assert.equal(REPORTING_COPY.exampleSheetsTitle, "Example sheets");
+  assert.match(REPORTING_COPY.exampleSheetsHint, /Mock rows only/);
 });

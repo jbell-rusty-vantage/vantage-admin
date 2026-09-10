@@ -32,6 +32,9 @@ export const REPORTING_COPY = {
   noRunsForReport: "This report has not created a sheet yet.",
   builderTitle: "Report setup",
   builderHint: "Pick what goes in the sheet. Column IDs and types stay fixed.",
+  exampleSheetsTitle: "Example sheets",
+  exampleSheetsHint:
+    "Mock rows only. Open a panel to see the default columns that report type writes. This is not your data and does not write Google.",
   howTitle: "How a Google Sheet is created",
   howHint: "A Drive folder is not a spreadsheet. The sheet appears only after you create it.",
   stepDestination: "1. Sheet destination",
