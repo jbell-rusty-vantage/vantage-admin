@@ -120,7 +120,8 @@ export function GoogleSettingsPanel() {
             ) : null}
             {!status.connected ? (
               <FeedbackMessage tone="info">
-                Connect the configured owner account before creating destinations or running reports.
+                Connect an allowlisted owner Google account before creating destinations or running
+                reports.
               </FeedbackMessage>
             ) : null}
             {!config?.reportingDeliveryEnabled ? (
