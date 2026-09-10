@@ -160,6 +160,7 @@ test("fan-out by lane keeps a Cancellation visible when Granot is flooded", () =
     }),
   );
   assert.match(panels, /Cancellation written/);
+  assert.match(panels, /data-panel-scroll/);
   assert.match(panels, /data-panel="lead"/);
   assert.match(panels, /data-panel="text"/);
   assert.match(panels, /data-panel="exception"/);
@@ -208,6 +209,8 @@ test("company filter keeps only that Source Company and uses filtered empty copy
   );
   assert.equal(dailyOperationsPanelEmptyCopy({ lane: "exception" }), DAILY_COPY.exceptionsEmpty);
   assert.equal(dailyOperationsPanelEmptyCopy({ lane: "text" }), DAILY_COPY.panelsEmpty);
+  assert.equal(dailyOperationsPanelEmptyCopy({ lane: "exception", todayCount: 1 }), DAILY_COPY.countWithoutCards);
+  assert.equal(dailyOperationsPanelEmptyCopy({ lane: "cancellation", todayCount: 1 }), DAILY_COPY.countWithoutCards);
 });
 
 test("held text card title formats send_at and does not hardcode 8:00 AM", () => {
@@ -263,6 +266,53 @@ test("zip-miss chip stays on the Lead card and the Lead stays in the Leads panel
   assert.match(leadCard, /form-leads\?record=lead1/);
   const exceptionCard = renderToStaticMarkup(createElement(DailyOperationsEventCard, { event: exception }));
   assert.match(exceptionCard, /ZIP did not produce a state/);
+  const exceptionPanel = eventsForDailyOperationsPanel({ events: [lead, exception], lane: "exception" });
+  assert.deepEqual(
+    exceptionPanel.map((row) => row.event_id),
+    ["e1"],
+  );
+});
+
+test("Exceptions panel shows a zip-miss Lead when the Exception fact is not in memory", () => {
+  const lead = eventItem({
+    event_id: "l1",
+    lane: "lead",
+    kind: "form_lead.created",
+    links: { lead_id: "lead1", lead_model: "FormLead" },
+    card: {
+      customer_name: "Maria Chen",
+      zip_miss: { pickup: true, delivery: false },
+      move: { pickup_zip: "33101", pickup_state: "not_found" },
+    },
+  });
+  const uncovered = eventsForDailyOperationsPanel({ events: [lead], lane: "exception" });
+  assert.equal(uncovered.length, 1);
+  assert.equal(uncovered[0]?.event_id, "l1");
+  const otherLead = eventItem({
+    event_id: "l2",
+    lane: "lead",
+    kind: "form_lead.created",
+    links: { lead_id: "lead2", lead_model: "FormLead" },
+  });
+  assert.equal(eventsForDailyOperationsPanel({ events: [otherLead], lane: "exception" }).length, 0);
+  const snapshot = snapshotFixture();
+  const markup = renderToStaticMarkup(
+    createElement(CategoryPanels, {
+      events: [lead],
+      snapshot,
+      sessionDeltas: EMPTY_DAILY_OPERATIONS_SESSION_DELTAS,
+      lane: "exception",
+      company: null,
+      quietPriorities: false,
+      sheetSyncOptIn: false,
+      onSelectLane: () => undefined,
+    }),
+  );
+  assert.match(markup, /data-panel="exception"/);
+  assert.match(markup, /Maria Chen/);
+  assert.match(markup, /data-panel-scroll/);
+  assert.doesNotMatch(markup, new RegExp(DAILY_COPY.exceptionsEmpty));
+  assert.doesNotMatch(markup, new RegExp(DAILY_COPY.countWithoutCards));
 });
 
 test("card links use existing desks and never open Confirm on /daily", () => {
@@ -702,9 +752,9 @@ test("a panel with a count but no in-memory facts is backfilled once from its ow
   );
   const panels = visibleDailyOperationsPanels({ lane: null, sheetSyncOptIn: true });
   const needed = lanesNeedingBackfill({ snapshot, events: granotOnly, panels, attempted: new Set() });
-  assert.deepEqual([...needed].sort(), ["booking", "cancellation", "intake", "lead", "sheet_sync", "text"]);
-  // Exceptions never backfill; Sheet Sync does once opted in; an attempted lane is not asked again.
-  assert.equal(needed.includes("exception"), false);
+  assert.deepEqual([...needed].sort(), ["booking", "cancellation", "exception", "intake", "lead", "sheet_sync", "text"]);
+  // Exceptions backfill like every other starved lane; Sheet Sync does once opted in; an attempted lane is not asked again.
+  assert.equal(needed.includes("exception"), true);
   assert.equal(
     lanesNeedingBackfill({
       snapshot,
@@ -721,7 +771,7 @@ test("a panel with a count but no in-memory facts is backfilled once from its ow
     panels,
     attempted: new Set(["booking", "sheet_sync"]),
   });
-  assert.deepEqual([...afterLead].sort(), ["cancellation", "intake", "lead", "text"]);
+  assert.deepEqual([...afterLead].sort(), ["cancellation", "exception", "intake", "lead", "text"]);
   // Eight Leads fill the default slots; the one Cancellation of the day is all of them.
   const filled = lanesNeedingBackfill({
     snapshot,
@@ -735,7 +785,18 @@ test("a panel with a count but no in-memory facts is backfilled once from its ow
     panels,
     attempted: new Set(["booking", "sheet_sync"]),
   });
-  assert.deepEqual([...filled].sort(), ["intake", "text"]);
+  assert.deepEqual([...filled].sort(), ["exception", "intake", "text"]);
+  const exceptionFilled = lanesNeedingBackfill({
+    snapshot,
+    events: [
+      ...granotOnly,
+      eventItem({ event_id: "e1", lane: "exception", kind: "exception.zip_missing" }),
+      eventItem({ event_id: "e2", lane: "exception", kind: "exception.zip_missing" }),
+    ],
+    panels,
+    attempted: new Set(),
+  });
+  assert.equal(exceptionFilled.includes("exception"), false);
   // A zero count wants nothing; no snapshot wants nothing.
   const quiet = { ...snapshot, metrics: { ...snapshot.metrics, cancellations: { today: 0, yesterday: 0, yesterday_by_now: 0 } } };
   assert.equal(lanesNeedingBackfill({ snapshot: quiet, events: granotOnly, panels, attempted: new Set() }).includes("cancellation"), false);

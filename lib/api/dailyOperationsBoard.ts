@@ -298,12 +298,48 @@ export function eventsForDailyOperationsPanel(input: {
   company?: string | null;
   quietPriorities?: boolean;
 }): DailyOperationsEventItem[] {
-  const byLane = fanOutDailyOperationsEvents(input.events)[input.lane];
-  const companyFiltered = filterDailyOperationsEventsByCompany(byLane, input.company);
+  const byLane = fanOutDailyOperationsEvents(input.events);
+  const companyFiltered = filterDailyOperationsEventsByCompany(byLane[input.lane], input.company);
   const quietFiltered = applyQuietPriorities(companyFiltered, Boolean(input.quietPriorities));
   const ordered =
     input.lane === "granot" ? pairGranotEvents(quietFiltered) : [...quietFiltered].sort(compareDailyOperationsEventsNewestFirst);
-  return ordered;
+  if (input.lane !== "exception") {
+    return ordered;
+  }
+  return withZipMissLeadsWhenExceptionFactMissing({
+    exceptionEvents: ordered,
+    leadEvents: applyQuietPriorities(
+      filterDailyOperationsEventsByCompany(byLane.lead, input.company),
+      Boolean(input.quietPriorities),
+    ),
+  });
+}
+
+/**
+ * Zip-miss count can land from Lead ZIP state while the
+ * `exception.zip_missing` fact is still off the first page (or was never
+ * written). A Lead already in memory that carries `zip_miss` is that
+ * Exception — show it on the Exceptions panel until the dedicated fact
+ * arrives, and never twice for the same Lead.
+ */
+export function withZipMissLeadsWhenExceptionFactMissing(input: {
+  exceptionEvents: DailyOperationsEventItem[];
+  leadEvents: DailyOperationsEventItem[];
+}): DailyOperationsEventItem[] {
+  const covered = new Set(
+    input.exceptionEvents
+      .map((event) => eventLinks(event).lead_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const extras = input.leadEvents.filter((event) => {
+    const miss = eventCard(event).zip_miss;
+    const leadId = eventLinks(event).lead_id;
+    return Boolean((miss?.pickup || miss?.delivery) && leadId && !covered.has(leadId));
+  });
+  if (extras.length === 0) {
+    return input.exceptionEvents;
+  }
+  return [...input.exceptionEvents, ...extras].sort(compareDailyOperationsEventsNewestFirst);
 }
 
 export function sliceDailyOperationsPanelEvents(
@@ -486,12 +522,16 @@ export function dailyOperationsEventLinks(event: DailyOperationsEventItem): Dail
 export function dailyOperationsPanelEmptyCopy(input: {
   lane: DailyOperationsPanelLane;
   company?: string | null;
+  todayCount?: number;
 }): string {
   if (input.company) {
     return dailyOperationsFilteredEmpty(
       DAILY_COPY.panelsLabels[input.lane],
       sourceCompanyLabel(input.company),
     );
+  }
+  if ((input.todayCount ?? 0) > 0) {
+    return DAILY_COPY.countWithoutCards;
   }
   if (input.lane === "exception") {
     return DAILY_COPY.exceptionsEmpty;
@@ -503,10 +543,11 @@ export function dailyOperationsPanelEmptyCopy(input: {
  * Panels whose count says the day has more facts than the board holds for
  * that lane — enough more that the panel cannot even fill its default card
  * slots. The first events page is newest-N across every lane, so a Granot
- * flood can push most (or every) Lead, Text, or Booking of the day out of it;
- * a panel reading "16" over two cards looks broken. Those panels fetch their
- * own newest page once. `exception` is excluded: its count is rebuilt from
- * lead ZIP state, not from facts of that lane.
+ * flood can push most (or every) Lead, Text, Booking, or Exception of the
+ * day out of it; a panel reading "1" over an empty stack looks broken.
+ * Those panels fetch their own newest page once. Exception is included:
+ * zip-miss count is also a fact count when `exception.zip_missing` was
+ * recorded, and a starved Exceptions panel has no Load-earlier cursor.
  */
 export function lanesNeedingBackfill(input: {
   snapshot: DailyOperationsSnapshot | null | undefined;
@@ -522,7 +563,7 @@ export function lanesNeedingBackfill(input: {
     held.set(event.lane, (held.get(event.lane) ?? 0) + 1);
   }
   return input.panels.filter((lane) => {
-    if (lane === "exception" || input.attempted.has(lane)) {
+    if (input.attempted.has(lane)) {
       return false;
     }
     const count = dailyOperationsPanelCount(input.snapshot, lane);

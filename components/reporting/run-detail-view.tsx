@@ -208,7 +208,8 @@ export function RunDetailView({ runId }: { runId: string }) {
                 </div>
                 {artifactUrl ? (
                   <FeedbackMessage tone="success">
-                    Verified artifact: <ExternalHref href={artifactUrl}>Open workbook</ExternalHref>
+                    This is the written sheet.{" "}
+                    <ExternalHref href={artifactUrl}>Open workbook</ExternalHref>
                   </FeedbackMessage>
                 ) : run.status === "completed" ? (
                   <FeedbackMessage tone="info">

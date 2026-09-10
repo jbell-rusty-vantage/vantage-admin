@@ -70,9 +70,9 @@ export function ArrivalsStream({
   const beyondWindow = filtered.length - arrivals.length;
 
   return (
-    <section data-band="arrivals" className={cn("flex flex-col", className)}>
-      <Card className="flex flex-1 flex-col overflow-hidden">
-        <CardHeader className="border-b border-steel-100 p-3 pb-2.5">
+    <section data-band="arrivals" className={cn("flex min-h-0 flex-col", className)}>
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden xl:max-h-[calc(100dvh-6rem)]">
+        <CardHeader className="shrink-0 border-b border-steel-100 p-3 pb-2.5">
           <div className="flex items-center gap-2">
             <LiveDot state={liveState} />
             <h2 className="text-xs font-semibold uppercase tracking-wide text-navy">
@@ -115,22 +115,28 @@ export function ArrivalsStream({
             ) : null}
           </p>
         </CardHeader>
-        <CardContent className="daily-stream-body relative flex-1 p-3 pt-2.5">
+        <CardContent className="flex min-h-0 flex-1 flex-col p-3 pt-2.5">
           {arrivals.length === 0 ? (
             <p className="text-sm text-muted-foreground">{DAILY_COPY.arrivalsEmpty}</p>
           ) : (
-            <AnimatedEventList
-              events={arrivals}
-              highlights={highlights}
-              nowMs={nowMs}
-              compact
-              ariaLabel={DAILY_COPY.arrivals}
-            />
+            <div
+              className="daily-stream-body relative min-h-0 flex-1 overflow-y-auto"
+              data-arrivals-scroll
+            >
+              <AnimatedEventList
+                events={arrivals}
+                highlights={highlights}
+                nowMs={nowMs}
+                compact
+                ariaLabel={DAILY_COPY.arrivals}
+                className="pb-6"
+              />
+            </div>
           )}
           {beyondWindow > 0 && onOpenFullStream ? (
             <button
               type="button"
-              className="mt-2 w-full rounded-md py-1 text-center text-xs font-semibold text-trust-blue hover:underline"
+              className="mt-2 w-full shrink-0 rounded-md py-1 text-center text-xs font-semibold text-trust-blue hover:underline"
               onClick={onOpenFullStream}
             >
               {DAILY_COPY.openAll} ({filtered.length})

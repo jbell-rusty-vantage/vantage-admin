@@ -8,6 +8,7 @@ import {
   localDateInTimeZone,
   moveColumn,
   normalizeSourceSelection,
+  saveRevisionBlockedReason,
   validateDraft,
 } from "./builder";
 
@@ -157,5 +158,24 @@ test("rolling draft validation accepts only the vetted bounded policy", () => {
       ...valid,
       date_window_spec: invalidWindow,
     }).some((issue) => issue.includes("1–366")),
+  );
+});
+
+test("save stays blocked until a matching preview exists with no blockers", () => {
+  assert.match(saveRevisionBlockedReason({ preview: null, previewing: false }) ?? "", /preview/i);
+  assert.equal(saveRevisionBlockedReason({ preview: null, previewing: true }), null);
+  assert.match(
+    saveRevisionBlockedReason({
+      preview: { blocking_reasons: [{ code: "destination_capacity_exceeded" }] },
+      previewing: false,
+    }) ?? "",
+    /blocker/i,
+  );
+  assert.equal(
+    saveRevisionBlockedReason({
+      preview: { blocking_reasons: [] },
+      previewing: false,
+    }),
+    null,
   );
 });

@@ -348,7 +348,7 @@ function CategoryPanel({
   const today =
     lane === "granot" ? granotTileToday(snapshot ?? null) : dailyOperationsPanelCount(snapshot, lane);
   const sessionDelta = sessionDeltaForLane(sessionDeltas, lane);
-  const empty = dailyOperationsPanelEmptyCopy({ lane, company });
+  const empty = dailyOperationsPanelEmptyCopy({ lane, company, todayCount: today });
   const secondary = panelSecondary(snapshot, lane);
   const trend = panelTrend(snapshot, lane, today);
   const tone = toneClasses(laneToneFor(lane));
@@ -364,15 +364,15 @@ function CategoryPanel({
   return (
     <Card
       className={cn(
-        "flex flex-col overflow-hidden border-t-4 transition-shadow",
+        "flex min-h-0 flex-col overflow-hidden border-t-4 transition-shadow",
         tone.edge,
-        solo && "ring-2 ring-trust-blue/30 shadow-md",
+        solo && "ring-2 ring-trust-blue/30 shadow-md xl:max-h-[calc(100dvh-8rem)]",
         exceptionsLive && "bg-amber-50/60",
       )}
       data-panel={lane}
       data-focused={solo ? "true" : "false"}
     >
-      <CardHeader className="p-3.5 pb-2">
+      <CardHeader className="shrink-0 p-3.5 pb-2">
         <button
           type="button"
           className="w-full rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trust-blue/40"
@@ -425,7 +425,7 @@ function CategoryPanel({
           {secondary ? <p className="mt-1 text-xs text-muted-foreground">{secondary}</p> : null}
         </button>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-2 p-3.5 pt-2">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-2 p-3.5 pt-2">
         {loading ? (
           <div className="space-y-2">
             <div className="h-12 animate-pulse rounded-md bg-steel-100" />
@@ -434,19 +434,27 @@ function CategoryPanel({
         ) : visible.length === 0 ? (
           <p className="text-sm text-muted-foreground">{empty}</p>
         ) : (
-          <AnimatedEventList
-            events={visible}
-            highlights={highlights}
-            groupedIds={pairedIds}
-            ariaLabel={DAILY_COPY.panelsLabels[lane]}
-            className={cn(solo && "grid items-start sm:grid-cols-2 xl:grid-cols-3")}
-          />
+          <div
+            className={cn(
+              "daily-stream-body relative min-h-0 overflow-y-auto",
+              solo ? "max-h-[min(56rem,calc(100dvh-14rem))] flex-1" : "max-h-112",
+            )}
+            data-panel-scroll
+          >
+            <AnimatedEventList
+              events={visible}
+              highlights={highlights}
+              groupedIds={pairedIds}
+              ariaLabel={DAILY_COPY.panelsLabels[lane]}
+              className={cn("pb-6", solo && "grid items-start sm:grid-cols-2 xl:grid-cols-3")}
+            />
+          </div>
         )}
         {hidden > 0 && onOpenAll ? (
           <Button
             type="button"
             variant="ghost"
-            className="h-8 w-full px-3 text-xs text-trust-blue"
+            className="h-8 w-full shrink-0 px-3 text-xs text-trust-blue"
             onClick={() => onOpenAll(lane)}
           >
             {DAILY_COPY.openAll} ({panelEvents.length})
@@ -456,7 +464,7 @@ function CategoryPanel({
           <Button
             type="button"
             variant="outline"
-            className="h-8 w-full px-3 text-xs"
+            className="h-8 w-full shrink-0 px-3 text-xs"
             disabled={loadingEarlier}
             onClick={onLoadEarlier}
           >

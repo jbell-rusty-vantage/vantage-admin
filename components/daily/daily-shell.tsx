@@ -569,7 +569,7 @@ export function DailyOperationsPage() {
             liveState={status}
             highlights={highlights}
             onOpenFullStream={() => setOverlay("all")}
-            className="xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto"
+            className="xl:sticky xl:top-4 xl:self-start"
           />
 
           <CategoryPanels
@@ -618,3 +618,4 @@ export function DailyOperationsPage() {
     </KindColorsProvider>
   );
 }
+

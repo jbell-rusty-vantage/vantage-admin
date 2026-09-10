@@ -123,3 +123,17 @@ export function validateDraft(draft: ReportingDefinitionDraft): string[] {
   }
   return issues;
 }
+
+export function saveRevisionBlockedReason(input: {
+  preview: { blocking_reasons: unknown[] } | null;
+  previewing: boolean;
+}): string | null {
+  if (input.previewing) return null;
+  if (!input.preview) {
+    return "Generate a preview of this exact draft before saving. Changing any field after preview clears it.";
+  }
+  if (input.preview.blocking_reasons.length > 0) {
+    return "Resolve preview blockers before saving.";
+  }
+  return null;
+}

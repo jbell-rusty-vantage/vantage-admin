@@ -28,6 +28,15 @@ export function DestinationStatusBadge({
   return <span className={`rounded-full px-2 py-1 text-xs font-bold uppercase ${tone}`}>{status}</span>;
 }
 
+export function DestinationHealthBadge({ fresh }: { fresh: boolean }) {
+  const tone = fresh ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900";
+  return (
+    <span className={`rounded-full px-2 py-1 text-xs font-bold uppercase ${tone}`}>
+      {fresh ? "fresh" : "stale"}
+    </span>
+  );
+}
+
 export function HealthIcon({ ok }: { ok: boolean }) {
   return ok ? (
     <CheckCircle2 className="h-4 w-4 text-emerald-700" aria-hidden="true" />

@@ -136,6 +136,7 @@ export const DAILY_COPY = {
   loadFailed: "Could not load Daily Operations.",
   panelsEmpty: "Nothing in this category yet today.",
   exceptionsEmpty: "No exceptions so far today.",
+  countWithoutCards: "This count is on the board; the cards are still loading.",
   tiles: {
     leads: "Leads",
     formCall: "Form / Call",

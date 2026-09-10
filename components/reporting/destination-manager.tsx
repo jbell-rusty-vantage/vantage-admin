@@ -14,6 +14,7 @@ import {
   archiveReportingDestination,
   createReportingDestination,
   fetchReportingDestinations,
+  verifyReportingDestination,
   type CreateReportingDestinationInput,
   type ReportingDestinationStrategy,
   type ReportingDestinationSummary,
@@ -24,9 +25,16 @@ import {
   verifyGooglePickerSelection,
 } from "@/lib/api/googleDrive";
 import { openGooglePicker } from "@/lib/google/picker";
+import {
+  destinationDeliveryExplanation,
+  isDestinationHealthFresh,
+} from "@/lib/reporting/destinationSnapshot";
 import { queryKeys } from "@/lib/query/keys";
 import { ExternalHref } from "@/components/reporting/reporting-links";
-import { DestinationStatusBadge } from "@/components/reporting/reporting-status";
+import {
+  DestinationHealthBadge,
+  DestinationStatusBadge,
+} from "@/components/reporting/reporting-status";
 
 const fieldClass =
   "h-10 w-full rounded-md border border-input bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
@@ -52,8 +60,9 @@ export function DestinationManager() {
           </p>
           <h2 className="text-xl font-semibold text-navy">Google delivery targets</h2>
           <p className="mt-1 max-w-3xl text-sm text-steel">
-            Safe owner-OAuth folders and managed tabs. Operational workbooks are hard-denylisted with
-            no override.
+            Snapshot destinations are Drive folders. A spreadsheet appears only after you run a saved
+            definition and confirm. Replace-tab destinations point at a managed tab inside a workbook.
+            Operational workbooks are hard-denylisted with no override.
           </p>
         </div>
         <div className="flex gap-2">
@@ -95,7 +104,8 @@ export function DestinationManager() {
         <CardHeader>
           <CardTitle>Active destinations</CardTitle>
           <CardDescription>
-            Immutable artifact links, strategy, health, and denylist verification timestamps.
+            Folder links open Drive folders. A spreadsheet link appears only after a run writes a
+            workbook. Health older than 24 hours must be verified again before preview or run.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -116,7 +126,7 @@ export function DestinationManager() {
               <table className="w-full text-left text-sm">
                 <thead className="border-b text-xs uppercase text-steel">
                   <tr>
-                    <th className="py-2">Folder</th>
+                    <th className="py-2">Destination</th>
                     <th>Strategy</th>
                     <th>Health</th>
                     <th>Capacity</th>
@@ -161,6 +171,16 @@ function DestinationRow({
 }) {
   const queryClient = useQueryClient();
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const healthFresh = isDestinationHealthFresh(destination);
+
+  const verifyMutation = useMutation({
+    mutationFn: () => verifyReportingDestination(destination.id),
+    onSuccess: async () => {
+      onMessage("Destination verification succeeded.");
+      await queryClient.invalidateQueries({ queryKey: queryKeys.reporting.destinations() });
+    },
+    onError: (error) => onMessage(error.message),
+  });
 
   const archiveMutation = useMutation({
     mutationFn: () => archiveReportingDestination(destination.id, destination.version),
@@ -176,25 +196,55 @@ function DestinationRow({
     <tr className="border-b border-steel-100 align-top">
       <td className="py-3">
         <div className="font-semibold text-navy">{destination.folder.name}</div>
-        <ExternalHref href={destination.folder.url}>{destination.folder.id}</ExternalHref>
+        <p className="mt-1 text-xs text-steel">
+          Folder{" "}
+          <ExternalHref href={destination.folder.url}>Open folder</ExternalHref>
+        </p>
         {destination.workbook ? (
-          <div className="mt-1 text-xs text-steel">
-            Workbook: {destination.workbook.name}{" "}
-            <ExternalHref href={destination.workbook.url}>open</ExternalHref>
-          </div>
-        ) : null}
+          <p className="mt-1 text-xs text-steel">
+            Spreadsheet: {destination.workbook.name}{" "}
+            <ExternalHref href={destination.workbook.url}>Open spreadsheet</ExternalHref>
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-steel">
+            No spreadsheet yet — write one by running a saved definition.
+          </p>
+        )}
         {destination.managed_tab ? (
-          <div className="mt-1 text-xs text-steel">
+          <p className="mt-1 text-xs text-steel">
             Managed tab: {destination.managed_tab.name} (ID {destination.managed_tab.immutable_sheet_id})
-          </div>
+          </p>
         ) : null}
       </td>
       <td>{destination.strategy}</td>
       <td>
-        <DestinationStatusBadge status={destination.access_status} />
+        <div className="flex flex-wrap items-center gap-1">
+          <DestinationStatusBadge status={destination.access_status} />
+          <DestinationHealthBadge fresh={healthFresh} />
+        </div>
         <p className="mt-1 text-xs text-steel">
           Verified {destination.health_verified_at ? new Date(destination.health_verified_at).toLocaleString() : "—"}
         </p>
+        {!healthFresh ? (
+          <div className="mt-2 max-w-xs space-y-2">
+            <FeedbackMessage tone="warning">
+              Verification is older than 24 hours
+              {destination.health_verified_at
+                ? ` (${new Date(destination.health_verified_at).toLocaleString()})`
+                : ""}
+              . Preview and run stay blocked until you verify again.
+            </FeedbackMessage>
+            {owner ? (
+              <Button
+                disabled={verifyMutation.isPending}
+                onClick={() => verifyMutation.mutate()}
+              >
+                <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+                {verifyMutation.isPending ? "Verifying…" : "Verify now"}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </td>
       <td className="text-xs text-steel">
         {destination.capacity.destination_available_cells.toLocaleString()} cells available
@@ -349,8 +399,9 @@ function DestinationCreateForm({
       <CardHeader>
         <CardTitle>Create destination</CardTitle>
         <CardDescription>
-          Picker selections are verified server-side with a one-time nonce. Browser metadata is never
-          trusted for authorization.
+          Picking or creating a folder does not create a report spreadsheet. Picker selections are
+          verified server-side with a one-time nonce. Browser metadata is never trusted for
+          authorization.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -367,9 +418,13 @@ function DestinationCreateForm({
             <option value="replace_tab">Replace managed tab</option>
           </select>
         </label>
+        <FeedbackMessage tone="info">{destinationDeliveryExplanation(strategy)}</FeedbackMessage>
 
         <section className="space-y-2">
           <h3 className="font-semibold text-navy">Export folder</h3>
+          <p className="text-xs text-steel">
+            Picking or creating a folder does not create a report spreadsheet.
+          </p>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"

@@ -41,8 +41,9 @@ test("Arrivals empty state is one quiet line", () => {
   assert.match(markup, /data-band="arrivals"/);
   assert.match(markup, new RegExp(DAILY_COPY.arrivals));
   assert.match(markup, new RegExp(DAILY_COPY.arrivalsEmpty));
-  assert.doesNotMatch(markup, /min-h-/);
   assert.doesNotMatch(markup, /h-96/);
+  assert.doesNotMatch(markup, /min-h-96/);
+  assert.doesNotMatch(markup, /data-arrivals-scroll/);
   assert.doesNotMatch(markup, /Live facts/);
   assert.equal(dailyOperationsHasConfirmControl(markup), false);
 });
@@ -73,6 +74,8 @@ test("Arrivals strip renders newest cards across lanes without Confirm", () => {
   assert.match(markup, /data-band="arrivals"/);
   assert.match(markup, /Cancellation written/);
   assert.match(markup, /Form Lead created/);
+  assert.match(markup, /data-arrivals-scroll/);
+  assert.match(markup, /overflow-y-auto/);
   assert.doesNotMatch(markup, new RegExp(DAILY_COPY.arrivalsEmpty));
   assert.equal(dailyOperationsHasConfirmControl(markup), false);
 });
@@ -89,6 +92,9 @@ test("daily-shell keeps one Daily Operations EventSource; Arrivals constructs no
   assert.match(shell, /fetchDailyOperationsEvents\(\{ limit: 80 \}\)/);
   assert.match(shell, /<CategoryPanels/);
   assert.ok(shell.indexOf("<ArrivalsStream") < shell.indexOf("<CategoryPanels"));
+  assert.match(shell, /xl:sticky xl:top-4 xl:self-start/);
+  assert.doesNotMatch(shell, /xl:overflow-y-auto/);
+  assert.match(arrivals, /data-arrivals-scroll/);
   assert.doesNotMatch(arrivals, /EventSource/);
   assert.doesNotMatch(
     shell.slice(shell.indexOf("const eventsQuery"), shell.indexOf("useEffect(() => {", shell.indexOf("const eventsQuery"))),

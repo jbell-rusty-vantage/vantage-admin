@@ -16,9 +16,16 @@ import {
   updateReportingDestination,
   verifyReportingDestination,
 } from "@/lib/api/reportingDestinations";
+import {
+  destinationDeliveryExplanation,
+  isDestinationHealthFresh,
+} from "@/lib/reporting/destinationSnapshot";
 import { queryKeys } from "@/lib/query/keys";
 import { ExternalHref } from "@/components/reporting/reporting-links";
-import { DestinationStatusBadge } from "@/components/reporting/reporting-status";
+import {
+  DestinationHealthBadge,
+  DestinationStatusBadge,
+} from "@/components/reporting/reporting-status";
 
 export function DestinationDetailView({ destinationId }: { destinationId: string }) {
   const role = useDashboardRole();
@@ -40,6 +47,7 @@ export function DestinationDetailView({ destinationId }: { destinationId: string
       await queryClient.invalidateQueries({
         queryKey: queryKeys.reporting.destination(destinationId),
       });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.reporting.destinations() });
     },
     onError: (error) => setMessage(error.message),
   });
@@ -77,6 +85,7 @@ export function DestinationDetailView({ destinationId }: { destinationId: string
   });
 
   const destination = detailQuery.data;
+  const healthFresh = destination ? isDestinationHealthFresh(destination) : false;
 
   return (
     <div className="space-y-6">
@@ -107,6 +116,27 @@ export function DestinationDetailView({ destinationId }: { destinationId: string
 
       {destination ? (
         <>
+          {!healthFresh ? (
+            <FeedbackMessage tone="warning">
+              Verification is older than 24 hours
+              {destination.health_verified_at
+                ? ` (${new Date(destination.health_verified_at).toLocaleString()})`
+                : ""}
+              . Preview, save, and run will fail until health is refreshed.
+              {owner && destination.state === "active" ? (
+                <div className="mt-2">
+                  <Button
+                    disabled={verifyMutation.isPending}
+                    onClick={() => verifyMutation.mutate()}
+                  >
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    {verifyMutation.isPending ? "Verifying…" : "Verify destination"}
+                  </Button>
+                </div>
+              ) : null}
+            </FeedbackMessage>
+          ) : null}
+
           <Card>
             <CardHeader>
               <CardTitle>Health & ownership</CardTitle>
@@ -118,7 +148,12 @@ export function DestinationDetailView({ destinationId }: { destinationId: string
               <Metric label="Strategy" value={destination.strategy} />
               <Metric
                 label="Access"
-                value={<DestinationStatusBadge status={destination.access_status} />}
+                value={
+                  <span className="flex flex-wrap items-center gap-1">
+                    <DestinationStatusBadge status={destination.access_status} />
+                    <DestinationHealthBadge fresh={healthFresh} />
+                  </span>
+                }
               />
               <Metric label="Version" value={destination.version} />
               <Metric label="Owner" value={destination.owner_identity_snapshot.masked_email} />
@@ -164,15 +199,17 @@ export function DestinationDetailView({ destinationId }: { destinationId: string
             <CardContent className="space-y-2 text-sm">
               <p>
                 Folder: {destination.folder.name}{" "}
-                <ExternalHref href={destination.folder.url}>open in Drive</ExternalHref>
+                <ExternalHref href={destination.folder.url}>Open folder</ExternalHref>
               </p>
               {destination.workbook ? (
                 <p>
-                  Workbook: {destination.workbook.name}{" "}
-                  <ExternalHref href={destination.workbook.url}>open</ExternalHref>
+                  Spreadsheet: {destination.workbook.name}{" "}
+                  <ExternalHref href={destination.workbook.url}>Open spreadsheet</ExternalHref>
                 </p>
               ) : (
-                <p className="text-steel">Snapshot strategy creates one workbook per run.</p>
+                <p className="text-steel">
+                  No spreadsheet yet — write one by running a saved definition.
+                </p>
               )}
               {destination.managed_tab ? (
                 <p>
@@ -180,6 +217,9 @@ export function DestinationDetailView({ destinationId }: { destinationId: string
                   {destination.managed_tab.immutable_sheet_id}
                 </p>
               ) : null}
+              <FeedbackMessage tone="info">
+                {destinationDeliveryExplanation(destination.strategy)}
+              </FeedbackMessage>
               <FeedbackMessage tone="info">
                 Operational ingestion and projection workbooks are permanently denylisted. There is
                 no owner override in v1.
@@ -194,7 +234,7 @@ export function DestinationDetailView({ destinationId }: { destinationId: string
               </CardHeader>
               <CardContent className="space-y-4">
                 <Button
-                  variant="outline"
+                  variant={healthFresh ? "outline" : "default"}
                   disabled={verifyMutation.isPending}
                   onClick={() => verifyMutation.mutate()}
                 >

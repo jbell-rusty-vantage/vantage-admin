@@ -20,6 +20,7 @@ test("Daily Operations copy uses glossary labels, not Daily View", () => {
   assert.equal(DAILY_COPY.tiles.texts, "Texts sent");
   assert.equal(DAILY_COPY.panelsEmpty, "Nothing in this category yet today.");
   assert.equal(DAILY_COPY.exceptionsEmpty, "No exceptions so far today.");
+  assert.equal(DAILY_COPY.countWithoutCards, "This count is on the board; the cards are still loading.");
   assert.equal(DAILY_COPY.quietPriorities, "Quiet priorities");
   assert.equal(DAILY_COPY.openInLiveEvents, "Open in Live Events");
   assert.equal(DAILY_COPY.arrivals, "Arrivals");
