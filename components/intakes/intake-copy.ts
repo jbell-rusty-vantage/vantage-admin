@@ -441,3 +441,18 @@ export function isAllowedIntakeReturn(value: string | undefined | null): value i
   if (!value.startsWith(`${INTAKE_CASE_RETURN}?`)) return false;
   return !value.includes("://") && !value.includes("//");
 }
+
+/** Owner-visible 409 copy for No Action, Update Existing Booking, and Confirm Granot Cancellation. */
+export function intakeOwnerCommandConflictCopy(code: string | undefined): string {
+  const shown = code ?? "conflict";
+  switch (code) {
+    case "GRANOT_CASE_REVISION_CONFLICT":
+      return `The case revision or latest-action posture changed (${shown}). Facts were refreshed. Unsent fields were preserved. Review and submit again.`;
+    case "GRANOT_IDENTITY_CONFLICT":
+      return `This intake’s identity or Referral evidence no longer matches (${shown}). Facts were refreshed. This is not a revision change. Review and submit again.`;
+    case "DOMAIN_REVISION_CONFLICT":
+      return `The Booking revision changed (${shown}). Facts were refreshed. Unsent fields were preserved. Review and submit again.`;
+    default:
+      return `Facts were refreshed (${shown}). Unsent fields were preserved. Review and submit again.`;
+  }
+}

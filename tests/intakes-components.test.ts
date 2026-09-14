@@ -36,6 +36,7 @@ import {
   intakeWhatVantageHas,
   intakeReleaseHeadline,
   intakeWhyHere,
+  intakeOwnerCommandConflictCopy,
   isAllowedIntakeReturn,
 } from "../components/intakes/intake-copy";
 import { IntakeList } from "../components/intakes/intake-list";
@@ -146,6 +147,28 @@ test("owner copy names booking intakes without lifecycle jargon", () => {
   assert.equal(isAllowedIntakeReturn("/intakes?tab=cancellations"), true);
   assert.equal(isAllowedIntakeReturn("/ingestion/granot/lifecycle"), false);
   assert.equal(intakeJobHref("5562924"), "/job-timeline?job=5562924");
+});
+
+test("AC-RRF-07 GRANOT_IDENTITY_CONFLICT copy does not say case revision changed", () => {
+  const copy = intakeOwnerCommandConflictCopy("GRANOT_IDENTITY_CONFLICT");
+  assert.doesNotMatch(copy, /case revision changed/i);
+  assert.match(copy, /identity or Referral evidence/);
+  assert.match(copy, /not a revision change/);
+});
+
+test("AC-RRF-07 GRANOT_CASE_REVISION_CONFLICT copy explains revision or latest-action posture", () => {
+  const copy = intakeOwnerCommandConflictCopy("GRANOT_CASE_REVISION_CONFLICT");
+  assert.match(copy, /case revision or latest-action posture/);
+});
+
+test("AC-RRF-07 DOMAIN_REVISION_CONFLICT copy names the Booking revision", () => {
+  const copy = intakeOwnerCommandConflictCopy("DOMAIN_REVISION_CONFLICT");
+  assert.match(copy, /Booking revision/);
+});
+
+test("AC-RRF-07 other and undefined 409 copy does not say case revision changed", () => {
+  assert.doesNotMatch(intakeOwnerCommandConflictCopy("GRANOT_POLICY_BLOCKED"), /case revision changed/i);
+  assert.doesNotMatch(intakeOwnerCommandConflictCopy(undefined), /case revision changed/i);
 });
 
 test("intake list uses owner language and keeps historical Release rows off the booking queue", () => {

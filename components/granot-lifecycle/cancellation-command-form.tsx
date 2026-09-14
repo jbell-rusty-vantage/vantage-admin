@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { intakeOwnerCommandConflictCopy } from "@/components/intakes/intake-copy";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
@@ -97,7 +98,7 @@ export function CancellationCommandForm({
       await invalidate();
     } catch (error) {
       if (error instanceof GranotLifecycleApiError && error.status === 409) {
-        setErrors([`The case, Booking revision, or identity changed (${error.code ?? "conflict"}). Current facts were refreshed; every unsent cancellation value was preserved. Review and submit explicitly again.`]);
+        setErrors([intakeOwnerCommandConflictCopy(error.code)]);
         await invalidate();
       } else {
         setErrors([error instanceof Error ? error.message : "Unable to create Cancellation."]);

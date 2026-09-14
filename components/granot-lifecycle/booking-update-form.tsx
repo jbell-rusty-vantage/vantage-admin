@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { intakeOwnerCommandConflictCopy } from "@/components/intakes/intake-copy";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
@@ -86,7 +87,7 @@ export function BookingUpdateForm({ detail, release = false }: { detail: GranotL
       });
     } catch (error) {
       if (error instanceof GranotLifecycleApiError && error.status === 409) {
-        setErrors([`The case, Booking revision, or identity changed (${error.code ?? "conflict"}). Current facts were refreshed; every unsent replacement value was preserved. Review and submit explicitly again.`]);
+        setErrors([intakeOwnerCommandConflictCopy(error.code)]);
         await invalidateGranotLifecycleCommandViews(queryClient, {
           caseId: detail.case_id,
           jobNo: detail.normalized_job_no,
