@@ -27,27 +27,107 @@ export function intakeStatusLabel(state: GranotLifecycleCaseListItem["state"]): 
   return state === "resolved" ? "Finished" : "Waiting for you";
 }
 
+export type IntakeOwnerPosture = "finalize" | "review";
+
+export type IntakePostureItem = Pick<
+  GranotLifecycleCaseListItem,
+  "mode" | "deterministic_booking"
+>;
+
+export type IntakeWhyHereItem = IntakePostureItem &
+  Pick<GranotLifecycleCaseListItem, "latest_action">;
+
+export const INTAKES_PAGE_BODY =
+  "Granot can mark a job Booked or Release. Vantage does not copy those numbers. If there is no Booking yet, finalize it here. If a Booking already exists, the official record is probably already right — choose No Action. Open the case only to change official numbers. Release is not a Cancellation by itself; cancel from Bookings when you mean to.";
+
+export const INTAKE_COMMANDS_OFF =
+  "Vantage is not ready to file Bookings from this screen. This Intake keeps waiting.";
+
+export const INTAKE_LIST_LOAD_ERROR = "Unable to load intakes. Try Refresh.";
+
+export const INTAKE_LIST_NO_ACTION = {
+  confirm: "Close this intake? The official Booking will not change.",
+  success: "Intake closed. No official record changed.",
+  conflict: "This intake changed. Refresh and try again.",
+  reason_code: "booking_still_valid",
+} as const;
+
+export function intakeOwnerPosture(item: IntakePostureItem): IntakeOwnerPosture {
+  return item.mode === "review_existing_booking" ? "review" : "finalize";
+}
+
+export function intakeCardPrimaryLabel(item: IntakePostureItem): string {
+  return intakeOwnerPosture(item) === "review" ? "Possibly Fix Booking" : "Finalize Booking";
+}
+
+export function intakeShowsListNoAction(
+  item: Pick<GranotLifecycleCaseListItem, "state" | "mode">,
+  bookingCommandsEnabled = true,
+): boolean {
+  return item.state === "open"
+    && item.mode === "review_existing_booking"
+    && bookingCommandsEnabled;
+}
+
+export function intakePublicCancelHref(bookingId: string): string {
+  return `/cancellations/new?booked_lead=${encodeURIComponent(bookingId)}`;
+}
+
+export function intakeShowsPublicCancel(
+  item: Pick<GranotLifecycleCaseListItem, "state" | "mode" | "deterministic_booking">,
+): boolean {
+  return item.state === "open"
+    && item.mode === "review_existing_booking"
+    && item.deterministic_booking.present === true
+    && Boolean(item.deterministic_booking.id)
+    && item.deterministic_booking.public_cancel_allowed === true;
+}
+
+export function intakeWorkbenchShowsPublicCancel(detail: {
+  state: GranotLifecycleCaseListItem["state"];
+  mode: string;
+  capabilities: { referral: boolean };
+  official_current: {
+    booking?: { id?: string; lead_ref?: unknown };
+    cancellation?: { id?: string };
+  };
+}): boolean {
+  return detail.state === "open"
+    && detail.mode === "review_existing_booking"
+    && Boolean(detail.official_current.booking?.id)
+    && detail.capabilities.referral !== true
+    && Boolean(detail.official_current.booking?.lead_ref)
+    && !detail.official_current.cancellation;
+}
+
 export function intakeWhyHere(action: GranotLifecycleCaseListItem["latest_action"]): string {
   switch (action) {
     case "priority_5":
       return "Opened under the retired Priority 5 trigger";
     case "booked":
-      return "Granot recorded a booking";
+      return "Granot marked this job Booked.";
     case "release":
-      return "Granot released this job";
+      return "Granot released this job.";
     default:
       return "Granot sent an update that needs your review";
   }
 }
 
-export function intakeReleaseHeadline(item: Pick<
-  GranotLifecycleCaseListItem,
-  "latest_action" | "deterministic_booking" | "mode"
->): string | undefined {
+export function intakeWhyHereForCase(item: IntakeWhyHereItem): string {
+  if (item.latest_action === "priority_5") return intakeWhyHere("priority_5");
+  if (intakeOwnerPosture(item) === "finalize") {
+    return item.latest_action === "release"
+      ? "Granot released this job. Vantage still has no Booking."
+      : "Granot marked this job Booked. Vantage does not have a Booking yet.";
+  }
+  return item.latest_action === "release"
+    ? "Granot released this job. That may be an edit. It is not a Vantage Cancellation by itself."
+    : "Granot sent another Booked on a job Vantage already booked.";
+}
+
+export function intakeReleaseHeadline(item: IntakeWhyHereItem): string | undefined {
   if (item.latest_action !== "release") return undefined;
-  return item.deterministic_booking.present || item.mode === "review_existing_booking"
-    ? "Granot released this job. That may be a customer cancel or a booking edit. Review the official booking."
-    : "Granot released this job. There is still no Vantage booking. File the booking if the sale is real, or choose No Action.";
+  return intakeWhyHereForCase(item);
 }
 
 export function intakeWhatVantageHas(item: Pick<
@@ -56,50 +136,47 @@ export function intakeWhatVantageHas(item: Pick<
 >): string {
   if (item.kind === "release") {
     return item.deterministic_booking.present
-      ? "Vantage has an official booking on this job"
-      : "No official Vantage booking on this job";
+      ? "Vantage already has a Booking"
+      : "No official Booking yet";
   }
 
   switch (item.mode) {
-    case "create_missing_booking":
-      return "No official Vantage booking yet";
     case "review_existing_booking":
-      return "Vantage already has a booking";
+      return "Vantage already has a Booking";
+    case "create_missing_booking":
     case "create_referral_booking":
-      return "Referral booking — no lead attached";
+      return "No official Booking yet";
     default:
       return item.deterministic_booking.present
-        ? "Vantage already has a booking"
-        : "No official Vantage booking yet";
+        ? "Vantage already has a Booking"
+        : "No official Booking yet";
   }
 }
 
-export function intakeActionLabel(_kind?: IntakeKind): string {
-  return "Finish booking";
+export function intakeActionLabel(
+  item?: IntakeKind | IntakePostureItem,
+): string {
+  if (item && typeof item === "object") return intakeCardPrimaryLabel(item);
+  return "Finalize Booking";
 }
 
 export function intakeNextStep(item: Pick<
   GranotLifecycleCaseListItem,
   "kind" | "mode" | "latest_action" | "deterministic_booking"
 >): string {
-  if (item.kind === "booking" && item.latest_action === "release") {
-    return item.deterministic_booking.present || item.mode === "review_existing_booking"
-      ? "Review the official booking. That may be a customer cancel or a booking edit."
-      : "File the booking if the sale is real, or choose No Action.";
-  }
   if (item.kind === "release") {
     return "Open this case to review official cancellation details.";
   }
-  switch (item.mode) {
-    case "create_missing_booking":
-      return "Enter binder, up to two agents, deposit, and merchant. A high-confidence lead attaches automatically. You can save without a lead.";
-    case "review_existing_booking":
-      return "Review or update the official booking. Binder is one amount, split evenly across the agents you pick.";
-    case "create_referral_booking":
-      return "Open this case to enter one binder amount, up to two agents, deposit, and merchant.";
-    default:
-      return "Open this case to finish official booking details.";
+  if (intakeOwnerPosture(item) === "review") {
+    return "If the official Booking is still right, choose No Action. Open the case only to change official numbers.";
   }
+  if (item.latest_action === "release") {
+    return "If the sale is real, finalize the Booking. If it should not be filed, open the case and choose No Action.";
+  }
+  if (item.mode === "create_referral_booking") {
+    return "Enter Binder, up to two Agents, Deposit, and Merchant.";
+  }
+  return "Enter Binder, up to two Agents, Deposit, and Merchant. A High-Confidence Booking Lead attaches on its own. You can save as a Leadless Booking.";
 }
 
 export function intakeCaseHowToFinish(input: {
@@ -110,41 +187,39 @@ export function intakeCaseHowToFinish(input: {
   latest_action?: GranotLifecycleCaseListItem["latest_action"];
 }): { title: string; body: string } | undefined {
   if (input.state !== "open") return undefined;
-  if (input.kind === "booking" && input.mode === "review_existing_booking" && input.latest_action === "release") {
-    return {
-      title: "How to finish this booking",
-      body: input.commandsAvailable
-        ? "Review booking or cancellation. Update the official booking, confirm a Granot cancellation, or leave official records unchanged."
-        : "Vantage already has an official booking on this job. The official form appears here when owner booking work is enabled.",
-    };
-  }
   if (input.kind === "release") {
     return {
       title: "How to finish this cancellation",
       body: input.commandsAvailable
         ? "Official cancellation and booking fields are below. Granot evidence stays as reference only."
-        : "This case is waiting for official cancellation details. The official form appears here when owner cancellation work is enabled.",
+        : INTAKE_COMMANDS_OFF,
+    };
+  }
+  if (!input.commandsAvailable) {
+    return {
+      title: input.mode === "review_existing_booking"
+        ? "How to review this booking"
+        : "How to finalize this booking",
+      body: INTAKE_COMMANDS_OFF,
     };
   }
   if (input.mode === "review_existing_booking") {
     return {
-      title: "How to finish this booking",
-      body: input.commandsAvailable
-        ? "Review or update the official booking. Binder is one amount, split evenly across the agents you pick. Use the same catalog as a normal booking, or leave official records unchanged."
-        : "Vantage already has an official booking on this job. The official form appears here when owner booking work is enabled.",
+      title: "How to review this booking",
+      body: "This Booking is already official. A new Booked or Release does not change it by itself. Update Book Date, Binder, Agents, Deposit, or Merchant only if those official values are wrong. If nothing official changed, choose No Action. To cancel, use Cancel this booking — do not treat Release as the cancel.",
     };
   }
   return {
-    title: "How to finish this booking",
-    body: input.commandsAvailable
-        ? "Enter binder, up to two agents, deposit, and merchant. A high-confidence lead attaches automatically. You can save without a lead. If the customer is wrong, search for the right one before you file it. Granot estimate and payment numbers stay as reference only."
-        : "This case is waiting for one binder amount, up to two agents, deposit, and merchant. The official form appears here when owner booking work is enabled.",
+    title: "How to finalize this booking",
+    body: input.latest_action === "release"
+      ? "Granot released this job. Vantage still has no Booking. If the sale is real, enter the official sale here. Granot estimate and payment stay as reference. If it should not be filed, choose No Action."
+      : "Granot marked this job Booked. That is not a Vantage Booking. Enter the official sale here. Granot estimate and payment stay as reference.",
   };
 }
 
 export function intakeWaitingEmptyMessage(kind: IntakeKind): string {
   return kind === "booking"
-    ? "No booking intakes waiting. When Granot records a Booked or Release job, it will show up here."
+    ? "No booking intakes waiting. When Granot records a Booked or Release job, it shows up here."
     : "Cancellation intakes are retired. New Release jobs appear on booking intakes.";
 }
 
@@ -279,9 +354,13 @@ export const BOOKING_INTAKE_STORY = {
     callLine: "Called is the phone contact. Granot is the later card from the CRM when we have one.",
     changed: "Granot later changed this contact.",
   },
+  officialBookingDetails: {
+    title: "Official Booking details",
+    hint: "Enter Binder, up to two Agents, Deposit, and Merchant.",
+  },
   finishTheBooking: {
-    title: "Finish the booking",
-    hint: "Enter one binder amount, up to two agents, deposit, and merchant.",
+    title: "Official Booking details",
+    hint: "Enter Binder, up to two Agents, Deposit, and Merchant.",
   },
   whatVantageAlreadyHas: {
     title: "What Vantage already has on this job",
@@ -440,6 +519,11 @@ export function isAllowedIntakeReturn(value: string | undefined | null): value i
   if (value === INTAKE_CASE_RETURN) return true;
   if (!value.startsWith(`${INTAKE_CASE_RETURN}?`)) return false;
   return !value.includes("://") && !value.includes("//");
+}
+
+export function intakeListNoActionConflictCopy(code: string | undefined): string {
+  if (code === "GRANOT_CASE_REVISION_CONFLICT") return INTAKE_LIST_NO_ACTION.conflict;
+  return intakeOwnerCommandConflictCopy(code);
 }
 
 /** Owner-visible 409 copy for No Action, Update Existing Booking, and Confirm Granot Cancellation. */

@@ -1,14 +1,17 @@
+"use client";
+
 import Link from "next/link";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { formatDateTime } from "@/components/data-table/formatters";
 import { StatusBadge } from "@/components/data-table/status-badge";
+import { FeedbackMessage } from "@/components/ui/feedback";
 import type { GranotLifecycleCaseListItem } from "@/lib/api/granotLifecycle";
 import { cn } from "@/lib/utils";
 import { JobTimelineDeepLink } from "@/components/job-number-timeline/job-timeline-deep-link";
 import { GranotBookingStatementAccordion } from "./granot-booking-statement";
+import { IntakeCardActions } from "./intake-card-actions";
 import {
   granotUpdateCountLine,
-  intakeActionLabel,
   intakeCaseHref,
   intakeJobHref,
   intakeKindFromCase,
@@ -16,9 +19,8 @@ import {
   intakeNextStep,
   intakePairingLine,
   intakeStatusLabel,
-  intakeReleaseHeadline,
   intakeWhatVantageHas,
-  intakeWhyHere,
+  intakeWhyHereForCase,
   type IntakeKind,
 } from "./intake-copy";
 
@@ -37,6 +39,7 @@ export function IntakeList({
   now,
   selectedCaseId,
   listQuery,
+  bookingCommandsEnabled = true,
 }: {
   items?: GranotLifecycleCaseListItem[];
   kind: IntakeKind;
@@ -44,14 +47,22 @@ export function IntakeList({
   now?: number;
   selectedCaseId?: string;
   listQuery?: { state?: "open" | "resolved"; job?: string };
+  bookingCommandsEnabled?: boolean;
 }) {
+  const [notice, setNotice] = useState<string>();
   const rows = (items ?? []).filter((item) => intakeKindFromCase(item.kind) === kind);
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
+    return (
+      <div className="space-y-2">
+        {notice ? <FeedbackMessage>{notice}</FeedbackMessage> : null}
+        <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+      </div>
+    );
   }
 
   return (
     <div className="min-w-0 max-w-full overflow-x-auto">
+      {notice ? <FeedbackMessage className="mb-3">{notice}</FeedbackMessage> : null}
       <table className="min-w-full text-left text-sm">
         <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
@@ -90,14 +101,14 @@ export function IntakeList({
                     </StatusBadge>
                     <StatusBadge>{intakeKindLabel(intakeKindFromCase(item.kind))}</StatusBadge>
                   </div>
-                  <p className="mt-2">
-                    <Link
-                      className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm font-semibold text-white hover:bg-navy"
+                  <div className="mt-2">
+                    <IntakeCardActions
+                      item={item}
                       href={href}
-                    >
-                      {intakeActionLabel(kind)}
-                    </Link>
-                  </p>
+                      bookingCommandsEnabled={bookingCommandsEnabled}
+                      onClosed={setNotice}
+                    />
+                  </div>
                   <p className="mt-1 font-mono text-xs text-muted-foreground">
                     <Link className="hover:underline" href={intakeJobHref(item.normalized_job_no)}>
                       Open job history
@@ -113,7 +124,7 @@ export function IntakeList({
                   </p>
                 </td>
                 <td className="px-3 py-3 align-top">
-                  <p>{intakeReleaseHeadline(item) ?? intakeWhyHere(item.latest_action)}</p>
+                  <p>{intakeWhyHereForCase(item)}</p>
                   {(() => {
                     const pairing = intakePairingLine(item.priority_pairing);
                     if (!pairing) return null;

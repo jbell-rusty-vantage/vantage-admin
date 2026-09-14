@@ -20,22 +20,32 @@ import {
   creatingObservationSummary,
   creatingObservationTitle,
   granotStatementHeadline,
+  INTAKE_COMMANDS_OFF,
+  INTAKE_LIST_NO_ACTION,
   intakeActionLabel,
+  intakeCardPrimaryLabel,
   intakeCaseHref,
   intakeCaseHowToFinish,
   intakeEmptyMessage,
   intakeJobHref,
   intakeKindFromCase,
   intakeKindLabel,
+  intakeListNoActionConflictCopy,
   intakeQueueLabel,
   intakeMoreWaitingLabel,
   intakeWaitingEmptyMessage,
   intakeNextStep,
+  intakeOwnerPosture,
   intakePairingLine,
+  intakePublicCancelHref,
+  intakeShowsListNoAction,
+  intakeShowsPublicCancel,
+  intakeWorkbenchShowsPublicCancel,
   intakeStatusLabel,
   intakeWhatVantageHas,
   intakeReleaseHeadline,
   intakeWhyHere,
+  intakeWhyHereForCase,
   intakeOwnerCommandConflictCopy,
   isAllowedIntakeReturn,
 } from "../components/intakes/intake-copy";
@@ -107,27 +117,29 @@ test("owner copy names booking intakes without lifecycle jargon", () => {
   assert.equal(intakeStatusLabel("open"), "Waiting for you");
   assert.equal(intakeStatusLabel("resolved"), "Finished");
   assert.equal(intakeWhyHere("priority_5"), "Opened under the retired Priority 5 trigger");
-  assert.equal(intakeWhyHere("booked"), "Granot recorded a booking");
-  assert.equal(intakeWhyHere("release"), "Granot released this job");
+  assert.equal(intakeWhyHere("booked"), "Granot marked this job Booked.");
+  assert.equal(intakeWhyHere("release"), "Granot released this job.");
   assert.equal(
     intakeReleaseHeadline({ latest_action: "release", deterministic_booking: { present: false }, mode: "create_missing_booking" }),
-    "Granot released this job. There is still no Vantage booking. File the booking if the sale is real, or choose No Action.",
+    "Granot released this job. Vantage still has no Booking.",
   );
   assert.equal(
     intakeReleaseHeadline({ latest_action: "release", deterministic_booking: { present: true }, mode: "review_existing_booking" }),
-    "Granot released this job. That may be a customer cancel or a booking edit. Review the official booking.",
+    "Granot released this job. That may be an edit. It is not a Vantage Cancellation by itself.",
   );
   assert.deepEqual(intakePairingLine({ pairing: "priority_5_then_booked", creating_booked_priority_is_5: true, has_preceding_priority_5: true, has_later_priority_5: false }), { text: "Priority 5 then Booked", tone: "quiet" });
   assert.deepEqual(intakePairingLine({ pairing: "booked_without_priority_5", creating_booked_priority_is_5: false, has_preceding_priority_5: false, has_later_priority_5: false }), { text: "Booked without Priority 5", tone: "warning" });
   assert.equal(intakePairingLine({ pairing: "booked_carries_priority_5", creating_booked_priority_is_5: true, has_preceding_priority_5: false, has_later_priority_5: false }), undefined);
   assert.equal(
     intakeWhatVantageHas(bookingCase),
-    "No official Vantage booking yet",
+    "No official Booking yet",
   );
-  assert.equal(intakeActionLabel("booking"), "Finish booking");
-  assert.equal(intakeActionLabel("cancellation"), "Finish booking");
-  assert.equal(intakeActionLabel(), "Finish booking");
-  assert.match(intakeNextStep(bookingCase), /You can save without a lead/);
+  assert.equal(intakeActionLabel("booking"), "Finalize Booking");
+  assert.equal(intakeActionLabel("cancellation"), "Finalize Booking");
+  assert.equal(intakeActionLabel(), "Finalize Booking");
+  assert.equal(intakeOwnerPosture(bookingCase), "finalize");
+  assert.equal(intakeCardPrimaryLabel(bookingCase), "Finalize Booking");
+  assert.match(intakeNextStep(bookingCase), /Leadless Booking/);
   assert.equal(intakeNextStep(bookingCase).includes("choose a lead"), false);
   assert.match(
     intakeCaseHowToFinish({
@@ -135,12 +147,12 @@ test("owner copy names booking intakes without lifecycle jargon", () => {
       mode: "create_missing_booking",
       state: "open",
       commandsAvailable: true,
-    })?.body ?? "",
-    /You can save without a lead/,
+    })?.title ?? "",
+    /How to finalize this booking/,
   );
   assert.equal(
     intakeEmptyMessage("booking", "open"),
-    "No booking intakes waiting. When Granot records a Booked or Release job, it will show up here.",
+    "No booking intakes waiting. When Granot records a Booked or Release job, it shows up here.",
   );
   assert.doesNotMatch(intakeEmptyMessage("booking", "open"), /cancell?ed|cancels/i);
   assert.equal(isAllowedIntakeReturn("/intakes"), true);
@@ -180,10 +192,13 @@ test("intake list uses owner language and keeps historical Release rows off the 
   });
   assert.match(bookingMarkup, /Synthetic Job 1/);
   assert.match(bookingMarkup, /Opened under the retired Priority 5 trigger/);
-  assert.match(bookingMarkup, /No official Vantage booking yet/);
+  assert.match(bookingMarkup, /No official Booking yet/);
   assert.match(bookingMarkup, /Waiting for you/);
-  assert.match(bookingMarkup, /Finish booking/);
-  assert.match(bookingMarkup, /You can save without a lead/);
+  assert.match(bookingMarkup, /Finalize Booking/);
+  assert.match(bookingMarkup, /Leadless Booking/);
+  assert.equal(bookingMarkup.includes("Finish booking"), false);
+  assert.equal(bookingMarkup.includes("No Action"), false);
+  assert.equal(bookingMarkup.includes("Cancel this booking"), false);
   assert.match(bookingMarkup, /href="\/intakes\?case=case-booking"/);
   assert.match(bookingMarkup, /href="\/job-timeline\?job=Synthetic/);
   assert.match(bookingMarkup, /Open Job timeline/);
@@ -234,7 +249,7 @@ test("intakes header keeps owner language and a refresh control", () => {
     onRefresh: () => undefined,
   }));
   assert.match(markup, /Intakes/);
-  assert.match(markup, /records a Booked or Release job/);
+  assert.match(markup, /mark a job Booked or Release/);
   assert.equal(markup.includes("cancels a job"), false);
   assert.match(markup, /Refresh/);
   assert.match(markup, /Last checked/);
@@ -645,10 +660,10 @@ test("the booking intake reads as one story: Granot, then the customer, then the
     "Back to waiting intakes",
     "Booking intake",
     "Job Synthetic Job 1",
-    "How to finish this booking",
+    "How to finalize this booking",
     "What Granot sent us",
     "Who this booking is for",
-    "Finish the booking",
+    "Official Booking details",
     "What Vantage already has on this job",
     "Every update Granot sent on this job",
     "How this job got here",
@@ -673,7 +688,7 @@ test("a booking intake that needs no customer never asks for one", () => {
   assert.match(markup, /Create Referral Booking/);
 });
 
-test("review plus latest Release shows Confirm Granot Cancellation on the booking case", () => {
+test("review plus latest Release hides Confirm Granot Cancellation on Owner Intakes", () => {
   const markup = renderWorkbench(bookingIntakeDetail({
     mode: "review_existing_booking",
     latest_action: "release",
@@ -691,6 +706,7 @@ test("review plus latest Release shows Confirm Granot Cancellation on the bookin
         deposit_amount: 100,
         total_binder_amount: 200,
         agent_allocations: [],
+        lead_ref: { model: "FormLead", id: "lead-2" },
       },
     },
     capabilities: {
@@ -701,10 +717,14 @@ test("review plus latest Release shows Confirm Granot Cancellation on the bookin
       discrepancies: false,
     },
   }));
-  assert.match(markup, /Review booking or cancellation/);
-  assert.match(markup, /Create Cancellation/);
+  assert.match(markup, /How to review this booking/);
+  assert.match(markup, /Official Booking now/);
   assert.match(markup, /Update Existing Booking/);
   assert.match(markup, /No Action/);
+  assert.match(markup, /Cancel this booking/);
+  assert.match(markup, /href="\/cancellations\/new\?booked_lead=booking-2"/);
+  assert.equal(markup.includes("Create Cancellation"), false);
+  assert.equal(markup.includes("Review booking or cancellation"), false);
 });
 
 test("create-missing plus latest Release does not show Confirm Cancellation", () => {
@@ -721,7 +741,7 @@ test("create-missing plus latest Release does not show Confirm Cancellation", ()
   }));
   assert.equal(markup.includes("Create Cancellation"), false);
   assert.equal(markup.includes("Review Cancellation"), false);
-  assert.match(markup, /Finish the booking/);
+  assert.match(markup, /Official Booking details/);
   assert.match(markup, /No Action/);
 });
 
@@ -740,15 +760,14 @@ test("review plus latest Release hides Confirm Cancellation when commands are di
   }));
   assert.equal(markup.includes("Create Cancellation"), false);
   assert.equal(markup.includes("Review Cancellation"), false);
-  assert.match(markup, /The official form appears here when owner booking work is enabled/);
+  assert.match(markup, new RegExp(INTAKE_COMMANDS_OFF));
 });
 
 test("a booking intake nobody can finish yet says so and opens the record instead", () => {
   const markup = renderWorkbench(bookingIntakeDetail({
     capabilities: { commands: false, referral: false, release_cases: false, discrepancies: false },
   }));
-  assert.match(markup, /Vantage is not ready to file bookings from this screen yet/);
-  assert.match(markup, /Nothing is being lost/);
+  assert.match(markup, new RegExp(INTAKE_COMMANDS_OFF));
   assert.match(markup, /open=""/);
 });
 
@@ -772,6 +791,73 @@ test("the reference drawers explain the job in owner words, not schema words", (
   for (const jargon of ["normalization_result", "priority_5", "observation_id", "decision_id"]) {
     assert.equal(markup.includes(jargon), false);
   }
+});
+
+test("review cards offer list No Action, Possibly Fix Booking, and an optional public cancel link", () => {
+  const reviewCase: GranotLifecycleCaseListItem = {
+    ...bookingCase,
+    case_id: "case-review",
+    mode: "review_existing_booking",
+    latest_action: "release",
+    deterministic_booking: {
+      present: true,
+      masked_ref: "boo…001",
+      id: "booking-1",
+      public_cancel_allowed: true,
+    },
+  };
+  const referralReview: GranotLifecycleCaseListItem = {
+    ...reviewCase,
+    case_id: "case-referral-review",
+    deterministic_booking: {
+      present: true,
+      masked_ref: "boo…009",
+      id: "booking-9",
+      public_cancel_allowed: false,
+    },
+  };
+  assert.equal(intakeOwnerPosture(reviewCase), "review");
+  assert.equal(intakeCardPrimaryLabel(reviewCase), "Possibly Fix Booking");
+  assert.equal(intakeShowsListNoAction(reviewCase, true), true);
+  assert.equal(intakeShowsListNoAction(bookingCase, true), false);
+  assert.equal(intakeShowsListNoAction({ ...bookingCase, mode: "create_referral_booking" }, true), false);
+  assert.equal(intakeShowsPublicCancel(reviewCase), true);
+  assert.equal(intakeShowsPublicCancel(referralReview), false);
+  assert.equal(intakePublicCancelHref("booking-1"), "/cancellations/new?booked_lead=booking-1");
+  assert.equal(
+    intakeWhyHereForCase(reviewCase),
+    "Granot released this job. That may be an edit. It is not a Vantage Cancellation by itself.",
+  );
+  assert.equal(intakeListNoActionConflictCopy("GRANOT_CASE_REVISION_CONFLICT"), INTAKE_LIST_NO_ACTION.conflict);
+  assert.equal(intakeWorkbenchShowsPublicCancel({
+    state: "open",
+    mode: "review_existing_booking",
+    capabilities: { referral: false },
+    official_current: {
+      booking: { id: "booking-1", lead_ref: { model: "FormLead", id: "lead-1" } },
+    },
+  }), true);
+  assert.equal(intakeWorkbenchShowsPublicCancel({
+    state: "open",
+    mode: "review_existing_booking",
+    capabilities: { referral: false },
+    official_current: {
+      booking: { id: "booking-1", lead_ref: { model: "FormLead", id: "lead-1" } },
+      cancellation: { id: "cancel-1" },
+    },
+  }), false);
+
+  const markup = renderIntakeList({
+    items: [reviewCase, referralReview],
+    kind: "booking",
+    emptyMessage: "none",
+  });
+  assert.match(markup, /No Action/);
+  assert.match(markup, /Possibly Fix Booking/);
+  assert.match(markup, /href="\/cancellations\/new\?booked_lead=booking-1"/);
+  assert.equal(markup.includes("booked_lead=booking-9"), false);
+  assert.equal(markup.includes("Finish booking"), false);
+  assert.equal(markup.includes("Create Cancellation"), false);
 });
 
 test("intake surfaces never blot out the customer the owner has to call", () => {

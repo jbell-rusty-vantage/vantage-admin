@@ -78,7 +78,12 @@ export type GranotLifecycleCaseListItem = {
   evidence_count: number;
   case_revision: number;
   evidence_revision: number;
-  deterministic_booking: { present: boolean; masked_ref?: string };
+  deterministic_booking: {
+    present: boolean;
+    masked_ref?: string;
+    id?: string;
+    public_cancel_allowed?: boolean;
+  };
   opened_at: string;
   last_evidence_at: string;
   resolved_at?: string;

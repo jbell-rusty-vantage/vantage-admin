@@ -6,12 +6,20 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { BookingOwnerActions } from "@/components/granot-lifecycle/booking-owner-actions";
 import { useMatchedLead } from "@/components/granot-lifecycle/use-matched-lead";
-import type { GranotLifecycleCaseDetail } from "@/lib/api/granotLifecycle";
+import type { GranotLifecycleCaseDetail, SafeBookingProjection } from "@/lib/api/granotLifecycle";
 import { JobTimelineDeepLink } from "@/components/job-number-timeline/job-timeline-deep-link";
 import { GranotBookingStatementCard } from "./granot-booking-statement";
 import { MatchedCustomerSection } from "./matched-lead-panel";
 import { IntakeReferenceDrawers } from "./intake-reference";
-import { intakeCaseHowToFinish, intakeReleaseHeadline, intakeStatusLabel } from "./intake-copy";
+import { formatDateTime, formatMoney } from "@/components/data-table/formatters";
+import {
+  INTAKE_COMMANDS_OFF,
+  intakeCaseHowToFinish,
+  intakePublicCancelHref,
+  intakeReleaseHeadline,
+  intakeStatusLabel,
+  intakeWorkbenchShowsPublicCancel,
+} from "./intake-copy";
 
 function BookingIntakeHeadline({
   detail,
@@ -56,7 +64,7 @@ function BookingIntakeHeadline({
  *
  *   1. what Granot sent us
  *   2. who this booking is for — and the search that changes the answer
- *   3. finish the booking, or resolve it without changing anything
+ *   3. finalize or review the booking, or resolve it without changing anything
  *   4. the paper trail, folded away until it is needed
  */
 export function BookingIntakeWorkbench({
@@ -119,13 +127,30 @@ export function BookingIntakeWorkbench({
         <MatchedCustomerSection caseId={detail.case_id} matched={matched} />
       ) : null}
 
-      <BookingOwnerActions detail={detail} matchedLead={matched.lead} />
+      {detail.official_current.booking ? (
+        <OfficialBookingNowStrip
+          booking={detail.official_current.booking}
+          referral={detail.capabilities.referral}
+        />
+      ) : null}
+
+      <BookingOwnerActions detail={detail} matchedLead={matched.lead} surface="intakes" />
+
+      {intakeWorkbenchShowsPublicCancel(detail) && detail.official_current.booking?.id
+        ? (
+          <p>
+            <Link
+              className="text-sm font-medium text-muted-foreground hover:underline"
+              href={intakePublicCancelHref(detail.official_current.booking.id)}
+            >
+              Cancel this booking
+            </Link>
+          </p>
+        )
+        : null}
 
       {!ownerCanFinishIt && detail.state === "open" ? (
-        <FeedbackMessage tone="warning">
-          Vantage is not ready to file bookings from this screen yet. Nothing is being lost — this
-          intake keeps waiting, and everything Granot sent is recorded below.
-        </FeedbackMessage>
+        <FeedbackMessage tone="warning">{INTAKE_COMMANDS_OFF}</FeedbackMessage>
       ) : null}
 
       <IntakeReferenceDrawers
@@ -136,5 +161,56 @@ export function BookingIntakeWorkbench({
         defaultOpen={!ownerCanFinishIt}
       />
     </div>
+  );
+}
+
+function OfficialBookingNowStrip({
+  booking,
+  referral,
+}: {
+  booking: SafeBookingProjection;
+  referral?: boolean;
+}) {
+  const attachment = booking.lead_ref
+    ? "Lead"
+    : referral
+      ? "Referral Booking"
+      : "Leadless Booking";
+  return (
+    <section aria-labelledby="official-booking-now" className="rounded-lg border bg-muted/40 p-4">
+      <h2 id="official-booking-now" className="text-sm font-semibold text-navy">
+        Official Booking now
+      </h2>
+      <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+        <div>
+          <dt className="text-xs text-muted-foreground">Book Date</dt>
+          <dd>{formatDateTime(booking.book_date)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Binder</dt>
+          <dd>{formatMoney(booking.total_binder_amount)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Deposit</dt>
+          <dd>{formatMoney(booking.deposit_amount)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Merchant</dt>
+          <dd>{booking.merchant}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Agents</dt>
+          <dd>
+            {booking.agent_allocations.length
+              ? booking.agent_allocations.map((allocation) => allocation.agent_name).join(", ")
+              : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">{attachment === "Lead" ? "Lead" : attachment}</dt>
+          <dd>{attachment === "Lead" ? "Attached" : attachment}</dd>
+        </div>
+      </dl>
+    </section>
   );
 }

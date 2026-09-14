@@ -1,20 +1,22 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { TableLoadingState } from "@/components/data-table/table-states";
 import type { GranotLifecycleCaseListItem, GranotLifecycleCaseListPage } from "@/lib/api/granotLifecycle";
 import { cn } from "@/lib/utils";
+import { IntakeCardActions } from "@/components/intakes/intake-card-actions";
 import {
   INTAKES_HREF,
-  intakeActionLabel,
   intakeCaseHref,
   intakeKindFromCase,
   intakeMoreWaitingLabel,
   intakeQueueLabel,
   intakeStatusLabel,
   intakeWaitingEmptyMessage,
-  intakeWhyHere,
+  intakeWhyHereForCase,
   type IntakeKind,
 } from "@/components/intakes/intake-copy";
 import { OVERVIEW_INTAKE_PREVIEW_LIMIT, overviewCopy } from "./overview-copy";
@@ -68,38 +70,43 @@ function WaitingRow({
   item,
   kind,
   now,
+  bookingCommandsEnabled,
+  onClosed,
 }: {
   item: GranotLifecycleCaseListItem;
   kind: IntakeKind;
   now: number;
+  bookingCommandsEnabled: boolean;
+  onClosed?: (message: string) => void;
 }) {
   const href = intakeCaseHref(item.case_id, { tab: kind, state: "open" });
   return (
-    <li>
-      <Link
-        href={href}
-        className="group block rounded-md border border-transparent px-3 py-2.5 transition-colors hover:border-steel-200 hover:bg-steel-100"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-semibold text-navy">{item.job_no}</p>
-            <p className="truncate text-sm text-foreground">{item.customer_label || "—"}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{intakeWhyHere(item.latest_action)}</p>
-          </div>
-          <div className="shrink-0 text-right">
-            <p className="text-xs tabular-nums text-muted-foreground">
-              {ageLabel(item.last_evidence_at, now)} ago
-            </p>
-            <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
-              {intakeActionLabel(kind)}
-              <ArrowRight
-                className="h-3 w-3 transition-transform group-hover:translate-x-0.5"
-                aria-hidden="true"
-              />
-            </p>
+    <li className="rounded-md border border-transparent px-3 py-2.5 hover:border-steel-200 hover:bg-steel-100">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-semibold text-navy">
+            <Link className="hover:underline" href={href}>
+              {item.job_no}
+            </Link>
+          </p>
+          <p className="truncate text-sm text-foreground">{item.customer_label || "—"}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{intakeWhyHereForCase(item)}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-xs tabular-nums text-muted-foreground">
+            {ageLabel(item.last_evidence_at, now)} ago
+          </p>
+          <div className="mt-1">
+            <IntakeCardActions
+              item={item}
+              href={href}
+              bookingCommandsEnabled={bookingCommandsEnabled}
+              compact
+              onClosed={onClosed}
+            />
           </div>
         </div>
-      </Link>
+      </div>
     </li>
   );
 }
@@ -108,10 +115,14 @@ function WaitingQueue({
   kind,
   queue,
   now,
+  bookingCommandsEnabled,
+  onClosed,
 }: {
   kind: IntakeKind;
   queue: NeedsYouQueue;
   now: number;
+  bookingCommandsEnabled: boolean;
+  onClosed?: (message: string) => void;
 }) {
   const rows = queue.items.filter((item) => intakeKindFromCase(item.kind) === kind);
   const href = intakesHref(kind);
@@ -134,7 +145,14 @@ function WaitingQueue({
       ) : (
         <ul className="space-y-1">
           {rows.map((item) => (
-            <WaitingRow key={`${item.kind}:${item.case_id}`} item={item} kind={kind} now={now} />
+            <WaitingRow
+              key={`${item.kind}:${item.case_id}`}
+              item={item}
+              kind={kind}
+              now={now}
+              bookingCommandsEnabled={bookingCommandsEnabled}
+              onClosed={onClosed}
+            />
           ))}
           {queue.next_cursor ? (
             <li>
@@ -155,11 +173,14 @@ function WaitingQueue({
 export function NeedsYouBand({
   booking,
   now = Date.now(),
+  bookingCommandsEnabled = true,
 }: {
   booking: NeedsYouQueue;
   now?: number;
+  bookingCommandsEnabled?: boolean;
 }) {
   const waiting = booking.items.length > 0 || Boolean(booking.next_cursor);
+  const [notice, setNotice] = useState<string>();
 
   return (
     <Card className={cn(waiting && "border-trust-blue/35")}>
@@ -168,8 +189,15 @@ export function NeedsYouBand({
           {intakeStatusLabel("open")}
         </h2>
       </CardHeader>
-      <CardContent>
-        <WaitingQueue kind="booking" queue={booking} now={now} />
+      <CardContent className="space-y-2">
+        {notice ? <FeedbackMessage>{notice}</FeedbackMessage> : null}
+        <WaitingQueue
+          kind="booking"
+          queue={booking}
+          now={now}
+          bookingCommandsEnabled={bookingCommandsEnabled}
+          onClosed={setNotice}
+        />
       </CardContent>
     </Card>
   );

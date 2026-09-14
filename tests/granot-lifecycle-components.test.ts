@@ -170,7 +170,7 @@ test("detail stays mounted when official_current, evidence, contacts, or timelin
   assert.match(markup, /Official current Vantage facts/);
   assert.match(markup, /Official create fields remain blank/);
   assert.match(markup, /Granot evidence — not official Vantage values/);
-  assert.match(markup, /How to finish this booking/);
+  assert.match(markup, /How to finalize this booking/);
 });
 
 test("booking case detail can render the Granot statement it was given", () => {
@@ -297,7 +297,7 @@ test("[AC-22][AC-32] enabled Owner command renders blank labeled fields and an e
   const form = createElement(QueryClientProvider, { client: queryClient },
     createElement(BookingCommandForm, { detail: commandDetail }));
   const formMarkup = renderToStaticMarkup(form);
-  for (const label of ["Finish the booking", "Book Date", "Deposit Amount", "Binder amount", "Active Merchant", "Primary Agent", "Secondary Agent", "Review Booking"]) {
+  for (const label of ["Official Booking details", "Book Date", "Deposit Amount", "Binder amount", "Active Merchant", "Primary Agent", "Secondary Agent", "Review official details"]) {
     assert.match(formMarkup, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
   assert.match(formMarkup, /value=""/);
@@ -315,7 +315,7 @@ test("[AC-22][AC-32] enabled Owner command renders blank labeled fields and an e
     ownerWork: createElement("span", null, "OWNER COMMAND FORM"),
   }));
   assert.match(detailMarkup, /OWNER COMMAND FORM/);
-  assert.match(detailMarkup, /How to finish this booking/);
+  assert.match(detailMarkup, /How to finalize this booking/);
   assert.ok(detailMarkup.indexOf("OWNER COMMAND FORM") < detailMarkup.indexOf("Granot evidence"));
 });
 
@@ -382,7 +382,7 @@ test("[AC-20][AC-24][AC-32] review-existing actions initialize from live values 
     "2026-08-17",
     "100.25",
     "200.5",
-    "Review Booking Update",
+    "Review Booking update",
     "No Action",
     "Review No Action",
   ]) assert.match(markup, new RegExp(value));
@@ -393,7 +393,7 @@ test("[AC-20][AC-24][AC-32] review-existing actions initialize from live values 
   );
 });
 
-test("review plus latest Release exposes Update, Confirm Cancellation, and No Action", () => {
+test("review plus latest Release exposes Update, Confirm Cancellation, and No Action on the technical desk", () => {
   const commandDetail = detail({
     mode: "review_existing_booking",
     latest_action: "release",
@@ -429,6 +429,42 @@ test("review plus latest Release exposes Update, Confirm Cancellation, and No Ac
   assert.match(markup, /No Action/);
 });
 
+test("Owner Intakes surface hides Confirm Granot Cancellation on BookingOwnerActions", () => {
+  const commandDetail = detail({
+    mode: "review_existing_booking",
+    latest_action: "release",
+    capabilities: {
+      commands: true,
+      referral: false,
+      confirm_cancellation: true,
+      release_cases: false,
+      discrepancies: false,
+    },
+    official_current: {
+      booking: {
+        id: "booking-safe-id",
+        normalized_job_no: "SYNTHETIC JOB 1",
+        job_no: "Synthetic Job 1",
+        book_date: "2026-08-17T00:00:00.000Z",
+        customer_name: "Masked Owner Work",
+        source: "Synthetic Source",
+        merchant: "Synthetic Merchant",
+        merchant_id: "merchant-1",
+        deposit_amount: 100.25,
+        total_binder_amount: 200.5,
+        agent_allocations: [{ agent_id: "agent-1", agent_name: "Synthetic Agent", binder_amount: 200.5 }],
+        domain_revision: 4,
+      },
+    },
+  });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
+    createElement(BookingOwnerActions, { detail: commandDetail, surface: "intakes" })));
+  assert.match(markup, /Update Existing Booking/);
+  assert.match(markup, /No Action/);
+  assert.equal(markup.includes("Create Cancellation"), false);
+});
+
 test("create-missing plus latest Release does not expose Confirm Cancellation", () => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
@@ -437,7 +473,7 @@ test("create-missing plus latest Release does not expose Confirm Cancellation", 
       latest_action: "release",
       capabilities: { commands: true, referral: false, confirm_cancellation: false, release_cases: false, discrepancies: false },
     }) })));
-  assert.match(markup, /Finish the booking/);
+  assert.match(markup, /Official Booking details/);
   assert.match(markup, /No Action/);
   assert.equal(markup.includes("Create Cancellation"), false);
 });
@@ -449,7 +485,7 @@ test("[AC-20][AC-28] create-missing and Referral expose only their explicit Owne
       mode: "create_missing_booking",
       capabilities: { commands: true, referral: false, release_cases: false, discrepancies: false },
     }) })));
-  assert.match(createMarkup, /Finish the booking/);
+  assert.match(createMarkup, /Official Booking details/);
   assert.match(createMarkup, /No Action/);
   assert.equal(createMarkup.includes("Update Existing Booking"), false);
 
@@ -488,7 +524,7 @@ test("[AC-25][AC-32] open Release cases expose exactly the three explicit Owner 
   });
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient }, createElement(ReleaseOwnerActions, { detail: releaseDetail })));
-  for (const value of ["Create Cancellation", "Review Cancellation", "Update Existing Booking", "Review Booking Update", "No Action", "Review No Action", "Granot evidence is context only"]) assert.match(markup, new RegExp(value));
+  for (const value of ["Create Cancellation", "Review Cancellation", "Update Existing Booking", "Review Booking update", "No Action", "Review No Action", "Granot evidence is context only"]) assert.match(markup, new RegExp(value));
   assert.equal(markup.includes("Finish the booking"), false);
   assert.equal(markup.includes("Attach Lead"), false);
 });
@@ -810,7 +846,7 @@ test("the booking form can review official details with no Lead selected", () =>
   const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient },
     createElement(BookingCommandForm, { detail: commandDetail })));
   assert.match(markup, /No strong match/);
-  assert.match(markup, /Review Booking/);
+  assert.match(markup, /Review official details/);
   assert.equal(markup.includes("Choose the customer this booking belongs to"), false);
   const formSource = readFileSync(
     path.join(process.cwd(), "components/granot-lifecycle/booking-command-form.tsx"),

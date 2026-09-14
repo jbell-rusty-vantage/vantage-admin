@@ -136,12 +136,12 @@ export function BookingCommandForm({
   };
 
   return (
-    <Card id="finish-booking">
+    <Card id="official-booking-details">
       <CardHeader>
-        <CardTitle>Finish the booking</CardTitle>
+        <CardTitle>Official Booking details</CardTitle>
         <CardDescription>
-          One binder amount, up to two agents, deposit, and merchant — the same catalog as a normal
-          booking. Two agents split the binder evenly. Nothing here is filled in from Granot.
+          One Binder amount, up to two Agents, Deposit, and Merchant — the same catalog as a normal
+          Booking. Two Agents split the Binder evenly. Nothing here is filled in from Granot.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -260,7 +260,7 @@ export function BookingCommandForm({
             disabled={submitting || catalog.isLoading}
             onClick={() => reviewing ? void submit() : setReviewing(Boolean(buildBody()))}
           >
-            {reviewing ? (submitting ? "Creating…" : "Create Booking") : "Review Booking"}
+            {reviewing ? (submitting ? "Creating…" : "Create Booking") : "Review official details"}
           </Button>
         </div>
       </CardContent>

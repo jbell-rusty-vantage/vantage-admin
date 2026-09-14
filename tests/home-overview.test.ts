@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HomeOverviewView } from "../components/dashboard/home-overview";
 import { NeedsYouBand, openIntakePreviewFilters } from "../components/dashboard/needs-you";
 import { OVERVIEW_INTAKE_PREVIEW_LIMIT, overviewCopy } from "../components/dashboard/overview-copy";
@@ -69,10 +70,15 @@ const productionOverview: OverviewReportResponse = {
   },
 };
 
+function withQuery(node: ReturnType<typeof createElement>): string {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return renderToStaticMarkup(createElement(QueryClientProvider, { client: queryClient }, node));
+}
+
 function renderOverview(
   props: Partial<Parameters<typeof HomeOverviewView>[0]> = {},
 ): string {
-  return renderToStaticMarkup(
+  return withQuery(
     createElement(HomeOverviewView, {
       role: "owner",
       scope: "production",
@@ -97,7 +103,7 @@ test("waiting band stays visible when no booking intakes are open", () => {
 });
 
 test("waiting band lists open booking intakes and links to the intake workbench", () => {
-  const markup = renderToStaticMarkup(
+  const markup = withQuery(
     createElement(NeedsYouBand, {
       booking: { items: [bookingCase], next_cursor: null },
       now: Date.parse("2026-08-18T15:00:00.000Z"),
@@ -109,10 +115,35 @@ test("waiting band lists open booking intakes and links to the intake workbench"
   assert.match(markup, new RegExp(intakeActionLabel("booking")));
   assert.doesNotMatch(markup, /tab=cancellations/);
   assert.doesNotMatch(markup, /Review cancellation/);
+  assert.doesNotMatch(markup, /No Action/);
+});
+
+test("waiting review cards match intakes: No Action, Possibly Fix Booking, optional cancel", () => {
+  const reviewCase: GranotLifecycleCaseListItem = {
+    ...bookingCase,
+    case_id: "case-review",
+    mode: "review_existing_booking",
+    latest_action: "booked",
+    deterministic_booking: {
+      present: true,
+      masked_ref: "boo…001",
+      id: "booking-1",
+      public_cancel_allowed: true,
+    },
+  };
+  const markup = withQuery(
+    createElement(NeedsYouBand, {
+      booking: { items: [reviewCase], next_cursor: null },
+    }),
+  );
+  assert.match(markup, /No Action/);
+  assert.match(markup, /Possibly Fix Booking/);
+  assert.match(markup, /href="\/cancellations\/new\?booked_lead=booking-1"/);
+  assert.doesNotMatch(markup, /Finish booking/);
 });
 
 test("waiting band offers the intakes list when more open booking cases exist", () => {
-  const markup = renderToStaticMarkup(
+  const markup = withQuery(
     createElement(NeedsYouBand, {
       booking: { items: [bookingCase], next_cursor: "opaque-cursor" },
     }),

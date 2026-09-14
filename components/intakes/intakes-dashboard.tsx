@@ -6,7 +6,9 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { IntakeList } from "./intake-list";
 import {
+  INTAKE_LIST_LOAD_ERROR,
   INTAKES_HREF,
+  INTAKES_PAGE_BODY,
   intakeEmptyMessage,
   type IntakeKind,
 } from "./intake-copy";
@@ -18,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { IntakeCasePage } from "./intake-case-page";
 import {
   fetchGranotLifecycleCases,
+  fetchGranotLifecycleHealth,
   type GranotLifecycleCaseListItem,
 } from "@/lib/api/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
@@ -103,10 +106,7 @@ export function IntakesHeader({
         <p className="text-sm font-semibold uppercase tracking-wide text-trust-blue">Owner review</p>
         <h1 className="text-2xl font-semibold text-navy">Intakes</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This is the waiting room for Granot booking work. A case appears when Granot records a
-          Booked or Release job. Choose a case, then enter one binder amount, up to two agents,
-          deposit, and merchant from the same catalog as a normal booking. Granot is not creating
-          those official records for you.
+          {INTAKES_PAGE_BODY}
         </p>
       </div>
       <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -183,6 +183,7 @@ export function IntakesDashboardView({
   paging,
   onPrevious,
   onNext,
+  bookingCommandsEnabled = true,
 }: {
   kind: IntakeKind;
   state: IntakeState;
@@ -196,9 +197,10 @@ export function IntakesDashboardView({
   paging?: boolean;
   onPrevious?: () => void;
   onNext?: () => void;
+  bookingCommandsEnabled?: boolean;
 }) {
   const title = "Booking intakes";
-  const description = "Choose a booked or released job, then finish the official booking: lead, one binder amount, up to two agents, deposit, and merchant.";
+  const description = "If there is no Booking yet, finalize it here. If a Booking already exists, choose No Action unless official numbers need to change.";
   const itemCount = data?.items?.length ?? 0;
   const showPager = itemCount > 0 || page > 1;
 
@@ -219,6 +221,7 @@ export function IntakesDashboardView({
               emptyMessage={intakeEmptyMessage(kind, state)}
               selectedCaseId={selectedCaseId}
               listQuery={{ state, job }}
+              bookingCommandsEnabled={bookingCommandsEnabled}
             />
             {showPager ? (
               <IntakesPagination
@@ -264,6 +267,12 @@ export function IntakesDashboard() {
     queryFn: () => fetchGranotLifecycleCases(filters),
     placeholderData: keepPreviousData,
   });
+  const healthQuery = useQuery({
+    queryKey: queryKeys.granotLifecycle.health(),
+    queryFn: fetchGranotLifecycleHealth,
+  });
+  const bookingCommandsEnabled =
+    healthQuery.data?.flags.GRANOT_LIFECYCLE_BOOKING_COMMANDS_ENABLED === true;
 
   function go(next: {
     tab?: IntakeKind;
@@ -306,7 +315,7 @@ export function IntakesDashboard() {
         ))}
       </div>
       <p className="text-sm text-muted-foreground">
-        {TABS[0].summary} Open a waiting case to enter the official booking form.
+        {TABS[0].summary} Finalize a missing Booking, or choose No Action when the official Booking is already right.
       </p>
 
       <Card>
@@ -362,7 +371,7 @@ export function IntakesDashboard() {
 
       {query.isError ? (
         <FeedbackMessage tone="error">
-          {query.error instanceof Error ? query.error.message : "Unable to load intakes. Press Refresh to try again."}
+          {query.error instanceof Error ? query.error.message : INTAKE_LIST_LOAD_ERROR}
         </FeedbackMessage>
       ) : null}
 
@@ -383,6 +392,7 @@ export function IntakesDashboard() {
           page={page}
           hasNextPage={Boolean(query.data?.next_cursor)}
           paging={query.isFetching}
+          bookingCommandsEnabled={bookingCommandsEnabled}
           onPrevious={() => {
             if (cursorHistory.length === 0) {
               go({ cursor: undefined, cursors: [] });

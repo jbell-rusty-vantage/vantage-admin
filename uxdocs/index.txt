@@ -28,6 +28,13 @@ Live: Form Lead contact snapshots
     Granot snapshot. Call Leads unchanged.
     Authority: vantage-main-server/docs/form-lead-contact-snapshots-display-and-search-specification.md
 
+Contract (not built): Owner booking intake presentation
+  — /intakes list CTAs: Finalize Booking vs Possibly Fix Booking.
+    Review cards get list-level No Action. Confirm Granot Cancellation
+    is not on Intakes. Optional Cancel this booking uses the public
+    cancellations form. Authority:
+    vantage-main-server/docs/owner-booking-intake-presentation/owner-booking-intake-presentation-specification.md
+
 Contract (not fully developed): Booking intake Form Lead contact snapshots
   — Find the right customer on /intakes should search and show Form
     submitted vs Granot. Owner will add more to this file. Do not implement.

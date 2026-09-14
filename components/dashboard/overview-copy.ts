@@ -17,5 +17,5 @@ export const overviewCopy = {
   topAgentsHint: "Ranked by deposit amount with booking count shown.",
   allTimeHint: "Source and agent breakdowns live on Analytics.",
   loadingIntakes: "Loading intakes…",
-  intakesLoadError: "Unable to load intakes.",
+  intakesLoadError: "Unable to load intakes. Try Refresh.",
 } as const;

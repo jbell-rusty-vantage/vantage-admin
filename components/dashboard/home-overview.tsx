@@ -14,7 +14,7 @@ import {
   type OverviewReportResponse,
   type OverviewTotals,
 } from "@/lib/api/admin";
-import { fetchGranotLifecycleCases } from "@/lib/api/granotLifecycle";
+import { fetchGranotLifecycleCases, fetchGranotLifecycleHealth } from "@/lib/api/granotLifecycle";
 import type { DatabaseScope } from "@/lib/api/types";
 import { DATABASE_SCOPE_LABELS } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
@@ -296,6 +296,7 @@ export function HomeOverviewView({
   overviewLoading,
   overviewError,
   bookingQueue,
+  bookingCommandsEnabled = true,
 }: {
   role: "owner" | "admin" | null;
   scope: DatabaseScope;
@@ -303,6 +304,7 @@ export function HomeOverviewView({
   overviewLoading?: boolean;
   overviewError?: string;
   bookingQueue?: NeedsYouQueue;
+  bookingCommandsEnabled?: boolean;
 }) {
   const allTime = overview?.all_time;
   const last7Days = overview?.last_7_days;
@@ -320,7 +322,10 @@ export function HomeOverviewView({
       </div>
 
       {role === "owner" ? (
-        <NeedsYouBand booking={bookingQueue ?? emptyNeedsYouQueue()} />
+        <NeedsYouBand
+          booking={bookingQueue ?? emptyNeedsYouQueue()}
+          bookingCommandsEnabled={bookingCommandsEnabled}
+        />
       ) : null}
 
       {overviewError ? <FeedbackMessage tone="error">{overviewError}</FeedbackMessage> : null}
@@ -384,6 +389,11 @@ export function HomeOverview() {
     queryFn: () => fetchGranotLifecycleCases(bookingFilters),
     enabled: owner,
   });
+  const healthQuery = useQuery({
+    queryKey: queryKeys.granotLifecycle.health(),
+    queryFn: fetchGranotLifecycleHealth,
+    enabled: owner,
+  });
 
   return (
     <HomeOverviewView
@@ -405,6 +415,9 @@ export function HomeOverview() {
               error: bookingQuery.isError ? overviewCopy.intakesLoadError : undefined,
             })
           : undefined
+      }
+      bookingCommandsEnabled={
+        healthQuery.data?.flags.GRANOT_LIFECYCLE_BOOKING_COMMANDS_ENABLED === true
       }
     />
   );
