@@ -18,7 +18,8 @@ const MATCH_METHOD_LABELS: Record<string, string> = {
   owner_attach: "owner attach",
 };
 
-export function formatConversationDuration(seconds: number): string {
+export function formatConversationDuration(seconds: number | null): string {
+  if (seconds === null) return "Duration unknown";
   if (!Number.isFinite(seconds) || seconds < 0) {
     return "0:00";
   }

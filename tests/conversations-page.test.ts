@@ -71,6 +71,7 @@ const fixture: ConversationDetail = {
 
 test("duration and match line use the seeded inbound facts", () => {
   assert.equal(formatConversationDuration(482), "8:02");
+  assert.equal(formatConversationDuration(null), "Duration unknown");
   assert.equal(
     formatConversationMatchLine("call_lead_telephony_session", "high"),
     "Matched by telephony session · HIGH confidence",

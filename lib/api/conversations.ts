@@ -14,7 +14,7 @@ export type ConversationListItem = {
   state: string;
   direction: string;
   started_at: string;
-  duration_seconds: number;
+  duration_seconds: number | null;
   match_method: string;
   match_confidence: string;
   normalized_job_no: string | null;
@@ -37,11 +37,11 @@ export type ConversationSummarySections = {
 };
 
 export type ConversationDetail = ConversationListItem & {
-  rc_result: string;
+  rc_result: string | null;
   telephony_session_id: string | null;
-  call_log_id: string;
-  from_phone_masked: string;
-  to_phone_masked: string;
+  call_log_id: string | null;
+  from_phone_masked: string | null;
+  to_phone_masked: string | null;
   match_evidence: Record<string, unknown> | null;
   media: {
     blob_pathname: string | null;
