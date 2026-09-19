@@ -32,12 +32,14 @@ function Selection({
   numberId,
   leadId,
   leadModel,
+  accountId,
   update,
 }: {
   outreachId: string | null;
   numberId: string | null;
   leadId: string | null;
   leadModel: string | null;
+  accountId: string | null;
   update: (values: Record<string, string | null>) => void;
 }) {
   const selectionParams = useSearchParams();
@@ -86,9 +88,9 @@ function Selection({
           <Restrictions rows={number.data.data.restrictions} />
         </>
       )}
-      {outreach.data && <OutreachDetail record={outreach.data.data.outreach} />}
+      {outreach.data && <OutreachDetail record={outreach.data.data.outreach} accountId={accountId} />}
       {number.data?.data.outreach_records.filter((record) => record.id !== outreachId).map((record) => (
-        <OutreachDetail record={record} key={record.id} />
+        <OutreachDetail record={record} key={record.id} accountId={accountId} />
       ))}
       {resolvedNumber && <NumberTimeline numberId={resolvedNumber} />}
       {resolvedNumber && (
@@ -109,7 +111,7 @@ function Selection({
           <ReviewItems subjectKey={`lead:${leadModel}:${leadId}`} />
         </>
       )}
-      <p className="si-local-notice">{copy.page.messagingUnavailable}</p>
+      {!accountId && <p className="si-local-notice">{copy.messageRep.needAccount}</p>}
     </div>
   );
 }
@@ -284,7 +286,7 @@ export function SalesIntelligenceWorkspace() {
       </main>
       {(outreachId || numberId || leadId) && (
         <DetailPanel onClose={close}>
-          <Selection outreachId={outreachId} numberId={numberId} leadId={leadId} leadModel={leadModel} update={update} />
+          <Selection outreachId={outreachId} numberId={numberId} leadId={leadId} leadModel={leadModel} accountId={params.get("rc_account_id")} update={update} />
         </DetailPanel>
       )}
     </div>

@@ -9,8 +9,26 @@ export const attachmentSchema=z.object({id:z.string(),revision:z.number(),contac
  allowed_actions:z.array(availabilitySchema).optional()});
 export const attachmentsSchema=z.object({data:z.object({items:z.array(attachmentSchema),next_cursor:z.string().nullable()})});
 export const reviewItemsSchema=z.object({data:z.object({items:z.array(z.object({id:z.string(),revision:z.number(),subject_key:z.string(),cause_kind:z.string(),state:z.string(),opened_at:z.string(),resolution_reason:z.string().nullable(),evidence_refs:z.array(z.string()),allowed_actions:z.array(availabilitySchema)})),cursor:z.string().nullable()})});
-export const repSchema=z.object({id:z.string(),revision:z.number(),agent_id:z.string(),agent_name:z.string(),rc_account_id:z.string(),rc_extension_id:z.string(),rc_extension_name:z.string().nullable(),rc_extension_number:z.string().nullable(),role_kind:z.string(),status:z.string(),effective_from:z.string(),effective_to:z.string().nullable(),nudge_channels_allowed:z.array(z.string()),rc_team_messaging_person_id:z.string().nullable().optional(),history:z.array(z.object({at:z.string().nullable(),by:z.string().nullable(),change:z.string().nullable()})),metrics:z.object({status:z.literal('unknown'),interactions_total:z.null()})});
-export const repsSchema=z.object({data:z.object({items:z.array(repSchema),next_cursor:z.string().nullable(),directory:z.object({status:z.string(),snapshot_id:z.string().nullable(),taken_at:z.string().nullable(),users:z.array(z.object({extension_id:z.string(),extension_name:z.string().nullable(),status:z.string(),candidates:z.array(z.object({agent_id:z.string(),agent_name:z.string(),basis:z.string()}))})),next_cursor:z.string().nullable()})})});
+export const repSchema=z.object({id:z.string(),revision:z.number(),agent_id:z.string(),agent_name:z.string(),rc_account_id:z.string(),rc_extension_id:z.string(),rc_extension_name:z.string().nullable(),rc_extension_number:z.string().nullable(),role_kind:z.string(),status:z.string(),effective_from:z.string(),effective_to:z.string().nullable(),nudge_channels_allowed:z.array(z.string()),rc_direct_numbers:z.array(z.string()).default([]),rc_team_messaging_person_id:z.string().nullable().optional(),history:z.array(z.object({at:z.string().nullable(),by:z.string().nullable(),change:z.string().nullable()})),metrics:z.object({status:z.literal('unknown'),interactions_total:z.null()})});
+/** Owner review records pager on every unique link; SMS-to-rep only when the stored snapshot has exactly one DID. Team Messaging person ids stay unresolved. */
+export function reviewedNudgeChannels(directNumbers: readonly string[] | undefined): string[] {
+  return (directNumbers?.length ?? 0) === 1 ? ["pager", "sms_to_rep"] : ["pager"];
+}
+export const directoryUserSchema=z.object({extension_id:z.string(),extension_name:z.string().nullable(),status:z.string(),candidates:z.array(z.object({agent_id:z.string(),agent_name:z.string(),basis:z.string()})),extension_number:z.string().nullable().optional(),direct_numbers:z.array(z.string()).optional(),directory_status:z.string().optional()});
+export const repsSchema=z.object({data:z.object({items:z.array(repSchema),next_cursor:z.string().nullable(),directory:z.object({status:z.string(),snapshot_id:z.string().nullable(),taken_at:z.string().nullable(),users:z.array(directoryUserSchema),next_cursor:z.string().nullable()})})});
+export const nudgeSchema=z.object({id:z.string(),revision:z.number(),outreach_record_id:z.string(),rc_account_id:z.string().nullable().optional(),rc_extension_id:z.string().nullable().optional(),rep_identity_link_id:z.string().nullable(),agent_id:z.string().nullable(),actor_id:z.string(),channel:z.enum(['team_messaging','sms_to_rep','pager']),purpose:z.enum(['call_suggestion','review_context']),template_key:z.string(),template_version:z.number(),body_as_sent:z.string(),status:z.enum(['pending','sent','failed','unknown_delivery','fallback_sent']),fallback_channel:z.literal('pager').nullable(),error_code:z.string().nullable(),created_at:z.string(),sent_at:z.string().nullable(),delivery_note:z.string(),automatic_resend:z.literal(false)});
+export const nudgePreviewSchema=z.object({as_of:z.string(),data:z.object({body:z.string(),template_key:z.string(),template_version:z.number(),purpose:z.string(),expected_revision:z.number(),expected_rep_revision:z.number().nullable(),recipient:z.object({rc_account_id:z.string(),rc_extension_id:z.string(),directory_name:z.string().nullable().optional(),agent_id:z.string().nullable(),agent_name:z.string().nullable(),rep_identity_link_id:z.string().nullable(),channel:z.string()}),allowed_channels:z.array(z.string()),destination_evidence:z.string(),provider_destination_verified:z.boolean(),send_time_revalidation_required:z.boolean(),authorizes_send:z.literal(false)})});
+export const nudgeSendSchema=z.object({data:z.object({operation_id:z.string(),replayed:z.boolean(),nudge:nudgeSchema})});
+export type DirectoryUser=z.infer<typeof directoryUserSchema>;
+export type NudgePreview=z.infer<typeof nudgePreviewSchema>['data'];
+/** Snapshot display only. Preview/send remain the send authority. Never invents a Team Messaging person id. */
+export function destinationChannels(user: Pick<DirectoryUser,'extension_number'|'direct_numbers'>, personId?: string | null): string[] {
+  const channels: string[] = [];
+  if (personId) channels.push('team_messaging');
+  if ((user.direct_numbers?.length ?? 0) === 1) channels.push('sms_to_rep');
+  if (user.extension_number) channels.push('pager');
+  return channels;
+}
 const assignment = z.object({ agent: agent.nullable(), origin: z.string().nullable() });
 const derived = z.object({ overdue: z.boolean(), attention_band: z.number().nullable(), reasons: z.array(z.string()),
   review_badges: z.array(z.string()).optional(), call_blockers: z.array(z.string()), age_wall_ms: z.number(), age_staffed_ms: z.number() });
@@ -57,6 +75,20 @@ export async function readSalesIntelligence<T>(path:string, schema:z.ZodType<T>,
   const body = await response.json();
   if (!response.ok || !body.ok) throw new SalesIntelligenceError(body.code ?? body.registry_code ?? 'READ_FAILED', response.status, body.request_id);
   return schema.parse(body);
+}
+export async function previewNudge(body: Record<string, unknown>, key: string) {
+  const response = await fetch('/api/proxy/api/v1/admin/sales-intelligence/nudges/preview?scope=production', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key }, body: JSON.stringify(body) });
+  const payload = await response.json();
+  if (!response.ok || !payload.ok) throw new SalesIntelligenceError(payload.code ?? payload.registry_code ?? 'COMMAND_FAILED', response.status, payload.request_id);
+  return nudgePreviewSchema.parse(payload).data;
+}
+export async function sendNudge(body: Record<string, unknown>, key: string) {
+  const response = await fetch('/api/proxy/api/v1/admin/sales-intelligence/nudges?scope=production', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key }, body: JSON.stringify(body) });
+  const payload = await response.json();
+  if (!response.ok || !payload.ok) throw new SalesIntelligenceError(payload.code ?? payload.registry_code ?? 'COMMAND_FAILED', response.status, payload.request_id);
+  return nudgeSendSchema.parse(payload).data;
 }
 export type CommandIntent={path:string;method:'POST'|'PATCH';body:Record<string,unknown>;key:string};
 const commandResultSchema=z.object({ok:z.literal(true),data:z.object({response:z.record(z.string(),z.json()),replayed:z.boolean()})});

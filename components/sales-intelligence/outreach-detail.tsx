@@ -8,12 +8,14 @@ import { OwnershipSplit } from './ownership';
 import { Badge } from './atoms/badge';
 import { Button } from './atoms/button';
 import { CommandDialog } from './command-dialog';
+import { MessageRepDialog } from './message-rep-dialog';
 import { commandLabels } from './lib/commands';
 import { copy } from "./sales-intelligence-copy";
 import { contactTypeLabel, formatDateTime,label } from './lib/format';
 
-export function OutreachDetail({record}:{record:Outreach}) {
+export function OutreachDetail({record,accountId}:{record:Outreach;accountId?:string|null}) {
  const [editing,setEditing]=useState<{command:string;actionId?:string}|null>(null);
+ const [messaging,setMessaging]=useState(false);
  const selected=record.followups.find(action=>action.id===editing?.actionId);
  const link=record.subject.kind==='lead'?officialRecordHref(record.subject.model,record.subject.id):null;
  return <section className="si-local-stack"><h3>{copy.panel.outreach} · {label(record.state)}</h3>
@@ -25,11 +27,13 @@ export function OutreachDetail({record}:{record:Outreach}) {
  <p>{copy.fields.lastMeaningfulContact}: {formatDateTime(record.last_meaningful_contact_at)}</p>
  <div className="si-chiprow">{record.derived.reasons.map(reason=><Badge key={reason}>{label(reason)}</Badge>)}{record.derived.review_badges?.map(reason=><Badge tone="amber" key={reason}>{label(reason)}</Badge>)}</div>
  {record.derived.call_blockers.length>0&&<p>Calling blocked: {record.derived.call_blockers.map(label).join(', ')}</p>}
- <div className="si-local-filters">{record.allowed_actions.filter(action=>commandLabels[action.action]).map(action=><Button key={action.action} disabled={!action.enabled} title={action.blocker_codes.map(label).join(', ')} onClick={()=>setEditing({command:action.action})}>{commandLabels[action.action]}</Button>)}</div>
+ <div className="si-local-filters">{record.allowed_actions.filter(action=>commandLabels[action.action]).map(action=><Button key={action.action} disabled={!action.enabled} title={action.blocker_codes.map(label).join(', ')} onClick={()=>setEditing({command:action.action})}>{commandLabels[action.action]}</Button>)}
+ <Button disabled={record.state==='closed'} onClick={()=>setMessaging(true)}>{copy.messageRep.title}</Button></div>
  <h3>{copy.panel.followups}</h3>{record.followups.filter(f=>f.status==='open').map(f=><div className="si-local-stack" key={f.id}><FollowupCard followup={f} overallOwner={record.assignment.agent}/><div className="si-local-filters">{f.allowed_actions.filter(action=>commandLabels[action.action]).map(action=><Button key={action.action} disabled={!action.enabled} onClick={()=>setEditing({command:action.action,actionId:f.id})}>{commandLabels[action.action]}</Button>)}</div></div>)}
  {!record.followups.some(f=>f.status==='open')&&<p>{copy.empty.followupsNone}</p>}
  <details><summary>{copy.panel.completedFollowups}</summary>{record.followups.filter(f=>f.status!=='open').map(f=><FollowupCard key={f.id} followup={f} overallOwner={record.assignment.agent}/>)}</details>
  {editing&&<CommandDialog key={`${editing.command}:${editing.actionId??record.id}`} command={editing.command} record={record} action={selected} onClose={()=>setEditing(null)}/>}
+ {messaging&&<MessageRepDialog record={record} accountId={accountId??null} onClose={()=>setMessaging(false)}/>}
  </section>;
 }
 

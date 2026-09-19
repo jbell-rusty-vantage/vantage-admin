@@ -1,8 +1,41 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildIntent,initialDraft,easternInstant } from '../../components/sales-intelligence/lib/commands';
-import { sendSalesIntelligence,type Outreach,type Followup } from './salesIntelligence';
+import { destinationChannels,previewNudge,reviewedNudgeChannels,sendNudge,sendSalesIntelligence,type Outreach,type Followup } from './salesIntelligence';
 import { officialRecordHref } from '../../components/sales-intelligence/lib/official-record';
+
+test('destination channels come from stored User evidence and never invent Team Messaging',()=>{
+ assert.deepEqual(destinationChannels({extension_number:'102',direct_numbers:['+15551212']}),['sms_to_rep','pager']);
+ assert.deepEqual(destinationChannels({extension_number:'102',direct_numbers:['+15551212','+15553434']}),['pager']);
+ assert.deepEqual(destinationChannels({extension_number:null,direct_numbers:[]}),[]);
+ assert.deepEqual(destinationChannels({extension_number:'102',direct_numbers:[]},'person-1'),['team_messaging','pager']);
+ assert.equal(destinationChannels({extension_number:'102',direct_numbers:[]}).includes('team_messaging'),false);
+});
+test('nudge preview and send use the directory User contract and a stable idempotency key',async()=>{
+ const original=globalThis.fetch,calls:Array<{url:string;init:RequestInit}>=[];
+ globalThis.fetch=async(url,init)=>{calls.push({url:String(url),init:init!});
+  if(String(url).includes('/preview'))return Response.json({ok:true,as_of:'2026-09-19T15:00:00.000Z',data:{body:'Joshua — review',template_key:'review_context',template_version:1,purpose:'review_context',expected_revision:7,expected_rep_revision:null,recipient:{rc_account_id:'62948571023',rc_extension_id:'102',directory_name:'Joshua L',agent_id:null,agent_name:null,rep_identity_link_id:null,channel:'pager'},allowed_channels:['pager'],destination_evidence:'stored_checked',provider_destination_verified:false,send_time_revalidation_required:true,authorizes_send:false}});
+  return Response.json({ok:true,data:{operation_id:'c'.repeat(24),replayed:false,nudge:{id:'d'.repeat(24),revision:1,outreach_record_id:'a'.repeat(24),rc_account_id:'62948571023',rc_extension_id:'102',rep_identity_link_id:null,agent_id:null,actor_id:'owner',channel:'pager',purpose:'review_context',template_key:'review_context',template_version:1,body_as_sent:'Joshua — review',status:'pending',fallback_channel:null,error_code:null,created_at:'2026-09-19T15:00:00.000Z',sent_at:null,delivery_note:'Authorized intent; delivery is not established.',automatic_resend:false}}});
+ };
+ try {
+  const body={expected_revision:7,nudge:{outreach_record_id:'a'.repeat(24),rc_account_id:'62948571023',rc_extension_id:'102',channel:'pager',template_key:'review_context',template_version:1,purpose:'review_context'}};
+  const preview=await previewNudge(body,'nudge-key');
+  assert.equal(preview.authorizes_send,false);
+  assert.equal(preview.recipient.rep_identity_link_id,null);
+  const sent=await sendNudge(body,'nudge-key');
+  assert.equal(sent.nudge.status,'pending');
+  assert.equal(sent.nudge.automatic_resend,false);
+  assert.deepEqual(calls[0]!.init.headers,{'Content-Type':'application/json','Idempotency-Key':'nudge-key'});
+  assert.deepEqual(calls[1]!.init.headers,calls[0]!.init.headers);
+ } finally {globalThis.fetch=original;}
+});
+test('Owner review records pager always and SMS-to-rep only for exactly one stored DID',()=>{
+ assert.deepEqual(reviewedNudgeChannels(['+15551212']),['pager','sms_to_rep']);
+ assert.deepEqual(reviewedNudgeChannels(['+15551212','+15553434']),['pager']);
+ assert.deepEqual(reviewedNudgeChannels([]),['pager']);
+ assert.deepEqual(reviewedNudgeChannels(undefined),['pager']);
+ assert.equal(reviewedNudgeChannels(['+15551212']).includes('team_messaging'),false);
+});
 
 test('official destinations pin the host database_scope, not the API scope parameter',()=>{
  for(const model of ['FormLead','CallLead','BookedLead','CancelledLead'] as const){
