@@ -1,6 +1,8 @@
 import type { CommandIntent,Followup,Outreach } from '@/lib/api/salesIntelligence';
 
-export const commandLabels:Record<string,string>={mark_worked:'Mark as worked',assign:'Assign Outreach',set_waiting:'Wait for customer',add_note:'Add note',close:'Close Outreach',reopen:'Reopen Outreach',create_followup:'Add follow-up',patch_followup:'Edit follow-up / assignment',complete_followup:'Complete follow-up',snooze_followup:'Snooze follow-up',cancel_followup:'Cancel follow-up'};
+import { copy } from "../sales-intelligence-copy";
+
+export const commandLabels: Record<string, string> = { ...copy.commands };
 export type Draft={kind:string;description:string;due:string;agent:string;reason:string;note:string;disposition:string;closeReason:string};
 const eastern=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
 export const easternInput=(iso:string)=>eastern.format(new Date(iso)).replace(' ','T');

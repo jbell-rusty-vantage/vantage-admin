@@ -3,15 +3,17 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 export const salesIntelligenceKeys = { all:['sales-intelligence'] as const };
 // Reconnect always refetches all active DTOs. No SSE payload mutates cached business data.
+export type SalesIntelligenceLiveStatus = "connecting" | "live" | "reconnecting";
+
 export function useSalesIntelligenceLive() {
   const client = useQueryClient();
-  const [status,setStatus] = useState('Connecting');
+  const [status,setStatus] = useState<SalesIntelligenceLiveStatus>("connecting");
   useEffect(() => {
     let timer:ReturnType<typeof setTimeout>|undefined;
     const refresh = () => { if (!timer) timer = setTimeout(() => { timer=undefined; void client.invalidateQueries({queryKey:salesIntelligenceKeys.all}); }, 300); };
     const live = new EventSource('/api/sales-intelligence-live?scope=production');
-    live.onopen = () => { setStatus('Live'); refresh(); };
-    live.onerror = () => setStatus('Reconnecting — reads will refresh');
+    live.onopen = () => { setStatus("live"); refresh(); };
+    live.onerror = () => setStatus("reconnecting");
     live.addEventListener('invalidation',refresh);
     const restore = () => { if (document.visibilityState === 'visible') refresh(); };
     document.addEventListener('visibilitychange',restore);

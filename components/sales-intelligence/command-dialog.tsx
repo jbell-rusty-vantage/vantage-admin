@@ -5,6 +5,7 @@ import { fetchCatalogItems } from '@/lib/api/catalog';
 import { SalesIntelligenceError,sendSalesIntelligence,type CommandIntent,type Followup,type Outreach } from '@/lib/api/salesIntelligence';
 import { salesIntelligenceKeys } from '@/lib/query/salesIntelligence';
 import { buildIntent,commandLabels,initialDraft,type Draft } from './lib/commands';
+import { copy } from "./sales-intelligence-copy";
 import { formatDateTime,label } from './lib/format';
 import { Button } from './atoms/button';
 
@@ -66,7 +67,7 @@ export function CommandDialog({command,record,action,onClose}:{command:string;re
  {withNote&&<label>{command==='add_note'?'Note':'Note (optional)'}<textarea className="si-textarea" maxLength={500} required={command==='add_note'} value={draft.note} onChange={e=>change('note',e.target.value)}/></label>}
  </fieldset>
  {!available&&!uncertain&&<p role="status">This action is no longer available on the current record.</p>}
- <div className="si-local-filters"><Button type="submit" disabled={pending||(!uncertain&&(changed||!available))}>{pending?'Saving…':uncertain?'Retry same request':'Save'}</Button><Button type="button" disabled={pending} onClick={onClose}>Cancel</Button></div>
+ <div className="si-local-filters"><Button variant="primary" type="submit" disabled={pending||(!uncertain&&(changed||!available))}>{pending?copy.actions.saving:uncertain?copy.actions.retrySame:copy.actions.save}</Button><Button type="button" disabled={pending} onClick={onClose}>{copy.actions.cancel}</Button></div>
  </form></dialog>;
 }
 

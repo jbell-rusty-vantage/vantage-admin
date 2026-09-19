@@ -5,12 +5,13 @@ import {sendSalesIntelligence,SalesIntelligenceError,type CommandIntent} from '@
 import type {Analysis,AnalysisFinding} from '@/lib/api/salesIntelligenceAnalysis';
 import {salesIntelligenceKeys} from '@/lib/query/salesIntelligence';
 import {Button} from './atoms/button';
+import { copy } from "./sales-intelligence-copy";
 import {formatDateTime,label} from './lib/format';
 import {easternInstant} from './lib/commands';
 import {fetchCatalogItems} from '@/lib/api/catalog';
 
 export type AnalysisAction='confirm_run'|'confirm_finding'|'correct_finding'|'retract_finding'|'apply_suggestion'|'original_evidence'|'current_context';
-const titles:Record<AnalysisAction,string>={confirm_run:'Confirm this analysis',confirm_finding:'Confirm this finding',correct_finding:'Correct this finding',retract_finding:'Retract this finding',apply_suggestion:'Apply suggestion',original_evidence:'Reanalyze original evidence',current_context:'Reanalyze current context'};
+const titles:Record<AnalysisAction,string>={...copy.analysisTitles};
 export function AnalysisCommand({run,finding,action,onClose}:{run:Analysis;finding?:AnalysisFinding;action:AnalysisAction;onClose:()=>void}) {
  const dialog=useRef<HTMLDialogElement>(null),id=useId(),client=useQueryClient(),intent=useRef<CommandIntent|null>(null),lock=useRef(false);
  const version=JSON.stringify([run.id,run.revision,run.output_digest,finding?.revision,run.actions.map(a=>[a.id,a.revision]),run.outreach?.revision]);
