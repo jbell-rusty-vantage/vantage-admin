@@ -6,6 +6,7 @@ export type VantageApiResponse<T = unknown> =
       status: number;
       headers: Headers;
       data: T;
+      metadata?: { as_of?: unknown; coverage?: unknown };
     }
   | {
       kind: "csv";
@@ -140,6 +141,10 @@ export async function parseVantageApiResponse<T = unknown>(
         status: response.status,
         headers: response.headers,
         data: envelope.data,
+        ...(path && /^\/?api\/v1\/admin\/sales-intelligence(?:\/|\?|$)/.test(path) ? { metadata: {
+          as_of: "as_of" in envelope ? envelope.as_of : undefined,
+          coverage: "coverage" in envelope ? envelope.coverage : undefined,
+        } } : {}),
       };
     }
 

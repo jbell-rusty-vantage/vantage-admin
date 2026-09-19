@@ -10,6 +10,7 @@ const OWNER_ONLY_PAGE_PREFIXES = [
   "/job-timeline",
   "/conversations",
   "/daily",
+  "/sales-intelligence",
   "/live-events",
   "/manual",
   "/extension",
@@ -105,6 +106,7 @@ export function canProxyVantagePath(input: {
   }
 
   const path = normalizeProxyPath(input.path);
+  if (path === "/api/v1/admin/sales-intelligence" || path.startsWith("/api/v1/admin/sales-intelligence/")) return false;
   if (
     path === "/api/v1/admin/job-number-timeline" ||
     path.startsWith("/api/v1/admin/job-number-timeline/")

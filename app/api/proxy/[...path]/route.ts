@@ -8,7 +8,7 @@ import {
   refreshAdminSession,
   setAuthCookies,
 } from "@/server/auth";
-import { setTrustedAdminHeaders } from "@/server/auth/trustedProxyHeaders";
+import { proxyForwardHeaders, currentCsiScope } from "@/server/auth/proxyForwardHeaders";
 import { canProxyVantagePath } from "@/server/auth/authorization";
 import { writeAuditLog, buildProxyAuditRequestPayload, proxyAuditPathname } from "@/server/audit";
 import { requestVantageApi, type VantageApiMethod } from "@/server/vantage-api/client";
@@ -86,36 +86,6 @@ function getDatabaseScope(path: string, body: unknown): string | undefined {
   }
 
   return undefined;
-}
-
-function getForwardHeaders(
-  request: NextRequest,
-  admin: NonNullable<Awaited<ReturnType<typeof requireAdmin>>>,
-  method: VantageApiMethod,
-  backendPath: string,
-): { headers: Headers; requestId: string | undefined } {
-  const headers = new Headers();
-  const accept = request.headers.get("accept");
-  const contentType = request.headers.get("content-type");
-
-  if (accept) {
-    headers.set("accept", accept);
-  }
-
-  if (contentType) {
-    headers.set("content-type", contentType);
-  }
-
-  if (/^api\/v1\/admin\/granot-lifecycle\/(?:booking-cases\/[^/?]+\/(?:confirm-booking|create-referral-booking|update-booking|no-action|confirm-cancellation)|release-cases\/[^/?]+\/(?:confirm-cancellation|update-booking|no-action)|discrepancies\/[^/?]+\/(?:re-evaluate|correct-record-link|no-action))(?:\?|$)/.test(backendPath)) {
-    const idempotencyKey = request.headers.get("idempotency-key");
-    if (idempotencyKey) headers.set("idempotency-key", idempotencyKey);
-  }
-
-  const { requestId } = setTrustedAdminHeaders(headers, admin, {
-    method,
-    path: backendPath,
-  });
-  return { headers, requestId };
 }
 
 async function readRequestBody(request: NextRequest, method: VantageApiMethod): Promise<unknown> {
@@ -209,8 +179,9 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
 
   const shouldAudit = MUTATING_METHODS.has(method) || isExportRequest(method, backendPath);
   const body = await readRequestBody(request, method);
-  const { headers: forwardHeaders, requestId } = getForwardHeaders(
-    request,
+  if (!currentCsiScope(backendPath, body)) return NextResponse.json({ ok: false, code: "UNSUPPORTED_SCOPE", error: "Current records only." }, { status: 403 });
+  const { headers: forwardHeaders, requestId } = proxyForwardHeaders(
+    request.headers,
     admin,
     method,
     backendPath,
@@ -251,7 +222,7 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
     }
 
     return NextResponse.json(
-      { ok: true, data: vantageResponse.data },
+      { ok: true, data: vantageResponse.data, ...vantageResponse.metadata },
       { status: vantageResponse.status },
     );
   } catch (error) {

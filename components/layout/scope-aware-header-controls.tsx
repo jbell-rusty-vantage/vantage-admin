@@ -16,6 +16,9 @@ export function ScopeAwareHeaderControls() {
   const { scope, setScope } = useDatabaseScope();
   const effectiveScope: DatabaseScope = includeCombined || scope !== "combined" ? scope : "production";
 
+  if (pathname === "/sales-intelligence" || pathname.startsWith("/sales-intelligence/")) {
+    return <><span className="text-xs text-muted-foreground">Current records</span><GlobalSearch scope="production" /></>;
+  }
   return (
     <>
       <DatabaseScopeSelector value={effectiveScope} onChange={setScope} includeCombined={includeCombined} />

@@ -12,7 +12,7 @@ function hrefs(items: { href: string }[]): string[] {
   return items.map((item) => item.href);
 }
 
-test("owner flat nav keeps Overview, Daily Operations, Live Events, Lead Conversations, then Intakes, Manual, and Form Leads", () => {
+test("owner flat nav keeps Overview, Daily Operations, Live Events, Lead Conversations, Sales Intelligence, then Intakes, Manual, and Form Leads", () => {
   const owner = visibleDashboardNav("owner");
 
   assert.equal(owner[0]?.label, "Overview");
@@ -26,14 +26,16 @@ test("owner flat nav keeps Overview, Daily Operations, Live Events, Lead Convers
   assert.equal(owner[3]?.label, "Lead Conversations");
   assert.equal(owner[3]?.href, "/conversations");
   assert.equal(owner[3]?.ownerOnly, true);
-  assert.equal(owner[4]?.label, "Intakes");
-  assert.equal(owner[4]?.href, "/intakes");
+  assert.equal(owner[4]?.label, "Sales Intelligence");
   assert.equal(owner[4]?.ownerOnly, true);
-  assert.equal(owner[5]?.label, "Manual");
-  assert.equal(owner[5]?.href, "/manual");
+  assert.equal(owner[5]?.label, "Intakes");
+  assert.equal(owner[5]?.href, "/intakes");
   assert.equal(owner[5]?.ownerOnly, true);
-  assert.equal(owner[6]?.label, "Form Leads");
-  assert.equal(owner[6]?.href, "/form-leads");
+  assert.equal(owner[6]?.label, "Manual");
+  assert.equal(owner[6]?.href, "/manual");
+  assert.equal(owner[6]?.ownerOnly, true);
+  assert.equal(owner[7]?.label, "Form Leads");
+  assert.equal(owner[7]?.href, "/form-leads");
   assert.equal(
     owner.some((item) => "isNew" in item && item.isNew),
     false,
@@ -58,6 +60,7 @@ test("admin flat nav omits owner-only destinations", () => {
     "/daily",
     "/live-events",
     "/conversations",
+    "/sales-intelligence",
     "/intakes",
     "/manual",
     "/job-timeline",
@@ -87,6 +90,7 @@ test("owner sections keep the five groups and admin Today and System shrink", ()
     "/daily",
     "/live-events",
     "/conversations",
+    "/sales-intelligence",
     "/intakes",
     "/manual",
   ]);
