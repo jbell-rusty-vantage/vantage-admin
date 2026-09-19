@@ -61,6 +61,31 @@ export const numberSchema = z.object({ as_of:z.string(), coverage, data:z.object
   review_items:z.array(z.object({ id:z.string(), cause_kind:z.string(), state:z.string() })),
   restrictions:z.array(z.object({ id:z.string(), revision:z.number(), channels:z.array(z.string()), state:z.string(), until:z.string().nullable(), allowed_actions:z.array(availabilitySchema) })) }) });
 export const outreachReadSchema = z.object({ as_of:z.string(), coverage, data:z.object({ outreach:outreachSchema }) });
+const stage = z.object({ pending:z.number(), leased:z.number(), retry:z.number(), paused:z.number(), dead_letter:z.number(), oldest_queued_at:z.string().nullable() });
+export const ownerCoverageSchema = z.object({ data:z.object({ as_of:z.string(), coverage:z.object({
+  known_through:z.string().nullable(), gaps:z.array(z.object({ from:z.string(), to:z.string(), reason:z.string() })),
+  capabilities:z.record(z.string(), z.enum(['ok','denied','unknown','unavailable'])), ai_paused:z.boolean(),
+  recordings:z.object({ pending_discovery:z.number(), media_pending:z.number(), media_stored:z.number(), no_recording:z.number(), unavailable:z.number(), failed:z.number(), eligibility_undetermined:z.number() }).optional(),
+  stages:z.object({ recording:stage, transcription:stage, analysis:stage, application:stage }),
+  budget:z.object({ status:z.enum(['known','unknown']), month:z.string().nullable(), ceiling_cents:z.number(), actual_cents:z.number().nullable(), reserved_cents:z.number().nullable(), remaining_cents:z.number().nullable() }),
+  mapping_hygiene:z.object({ unmapped_inbound_numbers:z.number(), unmapped_directory_users:z.number().nullable(), last_directory_sync_at:z.string().nullable(), directory_status:z.enum(['stored','missing']) }),
+  flags:z.record(z.string(), z.boolean()),
+  models:z.object({ extraction:z.object({ name:z.string(), enabled:z.boolean() }), transcription:z.object({ name:z.string(), enabled:z.boolean() }) }),
+  settings:z.object({ persisted:z.boolean(), revision:z.number(), version:z.string(), source:z.enum(['persisted','accepted_defaults']), timezone:z.string(), first_action_due_staffed_minutes:z.number(), missed_callback_due_staffed_minutes:z.number(), going_cold_staffed_minutes:z.number(), monthly_ceiling_cents:z.number() }),
+  backfill:z.object({ available:z.literal(false), owner_triggered:z.literal(true), note:z.string() }),
+}) }) });
+export const settingsSchema = z.object({ as_of:z.string(), data:z.object({
+  persisted:z.boolean(), revision:z.number(), source:z.enum(['persisted','accepted_defaults']),
+  policy:z.object({ version:z.string(), timezone:z.string(), staffed_hours:z.array(z.object({ day:z.number().int().min(1).max(7), start_minute:z.number(), end_minute:z.number() })),
+    first_action_due_staffed_minutes:z.number(), missed_callback_due_staffed_minutes:z.number(), going_cold_staffed_minutes:z.number(),
+    monthly_ceiling_cents:z.number(), per_recording_ceiling_cents:z.number(), cooldown_attempts_24h:z.number(),
+    enabled_capabilities:z.array(z.string()), retention:z.object({ audio_days:z.number(), redacted_days:z.number(), audit_days:z.number() }) }),
+  flags:z.record(z.string(), z.boolean()),
+  models:z.object({ extraction:z.object({ name:z.string(), enabled:z.boolean() }), transcription:z.object({ name:z.string(), enabled:z.boolean() }) }),
+  updated_at:z.string().nullable(), updated_by:z.string().nullable(),
+}) });
+export type OwnerCoverage = z.infer<typeof ownerCoverageSchema>['data']['coverage'];
+export type SettingsRead = z.infer<typeof settingsSchema>['data'];
 export type Outreach = z.infer<typeof outreachSchema>;
 export type Followup = z.infer<typeof followup>;
 export type Agent = z.infer<typeof agent>;

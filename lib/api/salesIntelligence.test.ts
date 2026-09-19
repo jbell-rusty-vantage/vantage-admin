@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildIntent,initialDraft,easternInstant } from '../../components/sales-intelligence/lib/commands';
-import { destinationChannels,previewNudge,reviewedNudgeChannels,sendNudge,sendSalesIntelligence,type Outreach,type Followup } from './salesIntelligence';
-import { officialRecordHref } from '../../components/sales-intelligence/lib/official-record';
+import { destinationChannels,previewNudge,reviewedNudgeChannels,sendNudge,sendSalesIntelligence,settingsSchema,type Outreach,type Followup } from './salesIntelligence';
+import { officialRecordHref, salesIntelligenceLeadHref } from '../../components/sales-intelligence/lib/official-record';
 
 test('destination channels come from stored User evidence and never invent Team Messaging',()=>{
  assert.deepEqual(destinationChannels({extension_number:'102',direct_numbers:['+15551212']}),['sms_to_rep','pager']);
@@ -37,6 +37,15 @@ test('Owner review records pager always and SMS-to-rep only for exactly one stor
  assert.equal(reviewedNudgeChannels(['+15551212']).includes('team_messaging'),false);
 });
 
+test('Lead detail enters Sales Intelligence with the official Lead identity',()=>{
+  const form=new URL(salesIntelligenceLeadHref('FormLead','a'.repeat(24)),'http://localhost');
+  const call=new URL(salesIntelligenceLeadHref('CallLead','b'.repeat(24)),'http://localhost');
+  assert.equal(form.pathname,'/sales-intelligence');
+  assert.equal(form.searchParams.get('lead'),'a'.repeat(24));
+  assert.equal(form.searchParams.get('lead_model'),'FormLead');
+  assert.equal(call.searchParams.get('lead_model'),'CallLead');
+  assert.equal(form.searchParams.has('scope'),false);
+});
 test('official destinations pin the host database_scope, not the API scope parameter',()=>{
  for(const model of ['FormLead','CallLead','BookedLead','CancelledLead'] as const){
   const url=new URL(officialRecordHref(model,'a'.repeat(24)),'http://localhost');
@@ -77,6 +86,33 @@ test('create independent undated follow-up and optional completion next step',()
  const completion=buildIntent('complete_followup',initialDraft(followup),record,followup,'complete-key');
  assert.equal(completion.body.disposition,'completed');
  assert.equal('next' in completion.body,false);
+});
+test('settings GET schema does not invent a capture coverage watermark',()=>{
+ const parsed=settingsSchema.parse({
+  as_of:'2026-09-19T16:00:00.000Z',
+  data:{
+   persisted:false,revision:1,source:'accepted_defaults',
+   policy:{version:'csi-policy-v1',timezone:'America/New_York',staffed_hours:[{day:1,start_minute:480,end_minute:1200}],
+    first_action_due_staffed_minutes:30,missed_callback_due_staffed_minutes:15,going_cold_staffed_minutes:1440,
+    monthly_ceiling_cents:8000,per_recording_ceiling_cents:25,cooldown_attempts_24h:3,enabled_capabilities:[],
+    retention:{audio_days:90,redacted_days:365,audit_days:730}},
+   flags:{STT_ENABLED:false},models:{extraction:{name:'openai/gpt-5-mini',enabled:false},transcription:{name:'openai/gpt-4o-mini-transcribe',enabled:false}},
+   updated_at:null,updated_by:null,
+  },
+ });
+ assert.equal(parsed.data.source,'accepted_defaults');
+ assert.equal(parsed.data.policy.staffed_hours[0]?.day,1);
+});
+test('settings PATCH uses Idempotency-Key and current-scope BFF',async()=>{
+ const original=globalThis.fetch,calls:Array<{url:string;init:RequestInit}>=[];
+ globalThis.fetch=async(url,init)=>{calls.push({url:String(url),init:init!});return Response.json({ok:true,data:{response:{version:'csi-policy-r2',revision:2},replayed:false}});};
+ try {
+  const result=await sendSalesIntelligence({path:'settings',method:'PATCH',key:'settings-key',body:{command:'update_settings',expected_revision:1,reason:'Owner',policy:{version:'csi-policy-v1'}}});
+  assert.equal(result.replayed,false);
+  assert.match(calls[0]!.url,/\/api\/proxy\/api\/v1\/admin\/sales-intelligence\/settings\?scope=production$/);
+  assert.deepEqual(calls[0]!.init.headers,{'Content-Type':'application/json','Idempotency-Key':'settings-key'});
+  assert.equal(calls[0]!.init.method,'PATCH');
+ } finally {globalThis.fetch=original;}
 });
 test('uncertain response retries the exact payload and key through current-scope BFF',async()=>{
  const original=globalThis.fetch,calls:Array<{url:string;init:RequestInit}>=[];

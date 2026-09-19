@@ -15,6 +15,7 @@ import {
   relatedNavLinksFor,
 } from "@/components/operational/operational-helpers";
 import { getRecordId, type AdminRecord, type UiResource } from "@/lib/api/admin";
+import { salesIntelligenceLeadHref } from "@/components/sales-intelligence/lib/official-record";
 import type { RelatedNavLink } from "@/components/operational/related-record-nav";
 
 function recordContextLabel(record: AdminRecord): string {
@@ -199,6 +200,15 @@ export function WorkflowActions({
           >
             <PlusCircle className="h-4 w-4" aria-hidden="true" />
             Book this lead
+          </Link>
+        ) : null}
+        {canBook ? (
+          <Link
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+            href={salesIntelligenceLeadHref(uiResource === "form-leads" ? "FormLead" : "CallLead", getRecordId(record))}
+          >
+            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            Open in Sales Intelligence
           </Link>
         ) : null}
         {canCancel ? (

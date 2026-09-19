@@ -21,6 +21,7 @@ import { Reps } from "./reps";
 import { Restrictions } from "./restrictions";
 import { ManualAttachment } from "./manual-attachment";
 import { AnalysisPanel } from "./analysis-panel";
+import { CoverageView } from "./coverage-view";
 import { ClassificationBadge, EligibilityBadge, EmptyState, Failure, FilterRail, FilterToolbar, LiveIndicator, SearchField, Tabs } from "./chrome";
 import { attentionChips, AttentionFilters } from "./filters";
 import { Badge } from "./atoms/badge";
@@ -43,13 +44,20 @@ function Selection({
   update: (values: Record<string, string | null>) => void;
 }) {
   const selectionParams = useSearchParams();
+  const byLead = useQuery({
+    queryKey: [...salesIntelligenceKeys.all, "outreach-by-lead", leadModel, leadId],
+    enabled: !!leadId && !!leadModel && !outreachId,
+    queryFn: ({ signal }) => readSalesIntelligence(`outreach/by-lead/${encodeURIComponent(leadModel!)}/${encodeURIComponent(leadId!)}`, outreachReadSchema, signal),
+    retry: false,
+  });
   const outreach = useQuery({
     queryKey: [...salesIntelligenceKeys.all, "outreach", outreachId],
     enabled: !!outreachId,
     queryFn: ({ signal }) => readSalesIntelligence(`outreach/${encodeURIComponent(outreachId!)}`, outreachReadSchema, signal),
     retry: false,
   });
-  const resolvedNumber = numberId ?? outreach.data?.data.outreach.primary_number?.id;
+  const resolvedOutreach = outreach.data ?? byLead.data;
+  const resolvedNumber = numberId ?? resolvedOutreach?.data.outreach.primary_number?.id;
   const number = useQuery({
     queryKey: [...salesIntelligenceKeys.all, "number", resolvedNumber],
     enabled: !!resolvedNumber,
@@ -59,7 +67,14 @@ function Selection({
   return (
     <div className="si-local-stack">
       {outreachId && outreach.isPending && <p role="status">Loading Outreach…</p>}
+      {!outreachId && leadId && byLead.isPending && <p role="status">Loading Outreach…</p>}
       {outreach.error && <Failure error={outreach.error} retry={() => void outreach.refetch()} />}
+      {!outreachId && byLead.error instanceof SalesIntelligenceError && byLead.error.status === 404 && (
+        <p className="si-local-notice">{copy.coverage.noLeadOutreach}</p>
+      )}
+      {!outreachId && byLead.error && !(byLead.error instanceof SalesIntelligenceError && byLead.error.status === 404) && (
+        <Failure error={byLead.error} retry={() => void byLead.refetch()} />
+      )}
       {resolvedNumber && number.isPending && <p role="status">Loading Number…</p>}
       {number.error && <Failure error={number.error} retry={() => void number.refetch()} />}
       {number.data && (
@@ -88,8 +103,8 @@ function Selection({
           <Restrictions rows={number.data.data.restrictions} />
         </>
       )}
-      {outreach.data && <OutreachDetail record={outreach.data.data.outreach} accountId={accountId} />}
-      {number.data?.data.outreach_records.filter((record) => record.id !== outreachId).map((record) => (
+      {resolvedOutreach && <OutreachDetail record={resolvedOutreach.data.outreach} accountId={accountId} />}
+      {number.data?.data.outreach_records.filter((record) => record.id !== resolvedOutreach?.data.outreach.id).map((record) => (
         <OutreachDetail record={record} key={record.id} accountId={accountId} />
       ))}
       {resolvedNumber && <NumberTimeline numberId={resolvedNumber} />}
@@ -147,7 +162,7 @@ export function SalesIntelligenceWorkspace() {
 
   const live = useSalesIntelligenceLive();
   const agents = useQuery({ queryKey: ["catalog", "agents", "csi-current"], queryFn: () => fetchCatalogItems("agents", { includeInactive: true }) });
-  const view: SiView = params.get("view") === "numbers" ? "numbers" : params.get("view") === "reps" ? "reps" : "attention";
+  const view: SiView = params.get("view") === "numbers" ? "numbers" : params.get("view") === "reps" ? "reps" : params.get("view") === "coverage" ? "coverage" : "attention";
   const attentionFilters = {
     band: params.get("band") ?? "",
     needs_review: params.get("needs_review") === "true",
@@ -226,6 +241,7 @@ export function SalesIntelligenceWorkspace() {
               { key: "attention", label: copy.page.views.attention, count: view === "attention" ? list.data?.data.total_items : null },
               { key: "numbers", label: copy.page.views.numbers },
               { key: "reps", label: copy.page.views.reps },
+              { key: "coverage", label: copy.page.views.coverage },
             ]}
           />
           {view === "attention" && (
@@ -236,6 +252,7 @@ export function SalesIntelligenceWorkspace() {
         </div>
       </header>
       <main className="si-workspace__main si-local-stack" role="tabpanel" id={`si-view-panel-${view}`} aria-labelledby={`si-view-tab-${view}`}>
+        {view === "coverage" && <CoverageView />}
         {view === "reps" && <Reps params={new URLSearchParams(params)} update={update} />}
         {view === "numbers" && <NumberBrowser params={new URLSearchParams(params)} update={update} />}
         {view === "attention" && (
