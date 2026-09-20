@@ -19,8 +19,10 @@ export const repsSchema=z.object({data:z.object({items:z.array(repSchema),next_c
 export const nudgeSchema=z.object({id:z.string(),revision:z.number(),outreach_record_id:z.string(),rc_account_id:z.string().nullable().optional(),rc_extension_id:z.string().nullable().optional(),rep_identity_link_id:z.string().nullable(),agent_id:z.string().nullable(),actor_id:z.string(),channel:z.enum(['team_messaging','sms_to_rep','pager']),purpose:z.enum(['call_suggestion','review_context']),template_key:z.string(),template_version:z.number(),body_as_sent:z.string(),status:z.enum(['pending','sent','failed','unknown_delivery','fallback_sent']),fallback_channel:z.literal('pager').nullable(),error_code:z.string().nullable(),created_at:z.string(),sent_at:z.string().nullable(),delivery_note:z.string(),automatic_resend:z.literal(false)});
 export const nudgePreviewSchema=z.object({as_of:z.string(),data:z.object({body:z.string(),template_key:z.string(),template_version:z.number(),purpose:z.string(),expected_revision:z.number(),expected_rep_revision:z.number().nullable(),recipient:z.object({rc_account_id:z.string(),rc_extension_id:z.string(),directory_name:z.string().nullable().optional(),agent_id:z.string().nullable(),agent_name:z.string().nullable(),rep_identity_link_id:z.string().nullable(),channel:z.string()}),allowed_channels:z.array(z.string()),destination_evidence:z.string(),provider_destination_verified:z.boolean(),send_time_revalidation_required:z.boolean(),authorizes_send:z.literal(false)})});
 export const nudgeSendSchema=z.object({data:z.object({operation_id:z.string(),replayed:z.boolean(),nudge:nudgeSchema})});
+export const nudgeHistorySchema=z.object({as_of:z.string(),data:z.object({items:z.array(nudgeSchema),next_cursor:z.string().nullable()})});
 export type DirectoryUser=z.infer<typeof directoryUserSchema>;
 export type NudgePreview=z.infer<typeof nudgePreviewSchema>['data'];
+export type NudgeRecord=z.infer<typeof nudgeSchema>;
 /** Snapshot display only. Preview/send remain the send authority. Never invents a Team Messaging person id. */
 export function destinationChannels(user: Pick<DirectoryUser,'extension_number'|'direct_numbers'>, personId?: string | null): string[] {
   const channels: string[] = [];
@@ -125,6 +127,17 @@ export async function sendNudge(body: Record<string, unknown>, key: string) {
   const payload = await response.json();
   if (!response.ok || !payload.ok) throw new SalesIntelligenceError(payload.code ?? payload.registry_code ?? 'COMMAND_FAILED', response.status, payload.request_id);
   return nudgeSendSchema.parse(payload).data;
+}
+export async function listNudges(query: { outreach_record_id: string; cursor?: string; limit?: number }, signal?: AbortSignal) {
+  const params = new URLSearchParams({ outreach_record_id: query.outreach_record_id, limit: String(query.limit ?? 20) });
+  if (query.cursor) params.set("cursor", query.cursor);
+  return readSalesIntelligence(`nudges?${params}`, nudgeHistorySchema, signal);
+}
+export function nudgeDeliveryKind(status: NudgeRecord["status"]): "sent" | "failed" | "unknown" | "pending" {
+  if (status === "sent" || status === "fallback_sent") return "sent";
+  if (status === "failed") return "failed";
+  if (status === "unknown_delivery") return "unknown";
+  return "pending";
 }
 export type CommandIntent={path:string;method:'POST'|'PATCH';body:Record<string,unknown>;key:string};
 const commandResultSchema=z.object({ok:z.literal(true),data:z.object({response:z.record(z.string(),z.json()),replayed:z.boolean()})});

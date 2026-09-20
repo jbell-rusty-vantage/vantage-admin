@@ -310,6 +310,7 @@ export const copy = {
     preview: "Preview",
     send: "Send",
     previewNote: "Preview does not send. Send is a separate Owner decision. Live send stays separately authorized.",
+    bodyMasked: "Editable message. Customer numbers stay masked as last-four only. This is review context or a call suggestion, never a customer text.",
     channelsHint: "Channels available from stored directory evidence",
     noChannel: "none from stored evidence",
     reviewedName: "Reviewed Agent name available: {name}",
@@ -317,6 +318,14 @@ export const copy = {
     revisionConflict: "The record changed. Preview again with the current revision.",
     rejected: "The server rejected this request:",
     checkEntries: "Check the User, channel, and message.",
+    history: "Messages already recorded for this Outreach",
+    historyEmpty: "No messages recorded for this Outreach.",
+    historyFailed: "Could not load message history.",
+    statusSent: "Sent. The provider accepted the message. That is not evidence the rep worked the customer.",
+    statusFailed: "Failed. Submission did not begin or was rejected. Do not treat this as sent.",
+    statusUnknown: "Unknown. Delivery could not be established. Retry uses the same request. Do not invent a new key.",
+    statusPending: "Pending. Authorized intent only; delivery is not established.",
+    statusFallback: "Sent via pager fallback. The provider accepted the fallback. That is not evidence of customer work.",
   },
 } as const;
 

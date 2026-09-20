@@ -5,8 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Headphones } from "lucide-react";
 import { ConversationPanel } from "./conversation-panel";
 import { formatFloridaDate } from "./conversation-presentation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import {
   fetchConversation,
@@ -15,8 +14,6 @@ import {
   type ConversationListItem,
 } from "@/lib/api/conversations";
 import { queryKeys } from "@/lib/query/keys";
-
-const PIPELINE_TOOLTIP = "Requires the conversation pipeline";
 
 export function ConversationsPageView({
   items,
@@ -42,23 +39,10 @@ export function ConversationsPageView({
             Lead Conversations
           </CardTitle>
           <CardDescription>
-            One real call on a booked inbound Lead. Automation is designed, not authorized.
+            Stored transcripts and summaries for official Leads. Play fetches a signed URL only when you press Play. Owner commands live in Sales Intelligence.
           </CardDescription>
         </CardHeader>
       </Card>
-
-      <aside className="rounded-md border border-gold/50 bg-pale-gold/70 p-5 text-navy shadow-sm">
-        <p className="text-xs font-bold uppercase tracking-wide text-navy/70">Example</p>
-        <p className="mt-2 text-sm leading-relaxed">
-          This card is seeded from a known booked inbound Call Lead so you can judge the finished
-          experience before recurring transcription cost is authorized.
-        </p>
-        <p className="mt-3 text-sm leading-relaxed">
-          When Vercel AI Gateway credits are approved, new qualifying calls can be transcribed and
-          summarized automatically and attached to the Lead as it is quoted, booked, or cancelled.
-          You would then review every Agent&apos;s conversations in one place.
-        </p>
-      </aside>
 
       {error ? <FeedbackMessage tone="error">{error}</FeedbackMessage> : null}
 
@@ -95,26 +79,6 @@ export function ConversationsPageView({
       ) : null}
 
       {conversation ? <ConversationPanel conversation={conversation} /> : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Next — not built</CardTitle>
-          <CardDescription>
-            Attach and retry stay visible so the conversation pipeline is obvious. They are not
-            implemented.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          <span title={PIPELINE_TOOLTIP} className="inline-flex">
-            <Button disabled>Attach →</Button>
-          </span>
-          <span title={PIPELINE_TOOLTIP} className="inline-flex">
-            <Button disabled variant="outline">
-              Retry
-            </Button>
-          </span>
-        </CardContent>
-      </Card>
     </div>
   );
 }

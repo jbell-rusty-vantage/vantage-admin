@@ -63,3 +63,21 @@ export function formatConversationCost(cost: ConversationDetail["cost_cents"]): 
 export function conversationStatusLabel(conversation: Pick<ConversationDetail, "booking_ref">): string | null {
   return conversation.booking_ref ? "BOOKED" : null;
 }
+
+/** Honest provenance from stored run fields. Never claims a paid replay unless the record shows stored artifacts. */
+export function conversationProvenance(conversation: ConversationDetail): string {
+  const hasTranscript = Boolean(conversation.transcript);
+  const hasSummary = Boolean(conversation.summary);
+  if (!hasTranscript && !hasSummary) {
+    return "No stored transcript or summary. This page does not start a new AI Gateway call.";
+  }
+  const parts: string[] = [];
+  if (hasTranscript) {
+    parts.push(`Stored transcript from ${conversation.transcript!.model}`);
+  }
+  if (hasSummary) {
+    parts.push(`stored summary from ${conversation.summary!.model}`);
+  }
+  const sentence = parts.join("; ").replace(/^stored /, "Stored ");
+  return `${sentence}. Opening this page does not start a new AI Gateway call.`;
+}

@@ -22,6 +22,8 @@ const ownerOnlyPagePrefixes = [
   "/intakes",
   "/daily",
   "/live-events",
+  "/conversations",
+  "/sales-intelligence",
   "/manual",
   "/extension",
 ] as const;

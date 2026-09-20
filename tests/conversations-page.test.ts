@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ConversationPanel, ConversationPanelView } from "../components/conversations/conversation-panel";
 import {
+  conversationProvenance,
   conversationStatusLabel,
   formatConversationDuration,
   formatConversationMatchLine,
@@ -101,21 +102,19 @@ test("Owner nav shows Overview, Daily Operations, Live Events, then Lead Convers
   assert.equal(admin.some((item) => item.href === "/conversations"), false);
 });
 
-test("page banner names the seeded example and the Vercel AI Gateway path", () => {
+test("page banner names stored conversations and Sales Intelligence, not demo chrome", () => {
   const markup = renderToStaticMarkup(
     createElement(ConversationsPageView, { items: [listItem], selectedId: listItem.id }),
   );
   assert.match(markup, /Lead Conversations/);
   assert.doesNotMatch(markup, />New</);
-  assert.match(markup, /Example/);
-  assert.match(markup, /seeded from a known booked inbound Call Lead/);
-  assert.match(markup, /Vercel AI Gateway/);
-  assert.match(markup, /attached to the Lead/);
-  assert.match(markup, /every Agent/);
-  assert.match(markup, /Attach →/);
-  assert.match(markup, /Retry/);
-  assert.match(markup, /Requires the conversation pipeline/);
-  assert.match(markup, /disabled/);
+  assert.match(markup, /Stored transcripts and summaries/);
+  assert.match(markup, /Sales Intelligence/);
+  assert.match(markup, /press Play/);
+  assert.doesNotMatch(markup, /Automation is designed, not authorized/);
+  assert.doesNotMatch(markup, /Next — not built/);
+  assert.doesNotMatch(markup, /Attach →/);
+  assert.doesNotMatch(markup, /Requires the conversation pipeline/);
   assert.doesNotMatch(markup, /Please send the quote/);
 });
 
@@ -170,7 +169,16 @@ test("panel shows inbound facts, five body sections, and omits mismatch on this 
   assert.match(markup, /gpt-4o-mini-transcribe/);
   assert.match(markup, /gpt-4.1-nano/);
   assert.match(markup, /owner-demo-v1/);
-  assert.match(markup, /replay of already-paid artifacts/);
+  assert.match(markup, /Stored transcript from gpt-4o-mini-transcribe/);
+  assert.match(markup, /stored summary from gpt-4.1-nano/);
+  assert.doesNotMatch(markup, /replay of already-paid artifacts/);
+});
+
+test("provenance copy follows stored artifacts instead of a fixed replay claim", () => {
+  assert.match(conversationProvenance(fixture), /Stored transcript from gpt-4o-mini-transcribe/);
+  const empty: ConversationDetail = { ...fixture, transcript: null, summary: null };
+  assert.match(conversationProvenance(empty), /No stored transcript or summary/);
+  assert.doesNotMatch(conversationProvenance(empty), /replay of already-paid artifacts/);
 });
 
 test("mismatch is first and visually distinct only when the section is present", () => {

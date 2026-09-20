@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildIntent,initialDraft,easternInstant } from '../../components/sales-intelligence/lib/commands';
-import { destinationChannels,previewNudge,reviewedNudgeChannels,sendNudge,sendSalesIntelligence,settingsSchema,type Outreach,type Followup } from './salesIntelligence';
+import { destinationChannels,listNudges,nudgeDeliveryKind,previewNudge,reviewedNudgeChannels,sendNudge,sendSalesIntelligence,settingsSchema,type Outreach,type Followup } from './salesIntelligence';
 import { officialRecordHref, salesIntelligenceLeadHref } from '../../components/sales-intelligence/lib/official-record';
 
 test('destination channels come from stored User evidence and never invent Team Messaging',()=>{
@@ -27,6 +27,22 @@ test('nudge preview and send use the directory User contract and a stable idempo
   assert.equal(sent.nudge.automatic_resend,false);
   assert.deepEqual(calls[0]!.init.headers,{'Content-Type':'application/json','Idempotency-Key':'nudge-key'});
   assert.deepEqual(calls[1]!.init.headers,calls[0]!.init.headers);
+ } finally {globalThis.fetch=original;}
+});
+test('nudge history continues with outreach id and cursor and keeps delivery kinds distinct',async()=>{
+ const original=globalThis.fetch,calls:string[]=[];
+ globalThis.fetch=async(url)=>{calls.push(String(url));
+  return Response.json({ok:true,as_of:'2026-09-20T15:00:00.000Z',data:{items:[{id:'d'.repeat(24),revision:1,outreach_record_id:'a'.repeat(24),rc_account_id:'62948571023',rc_extension_id:'102',rep_identity_link_id:null,agent_id:null,actor_id:'owner',channel:'pager',purpose:'review_context',template_key:'review_context',template_version:1,body_as_sent:'Joshua — review',status:'unknown_delivery',fallback_channel:null,error_code:null,created_at:'2026-09-19T15:00:00.000Z',sent_at:null,delivery_note:'Delivery could not be established. Do not retry automatically.',automatic_resend:false}],next_cursor:'e'.repeat(24)}});
+ };
+ try {
+  const page=await listNudges({outreach_record_id:'a'.repeat(24),cursor:'c'.repeat(24)});
+  assert.equal(page.data.items[0]?.status,'unknown_delivery');
+  assert.equal(nudgeDeliveryKind('sent'),'sent');
+  assert.equal(nudgeDeliveryKind('fallback_sent'),'sent');
+  assert.equal(nudgeDeliveryKind('failed'),'failed');
+  assert.equal(nudgeDeliveryKind('unknown_delivery'),'unknown');
+  assert.equal(nudgeDeliveryKind('pending'),'pending');
+  assert.match(calls[0]!,/\/api\/proxy\/api\/v1\/admin\/sales-intelligence\/nudges\?outreach_record_id=aaaaaaaaaaaaaaaaaaaaaaaa&limit=20&cursor=cccccccccccccccccccccccc&scope=production$/);
  } finally {globalThis.fetch=original;}
 });
 test('Owner review records pager always and SMS-to-rep only for exactly one stored DID',()=>{

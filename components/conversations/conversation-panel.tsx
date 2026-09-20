@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type Ref } from "react";
 import { Pause, Play } from "lucide-react";
-import { formatConversationCost, formatConversationDuration, formatConversationMatchLine, formatFloridaDate, conversationStatusLabel, CONVERSATION_BODY_SECTIONS } from "./conversation-presentation";
+import { conversationProvenance, formatConversationCost, formatConversationDuration, formatConversationMatchLine, formatFloridaDate, conversationStatusLabel, CONVERSATION_BODY_SECTIONS } from "./conversation-presentation";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
@@ -135,7 +135,7 @@ export function ConversationPanelView({
           {" · "}
           {formatConversationCost(conversation.cost_cents)}
         </p>
-        <p>This run was a replay of already-paid artifacts, not a live AI Gateway call.</p>
+        <p>{conversationProvenance(conversation)}</p>
       </footer>
     </article>
   );

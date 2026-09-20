@@ -16,6 +16,7 @@ export const DASHBOARD_PATH_PREFIXES = [
   "/cancellations",
   "/intakes",
   "/sales-intelligence",
+  "/conversations",
   "/manual",
   "/extension",
   "/job-timeline",
