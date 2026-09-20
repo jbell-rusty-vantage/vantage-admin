@@ -186,7 +186,8 @@ export const queryKeys = {
   },
   conversations: {
     all: ["conversations"] as const,
-    list: () => [...queryKeys.conversations.all, "list"] as const,
+    list: (filters?: QueryFilters) =>
+      [...queryKeys.conversations.all, "list", stableFilters(filters)] as const,
     detail: (id: string) => [...queryKeys.conversations.all, "detail", id] as const,
   },
   dailyOperations: {

@@ -262,7 +262,8 @@ test("Daily Operations snapshot key is isolated from Live Events", () => {
 });
 
 test("Lead Conversation keys isolate list and detail and never cache an audio URL", () => {
-  assert.deepEqual(queryKeys.conversations.list(), ["conversations", "list"]);
+  assert.deepEqual(queryKeys.conversations.list(), ["conversations", "list", {}]);
+  assert.deepEqual(queryKeys.conversations.list({ q: "P556" }), ["conversations", "list", { q: "P556" }]);
   assert.deepEqual(queryKeys.conversations.detail("6a905b5cf7dda52cfacb721e"), [
     "conversations",
     "detail",

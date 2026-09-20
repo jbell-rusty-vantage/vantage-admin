@@ -27,11 +27,22 @@ function deliveryCopy(status: NudgeRecord["status"]) {
   return copy.messageRep.statusPending;
 }
 
-export function MessageRepDialog({ record, accountId, onClose }: { record: Outreach; accountId: string | null; onClose: () => void }) {
+export function MessageRepDialog({
+  record,
+  accountId,
+  extensionId,
+  onClose,
+}: {
+  record?: Outreach | null;
+  accountId: string | null;
+  extensionId?: string | null;
+  onClose: () => void;
+}) {
   const titleId = useId(), ref = useRef<HTMLDialogElement>(null), client = useQueryClient();
-  const [userId, setUserId] = useState("");
+  const [userId, setUserId] = useState(extensionId ?? "");
   const [channel, setChannel] = useState("pager");
   const [purpose, setPurpose] = useState<"review_context" | "call_suggestion">("review_context");
+  const directoryOnly = !record;
   const [body, setBody] = useState("");
   const [preview, setPreview] = useState<NudgePreview | null>(null);
   const [pending, setPending] = useState(false);
@@ -42,14 +53,20 @@ export function MessageRepDialog({ record, accountId, onClose }: { record: Outre
   const [historyItems, setHistoryItems] = useState<NudgeRecord[]>([]);
   const key = useRef<string>(crypto.randomUUID());
   const directory = useQuery({
-    queryKey: [...salesIntelligenceKeys.all, "nudge-destinations", accountId],
-    enabled: Boolean(accountId),
-    queryFn: ({ signal }) => readSalesIntelligence(`reps?${new URLSearchParams({ rc_account_id: accountId!, limit: "100" })}`, repsSchema, signal),
+    queryKey: [...salesIntelligenceKeys.all, "nudge-destinations", accountId ?? "all"],
+    queryFn: ({ signal }) => {
+      const query = new URLSearchParams({ limit: "100" });
+      if (accountId) query.set("rc_account_id", accountId);
+      return readSalesIntelligence(`reps?${query}`, repsSchema, signal);
+    },
     retry: false,
   });
   const history = useQuery({
-    queryKey: [...salesIntelligenceKeys.all, "nudges", record.id],
-    queryFn: ({ signal }) => listNudges({ outreach_record_id: record.id }, signal),
+    queryKey: [...salesIntelligenceKeys.all, "nudges", record?.id ?? `${accountId ?? ""}:${userId || extensionId || ""}`],
+    enabled: Boolean(record?.id || userId || extensionId),
+    queryFn: ({ signal }) => listNudges(record
+      ? { outreach_record_id: record.id }
+      : { rc_account_id: accountId ?? undefined, rc_extension_id: userId || extensionId || undefined }, signal),
     retry: false,
   });
   useEffect(() => {
@@ -74,19 +91,22 @@ export function MessageRepDialog({ record, accountId, onClose }: { record: Outre
   const channels = preview?.allowed_channels.length ? preview.allowed_channels : hinted;
   const unknown = delivery === "unknown_delivery";
   function commandBody() {
-    if (!accountId || !selected) throw new Error(copy.messageRep.needUser);
+    const account = accountId ?? selected?.rc_account_id ?? reviewed?.rc_account_id;
+    if (!account || !selected) throw new Error(copy.messageRep.needUser);
+    if (directoryOnly && !body.trim()) throw new Error(copy.messageRep.needUser);
     const nudge: Record<string, unknown> = {
-      outreach_record_id: record.id,
-      rc_account_id: accountId,
+      rc_account_id: account,
       rc_extension_id: selected.extension_id,
       channel,
-      template_key: purpose,
+      template_key: directoryOnly ? "review_context" : purpose,
       template_version: 1,
-      purpose,
+      purpose: directoryOnly ? "review_context" : purpose,
       allow_pager_fallback: false,
     };
+    if (record) nudge.outreach_record_id = record.id;
     if (body.trim()) nudge.body = body.trim();
-    const payload: Record<string, unknown> = { expected_revision: record.revision, nudge };
+    const payload: Record<string, unknown> = { nudge };
+    if (record) payload.expected_revision = record.revision;
     if (reviewed) {
       nudge.rep_identity_link_id = reviewed.id;
       payload.expected_rep_revision = reviewed.revision;
@@ -107,7 +127,7 @@ export function MessageRepDialog({ record, accountId, onClose }: { record: Outre
         const sent = await sendNudge(commandBody(), key.current);
         setDelivery(sent.nudge.status);
         setResultNote(sent.nudge.delivery_note);
-        await client.invalidateQueries({ queryKey: [...salesIntelligenceKeys.all, "nudges", record.id] });
+        await client.invalidateQueries({ queryKey: [...salesIntelligenceKeys.all, "nudges", record?.id ?? `${accountId ?? ""}:${userId}`] });
         if (nudgeDeliveryKind(sent.nudge.status) === "sent") {
           await client.invalidateQueries({ queryKey: salesIntelligenceKeys.all });
         }
@@ -127,7 +147,9 @@ export function MessageRepDialog({ record, accountId, onClose }: { record: Outre
     if (!historyCursor || pending) return;
     setPending(true);
     try {
-      const page = await listNudges({ outreach_record_id: record.id, cursor: historyCursor });
+      const page = await listNudges(record
+        ? { outreach_record_id: record.id, cursor: historyCursor }
+        : { rc_account_id: accountId ?? undefined, rc_extension_id: userId || extensionId || undefined, cursor: historyCursor });
       setHistoryItems(current => [...current, ...page.data.items]);
       setHistoryCursor(page.data.next_cursor);
     } catch (cause) {
@@ -137,12 +159,11 @@ export function MessageRepDialog({ record, accountId, onClose }: { record: Outre
   return <dialog ref={ref} className="si-root si-local-command" aria-labelledby={titleId} onCancel={event => { event.stopPropagation(); if (pending) event.preventDefault(); else onClose(); }}>
     <form className="si-local-stack" onSubmit={event => { event.preventDefault(); void run(preview && !unknown ? "send" : "preview"); }}>
       <h2 id={titleId}>{copy.messageRep.title}</h2>
-      <p>{copy.messageRep.intro}</p>
-      {!accountId && <p role="status">{copy.messageRep.needAccount}</p>}
+      <p>{directoryOnly ? copy.messageRep.directoryOnly : copy.messageRep.intro}</p>
       {directory.error && <p role="alert">{copy.errors.repsFailed} <Button type="button" onClick={() => void directory.refetch()}>{copy.actions.retry}</Button></p>}
       {error && <p role="alert">{error}</p>}
       {delivery && <p role="status" data-delivery={nudgeDeliveryKind(delivery)}>{deliveryCopy(delivery)}{resultNote ? ` ${resultNote}` : ""}</p>}
-      <fieldset disabled={pending || !accountId} className="si-local-stack">
+      <fieldset disabled={pending} className="si-local-stack">
         <label>{copy.messageRep.user}<select className="si-select" required value={userId} onChange={event => { setUserId(event.target.value); setPreview(null); setDelivery(null); key.current = crypto.randomUUID(); }}>
           <option value="">{copy.messageRep.chooseUser}</option>
           {users.map(user => <option key={user.extension_id} value={user.extension_id}>
@@ -153,10 +174,10 @@ export function MessageRepDialog({ record, accountId, onClose }: { record: Outre
         <label>{copy.messageRep.channel}<select className="si-select" value={channel} onChange={event => { setChannel(event.target.value); setPreview(null); }}>
           {(channels.length ? channels : ["pager", "sms_to_rep", "team_messaging"]).map(value => <option key={value} value={value}>{label(value)}</option>)}
         </select></label>
-        <label>{copy.messageRep.purpose}<select className="si-select" value={purpose} onChange={event => { setPurpose(event.target.value as "review_context" | "call_suggestion"); setPreview(null); }}>
+        {!directoryOnly && <label>{copy.messageRep.purpose}<select className="si-select" value={purpose} onChange={event => { setPurpose(event.target.value as "review_context" | "call_suggestion"); setPreview(null); }}>
           <option value="review_context">{copy.messageRep.reviewContext}</option>
           <option value="call_suggestion">{copy.messageRep.callSuggestion}</option>
-        </select></label>
+        </select></label>}
         <label>{copy.messageRep.body}<textarea className="si-textarea" maxLength={1000} value={body} onChange={event => setBody(event.target.value)} aria-describedby={`${titleId}-masked`} /></label>
         <p id={`${titleId}-masked`}>{copy.messageRep.bodyMasked}</p>
       </fieldset>
@@ -176,7 +197,7 @@ export function MessageRepDialog({ record, accountId, onClose }: { record: Outre
         {historyCursor && <Button type="button" disabled={pending} onClick={() => void loadMore()}>{copy.actions.loadMore}</Button>}
       </section>
       <div className="si-local-filters">
-        <Button variant="primary" type="submit" disabled={pending || !accountId || !userId}>
+        <Button variant="primary" type="submit" disabled={pending || !userId || (directoryOnly && !body.trim())}>
           {pending ? copy.actions.saving : unknown ? copy.actions.retrySame : preview ? copy.messageRep.send : copy.messageRep.preview}
         </Button>
         <Button type="button" disabled={pending} onClick={onClose}>{copy.actions.cancel}</Button>

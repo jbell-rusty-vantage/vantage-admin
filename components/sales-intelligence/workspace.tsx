@@ -126,7 +126,6 @@ function Selection({
           <ReviewItems subjectKey={`lead:${leadModel}:${leadId}`} />
         </>
       )}
-      {!accountId && <p className="si-local-notice">{copy.messageRep.needAccount}</p>}
     </div>
   );
 }

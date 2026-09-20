@@ -60,6 +60,21 @@ export function formatConversationCost(cost: ConversationDetail["cost_cents"]): 
   return `${total}¢ (${cost.stt}¢ STT · ${cost.summary}¢ summary)`;
 }
 
+const CONVERSATION_STATE_LABELS: Record<string, string> = {
+  discovered: "Discovered",
+  media_stored: "Media stored",
+  transcribed: "Transcribed",
+  complete: "Complete",
+  no_recording: "No recording",
+  unavailable: "Unavailable",
+  failed: "Failed",
+  dead_letter: "Dead letter",
+};
+
+export function conversationStateLabel(state: string): string {
+  return CONVERSATION_STATE_LABELS[state] ?? state.replaceAll("_", " ");
+}
+
 export function conversationStatusLabel(conversation: Pick<ConversationDetail, "booking_ref">): string | null {
   return conversation.booking_ref ? "BOOKED" : null;
 }

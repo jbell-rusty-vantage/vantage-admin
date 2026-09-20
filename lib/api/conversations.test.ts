@@ -39,6 +39,15 @@ test("list conversations uses the Owner proxy and returns the list DTO", async (
   assert.equal("summary" in (result[0] ?? {}), false);
 });
 
+test("list conversations sends search and filter query params", async () => {
+  const calls = mockFetch({ ok: true, data: [] });
+  await fetchConversations({ q: "P556", direction: "Inbound", booked: "true" });
+  assert.equal(
+    String(calls[0]?.input),
+    "/api/proxy/api/v1/admin/conversations?q=P556&direction=Inbound&booked=true",
+  );
+});
+
 test("conversation detail uses the Owner proxy id route", async () => {
   const calls = mockFetch({
     ok: true,

@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ConversationPanel, ConversationPanelView } from "../components/conversations/conversation-panel";
 import {
   conversationProvenance,
+  conversationStateLabel,
   conversationStatusLabel,
   formatConversationDuration,
   formatConversationMatchLine,
@@ -79,6 +80,7 @@ test("duration and match line use the seeded inbound facts", () => {
   );
   assert.equal(formatFloridaDate("2026-08-07T16:00:00.000Z"), "Aug 7, 2026");
   assert.equal(conversationStatusLabel(fixture), "BOOKED");
+  assert.equal(conversationStateLabel("complete"), "Complete");
 });
 
 test("Owner nav shows Overview, Daily Operations, Live Events, then Lead Conversations; Admin does not", () => {
@@ -104,11 +106,11 @@ test("Owner nav shows Overview, Daily Operations, Live Events, then Lead Convers
 
 test("page banner names stored conversations and Sales Intelligence, not demo chrome", () => {
   const markup = renderToStaticMarkup(
-    createElement(ConversationsPageView, { items: [listItem], selectedId: listItem.id }),
+    createElement(ConversationsPageView, { items: [listItem], selectedId: listItem.id, query: {} }),
   );
   assert.match(markup, /Lead Conversations/);
   assert.doesNotMatch(markup, />New</);
-  assert.match(markup, /Stored transcripts and summaries/);
+  assert.match(markup, /Search and filter stored transcripts/);
   assert.match(markup, /Sales Intelligence/);
   assert.match(markup, /press Play/);
   assert.doesNotMatch(markup, /Automation is designed, not authorized/);
@@ -119,10 +121,18 @@ test("page banner names stored conversations and Sales Intelligence, not demo ch
 });
 
 test("empty list is honest, not an error or a fake card", () => {
-  const markup = renderToStaticMarkup(createElement(ConversationsPageView, { items: [] }));
-  assert.match(markup, /No conversation on file/);
+  const markup = renderToStaticMarkup(createElement(ConversationsPageView, { items: [], query: {} }));
+  assert.match(markup, /No Lead Conversations on file/);
   assert.doesNotMatch(markup, /P5562014/);
   assert.doesNotMatch(markup, /Play recording/);
+});
+
+test("filtered empty list names the filters instead of the example card", () => {
+  const markup = renderToStaticMarkup(
+    createElement(ConversationsPageView, { items: [], query: { q: "P000", direction: "Outbound" } }),
+  );
+  assert.match(markup, /No Lead Conversations match these filters/);
+  assert.doesNotMatch(markup, /P5562014/);
 });
 
 test("list rows on the page never render transcript or summary text", () => {
@@ -136,10 +146,13 @@ test("list rows on the page never render transcript or summary text", () => {
     createElement(ConversationsPageView, {
       items: [listItem, extra],
       selectedId: listItem.id,
+      query: {},
     }),
   );
   assert.match(markup, /P5562014/);
   assert.match(markup, /P0000000/);
+  assert.match(markup, /Job Number/);
+  assert.match(markup, /Search Lead Conversations/);
   assert.doesNotMatch(markup, /Please send the quote/);
   assert.doesNotMatch(markup, /Patrick took an inbound out-of-state inquiry/);
   assert.equal("transcript" in listItem, false);

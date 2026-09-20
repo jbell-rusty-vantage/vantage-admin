@@ -30,6 +30,8 @@ test("supplied ages format wall and staffed durations without inventing clocks",
   assert.equal(formatSuppliedAge(3 * 60 * 60_000, 30 * 60_000), "3h ago (30m staffed)");
   assert.equal(copy.page.views.attention, "Needs attention");
   assert.equal(copy.page.views.coverage, "Coverage");
+  assert.equal(copy.page.views.reps, "RingCentral Accounts");
+  assert.equal(copy.reps.title, "RingCentral Accounts");
   assert.equal(copy.coverage.budgetExhausted, "Analysis paused—budget reached. Call history, follow-ups, and Owner actions still work.");
   assert.equal(copy.fields.leadMatch, "Lead match");
   assert.equal(copy.filters.numbersTitle, "Filter numbers");

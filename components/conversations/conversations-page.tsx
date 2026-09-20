@@ -4,16 +4,38 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Headphones } from "lucide-react";
 import { ConversationPanel } from "./conversation-panel";
-import { formatFloridaDate } from "./conversation-presentation";
+import {
+  conversationStateLabel,
+  conversationStatusLabel,
+  formatConversationDuration,
+  formatFloridaDate,
+} from "./conversation-presentation";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable } from "@/components/data-table/table-shell";
+import { StatusBadge } from "@/components/data-table/status-badge";
 import { FeedbackMessage } from "@/components/ui/feedback";
+import { Input } from "@/components/ui/input";
 import {
   fetchConversation,
   fetchConversations,
   type ConversationDetail,
   type ConversationListItem,
+  type ConversationListQuery,
 } from "@/lib/api/conversations";
 import { queryKeys } from "@/lib/query/keys";
+
+const DIRECTION_OPTIONS = ["", "Inbound", "Outbound", "Internal", "Unknown"] as const;
+const STATE_OPTIONS = [
+  "",
+  "complete",
+  "transcribed",
+  "media_stored",
+  "discovered",
+  "no_recording",
+  "unavailable",
+  "failed",
+  "dead_letter",
+] as const;
 
 export function ConversationsPageView({
   items,
@@ -21,6 +43,8 @@ export function ConversationsPageView({
   conversation,
   loading,
   error,
+  query,
+  onQuery,
   onSelect,
 }: {
   items: ConversationListItem[];
@@ -28,8 +52,11 @@ export function ConversationsPageView({
   conversation?: ConversationDetail;
   loading?: boolean;
   error?: string;
+  query: ConversationListQuery;
+  onQuery?: (next: ConversationListQuery) => void;
   onSelect?: (id: string) => void;
 }) {
+  const filtered = Boolean(query.q || query.direction || query.state || query.booked || query.has_transcript);
   return (
     <div className="space-y-6">
       <Card>
@@ -39,10 +66,75 @@ export function ConversationsPageView({
             Lead Conversations
           </CardTitle>
           <CardDescription>
-            Stored transcripts and summaries for official Leads. Play fetches a signed URL only when you press Play. Owner commands live in Sales Intelligence.
+            Search and filter stored transcripts and summaries. Play fetches a signed URL only when you press Play. Owner commands live in Sales Intelligence.
           </CardDescription>
         </CardHeader>
       </Card>
+
+      <form
+        className="grid gap-3 rounded-lg border border-steel-200 bg-white p-4 md:grid-cols-[minmax(0,1fr)_10rem_11rem_9rem_10rem]"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-steel">
+          Search
+          <Input
+            value={query.q ?? ""}
+            onChange={(event) => onQuery?.({ ...query, q: event.target.value })}
+            placeholder="Job Number, agent, or last four"
+            aria-label="Search Lead Conversations"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-steel">
+          Direction
+          <select
+            className="h-10 rounded-md border border-input bg-white px-3 text-sm"
+            value={query.direction ?? ""}
+            onChange={(event) => onQuery?.({ ...query, direction: event.target.value })}
+          >
+            {DIRECTION_OPTIONS.map((value) => (
+              <option key={value || "any"} value={value}>{value || "Any"}</option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-steel">
+          State
+          <select
+            className="h-10 rounded-md border border-input bg-white px-3 text-sm"
+            value={query.state ?? ""}
+            onChange={(event) => onQuery?.({ ...query, state: event.target.value })}
+          >
+            {STATE_OPTIONS.map((value) => (
+              <option key={value || "any"} value={value}>
+                {value ? conversationStateLabel(value) : "Any"}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-steel">
+          Booking
+          <select
+            className="h-10 rounded-md border border-input bg-white px-3 text-sm"
+            value={query.booked ?? ""}
+            onChange={(event) => onQuery?.({ ...query, booked: event.target.value as ConversationListQuery["booked"] })}
+          >
+            <option value="">Any</option>
+            <option value="true">Booked</option>
+            <option value="false">Not booked</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-steel">
+          Transcript
+          <select
+            className="h-10 rounded-md border border-input bg-white px-3 text-sm"
+            value={query.has_transcript ?? ""}
+            onChange={(event) => onQuery?.({ ...query, has_transcript: event.target.value as ConversationListQuery["has_transcript"] })}
+          >
+            <option value="">Any</option>
+            <option value="true">Has transcript</option>
+            <option value="false">No transcript</option>
+          </select>
+        </label>
+      </form>
 
       {error ? <FeedbackMessage tone="error">{error}</FeedbackMessage> : null}
 
@@ -51,31 +143,63 @@ export function ConversationsPageView({
       ) : null}
 
       {!loading && !error && items.length === 0 ? (
-        <FeedbackMessage>No conversation on file.</FeedbackMessage>
+        <FeedbackMessage>
+          {filtered ? "No Lead Conversations match these filters." : "No Lead Conversations on file."}
+        </FeedbackMessage>
       ) : null}
 
-      {items.length > 1 ? (
-        <div className="flex flex-wrap gap-2">
-          {items.map((item) => {
-            const selected = item.id === selectedId;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onSelect?.(item.id)}
-                className={
-                  selected
-                    ? "rounded-md border border-gold bg-pale-gold px-3 py-1.5 text-sm font-semibold text-navy"
-                    : "rounded-md border border-steel-200 bg-white px-3 py-1.5 text-sm font-semibold text-steel hover:border-steel-200 hover:bg-steel-100 hover:text-navy"
-                }
-              >
-                {item.normalized_job_no ?? "Lead Conversation"}
-                {item.receiver_agent_name_snapshot ? ` · ${item.receiver_agent_name_snapshot}` : ""}
-                {` · ${formatFloridaDate(item.started_at)}`}
-              </button>
-            );
-          })}
-        </div>
+      {items.length > 0 ? (
+        <DataTable
+          compact
+          items={items}
+          getRowKey={(item) => item.id}
+          onRowClick={(item) => onSelect?.(item.id)}
+          isRowSelected={(item) => item.id === selectedId}
+          columns={[
+            {
+              key: "job",
+              header: "Job Number",
+              cell: (item) => (
+                <span className="font-semibold text-navy">{item.normalized_job_no ?? "—"}</span>
+              ),
+            },
+            {
+              key: "agent",
+              header: "Agent",
+              cell: (item) => item.receiver_agent_name_snapshot ?? "—",
+            },
+            {
+              key: "direction",
+              header: "Direction",
+              cell: (item) => item.direction,
+            },
+            {
+              key: "started",
+              header: "Started",
+              cell: (item) => formatFloridaDate(item.started_at),
+            },
+            {
+              key: "duration",
+              header: "Duration",
+              cell: (item) => formatConversationDuration(item.duration_seconds),
+            },
+            {
+              key: "state",
+              header: "State",
+              cell: (item) => (
+                <div className="flex flex-wrap gap-1">
+                  <StatusBadge tone="muted">{conversationStateLabel(item.state)}</StatusBadge>
+                  {conversationStatusLabel(item) ? <StatusBadge tone="success">BOOKED</StatusBadge> : null}
+                </div>
+              ),
+            },
+            {
+              key: "transcript",
+              header: "Transcript",
+              cell: (item) => (item.has_transcript ? "Yes" : "No"),
+            },
+          ]}
+        />
       ) : null}
 
       {conversation ? <ConversationPanel conversation={conversation} /> : null}
@@ -85,19 +209,19 @@ export function ConversationsPageView({
 
 export function ConversationsPage() {
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const [query, setQuery] = useState<ConversationListQuery>({});
 
   const listQuery = useQuery({
-    queryKey: queryKeys.conversations.list(),
-    queryFn: fetchConversations,
+    queryKey: queryKeys.conversations.list(query),
+    queryFn: () => fetchConversations(query),
   });
 
   const items = listQuery.data ?? [];
-  const resolvedId = selectedId ?? items[0]?.id;
 
   const detailQuery = useQuery({
-    queryKey: queryKeys.conversations.detail(resolvedId ?? ""),
-    queryFn: () => fetchConversation(resolvedId as string),
-    enabled: Boolean(resolvedId),
+    queryKey: queryKeys.conversations.detail(selectedId ?? ""),
+    queryFn: () => fetchConversation(selectedId as string),
+    enabled: Boolean(selectedId),
   });
 
   const error = useMemo(() => {
@@ -109,10 +233,12 @@ export function ConversationsPage() {
   return (
     <ConversationsPageView
       items={items}
-      selectedId={resolvedId}
+      selectedId={selectedId}
       conversation={detailQuery.data}
-      loading={listQuery.isFetching || (Boolean(resolvedId) && detailQuery.isFetching && !detailQuery.data)}
+      loading={listQuery.isFetching || (Boolean(selectedId) && detailQuery.isFetching && !detailQuery.data)}
       error={error}
+      query={query}
+      onQuery={setQuery}
       onSelect={setSelectedId}
     />
   );

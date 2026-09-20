@@ -102,8 +102,25 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return payload.data;
 }
 
-export function fetchConversations(): Promise<ConversationListItem[]> {
-  return requestJson(proxyUrl("api/v1/admin/conversations"));
+export type ConversationListQuery = {
+  q?: string;
+  direction?: string;
+  state?: string;
+  booked?: "true" | "false" | "";
+  has_transcript?: "true" | "false" | "";
+};
+
+export function fetchConversations(query: ConversationListQuery = {}): Promise<ConversationListItem[]> {
+  const params = new URLSearchParams();
+  if (query.q?.trim()) params.set("q", query.q.trim());
+  if (query.direction) params.set("direction", query.direction);
+  if (query.state) params.set("state", query.state);
+  if (query.booked === "true" || query.booked === "false") params.set("booked", query.booked);
+  if (query.has_transcript === "true" || query.has_transcript === "false") {
+    params.set("has_transcript", query.has_transcript);
+  }
+  const suffix = params.size ? `?${params}` : "";
+  return requestJson(proxyUrl(`api/v1/admin/conversations${suffix}`));
 }
 
 export function fetchConversation(id: string): Promise<ConversationDetail> {
