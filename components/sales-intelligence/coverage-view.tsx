@@ -115,6 +115,12 @@ export function CoverageView() {
           </section>
           <section className="si-card">
             <h3>{copy.coverage.backfill}</h3>
+            <p>{row.backfill.available ? `Owner planning available for up to ${row.backfill.days} days per range` : "Historical planning is disabled"}</p>
+            <p>Planned {row.backfill.planned ?? "unknown"} · Partial {row.backfill.partial ?? "unknown"} · Captured {row.backfill.complete ?? "unknown"} · Failed {row.backfill.failed ?? "unknown"}</p>
+            <p>Capture watermark {row.backfill.known_complete_through ? formatDateTime(row.backfill.known_complete_through) : "unknown"}</p>
+            {row.backfill.gaps.length > 0 && <ul>{row.backfill.gaps.map(gap => (
+              <li key={`${gap.from}-${gap.to}-${gap.reason}`}>{formatDateTime(gap.from)} → {formatDateTime(gap.to)} · {gap.reason}</li>
+            ))}</ul>}
             <p>{row.backfill.note}</p>
           </section>
         </>
