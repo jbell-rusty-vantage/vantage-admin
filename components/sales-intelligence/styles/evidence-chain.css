@@ -1,0 +1,76 @@
+/*
+ * Evidence chain — scoped styles for the Number Analysis chain of custody.
+ * Built on the .si-root tokens in sales-intelligence.css. Everything here is
+ * flow layout: no sticky, no fixed, no z-index and no new stacking context, so
+ * the panel chrome and the sticky headers above keep their order.
+ */
+
+.si-root .si-chain-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--si-line); border-left: 3px solid var(--si-line-strong); border-radius: var(--si-r-lg); background: var(--si-surface); }
+.si-root .si-chain-card--attention { border-left-color: var(--si-red); }
+.si-root .si-chain-card--decided { border-left-color: var(--si-green); }
+.si-root .si-chain-card__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.si-root .si-chain-card__kind { font-family: var(--si-font-heading); font-size: 13px; font-weight: 700; color: var(--si-navy); text-transform: uppercase; letter-spacing: 0.04em; }
+.si-root .si-chain-card__claim { font-size: 15px; font-weight: 600; color: var(--si-ink); }
+.si-root .si-chain-card__glance { display: flex; flex-wrap: wrap; gap: 6px; }
+.si-root .si-chain-card__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.si-root .si-chain { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; }
+.si-root .si-chain__step { position: relative; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; padding: 0 0 10px; }
+.si-root .si-chain__step::before { content: ""; position: absolute; left: 10px; top: 20px; bottom: -2px; width: 1px; background: var(--si-line-strong); }
+.si-root .si-chain__step:last-child::before { display: none; }
+.si-root .si-chain__mark { width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center; background: var(--si-surface-2); border: 1px solid var(--si-line-strong); color: var(--si-ink-3); font-size: 11px; font-weight: 700; }
+.si-root .si-chain__mark--red { background: var(--si-red-tint); border-color: var(--si-red); color: var(--si-red); }
+.si-root .si-chain__mark--amber { background: var(--si-amber-tint); border-color: var(--si-amber-line); color: var(--si-amber); }
+.si-root .si-chain__mark--green { background: var(--si-green-tint); border-color: var(--si-green); color: var(--si-green); }
+.si-root .si-chain__mark--blue { background: var(--si-blue-tint); border-color: var(--si-blue); color: var(--si-blue); }
+.si-root .si-chain__pane { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-top: 1px; }
+.si-root .si-chain__title { font-family: var(--si-font-heading); font-size: 12px; font-weight: 700; color: var(--si-ink-3); text-transform: uppercase; letter-spacing: 0.05em; }
+.si-root .si-chain__lede { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.si-root .si-chain__body { display: flex; flex-direction: column; gap: 8px; }
+.si-root .si-chain__meta { font-size: 13px; color: var(--si-ink-3); }
+.si-root .si-chain__quote { font-style: italic; color: var(--si-ink-2); border-left: 2px solid var(--si-line-strong); padding-left: 10px; }
+
+.si-root .si-chain__rows { display: grid; grid-template-columns: minmax(96px, auto) minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 13px; }
+.si-root .si-chain__rows > div { display: contents; }
+.si-root .si-chain__rows dt { font-weight: 600; color: var(--si-ink-2); }
+.si-root .si-chain__rows dd { margin: 0; color: var(--si-ink); overflow-wrap: anywhere; }
+.si-root .si-chain__rows dd.si-chain__value--red { color: var(--si-red); }
+.si-root .si-chain__rows dd.si-chain__value--amber { color: var(--si-amber); }
+.si-root .si-chain__rows dd.si-chain__value--green { color: var(--si-green); }
+
+.si-root .si-chain__flag { padding: 8px 10px; border: 1px solid var(--si-red); border-radius: var(--si-r); background: var(--si-red-tint); color: var(--si-red); font-weight: 600; }
+.si-root .si-chain__flag--amber { border-color: var(--si-amber-line); background: var(--si-amber-tint); color: var(--si-amber); }
+
+.si-root .si-chain__disclose { border: 1px solid var(--si-line); border-radius: var(--si-r); background: var(--si-surface-2); }
+.si-root .si-chain__disclose > summary { display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--si-blue); list-style: none; }
+.si-root .si-chain__disclose > summary::-webkit-details-marker { display: none; }
+.si-root .si-chain__disclose > summary::before { content: "＋"; font-weight: 700; }
+.si-root .si-chain__disclose[open] > summary::before { content: "−"; }
+.si-root .si-chain__disclose > summary:hover { text-decoration: underline; }
+.si-root .si-chain__disclose > summary:focus-visible { outline: 2px solid var(--si-focus); outline-offset: 2px; }
+.si-root .si-chain__panel { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 12px; background: var(--si-surface); border-top: 1px solid var(--si-line); }
+
+.si-root .si-chain__snaps { display: flex; flex-direction: column; gap: 8px; }
+.si-root .si-chain__snap { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px solid var(--si-line); border-radius: var(--si-r); background: var(--si-surface); }
+.si-root .si-chain__snap__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.si-root .si-chain__json { margin: 0; padding: 8px 10px; max-height: 320px; overflow: auto; border: 1px solid var(--si-line); border-radius: var(--si-r); background: var(--si-surface-2); font-family: var(--si-font-mono); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.si-root .si-chain__pages { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.si-root .si-chain-rerun { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--si-line-strong); border-radius: var(--si-r-lg); background: var(--si-surface-2); }
+.si-root .si-chain-rerun__title { font-family: var(--si-font-heading); font-size: 15px; font-weight: 700; color: var(--si-navy); }
+.si-root .si-chain-rerun__modes { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.si-root .si-chain-rerun__mode { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 10px; border: 1px solid var(--si-line); border-radius: var(--si-r); background: var(--si-surface); }
+.si-root .si-chain-rerun__mode h5 { margin: 0; font-size: 14px; font-weight: 700; color: var(--si-ink); }
+.si-root .si-chain-rerun__note { font-size: 13px; color: var(--si-ink-2); }
+
+.si-root .si-chain-summary { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--si-line); border-radius: var(--si-r-lg); background: var(--si-surface); }
+.si-root .si-chain-summary__overview { font-size: 15px; }
+.si-root .si-chain-summary__fields { display: grid; grid-template-columns: minmax(120px, auto) minmax(0, 1fr); gap: 6px 14px; margin: 0; font-size: 14px; }
+.si-root .si-chain-summary__fields dt { font-weight: 600; color: var(--si-ink-2); }
+.si-root .si-chain-summary__fields dd { margin: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 720px) {
+  .si-root .si-chain__rows, .si-root .si-chain-summary__fields { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .si-root .si-chain__rows dd, .si-root .si-chain-summary__fields dd { padding-bottom: 6px; }
+  .si-root .si-chain__disclose > summary { min-height: 44px; }
+}

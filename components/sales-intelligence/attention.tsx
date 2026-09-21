@@ -5,8 +5,11 @@ import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import { ReviewBadge } from "./chrome";
 import { OwnershipSplit } from "./ownership";
+import { CallStateBadge } from "./call-state";
+import { ProvenanceBadge } from "./lead-provenance";
 import { copy } from "./sales-intelligence-copy";
 import { bandLabel, contactTypeLabel, cx, formatDateTime, formatSuppliedAge, label } from "./lib/format";
+import { callStateOf, provenanceStateOf } from "./lib/owner-now";
 
 function identity(row: Row) {
   const record = row.outreach;
@@ -27,8 +30,14 @@ export function AttentionRow({ row, selected, onOpen }: { row: Row; selected: bo
   const primary = row.derived.reasons[0];
   const secondary = row.derived.reasons.slice(1);
   const action = record?.followups.find((item) => item.status === "open");
+  const onTheCall = callStateOf(record) === "in_progress";
+  const provenance = provenanceStateOf(record);
+  const tellsSomething = provenance === "attached_automatically" || provenance === "ambiguous" || provenance === "needs_a_lead";
   return (
-    <li className={cx("si-row", selected && "is-selected", row.derived.overdue && "is-overdue")} aria-current={selected || undefined}>
+    <li
+      className={cx("si-row", selected && "is-selected", row.derived.overdue && "is-overdue", onTheCall && "is-live")}
+      aria-current={selected || undefined}
+    >
       <button type="button" className="si-row__hit" onClick={onOpen} aria-label={`${copy.actions.open} ${identity(row)}`} />
       <div className="si-row__identity">
         <strong className="si-phone">{identity(row)}</strong>
@@ -69,6 +78,8 @@ export function AttentionRow({ row, selected, onOpen }: { row: Row; selected: bo
       </div>
       <div className="si-row__secondary">
         <span className="si-chiprow">
+          {onTheCall && <CallStateBadge record={record} />}
+          {record && tellsSomething && <ProvenanceBadge record={record} />}
           {secondary.map((reason) => (
             <span key={reason} className="si-text--sm si-text--muted">{label(reason)}</span>
           ))}

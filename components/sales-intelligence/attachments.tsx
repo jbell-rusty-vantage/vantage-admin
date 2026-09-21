@@ -9,10 +9,14 @@ import {
 import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
 import { officialRecordHref } from "./lib/official-record";
 import { Button } from "./atoms/button";
+import { Badge } from "./atoms/badge";
 import { TooltipCard } from "./atoms/tooltip-card";
 import { copy } from "./sales-intelligence-copy";
 import { EvidenceCommand } from "./evidence-command";
 import { formatDateTime, label } from "./lib/format";
+
+/** The server's stored reason for an automatic high-confidence attach. */
+const AUTOMATIC = "automatic_high_confidence";
 
 const titles: Record<string, string> = {
   attach_lead: "Confirm attachment",
@@ -87,6 +91,18 @@ export function Attachments({
             {edge.lead_snapshot?.job_no ?? "not observed"} ·{" "}
             {edge.lead_snapshot?.source_label ?? "Source Company not observed"}
           </p>
+          {edge.decision_reason === AUTOMATIC && (
+            <TooltipCard
+              title={copy.provenance.state.attached_automatically}
+              guideTopic="provenance"
+              label={<Badge tone="blue">{copy.provenance.state.attached_automatically}</Badge>}
+            >
+              {copy.provenance.soWhat.attached_automatically}
+            </TooltipCard>
+          )}
+          {edge.decided_at && (
+            <p className="si-text--sm si-text--subtle">{copy.provenance.decidedAt(formatDateTime(edge.decided_at))}</p>
+          )}
           {edge.lead_snapshot && (
             <p>
               {[

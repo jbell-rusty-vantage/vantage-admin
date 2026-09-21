@@ -46,7 +46,7 @@ export function CommandDialog({command,record,action,onClose}:{command:string;re
  const editor=['create_followup','patch_followup'].includes(command),withAgent=editor||command==='assign';
  const withDate=editor||command==='set_waiting'||command==='snooze_followup';
  const withReason=['patch_followup','assign','set_waiting','reopen','snooze_followup','cancel_followup'].includes(command);
- const withNote=['mark_worked','add_note','close','complete_followup'].includes(command);
+ const withNote=['mark_worked','add_note','close','complete_followup','start_call','end_call'].includes(command);
  return <dialog ref={ref} className="si-root si-local-command" aria-labelledby={titleId} onCancel={event=>{event.stopPropagation();if(pending)event.preventDefault();else onClose();}}>
  <form className="si-local-stack" onSubmit={event=>{event.preventDefault();void submit();}}>
  <h2 id={titleId}>{commandLabels[command]}</h2>
@@ -55,6 +55,8 @@ export function CommandDialog({command,record,action,onClose}:{command:string;re
  {command==='close' && <p>Closing cancels active follow-ups and preserves their history.</p>}
  {command==='reopen' && <p>Reopening checks current eligibility. Cancelled follow-ups remain in history.</p>}
  {command==='mark_worked' && <p>This records work without claiming that anyone spoke with the customer. A next step is optional.</p>}
+ {command==='start_call' && <><p>{copy.call.startExplain}</p><p>{copy.call.notRecording}</p></>}
+ {command==='end_call' && <p>{copy.call.endExplain}</p>}
  {changed && <div className="si-local-notice" role="status"><p>Server values changed while this draft was open.</p><p>Current state: {label(record.state)}. Current Outreach owner: {ownershipPhrase('owned', record.assignment.agent)}.</p>{action&&<p>Current follow-up: {action.description}; due {action.due_at?formatDateTime(action.due_at):'Undated'}; {ownershipPhrase('assigned', action.assignment.agent)}; {label(action.status)}.</p>}
  {!uncertain&&<Button type="button" disabled={pending} onClick={()=>{setBaseline({record,action});intent.current=null;setError('');}}>Use these revisions and keep my draft</Button>}</div>}
  {error && <p role="alert">{error}</p>}

@@ -60,6 +60,26 @@ export function GuideView({ topic }: { topic: string | null }) {
       </section>
       <section id="analysis"><h2>{copy.guide.topics.analysis}</h2><p>{copy.guide.analysisBody}</p></section>
       <section id="summary"><h2>{copy.guide.topics.summary}</h2><p>{copy.guide.summaryBody}</p></section>
+      <section id="call">
+        <h2>{copy.guide.topics.call}</h2>
+        <p>{copy.guide.callBody}</p>
+        <ul>
+          <li><strong>{copy.call.notStarted}.</strong> {copy.call.notStartedSoWhat}</li>
+          <li><strong>{copy.call.inProgress}.</strong> {copy.call.startExplain}</li>
+          <li><strong>{copy.call.ended}.</strong> {copy.call.endExplain}</li>
+          <li><strong>{copy.call.observedClose}.</strong> {copy.call.observedCloseSoWhat}</li>
+        </ul>
+      </section>
+      <section id="provenance">
+        <h2>{copy.guide.topics.provenance}</h2>
+        <p>{copy.guide.provenanceBody}</p>
+        <ul>
+          {(Object.keys(copy.provenance.state) as Array<keyof typeof copy.provenance.state>).map((state) => (
+            <li key={state}><strong>{copy.provenance.state[state]}.</strong> {copy.provenance.soWhat[state]}</li>
+          ))}
+        </ul>
+        <p>{copy.provenance.attachSoWhat}</p>
+      </section>
       <section id="messaging"><h2>{copy.guide.topics.messaging}</h2><p>{copy.guide.messagingBody}</p></section>
     </article>
   );

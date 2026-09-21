@@ -19,7 +19,8 @@ export function easternInstant(value:string) {
 export function buildIntent(command:string,draft:Draft,record:Outreach,action:Followup|undefined,key:string,originalAction=action):CommandIntent {
  const body:Record<string,unknown>={command,expected_revision:action?.revision??record.revision};
  let path=`outreach/${record.id}/commands`,method:'POST'|'PATCH'='POST';
- if(command==='mark_worked') {if(draft.note.trim())body.note=text(draft.note);}
+ if(command==='start_call'||command==='end_call') {if(draft.note.trim())body.note=text(draft.note);}
+ else if(command==='mark_worked') {if(draft.note.trim())body.note=text(draft.note);}
  else if(command==='assign') {body.responsible_agent_id=draft.agent||null;if(draft.reason.trim())body.reason=text(draft.reason);}
  else if(command==='set_waiting') {body.until=easternInstant(draft.due);if(!body.until)throw new Error('A wait needs an end date.');body.reason=text(draft.reason);}
  else if(command==='add_note')body.text=text(draft.note);

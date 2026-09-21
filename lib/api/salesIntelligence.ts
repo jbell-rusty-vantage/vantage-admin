@@ -32,8 +32,11 @@ export function destinationChannels(user: Pick<DirectoryUser,'extension_number'|
   return channels;
 }
 const assignment = z.object({ agent: agent.nullable(), origin: z.string().nullable() });
+// call_state and provenance_state are server words, not Admin derivations, and stay z.string() so a
+// server that grows a value still renders. Unmodelled keys are stripped, so every read field is here.
 const derived = z.object({ overdue: z.boolean(), attention_band: z.number().nullable(), reasons: z.array(z.string()),
-  review_badges: z.array(z.string()).optional(), call_blockers: z.array(z.string()), age_wall_ms: z.number(), age_staffed_ms: z.number() });
+  review_badges: z.array(z.string()).optional(), call_blockers: z.array(z.string()), age_wall_ms: z.number(), age_staffed_ms: z.number(),
+  call_state: z.string().optional(), provenance_state: z.string().optional() });
 const subject = z.discriminatedUnion('kind', [z.object({ kind: z.literal('number_review'), contact_number_id: z.string() }),
   z.object({ kind: z.literal('lead'), model: z.enum(['FormLead','CallLead']), id: z.string() })]);
 const followup = z.object({ id: z.string(), revision:z.number(), allowed_actions:z.array(availabilitySchema),kind: z.string(), description: z.string(), status: z.string(), due_at: z.string().nullable(),
@@ -44,6 +47,10 @@ export const outreachSchema = z.object({ id: z.string(), revision: z.number(), s
   lead_display:z.object({name:z.string().nullable(),job_no:z.string().nullable(),source_company:z.string().nullable()}).nullable().optional(),
   latest_number_call:z.object({id:z.string(),happened_at:z.string(),direction:z.string(),provider_result:z.string().nullable(),contact_type:z.string()}).nullable().optional(),
   related_record_links:z.array(z.object({model:z.enum(['FormLead','CallLead','BookedLead','CancelledLead']),id:z.string(),href:z.string(),certainty:z.string()})).optional(),
+  lead_attachment:z.object({attachment_id:z.string(),lead_ref:z.object({model:z.enum(['FormLead','CallLead']),id:z.string()}),state:z.string(),certainty:z.string(),
+   certainty_label:z.string().nullable(),decided_by:z.string(),decided_at:z.string().nullable(),confidence:z.number().nullable(),observed_at:z.string(),
+   lead_display:z.object({name:z.string().nullable(),job_no:z.string().nullable()}).nullable()}).nullable().optional(),
+  call_progress:z.object({state:z.string(),started_at:z.string(),started_by:z.string().nullable(),ended_at:z.string().nullable(),ended_by:z.string().nullable(),note:z.string().nullable()}).nullable().optional(),
   primary_number: z.object({ id: z.string(), e164: z.string() }).nullable().optional(), assignment, followups: z.array(followup), derived,
   last_meaningful_contact_at: z.string().nullable() });
 const coverage = z.object({ known_through: z.string().nullable(), gaps: z.array(z.object({ from:z.string(), to:z.string(), reason:z.string() })), ai_paused:z.boolean() });
@@ -56,7 +63,9 @@ export const timelineSchema = z.object({ as_of:z.string(), coverage, data:z.obje
   items:z.array(z.object({ id:z.string(), kind:z.string(), happened_at:z.string(), observed_at:z.string(), description:z.string(),
     evidence_refs:z.array(z.string()), detail:z.record(z.string(),z.json()) })), cursor:z.string().nullable() }) });
 export const attentionSchema = z.object({ as_of: z.string(), coverage, data: z.object({ items: z.array(z.object({ subject_key:z.string(), subject,
-  outreach: outreachSchema.nullable(), derived })), snapshot_id: z.string().nullable(), total_items:z.number().nullable(), cursor:z.string().nullable(), reason_counts:z.record(z.string(), z.number()).optional(), status:z.enum(['ready','pending_projection']) }) });
+  outreach: outreachSchema.nullable(), derived })), snapshot_id: z.string().nullable(), total_items:z.number().nullable(), cursor:z.string().nullable(), reason_counts:z.record(z.string(), z.number()).optional(),
+  // Optional on the server DTO, so requiring it here would fail the whole Attention read on a page the server still publishes.
+  status:z.enum(['ready','pending_projection']).optional() }) });
 export const numberSchema = z.object({ as_of:z.string(), coverage, data:z.object({ id:z.string(), revision:z.number(), allowed_actions:z.array(availabilitySchema), e164:z.string(), classification:z.string(), eligibility:z.string(),
   outreach_records:z.array(outreachSchema), running_analysis:z.object({ text:z.string(), run_id:z.string().optional(), computed_at:z.string() }).nullable(),
   attachments:z.array(z.object({ id:z.string(), state:z.string(), certainty:z.string(), lead_ref:z.object({ model:z.string(), id:z.string() }) })),

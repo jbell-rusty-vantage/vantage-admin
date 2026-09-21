@@ -1,7 +1,10 @@
 /**
  * Owner-facing Sales Intelligence strings.
  * Display only — query params and server codes stay as they are.
+ * The evidence-chain group is defined next door and exposed here, so `copy`
+ * stays the one surface for Owner strings on this desk.
  */
+import { evidenceChainCopy } from "./evidence-chain-copy";
 export const BANDS = {
   1: "Promised callbacks overdue",
   2: "No call yet after form submission",
@@ -43,6 +46,87 @@ export const copy = {
     liveNote: "Live means new calls are arriving. It does not mean history is complete.",
     historyThroughTip: "History before this instant is what we have. After it, calls may still be arriving. Gaps mean the list is incomplete, not empty.",
   },
+  call: {
+    heading: "Call",
+    notStarted: "No call in progress",
+    notStartedSoWhat: "Nothing is recorded as happening on this number right now.",
+    inProgress: "On the call",
+    inProgressSince: (time: string) => `On the call since ${time}`,
+    ended: "Call ended",
+    endedAt: (time: string) => `Call ended ${time}`,
+    start: "Start the call",
+    end: "End the call",
+    startExplain: "Records that you are on this call now. It does not dial and it never reaches the customer. RingCentral still supplies the official call record.",
+    endExplain: "Records that you are off the call. What the call actually was still comes from the observed RingCentral call.",
+    observedClose: "Closed out by the observed call",
+    observedCloseSoWhat: "RingCentral observed a call covering this window, so this was closed out for you.",
+    startedBy: (who: string) => `Started by ${who}`,
+    endedBy: (who: string) => `Ended by ${who}`,
+    notRecording: "Starting a call here is your note to yourself. It does not record audio and it does not dial.",
+    blockers: {
+      record_closed: "This Outreach is closed.",
+      call_already_in_progress: "A call is already in progress.",
+      no_call_in_progress: "No call is in progress.",
+      contact_restricted: "Calling this number is paused.",
+    },
+    /** The server sends its own codes. These read them out loud when the record cannot say why. */
+    blockerCodes: {
+      ILLEGAL_TRANSITION: "This is not available on the record as it stands.",
+      CONTACT_RESTRICTED: "Calling this number is paused.",
+      OWNER_REQUIRED: "Only the Owner can do this.",
+      FEATURE_DISABLED: "This is switched off in this deployment.",
+    },
+  },
+  provenance: {
+    heading: "Why this Lead",
+    state: {
+      attached_by_you: "You attached this Lead",
+      attached_automatically: "Attached automatically",
+      attached_from_evidence: "Attached from telephony evidence",
+      needs_a_lead: "No Lead attached",
+      ambiguous: "More than one Lead could be this",
+    },
+    soWhat: {
+      attached_by_you: "Your decision stands until you change it. Later evidence does not silently overwrite you.",
+      attached_automatically: "The evidence was unambiguous, so this attached without you. You can still reject it.",
+      attached_from_evidence: "Telephony identity tied this call to this Lead. That is the strongest evidence we have.",
+      needs_a_lead: "Work here has no Lead to point at. Attaching one gives it provenance; it does not create a Booking.",
+      ambiguous: "More than one Lead overlaps this number. Nothing is applied until you decide which one.",
+    },
+    confidence: (value: number) => `Confidence ${Math.round(value * 100)}%`,
+    automatic: "Automatic",
+    decidedAt: (time: string) => `Decided ${time}`,
+    observedAt: (time: string) => `Last checked ${time}`,
+    attach: "Attach a Lead",
+    review: "Review this match",
+    attachSoWhat: "Attaching a Lead gives this work a record to point at. It does not create a Booking and it does not change the official Lead.",
+    unknown: "How this Lead was attached is not recorded yet.",
+  },
+  now: {
+    decide: "What you can do now",
+    moreActions: "More actions",
+    fewerActions: "Fewer actions",
+    primaryHint: "The call comes first. Everything else is under More actions.",
+    noActions: "No commands are available on this record.",
+  },
+  liveChange: {
+    title: "New activity arrived",
+    justUpdated: "Updated just now",
+    topics: {
+      outreach: "Outreach",
+      attachment: "Lead matches",
+      analysis: "Analysis",
+      number: "Calls",
+      attention: "Queue",
+      review: "Reviews",
+      restriction: "Restrictions",
+      rep: "RingCentral Accounts",
+      nudge: "Messages",
+      other: "Other records",
+    },
+    dismiss: "Dismiss",
+    soWhat: "The list below already shows it. Nothing was hidden from you.",
+  },
   commandExplain: {
     confirm_attachment: "You are saying this Number belongs to this Lead. The official Lead, Booking, and Cancellation do not change.",
     reject_attachment: "You are saying this suggested match is wrong. Both records stay; the suggestion closes.",
@@ -82,6 +166,8 @@ export const copy = {
       coverage: "Coverage and clocks",
       analysis: "What the model can and cannot do",
       summary: "Running Summary versus Original Model Summary",
+      call: "Starting and ending a call",
+      provenance: "How a Lead gets attached",
       messaging: "Messaging a rep versus texting a customer",
     },
     workspaceBody: "Sales Intelligence shows customer numbers that still need a next step, who owns the work, and what the calls said. It is not a second CRM and it does not create a Booking.",
@@ -89,6 +175,8 @@ export const copy = {
     analysisBody: "A model finding is not a Booking. Confirm, Correct, and Retract are your decisions on that Intelligence Run. Official Booked and Cancelled live on those records.",
     summaryBody: "Running Summary is the current Contact Number picture. It can span several Leads and is replaced when a later number analysis publishes. Original Model Summary is what the selected Intelligence Run wrote when it finished. A Lead Conversation summary is a third artifact — evidence on that call, not this tab.",
     messagingBody: "Message goes to a RingCentral User. It never texts the customer. Preview does not send.",
+    callBody: "Start the call records that you are working this number right now, so the row reads as live to you and to anyone else looking. It does not dial, it does not record audio, and it never reaches the customer. When RingCentral later observes a call covering that window, the call is closed out for you and the observed call becomes the evidence of what happened.",
+    provenanceBody: "A Number is tied to a Lead by evidence, and the strength of that evidence is what you see. Telephony identity — the session or call log id — is exact. A phone-and-time window with no competing Lead is strong enough to attach on its own, and it says Attached automatically with its confidence. Two Leads overlapping the same window attach nothing until you decide. Your own decision outranks all of it and is never silently overwritten.",
   },
   coverage: {
     knownThrough: (time: string) => `History known through ${time}`,
@@ -381,6 +469,8 @@ export const copy = {
     openInNewTab: "Open in new tab",
     returnHere: "Return to Sales Intelligence",
     noOutreachOnNumber: "This Number has no Outreach, so Work commands are hidden.",
+    noNumberActivity: "This Outreach has no Contact Number, so there is no Number Activity to show.",
+    noNumberActivityWhy: "Work, Matches and the official records above still apply.",
     pickOutreach: "Choose which Outreach to work. Only one is open at a time.",
     tabs: {
       activity: "Number Activity",
@@ -409,6 +499,8 @@ export const copy = {
     reanalyzeCurrent: "Re-analyze current context",
   },
   commands: {
+    start_call: "Start the call",
+    end_call: "End the call",
     mark_worked: "Mark as worked",
     assign: "Assign responsible rep",
     set_waiting: "Wait for customer",
@@ -481,6 +573,7 @@ export const copy = {
     statusPending: "Pending. Authorized intent only; delivery is not established.",
     statusFallback: "Sent via pager fallback. The provider accepted the fallback. That is not evidence of customer work.",
   },
+  evidenceChain: evidenceChainCopy,
 } as const;
 
 export type SiView = keyof typeof copy.page.views;

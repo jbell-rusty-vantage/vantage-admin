@@ -2,19 +2,21 @@
 import {useEffect,useId,useRef,useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {sendSalesIntelligence,SalesIntelligenceError,type CommandIntent} from '@/lib/api/salesIntelligence';
-import type {Analysis,AnalysisFinding} from '@/lib/api/salesIntelligenceAnalysis';
+import {reanalysisBody,type Analysis,type AnalysisFinding} from '@/lib/api/salesIntelligenceAnalysis';
 import {salesIntelligenceKeys} from '@/lib/query/salesIntelligence';
 import {Button} from './atoms/button';
 import { copy } from "./sales-intelligence-copy";
+import {evidenceChainCopy as chain} from './evidence-chain-copy';
 import {formatDateTime,label} from './lib/format';
 import {easternInstant} from './lib/commands';
 import {fetchCatalogItems} from '@/lib/api/catalog';
 
 export type AnalysisAction='confirm_run'|'confirm_finding'|'correct_finding'|'retract_finding'|'apply_suggestion'|'original_evidence'|'current_context';
 const titles:Record<AnalysisAction,string>={...copy.analysisTitles};
-export function AnalysisCommand({run,finding,action,onClose}:{run:Analysis;finding?:AnalysisFinding;action:AnalysisAction;onClose:()=>void}) {
+/** `focus` scopes a reanalysis to one assertion. It never fences a finding revision: the server fences the run. */
+export function AnalysisCommand({run,finding,focus,action,onClose}:{run:Analysis;finding?:AnalysisFinding;focus?:AnalysisFinding;action:AnalysisAction;onClose:()=>void}) {
  const dialog=useRef<HTMLDialogElement>(null),id=useId(),client=useQueryClient(),intent=useRef<CommandIntent|null>(null),lock=useRef(false);
- const version=JSON.stringify([run.id,run.revision,run.output_digest,finding?.revision,run.actions.map(a=>[a.id,a.revision]),run.outreach?.revision]);
+ const version=JSON.stringify([run.id,run.revision,run.output_digest,finding?.revision,focus?.revision,run.actions.map(a=>[a.id,a.revision]),run.outreach?.revision]);
  const [base,setBase]=useState(version),[reason,setReason]=useState(''),[claim,setClaim]=useState(finding?.assertion.claim??''),[target,setTarget]=useState(''),[description,setDescription]=useState(''),[due,setDue]=useState(''),[editDue,setEditDue]=useState(false),[corrections,setCorrections]=useState<string[]>([]);
  const [descriptionEdited,setDescriptionEdited]=useState(false);
  const [agentId,setAgentId]=useState(''),[agentEdited,setAgentEdited]=useState(false);
@@ -38,7 +40,7 @@ export function AnalysisCommand({run,finding,action,onClose}:{run:Analysis;findi
   }
   if(action==='retract_finding') {path=`findings/${finding!.id}/retract`;body={...body,reason,expected_revisions:targets.map(a=>({target:'followup',id:a.id,revision:a.revision}))};}
   if(action==='apply_suggestion') {path=`analysis-runs/${run.id}/apply-suggestion`;body={...common,run_id:run.id,suggestion_output_digest:run.suggestion_output_digest,due_at:easternInstant(due),...(agentEdited?{responsible_agent_id:agentId||null}:{}),expected_revisions:run.outreach?[{target:'outreach',id:run.outreach.id,revision:run.outreach.revision}]:[]};}
-  if(rerun){path=`analysis-runs/${run.id}/reanalyze`;body={...common,command:'reanalyze',mode:action,source_run_id:run.id,owner_correction_ids:corrections,reason};}
+  if(rerun){path=`analysis-runs/${run.id}/reanalyze`;body=reanalysisBody({runId:run.id,runRevision:run.revision,mode:action,ownerCorrectionIds:corrections,reason,focusFindingId:focus?.id??null});}
   return {path,method:'POST',body,key:crypto.randomUUID()};
  }
  async function submit(){if(lock.current)return;lock.current=true;setError('');
@@ -54,7 +56,9 @@ export function AnalysisCommand({run,finding,action,onClose}:{run:Analysis;findi
  {finding&&<p>Original model assertion: {finding.assertion.claim}</p>}
  {action.startsWith('confirm')&&<p>Records your review of this exact version. Existing effects remain as recorded.</p>}
  {action==='retract_finding'&&<p>Eligible effects will be reversed immediately. Completed actions, official closure and later Owner work are protected. Blocked reversals will be shown in the result.</p>}
- {rerun&&<p>{action==='original_evidence'?'Uses the retained original evidence and prompt, with the corrections you explicitly select below.':'Captures fresh context for a new analysis.'} Processing may remain queued while AI is paused.</p>}
+ {rerun&&<p>{action==='original_evidence'?chain.rerun.keptNote:chain.rerun.freshNote} {chain.rerun.queued}</p>}
+ {rerun&&<p>{chain.rerun.intro}</p>}
+ {rerun&&focus&&<p>{chain.rerun.scopedTo(focus.assertion.claim)}</p>}
  {!result&&<><fieldset disabled={pending||unknown} className="si-local-stack">
  {action==='correct_finding'&&<><label>Owner assertion<textarea className="si-textarea" required value={claim} onChange={e=>setClaim(e.target.value)}/></label><label>Affected action<select className="si-select" value={target} onChange={e=>{setTarget(e.target.value);const a=targets.find(a=>a.id===e.target.value);setDescription(a?.description??'');setDescriptionEdited(false);setAgentId(a?.responsible_agent_id??'');setAgentEdited(false);setEditDue(false);setDue('');}}><option value="">Assertion only</option>{targets.map(a=><option key={a.id} value={a.id}>{a.description} · {label(a.status)}</option>)}</select></label>{target&&<><label>Action description<textarea className="si-textarea" required value={description} onChange={e=>{setDescription(e.target.value);setDescriptionEdited(true);}}/></label><label><input type="checkbox" checked={editDue} onChange={e=>setEditDue(e.target.checked)}/> Change due date (leave blank for no date)</label>{editDue&&<input aria-label="Action due date" type="datetime-local" value={due} onChange={e=>setDue(e.target.value)}/>}</>}</>}
  {action==='apply_suggestion'&&<><p>{run.output?.next_step_suggestion?.description}</p><p>Creates Owner-origin work. A blank date creates an undated action.</p><label>Due date<input type="datetime-local" value={due} onChange={e=>setDue(e.target.value)}/></label></>}

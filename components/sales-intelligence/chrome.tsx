@@ -2,6 +2,7 @@
 
 import { useId, useRef, type KeyboardEvent, type ReactNode, type SelectHTMLAttributes } from "react";
 import { AlertCircle, Building2, HelpCircle, ListFilter, Pause, Phone, PhoneOff, Radio, Search, User, UserX, X } from "lucide-react";
+import { useSalesIntelligencePulse } from "@/lib/query/salesIntelligence";
 import { copy } from "./sales-intelligence-copy";
 import { classificationLabel, cx, eligibilityLabel, label, reviewCauseCardLabel, reviewCauseLabel } from "./lib/format";
 import { Badge, type Tone } from "./atoms/badge";
@@ -160,12 +161,20 @@ export function SearchField({
   );
 }
 
+/** Names what the stream carried. Topics are collection slugs; an unknown one is still named. */
+export function pulseTopicNames(topics: readonly string[]): string[] {
+  const names = topics.map((topic) => copy.liveChange.topics[topic as keyof typeof copy.liveChange.topics] ?? copy.liveChange.topics.other);
+  return [...new Set(names)];
+}
+
 export function LiveIndicator({ status }: { status: "connecting" | "live" | "reconnecting" }) {
+  const pulse = useSalesIntelligencePulse();
+  const names = pulseTopicNames(pulse.topics);
   return (
     <TooltipCard
       title={copy.live[status] || "Live"}
       label={
-        <span className="si-live">
+        <span className={cx("si-live", !!names.length && "is-pulsing")}>
           <span className={cx("si-dot", status === "live" && "si-dot--green si-dot--pulse", status === "reconnecting" && "si-dot--amber", status === "connecting" && "si-dot--amber")} />
           <Radio size={14} aria-hidden />
           <span>{copy.live[status]}</span>
@@ -173,7 +182,35 @@ export function LiveIndicator({ status }: { status: "connecting" | "live" | "rec
       }
     >
       {copy.live.liveNote}
+      {!!names.length && ` ${copy.liveChange.title}: ${names.join(", ")}.`}
     </TooltipCard>
+  );
+}
+
+/** A change landed while the Owner was looking. It says what, then gets out of the way. */
+export function LivePulseNotice() {
+  const pulse = useSalesIntelligencePulse();
+  const names = pulseTopicNames(pulse.topics);
+  return (
+    <p className="si-livepulse" role="status">
+      {!!names.length && (
+        <>
+          <span className="si-dot si-dot--green si-dot--pulse" aria-hidden />
+          <strong>{copy.liveChange.title}</strong>
+          <span>{names.join(" · ")}</span>
+          <span className="si-text--sm si-text--subtle">{copy.liveChange.soWhat}</span>
+        </>
+      )}
+    </p>
+  );
+}
+
+/** The marker on an open record: something under this selection just changed. */
+export function JustUpdated({ topics }: { topics: readonly string[] }) {
+  const pulse = useSalesIntelligencePulse();
+  if (!pulse.topics.some((topic) => topics.includes(topic))) return null;
+  return (
+    <Badge tone="green" icon={<Radio size={12} aria-hidden />}>{copy.liveChange.justUpdated}</Badge>
   );
 }
 

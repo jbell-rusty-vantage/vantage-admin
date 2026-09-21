@@ -26,7 +26,7 @@ import { ManualAttachment } from "./manual-attachment";
 import { MessageRepDialog } from "./message-rep-dialog";
 import { AnalysisPanel } from "./analysis-panel";
 import { CoverageView } from "./coverage-view";
-import { EmptyState, Failure, FilterRail, FilterToolbar, LiveIndicator, SearchField, Tabs } from "./chrome";
+import { EmptyState, Failure, FilterRail, FilterToolbar, LiveIndicator, LivePulseNotice, SearchField, Tabs } from "./chrome";
 import { attentionChips, AttentionFilters } from "./filters";
 import { attentionFiltersFromParams, attentionQueryString, readFiltersOpen, toggleValue, writeFiltersOpen, writeList } from "./lib/filter-state";
 import { useSiLayout } from "./lib/layout";
@@ -101,16 +101,22 @@ function Selection({
           ready={ready}
           onCommand={record ? (next) => { update({ outreach: record.id }); setCommand(next); } : undefined}
           onMessage={record ? () => { update({ outreach: record.id }); setMessaging(true); } : undefined}
+          onOpenMatches={() => update({ panel: "matches" })}
         />
       }
     >
       <div className="si-local-stack">
         {outreach.error && <Failure error={outreach.error} retry={() => void outreach.refetch()} />}
-        {!outreachId && byLead.error instanceof SalesIntelligenceError && byLead.error.status === 404 && (
-          <p className="si-local-notice">{copy.coverage.noLeadOutreach}</p>
+        {!outreachId && byLead.error && (
+          byLead.error instanceof SalesIntelligenceError && byLead.error.status === 404
+            ? <p className="si-local-notice">{copy.coverage.noLeadOutreach}</p>
+            : <Failure error={byLead.error} retry={() => void byLead.refetch()} />
         )}
         {number.error && <Failure error={number.error} retry={() => void number.refetch()} />}
-        {panel === "activity" && resolvedNumber && <NumberTimeline numberId={resolvedNumber} />}
+        {/* Number Activity is the default tab; without a Contact Number it must say so, not go blank. */}
+        {panel === "activity" && (resolvedNumber
+          ? <NumberTimeline numberId={resolvedNumber} />
+          : ready && <EmptyState title={copy.panel.noNumberActivity}>{copy.panel.noNumberActivityWhy}</EmptyState>)}
         {panel === "summary" && (
           <RunningSummaryPanel
             analysis={number.data?.data.running_analysis}
@@ -380,6 +386,7 @@ export function SalesIntelligenceWorkspace() {
       <div className="si-workspace__intro">
         <PurposeLine />
         <p className="si-viewintro">{copy.page.viewIntro[view]}</p>
+        <LivePulseNotice />
         <FirstVisitHint onOpen={() => update({ view: "guide" })} />
       </div>
       <main className="si-workspace__main si-local-stack" role="tabpanel" id={`si-view-panel-${view}`} aria-labelledby={`si-view-tab-${view}`}>

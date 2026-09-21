@@ -613,3 +613,52 @@
   .si-filtersheet { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; margin: 0; }
   .si-workspace__intro { padding: 8px 16px 0; }
 }
+
+/* ── Owner Now deck: call state, Lead provenance, one primary decision ──
+   The strip is the only place the Owner has to look before acting, so it reads
+   top to bottom: who this is, whether a call is happening, why the row is here,
+   where the Lead came from, then exactly one primary button. */
+.si-now { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px 20px; align-items: start; }
+.si-now > * { min-width: 0; }
+.si-now__identity { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }
+.si-now__identity .si-panel__title { font-family: var(--si-font-heading); font-weight: 700; color: var(--si-navy); }
+.si-now--live { box-shadow: inset 3px 0 0 var(--si-green), 0 1px 0 var(--si-line); }
+.si-now__deck { grid-column: 1 / -1; gap: 6px; }
+.si-now__deck .si-actions__primary { align-items: center; gap: 8px; }
+.si-now__deck .si-btn--primary { min-height: 40px; padding: 0 18px; }
+.si-now__more > summary { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; font-size: 13px; font-weight: 600; color: var(--si-blue); cursor: pointer; list-style: none; }
+.si-now__more > summary::-webkit-details-marker { display: none; }
+.si-now__more > summary::before { content: "▸"; font-size: 11px; }
+.si-now__more[open] > summary::before { content: "▾"; }
+.si-now__more .si-actions__secondary { margin-left: 0; padding-top: 6px; gap: 6px; }
+.si-now .si-related { grid-column: 1 / -1; }
+
+.si-callstate__live { display: inline-flex; align-items: center; gap: 5px; }
+.si-callstate__meta { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+
+.si-provenance { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--si-line); border-radius: var(--si-r); background: var(--si-surface-2); }
+.si-provenance__who { font-weight: 600; }
+
+/* A live call is visible from the queue without opening the row. */
+.si-row.is-live { box-shadow: inset 3px 0 0 var(--si-green); }
+.si-row.is-live.is-selected { box-shadow: inset 3px 0 0 var(--si-green), inset 0 0 0 1px var(--si-blue); }
+/* Explanatory badges in a row must answer on hover; the row keeps its own hit area and Open button. */
+.si-row .si-tip, .si-nrow .si-tip { pointer-events: auto; }
+
+@media (max-width: 720px) {
+  .si-now { grid-template-columns: minmax(0, 1fr); }
+  .si-now__deck .si-btn { min-height: 44px; }
+}
+
+/* On a short viewport the deck must not eat the panel: the strip scrolls away
+   rather than nesting a second scroll region inside the detail panel. */
+@media (max-height: 760px) {
+  .si-now { position: static; }
+}
+
+/* ── Live change: name what arrived, then get out of the way ──
+   The notice reserves its own line so an arriving change never reflows the
+   view under the Owner's cursor; it empties rather than unmounting. */
+.si-livepulse { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 20px; font-size: 13px; color: var(--si-ink-2); }
+.si-livepulse strong { color: var(--si-green); }
+.si-live.is-pulsing { color: var(--si-green); }

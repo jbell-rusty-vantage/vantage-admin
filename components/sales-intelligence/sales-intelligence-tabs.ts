@@ -17,6 +17,8 @@ export const GUIDE_TOPIC_KEYS = [
   "coverage",
   "analysis",
   "summary",
+  "call",
+  "provenance",
   "messaging",
 ] as const;
 export type GuideTopic = (typeof GUIDE_TOPIC_KEYS)[number];

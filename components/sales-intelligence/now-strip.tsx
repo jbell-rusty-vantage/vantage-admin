@@ -1,12 +1,51 @@
-import type { AttentionRow, NumberRead, Outreach } from "@/lib/api/salesIntelligence";
+"use client";
+
+import type { NumberRead, Outreach } from "@/lib/api/salesIntelligence";
 import { copy } from "./sales-intelligence-copy";
-import { bandLabel, formatDateTime, label } from "./lib/format";
-import { ClassificationBadge, EligibilityBadge } from "./chrome";
+import { bandLabel, cx, formatDateTime, label } from "./lib/format";
+import { ClassificationBadge, EligibilityBadge, JustUpdated } from "./chrome";
 import { OwnershipSplit } from "./ownership";
 import { RelatedRecordChips } from "./related-record-chips";
+import { CallStateBadge, CallStateLine } from "./call-state";
+import { LeadProvenance } from "./lead-provenance";
 import { Button } from "./atoms/button";
 import { TooltipCard } from "./atoms/tooltip-card";
 import { commandLabels } from "./lib/commands";
+import { callBlockerSentence, callBlockerText, callStateOf, splitCommands } from "./lib/owner-now";
+
+type Availability = Outreach["allowed_actions"][number];
+
+/** Orders the buttons the Owner sees. It does not rank the work — the server owns bands and clocks. */
+function Command({
+  item,
+  record,
+  variant,
+  size,
+  explain,
+  onCommand,
+}: {
+  item: Availability;
+  record?: Outreach | null;
+  variant?: "primary" | "secondary" | "ghost";
+  size?: "sm" | "md";
+  explain?: string;
+  onCommand: (command: string) => void;
+}) {
+  const text = commandLabels[item.action];
+  const blocked = !item.enabled;
+  const why = blocked
+    ? callBlockerSentence(item.action, record, item.blocker_codes, copy.call.blockers, copy.call.blockerCodes)
+      || callBlockerText(item.blocker_codes, copy.call.blockerCodes)
+      || copy.errors.loadFailed
+    : explain;
+  const button = (
+    <Button variant={variant} size={size} disabled={blocked} onClick={() => onCommand(item.action)}>
+      {text}
+    </Button>
+  );
+  if (!why) return button;
+  return <TooltipCard title={text} label={button}>{why}</TooltipCard>;
+}
 
 export function NowStrip({
   number,
@@ -16,6 +55,7 @@ export function NowStrip({
   ready = true,
   onCommand,
   onMessage,
+  onOpenMatches,
 }: {
   number?: NumberRead["data"];
   outreach?: Outreach | null;
@@ -24,23 +64,32 @@ export function NowStrip({
   ready?: boolean;
   onCommand?: (command: string) => void;
   onMessage?: () => void;
+  onOpenMatches?: () => void;
 }) {
   const action = outreach?.followups.find((item) => item.status === "open");
-  const why = outreach?.derived.reasons[0] ? label(outreach.derived.reasons[0]) : outreach?.derived.attention_band ? bandLabel(outreach.derived.attention_band) : copy.needsReview.title;
+  const why = outreach?.derived.reasons[0]
+    ? label(outreach.derived.reasons[0])
+    : outreach?.derived.attention_band
+      ? bandLabel(outreach.derived.attention_band)
+      : copy.needsReview.title;
+  const onTheCall = callStateOf(outreach) === "in_progress";
+  const deck = outreach && onCommand ? splitCommands(outreach.allowed_actions, commandLabels) : null;
   return (
-    <div className="si-now">
-      <div>
-        <h2 className="si-panel__title">{title}</h2>
-        {number && (
-          <div className="si-chiprow">
-            <ClassificationBadge value={number.classification} />
-            <EligibilityBadge value={number.eligibility} />
-          </div>
-        )}
+    <div className={cx("si-now", onTheCall && "si-now--live")}>
+      <div className="si-now__identity">
+        <h2 className="si-panel__title si-phone si-phone--lg">{title}</h2>
+        <div className="si-chiprow">
+          {number && <ClassificationBadge value={number.classification} />}
+          {number && <EligibilityBadge value={number.eligibility} />}
+          {outreach && <CallStateBadge record={outreach} />}
+          <JustUpdated topics={["outreach", "attachment", "analysis", "number"]} />
+        </div>
+        <CallStateLine record={outreach} />
       </div>
-      <div>
+
+      <div className="si-now__headline">
         <span className="si-ownership__label">{copy.panel.whyHere}</span>
-        <p>{why}</p>
+        <p className={cx("si-now__reason", outreach?.derived.overdue && "is-danger")}>{why}</p>
         <p>
           {action
             ? `${label(action.kind)} · ${action.due_at ? copy.time.due(formatDateTime(action.due_at)) : copy.time.dueDateNeeded}`
@@ -52,23 +101,54 @@ export function NowStrip({
           overallOwner={outreach?.assignment.agent ?? null}
         />
       </div>
+
+      {outreach && <LeadProvenance record={outreach} onOpenMatches={onOpenMatches} />}
+
       <RelatedRecordChips outreach={outreach} numberId={number?.id} returnTo={returnTo} ready={ready} />
-      {outreach && onCommand && (
-        <div className="si-chiprow">
-          {outreach.allowed_actions.filter((item) => commandLabels[item.action]).slice(0, 3).map((item) => (
-            item.enabled ? (
-              <Button key={item.action} size="sm" onClick={() => onCommand(item.action)}>{commandLabels[item.action]}</Button>
-            ) : (
-              <TooltipCard key={item.action} title={commandLabels[item.action]} label={<Button size="sm" disabled>{commandLabels[item.action]}</Button>}>
-                {item.blocker_codes.map(label).join(", ") || copy.errors.loadFailed}
+
+      {deck && onCommand && (
+        <div className="si-now__deck si-actions">
+          <span className="si-ownership__label">{copy.now.decide}</span>
+          <div className="si-actions__primary">
+            {deck.call && (
+              <Command
+                item={deck.call}
+                record={outreach}
+                variant="primary"
+                explain={deck.call.action === "end_call" ? copy.call.endExplain : copy.call.startExplain}
+                onCommand={onCommand}
+              />
+            )}
+            {deck.secondary.map((item) => (
+              <Command key={item.action} item={item} record={outreach} size="sm" onCommand={onCommand} />
+            ))}
+            {onMessage && (
+              <TooltipCard
+                title={copy.messageRep.title}
+                label={
+                  <Button variant="ghost" size="sm" disabled={outreach?.state === "closed"} onClick={onMessage}>
+                    {copy.messageRep.title}
+                  </Button>
+                }
+              >
+                {copy.commandExplain.message}
               </TooltipCard>
-            )
-          ))}
-          {onMessage && (
-            <TooltipCard title={copy.messageRep.title} label={<Button size="sm" disabled={outreach.state === "closed"} onClick={onMessage}>{copy.messageRep.title}</Button>}>
-              {copy.commandExplain.message}
-            </TooltipCard>
+            )}
+          </div>
+          {!!deck.more.length && (
+            <details className="si-now__more">
+              <summary>{copy.now.moreActions}</summary>
+              <div className="si-actions__secondary">
+                {deck.more.map((item) => (
+                  <Command key={item.action} item={item} record={outreach} variant="ghost" size="sm" onCommand={onCommand} />
+                ))}
+              </div>
+            </details>
           )}
+          {!deck.call && !deck.secondary.length && !deck.more.length && (
+            <p className="si-text--subtle">{copy.now.noActions}</p>
+          )}
+          <p className="si-field__hint">{copy.now.primaryHint}</p>
         </div>
       )}
       {number && !outreach && <p className="si-text--subtle">{copy.panel.noOutreachOnNumber}</p>}
