@@ -3,15 +3,16 @@
 import { copy, BANDS } from "./sales-intelligence-copy";
 import { bandLabel, classificationLabel, formatDateTime, label } from "./lib/format";
 import { Button } from "./atoms/button";
-import { Checkbox, Field, FilterChip, Select } from "./chrome";
+import { CircleCheck } from "./atoms/circle-check";
+import { TooltipCard } from "./atoms/tooltip-card";
+import { Checkbox, Field, FilterChip } from "./chrome";
 import { easternInput, easternInstant } from "./lib/commands";
+import { toggleValue, type AttentionFilterValue } from "./lib/filter-state";
 
-export type AttentionFilterValue = {
-  band: string;
-  needs_review: boolean;
-  state: string;
-  agent_id: string;
-};
+export type { AttentionFilterValue };
+
+const STATUSES = ["unworked", "open", "waiting_on_customer", "identity_review", "closed"] as const;
+const CLASSIFICATIONS = ["unknown", "customer", "company", "non_customer"] as const;
 
 export function AttentionFilters({
   value,
@@ -22,47 +23,61 @@ export function AttentionFilters({
   onChange: (next: Partial<AttentionFilterValue> & { attention_cursor?: null }) => void;
   agents: { id: string; name: string }[];
 }) {
-  const active = Boolean(value.band || value.needs_review || value.state || value.agent_id);
+  const active = Boolean(value.bands.length || value.needs_review || value.states.length || value.agent_ids.length);
   return (
     <div className="si-filters">
-      <Field label={copy.fields.band} hint={copy.filters.bandHint}>
-        {({ id }) => (
-          <Select id={id} value={value.band} onChange={(event) => onChange({ band: event.target.value, attention_cursor: null })}>
-            <option value="">{copy.fields.allBands}</option>
-            {([1, 2, 3, 4, 5, 6, 7] as const).map((band) => (
-              <option key={band} value={band}>{band} · {BANDS[band]}</option>
-            ))}
-          </Select>
-        )}
-      </Field>
-      <Checkbox
-        label={copy.needsReview.title}
-        hint={copy.filters.needsReviewHint}
+      <fieldset className="si-filters__set">
+        <legend className="si-field__label">{copy.fields.band}</legend>
+        <p className="si-field__hint">{copy.filters.bandHint}</p>
+        {([1, 2, 3, 4, 5, 6, 7] as const).map((band) => (
+          <CircleCheck
+            key={band}
+            checked={value.bands.includes(String(band))}
+            onChange={() => onChange({ bands: toggleValue(value.bands, String(band)), attention_cursor: null })}
+            label={
+              <TooltipCard title={`${band} · ${BANDS[band]}`} guideTopic="bands" label={<span>{band} · {BANDS[band]}</span>}>
+                {copy.bandSoWhat[band]} {copy.bandSoWhat.once}
+              </TooltipCard>
+            }
+          />
+        ))}
+      </fieldset>
+      <CircleCheck
         checked={value.needs_review}
         onChange={(checked) => onChange({ needs_review: checked, attention_cursor: null })}
+        label={copy.needsReview.title}
+        hint={copy.filters.needsReviewOnly}
       />
-      <Field label={copy.fields.status} hint={copy.filters.statusHint}>
-        {({ id }) => (
-          <Select id={id} value={value.state} onChange={(event) => onChange({ state: event.target.value, attention_cursor: null })}>
-            <option value="">{copy.fields.any}</option>
-            {(["unworked", "open", "waiting_on_customer", "identity_review", "closed"] as const).map((state) => (
-              <option key={state} value={state}>{copy.outreachState[state]}</option>
-            ))}
-          </Select>
-        )}
-      </Field>
-      <Field label={copy.fields.rep} hint={copy.filters.repHint}>
-        {({ id }) => (
-          <Select id={id} value={value.agent_id} onChange={(event) => onChange({ agent_id: event.target.value, attention_cursor: null })}>
-            <option value="">{copy.fields.anyRep}</option>
-            {agents.map((agent) => (
-              <option key={agent.id} value={agent.id}>{agent.name}</option>
-            ))}
-          </Select>
-        )}
-      </Field>
+      <fieldset className="si-filters__set">
+        <legend className="si-field__label">{copy.fields.status}</legend>
+        <p className="si-field__hint">{copy.filters.statusHint}</p>
+        {STATUSES.map((state) => (
+          <CircleCheck
+            key={state}
+            checked={value.states.includes(state)}
+            onChange={() => onChange({ states: toggleValue(value.states, state), attention_cursor: null })}
+            label={
+              <TooltipCard title={copy.outreachState[state]} guideTopic="statuses" label={copy.outreachState[state]}>
+                {copy.statusSoWhat[state]}
+              </TooltipCard>
+            }
+          />
+        ))}
+      </fieldset>
+      <fieldset className="si-filters__set">
+        <legend className="si-field__label">{copy.fields.rep}</legend>
+        <p className="si-field__hint">{copy.filters.repHint}</p>
+        {agents.map((agent) => (
+          <CircleCheck
+            key={agent.id}
+            checked={value.agent_ids.includes(agent.id)}
+            onChange={() => onChange({ agent_ids: toggleValue(value.agent_ids, agent.id), attention_cursor: null })}
+            label={agent.name}
+          />
+        ))}
+      </fieldset>
       {active && (
-        <Button variant="link" size="sm" onClick={() => onChange({ band: "", needs_review: false, state: "", agent_id: "", attention_cursor: null })}>
+        <Button variant="link" size="sm" onClick={() => onChange({ bands: [], needs_review: false, states: [], agent_ids: [], attention_cursor: null })}>
           {copy.actions.clearFilters}
         </Button>
       )}
@@ -76,15 +91,21 @@ export function attentionChips(
   onChange: (next: Partial<AttentionFilterValue> & { attention_cursor?: null }) => void,
 ) {
   const chips: { key: string; label: string; clear: () => void }[] = [];
-  if (value.band) chips.push({ key: "band", label: `Band ${value.band} · ${bandLabel(Number(value.band))}`, clear: () => onChange({ band: "", attention_cursor: null }) });
+  for (const band of value.bands) {
+    chips.push({ key: `band-${band}`, label: `Band ${band} · ${bandLabel(Number(band))}`, clear: () => onChange({ bands: value.bands.filter((item) => item !== band), attention_cursor: null }) });
+  }
   if (value.needs_review) chips.push({ key: "review", label: copy.needsReview.title, clear: () => onChange({ needs_review: false, attention_cursor: null }) });
-  if (value.state) chips.push({ key: "state", label: `${copy.fields.status}: ${copy.outreachState[value.state as keyof typeof copy.outreachState] ?? label(value.state)}`, clear: () => onChange({ state: "", attention_cursor: null }) });
-  if (value.agent_id) chips.push({ key: "agent", label: agents.find((agent) => agent.id === value.agent_id)?.name ?? copy.fields.rep, clear: () => onChange({ agent_id: "", attention_cursor: null }) });
+  for (const state of value.states) {
+    chips.push({ key: `state-${state}`, label: `${copy.fields.status}: ${copy.outreachState[state as keyof typeof copy.outreachState] ?? label(state)}`, clear: () => onChange({ states: value.states.filter((item) => item !== state), attention_cursor: null }) });
+  }
+  for (const agentId of value.agent_ids) {
+    chips.push({ key: `agent-${agentId}`, label: agents.find((agent) => agent.id === agentId)?.name ?? copy.fields.rep, clear: () => onChange({ agent_ids: value.agent_ids.filter((item) => item !== agentId), attention_cursor: null }) });
+  }
   return chips.map((chip) => <FilterChip key={chip.key} label={chip.label} onRemove={chip.clear} />);
 }
 
 export type NumberFilterValue = {
-  classification: string;
+  classifications: string[];
   attachment: string;
   hygiene: boolean;
   active_from: string;
@@ -110,28 +131,33 @@ export function NumbersFilters({
   value: NumberFilterValue;
   onChange: (next: Partial<NumberFilterValue> & { number_cursor?: null }) => void;
 }) {
-  const active = Boolean(value.classification || (value.attachment && value.attachment !== "any") || value.hygiene || value.active_from || value.active_to);
+  const active = Boolean(value.classifications.length || (value.attachment && value.attachment !== "any") || value.hygiene || value.active_from || value.active_to);
   return (
     <div className="si-filters">
-      <Field label={copy.fields.classification} hint={copy.filters.classificationHint}>
-        {({ id }) => (
-          <Select id={id} value={value.classification} onChange={(event) => onChange({ classification: event.target.value, number_cursor: null })}>
-            <option value="">{copy.fields.any}</option>
-            {(["unknown", "customer", "company", "non_customer"] as const).map((item) => (
-              <option key={item} value={item}>{copy.classification[item]}</option>
-            ))}
-          </Select>
-        )}
-      </Field>
-      <Field label={copy.fields.leadMatch} hint={copy.filters.leadMatchHint}>
-        {({ id }) => (
-          <Select id={id} value={value.attachment || "any"} onChange={(event) => onChange({ attachment: event.target.value, number_cursor: null })}>
-            <option value="any">{copy.attachment.any}</option>
-            <option value="linked">{copy.attachment.linked}</option>
-            <option value="unlinked">{copy.attachment.unlinked}</option>
-          </Select>
-        )}
-      </Field>
+      <fieldset className="si-filters__set">
+        <legend className="si-field__label">{copy.fields.classification}</legend>
+        <p className="si-field__hint">{copy.filters.classificationHint}</p>
+        {CLASSIFICATIONS.map((item) => (
+          <CircleCheck
+            key={item}
+            checked={value.classifications.includes(item)}
+            onChange={() => onChange({ classifications: toggleValue(value.classifications, item), number_cursor: null })}
+            label={copy.classification[item]}
+          />
+        ))}
+      </fieldset>
+      <fieldset className="si-filters__set">
+        <legend className="si-field__label">{copy.fields.leadMatch}</legend>
+        <p className="si-field__hint">{copy.filters.leadMatchHint}</p>
+        {(["linked", "unlinked"] as const).map((item) => (
+          <CircleCheck
+            key={item}
+            checked={value.attachment === item}
+            onChange={(checked) => onChange({ attachment: checked ? item : "any", number_cursor: null })}
+            label={copy.attachment[item]}
+          />
+        ))}
+      </fieldset>
       <Field label={<>{copy.fields.activityFrom} <span className="si-tz">({copy.time.tz})</span></>} hint={copy.filters.activityHint}>
         {({ id }) => (
           <input
@@ -161,7 +187,7 @@ export function NumbersFilters({
         onChange={(checked) => onChange({ hygiene: checked, number_cursor: null })}
       />
       {active && (
-        <Button variant="link" size="sm" onClick={() => onChange({ classification: "", attachment: "any", hygiene: false, active_from: "", active_to: "", number_cursor: null })}>
+        <Button variant="link" size="sm" onClick={() => onChange({ classifications: [], attachment: "any", hygiene: false, active_from: "", active_to: "", number_cursor: null })}>
           {copy.actions.clearFilters}
         </Button>
       )}
@@ -176,7 +202,9 @@ export function numberChips(
 ) {
   const chips: { key: string; label: string; clear: () => void }[] = [];
   if (q) chips.push({ key: "q", label: `“${q}”`, clear: () => onChange({ q: null, number_cursor: null }) });
-  if (value.classification) chips.push({ key: "classification", label: `${copy.fields.classification}: ${classificationLabel(value.classification)}`, clear: () => onChange({ classification: "", number_cursor: null }) });
+  for (const item of value.classifications) {
+    chips.push({ key: `class-${item}`, label: `${copy.fields.classification}: ${classificationLabel(item)}`, clear: () => onChange({ classifications: value.classifications.filter((entry) => entry !== item), number_cursor: null }) });
+  }
   if (value.attachment && value.attachment !== "any") chips.push({ key: "attachment", label: `${copy.fields.leadMatch}: ${copy.attachment[value.attachment as keyof typeof copy.attachment] ?? value.attachment}`, clear: () => onChange({ attachment: "any", number_cursor: null }) });
   if (value.hygiene) chips.push({ key: "hygiene", label: copy.fields.includeOurNumbers, clear: () => onChange({ hygiene: false, number_cursor: null }) });
   if (value.active_from) chips.push({ key: "from", label: `${copy.fields.activityFrom} ${formatDateTime(value.active_from)}`, clear: () => onChange({ active_from: "", number_cursor: null }) });

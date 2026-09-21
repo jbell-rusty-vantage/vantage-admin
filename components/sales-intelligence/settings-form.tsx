@@ -6,6 +6,7 @@ import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
 import { useQueryClient } from "@tanstack/react-query";
 import { copy } from "./sales-intelligence-copy";
 import { Button } from "./atoms/button";
+import { TooltipCard } from "./atoms/tooltip-card";
 import { Checkbox, Field } from "./chrome";
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const;
@@ -88,12 +89,17 @@ export function SettingsForm({ settings }: { settings: SettingsRead }) {
         {settings.source === "persisted" ? `Revision ${settings.revision}` : "Accepted defaults"}
         {settings.updated_at ? ` · ${settings.updated_at}` : ""}
       </p>
-      <Field label="Timezone" hint="Default America/New_York.">
+      <Field
+        label={<TooltipCard title="Timezone" label="Timezone">{copy.clocks.timezone}</TooltipCard>}
+        hint={copy.clocks.timezone}
+      >
         {({ id }) => <input id={id} className="si-input" value={timezone} onChange={(event) => setTimezone(event.target.value)} />}
       </Field>
       <fieldset className="si-hours">
-        <legend className="si-field__label">Weekly staffed hours</legend>
-        <p className="si-field__hint">{copy.coverage.staffedHint}</p>
+        <legend className="si-field__label">
+          <TooltipCard title="Weekly staffed hours" label="Weekly staffed hours">{copy.clocks.staffedHours}</TooltipCard>
+        </legend>
+        <p className="si-field__hint">{copy.clocks.staffedHours}</p>
         <div className="si-hours__grid">
           {WEEKDAYS.filter((weekday) => weekday !== 7 || hours.some((shift) => shift.day === 7)).map((weekday) => (
             <div key={weekday} className="si-hours__row">
@@ -112,16 +118,28 @@ export function SettingsForm({ settings }: { settings: SettingsRead }) {
           }}
         />
       </fieldset>
-      <Field label="First action (staffed minutes)" hint="Default 30.">
+      <Field
+        label={<TooltipCard title="First action (staffed minutes)" label="First action (staffed minutes)">{copy.clocks.firstAction}</TooltipCard>}
+        hint={copy.clocks.firstAction}
+      >
         {({ id }) => <input id={id} className="si-input" type="number" min={1} value={first} onChange={(event) => setFirst(Number(event.target.value))} />}
       </Field>
-      <Field label="Missed callback (staffed minutes)" hint="Default 15.">
+      <Field
+        label={<TooltipCard title="Missed callback (staffed minutes)" label="Missed callback (staffed minutes)">{copy.clocks.missedCallback}</TooltipCard>}
+        hint={copy.clocks.missedCallback}
+      >
         {({ id }) => <input id={id} className="si-input" type="number" min={1} value={missed} onChange={(event) => setMissed(Number(event.target.value))} />}
       </Field>
-      <Field label="Going cold (staffed minutes)" hint={copy.coverage.goingColdHint}>
+      <Field
+        label={<TooltipCard title="Going cold (staffed minutes)" label="Going cold (staffed minutes)">{copy.clocks.goingCold}</TooltipCard>}
+        hint={copy.clocks.goingCold}
+      >
         {({ id }) => <input id={id} className="si-input" type="number" min={1} value={cold} onChange={(event) => setCold(Number(event.target.value))} />}
       </Field>
-      <Field label="Monthly AI ceiling (dollars)" hint="Default $80. Raising the limit resumes eligible paused analysis.">
+      <Field
+        label={<TooltipCard title="Monthly AI ceiling (dollars)" label="Monthly AI ceiling (dollars)">{copy.clocks.monthlyCeiling}</TooltipCard>}
+        hint={copy.clocks.monthlyCeiling}
+      >
         {({ id }) => <input id={id} className="si-input" type="number" min={0} step="0.01" value={ceiling} onChange={(event) => setCeiling(event.target.value)} />}
       </Field>
       <p className="si-field__hint">{copy.coverage.flagsReadOnly}</p>

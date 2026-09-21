@@ -15,6 +15,16 @@ const date = new Intl.DateTimeFormat("en-US", {
 export const formatDateTime = (value: string | null | undefined) =>
   value ? date.format(new Date(value)) : copy.time.notObserved;
 
+const day = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+});
+
+export const formatDay = (value: string | null | undefined) =>
+  value ? day.format(new Date(value)) : copy.time.notObserved;
+
 const display: Record<string, string> = {
   ...copy.reasons,
   ...copy.outreachState,
@@ -61,6 +71,9 @@ export const label = (value: string) => display[value] ?? value.replaceAll("_", 
 
 export const reviewCauseLabel = (value: string) =>
   copy.reviewCause[value as keyof typeof copy.reviewCause] ?? label(value);
+
+export const reviewCauseCardLabel = (value: string) =>
+  copy.reviewCauseShort[value as keyof typeof copy.reviewCauseShort] ?? reviewCauseLabel(value);
 
 export const classificationLabel = (value: string) =>
   copy.classification[value as keyof typeof copy.classification] ?? label(value);

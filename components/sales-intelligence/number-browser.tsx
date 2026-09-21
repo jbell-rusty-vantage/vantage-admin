@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { numberSearchSchema, readSalesIntelligence } from "@/lib/api/salesIntelligence";
@@ -8,21 +8,26 @@ import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
 import { copy } from "./sales-intelligence-copy";
 import { cx, formatDateTime, leadMatchSummary } from "./lib/format";
 import { Button } from "./atoms/button";
+import { FilterSheet } from "./atoms/filter-sheet";
 import { ClassificationBadge, EligibilityBadge, EmptyState, Failure, FilterRail, FilterToolbar } from "./chrome";
 import { numberChips, NumbersFilters } from "./filters";
+import { readFiltersOpen, readList, writeFiltersOpen, writeList } from "./lib/filter-state";
+import { useSiLayout } from "./lib/layout";
 
 export function NumberBrowser({
   params,
   update,
 }: {
   params: URLSearchParams;
-  update: (values: Record<string, string | boolean | null | undefined>) => void;
+  update: (values: Record<string, string | boolean | null | undefined | string[]>) => void;
 }) {
-  const [filtersOpen, setFiltersOpen] = useState(() =>
-    Boolean(params.get("classification") || (params.get("attachment") && params.get("attachment") !== "any") || params.get("hygiene") || params.get("active_from") || params.get("active_to")),
-  );
+  const { compact, sheet } = useSiLayout();
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  useEffect(() => { setFiltersOpen(readFiltersOpen()); }, []);
   const query = new URLSearchParams({ limit: "50" });
-  for (const key of ["q", "classification", "attachment", "hygiene", "active_from", "active_to"]) {
+  writeList(query, "classification", readList(params, "classification"));
+  for (const key of ["q", "attachment", "hygiene", "active_from", "active_to"]) {
     const value = params.get(key);
     if (value) query.set(key, value);
   }
@@ -34,7 +39,7 @@ export function NumberBrowser({
     retry: false,
   });
   const filters = {
-    classification: params.get("classification") ?? "",
+    classifications: readList(params, "classification"),
     attachment: params.get("attachment") ?? "any",
     hygiene: params.get("hygiene") === "true",
     active_from: params.get("active_from") ?? "",
@@ -43,13 +48,23 @@ export function NumberBrowser({
   const q = params.get("q") ?? "";
   const digits = /^\d+$/.test(q.trim());
   const shortPhone = digits && q.trim().length > 0 && q.trim().length < 4;
-  const filterCount = [q, filters.classification, filters.attachment !== "any" && filters.attachment, filters.hygiene, filters.active_from, filters.active_to].filter(Boolean).length;
+  const filterCount = [q, filters.classifications.length, filters.attachment !== "any" && filters.attachment, filters.hygiene, filters.active_from, filters.active_to].filter(Boolean).length;
 
   return (
-    <section className={filtersOpen ? "si-listview rail-open" : "si-listview"} aria-label={copy.page.views.numbers}>
+    <section className={!compact && filtersOpen ? "si-listview rail-open" : "si-listview"} aria-label={copy.page.views.numbers}>
+      <div className="si-filtertray">
       <FilterToolbar
-        open={filtersOpen}
-        onToggle={() => setFiltersOpen((open) => !open)}
+        open={compact ? sheetOpen : filtersOpen}
+        onToggle={() => {
+          if (compact) {
+            setSheetOpen((open) => !open);
+            return;
+          }
+          setFiltersOpen((open) => {
+            writeFiltersOpen(!open);
+            return !open;
+          });
+        }}
         activeCount={filterCount}
         chips={numberChips(filters, q, update)}
         note={
@@ -59,11 +74,22 @@ export function NumberBrowser({
           </>
         }
       />
+      </div>
+      {compact && !sheet && sheetOpen && (
+        <div className="si-filterexpand">
+          <NumbersFilters value={filters} onChange={update} />
+        </div>
+      )}
       <div className="si-listview__grid">
-        {filtersOpen && (
-          <FilterRail title={copy.filters.numbersTitle} intro={copy.filters.numbersIntro} onClose={() => setFiltersOpen(false)}>
+        {!compact && filtersOpen && (
+          <FilterRail title={copy.filters.numbersTitle} intro={copy.filters.numbersIntro} onClose={() => { writeFiltersOpen(false); setFiltersOpen(false); }}>
             <NumbersFilters value={filters} onChange={update} />
           </FilterRail>
+        )}
+        {sheet && (
+          <FilterSheet title={copy.filters.numbersTitle} open={sheetOpen} onClose={() => setSheetOpen(false)}>
+            <NumbersFilters value={filters} onChange={update} />
+          </FilterSheet>
         )}
         <div className="si-listview__list">
           {list.isPending && <p role="status">Loading {copy.page.views.numbers}…</p>}
@@ -77,7 +103,14 @@ export function NumberBrowser({
                   ? copy.coverage.knownThrough(formatDateTime(list.data.coverage.known_through))
                   : copy.coverage.unknown}
               </p>
-              {!list.data.data.items.length && <EmptyState title={copy.empty.numbersNone} />}
+              {!list.data.data.items.length && (
+                <>
+                  <EmptyState title={copy.empty.numbersNone} />
+                  <Button variant="link" onClick={() => update({ classifications: [], attachment: "any", hygiene: false, active_from: null, active_to: null, q: null, number_cursor: null })}>
+                    {copy.empty.numbersClear}
+                  </Button>
+                </>
+              )}
               <div className="si-nhead" aria-hidden>
                 <span>{copy.columns.number}</span>
                 <span>{copy.columns.lead}</span>

@@ -9,17 +9,35 @@ import {
 import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
 import { officialRecordHref } from "./lib/official-record";
 import { Button } from "./atoms/button";
+import { TooltipCard } from "./atoms/tooltip-card";
+import { copy } from "./sales-intelligence-copy";
 import { EvidenceCommand } from "./evidence-command";
 import { formatDateTime, label } from "./lib/format";
+
+const titles: Record<string, string> = {
+  attach_lead: "Confirm attachment",
+  reject_attachment: "Reject attachment",
+  detach_attachment: "Detach Lead",
+  find_lead: "Find another Lead",
+};
+
+const explains: Record<string, string> = {
+  attach_lead: copy.commandExplain.confirm_attachment,
+  reject_attachment: copy.commandExplain.reject_attachment,
+  detach_attachment: copy.commandExplain.detach,
+  find_lead: copy.commandExplain.find_lead,
+};
 
 export function Attachments({
   numberId,
   lead,
   onNumber,
+  returnTo,
 }: {
   numberId?: string;
   lead?: { model: string; id: string };
   onNumber?: (id: string) => void;
+  returnTo?: string;
 }) {
   const [editing, setEditing] = useState<{
     id: string;
@@ -42,11 +60,6 @@ export function Attachments({
   });
   const edges = list.data?.pages.flatMap((page) => page.data.items) ?? [],
     selected = edges.find((e) => e.id === editing?.id);
-  const titles: Record<string, string> = {
-    attach_lead: "Confirm attachment",
-    reject_attachment: "Reject attachment",
-    detach_attachment: "Detach Lead",
-  };
   return (
     <section className="si-local-stack">
       <h3>Number↔Lead attachments</h3>
@@ -87,7 +100,7 @@ export function Attachments({
             </p>
           )}
           <Link
-            href={officialRecordHref(edge.lead_ref.model, edge.lead_ref.id)}
+            href={officialRecordHref(edge.lead_ref.model, edge.lead_ref.id, returnTo)}
           >
             Open official Lead
           </Link>
@@ -112,18 +125,31 @@ export function Attachments({
             ))}
           </details>
           <div className="si-local-filters">
-            {edge.allowed_actions?.map((action) => (
-              <Button
-                key={action.action}
-                disabled={!action.enabled}
-                title={action.blocker_codes.map(label).join(", ")}
-                onClick={() =>
-                  setEditing({ id: edge.id, command: action.action })
-                }
-              >
-                {titles[action.action]}
-              </Button>
-            ))}
+            {edge.allowed_actions?.map((action) => {
+              const title = titles[action.action] ?? label(action.action);
+              const explain = explains[action.action];
+              const blockers = action.blocker_codes.map(label).filter(Boolean).join(", ");
+              return (
+                <TooltipCard
+                  key={action.action}
+                  title={title}
+                  label={
+                    <Button
+                      disabled={!action.enabled}
+                      onClick={() =>
+                        setEditing({ id: edge.id, command: action.action })
+                      }
+                    >
+                      {title}
+                    </Button>
+                  }
+                >
+                  {[explain, !action.enabled && blockers ? blockers : null]
+                    .filter(Boolean)
+                    .join(" ")}
+                </TooltipCard>
+              );
+            })}
           </div>
         </article>
       ))}

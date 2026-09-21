@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Trash2 } from "lucide-react";
@@ -48,6 +49,8 @@ import {
   visibleDetailTabs,
   type DetailTabKey,
 } from "@/components/operational/visible-detail-tabs";
+import { salesIntelligenceReturnHref } from "@/components/sales-intelligence/lib/official-record";
+import { copy } from "@/components/sales-intelligence/sales-intelligence-copy";
 import {
   fetchCustomerTestimonials,
   fetchAdminDetail,
@@ -581,6 +584,8 @@ export function DetailPanel({
   canDelete: boolean;
   onRequestDelete: (target: DeleteTarget) => void;
 }) {
+  const searchParams = useSearchParams();
+  const returnHref = salesIntelligenceReturnHref(searchParams);
   const id = selected ? getRecordId(selected) : "";
   const selectedIsUrlPlaceholder = selected?.__url_placeholder === true;
   const effectiveScope = scope === "combined" ? "production" : scope;
@@ -626,13 +631,27 @@ export function DetailPanel({
       title={config.title}
       description={id ? `Mongo ID: ${id}` : undefined}
       header={
-        record && visibleTabs.length > 0 ? (
-          <DetailPanelTabStrip
-            tabs={visibleTabs}
-            active={activePanel}
-            uiResource={uiResource}
-            onSelect={(tab) => onPanelChange?.(tab)}
-          />
+        returnHref || (record && visibleTabs.length > 0) ? (
+          <>
+            {returnHref ? (
+              <div className="px-5 pb-3">
+                <a
+                  className="inline-flex items-center text-sm font-medium text-navy underline-offset-4 hover:underline"
+                  href={returnHref}
+                >
+                  {copy.panel.returnHere}
+                </a>
+              </div>
+            ) : null}
+            {record && visibleTabs.length > 0 ? (
+              <DetailPanelTabStrip
+                tabs={visibleTabs}
+                active={activePanel}
+                uiResource={uiResource}
+                onSelect={(tab) => onPanelChange?.(tab)}
+              />
+            ) : null}
+          </>
         ) : null
       }
     >

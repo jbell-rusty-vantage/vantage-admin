@@ -1,7 +1,7 @@
 import type { SerializableFilters } from "@/lib/api/filters";
 import type { TableQueryParams } from "@/lib/api/types";
 
-const URL_ONLY_KEYS = ["record", "connect", "panel"] as const;
+const URL_ONLY_KEYS = ["record", "connect", "panel", "si_return"] as const;
 
 export function apiFiltersFromUrlState(filters: TableQueryParams): SerializableFilters {
   const apiFilters: SerializableFilters = { ...filters };

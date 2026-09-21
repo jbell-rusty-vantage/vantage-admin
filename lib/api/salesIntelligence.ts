@@ -56,9 +56,9 @@ export const timelineSchema = z.object({ as_of:z.string(), coverage, data:z.obje
   items:z.array(z.object({ id:z.string(), kind:z.string(), happened_at:z.string(), observed_at:z.string(), description:z.string(),
     evidence_refs:z.array(z.string()), detail:z.record(z.string(),z.json()) })), cursor:z.string().nullable() }) });
 export const attentionSchema = z.object({ as_of: z.string(), coverage, data: z.object({ items: z.array(z.object({ subject_key:z.string(), subject,
-  outreach: outreachSchema.nullable(), derived })), snapshot_id: z.string().nullable(), total_items:z.number().nullable(), cursor:z.string().nullable(), status:z.enum(['ready','pending_projection']) }) });
+  outreach: outreachSchema.nullable(), derived })), snapshot_id: z.string().nullable(), total_items:z.number().nullable(), cursor:z.string().nullable(), reason_counts:z.record(z.string(), z.number()).optional(), status:z.enum(['ready','pending_projection']) }) });
 export const numberSchema = z.object({ as_of:z.string(), coverage, data:z.object({ id:z.string(), revision:z.number(), allowed_actions:z.array(availabilitySchema), e164:z.string(), classification:z.string(), eligibility:z.string(),
-  outreach_records:z.array(outreachSchema), running_analysis:z.object({ text:z.string(), computed_at:z.string() }).nullable(),
+  outreach_records:z.array(outreachSchema), running_analysis:z.object({ text:z.string(), run_id:z.string().optional(), computed_at:z.string() }).nullable(),
   attachments:z.array(z.object({ id:z.string(), state:z.string(), certainty:z.string(), lead_ref:z.object({ model:z.string(), id:z.string() }) })),
   review_items:z.array(z.object({ id:z.string(), cause_kind:z.string(), state:z.string() })),
   restrictions:z.array(z.object({ id:z.string(), revision:z.number(), channels:z.array(z.string()), state:z.string(), until:z.string().nullable(), allowed_actions:z.array(availabilitySchema) })) }) });

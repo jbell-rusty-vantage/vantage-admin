@@ -27,6 +27,7 @@ export function Reps({ params, update }: { params: URLSearchParams; update: (val
   return (
     <section className="si-local-stack">
       <h2>{copy.reps.title}</h2>
+      <p className="si-local-notice">{copy.page.viewIntro.reps}</p>
       {list.isPending && <p role="status">Loading RingCentral Accounts…</p>}
       {list.error && (
         <p role="alert">

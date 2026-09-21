@@ -38,7 +38,7 @@ export function AttentionRow({ row, selected, onOpen }: { row: Row; selected: bo
             {record.lead_display.job_no ? ` · Job ${record.lead_display.job_no}` : ""}
           </span>
         )}
-        <span className="si-text--subtle si-text--sm">{record ? label(record.state) : copy.needsReview.title}</span>
+        {record && <span className="si-text--subtle si-text--sm">{label(record.state)}</span>}
       </div>
       <div className="si-row__reason">
         <span className={cx("si-row__reasontext", row.derived.overdue && "is-danger")}>
@@ -73,7 +73,7 @@ export function AttentionRow({ row, selected, onOpen }: { row: Row; selected: bo
             <span key={reason} className="si-text--sm si-text--muted">{label(reason)}</span>
           ))}
           {row.derived.review_badges?.map((reason) => <ReviewBadge key={reason} value={reason} />)}
-          {row.derived.call_blockers.map((reason) => <Badge key={reason}>{label(reason)}</Badge>)}
+          {row.derived.call_blockers.map((reason) => <Badge key={reason} className="si-badge--wrap">{label(reason)}</Badge>)}
         </span>
       </div>
       <div className="si-row__actions">

@@ -7,6 +7,7 @@ import { salesIntelligenceKeys } from '@/lib/query/salesIntelligence';
 import { buildIntent,commandLabels,initialDraft,type Draft } from './lib/commands';
 import { copy } from "./sales-intelligence-copy";
 import { formatDateTime,label } from './lib/format';
+import { ownershipPhrase } from './ownership';
 import { Button } from './atoms/button';
 
 export function CommandDialog({command,record,action,onClose}:{command:string;record:Outreach;action?:Followup;onClose:()=>void}) {
@@ -49,12 +50,12 @@ export function CommandDialog({command,record,action,onClose}:{command:string;re
  return <dialog ref={ref} className="si-root si-local-command" aria-labelledby={titleId} onCancel={event=>{event.stopPropagation();if(pending)event.preventDefault();else onClose();}}>
  <form className="si-local-stack" onSubmit={event=>{event.preventDefault();void submit();}}>
  <h2 id={titleId}>{commandLabels[command]}</h2>
- {action && <p>{action.description} · Due {action.due_at?formatDateTime(action.due_at):'Undated'} · Assigned to {action.assignment.agent?.name??'Unassigned'}</p>}
- <p>Outreach owned by {record.assignment.agent?.name??'Unassigned'} · {label(record.state)}</p>
+ {action && <p>{action.description} · Due {action.due_at?formatDateTime(action.due_at):'Undated'} · {ownershipPhrase('assigned', action.assignment.agent)}</p>}
+ <p>{ownershipPhrase('owned', record.assignment.agent)} · {label(record.state)}</p>
  {command==='close' && <p>Closing cancels active follow-ups and preserves their history.</p>}
  {command==='reopen' && <p>Reopening checks current eligibility. Cancelled follow-ups remain in history.</p>}
  {command==='mark_worked' && <p>This records work without claiming that anyone spoke with the customer. A next step is optional.</p>}
- {changed && <div className="si-local-notice" role="status"><p>Server values changed while this draft was open.</p><p>Current state: {label(record.state)}. Current Outreach owner: {record.assignment.agent?.name??'Unassigned'}.</p>{action&&<p>Current follow-up: {action.description}; due {action.due_at?formatDateTime(action.due_at):'Undated'}; assigned to {action.assignment.agent?.name??'Unassigned'}; {label(action.status)}.</p>}
+ {changed && <div className="si-local-notice" role="status"><p>Server values changed while this draft was open.</p><p>Current state: {label(record.state)}. Current Outreach owner: {ownershipPhrase('owned', record.assignment.agent)}.</p>{action&&<p>Current follow-up: {action.description}; due {action.due_at?formatDateTime(action.due_at):'Undated'}; {ownershipPhrase('assigned', action.assignment.agent)}; {label(action.status)}.</p>}
  {!uncertain&&<Button type="button" disabled={pending} onClick={()=>{setBaseline({record,action});intent.current=null;setError('');}}>Use these revisions and keep my draft</Button>}</div>}
  {error && <p role="alert">{error}</p>}
  <fieldset disabled={pending||uncertain} className="si-local-stack">

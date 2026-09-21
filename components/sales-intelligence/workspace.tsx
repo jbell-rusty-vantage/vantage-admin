@@ -1,16 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import { attentionSchema, numberSchema, outreachReadSchema, readSalesIntelligence, SalesIntelligenceError, type AttentionRow as AttentionItem } from "@/lib/api/salesIntelligence";
 import { useSalesIntelligenceLive, salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
 import { fetchCatalogItems } from "@/lib/api/catalog";
-import { officialRecordHref } from "./lib/official-record";
-import { copy, type SiView } from "./sales-intelligence-copy";
-import { formatDateTime, label, reviewCauseLabel } from "./lib/format";
+import { currentSalesIntelligenceHref } from "./lib/official-record";
+import { parseSiPanel, parseSiView } from "./sales-intelligence-tabs";
+import { NowStrip } from "./now-strip";
+import { RunningSummaryPanel } from "./running-summary-panel";
+import { BANDS, copy } from "./sales-intelligence-copy";
+import { formatDateTime, label } from "./lib/format";
 import { AttentionBands } from "./attention";
+import { CommandDialog } from "./command-dialog";
 import { DetailPanel } from "./detail-panel";
 import { NumberBrowser } from "./number-browser";
 import { NumberTimeline } from "./number-timeline";
@@ -20,12 +23,17 @@ import { ReviewItems } from "./review-items";
 import { Reps } from "./reps";
 import { Restrictions } from "./restrictions";
 import { ManualAttachment } from "./manual-attachment";
+import { MessageRepDialog } from "./message-rep-dialog";
 import { AnalysisPanel } from "./analysis-panel";
 import { CoverageView } from "./coverage-view";
-import { ClassificationBadge, EligibilityBadge, EmptyState, Failure, FilterRail, FilterToolbar, LiveIndicator, SearchField, Tabs } from "./chrome";
+import { EmptyState, Failure, FilterRail, FilterToolbar, LiveIndicator, SearchField, Tabs } from "./chrome";
 import { attentionChips, AttentionFilters } from "./filters";
-import { Badge } from "./atoms/badge";
+import { attentionFiltersFromParams, attentionQueryString, readFiltersOpen, toggleValue, writeFiltersOpen, writeList } from "./lib/filter-state";
+import { useSiLayout } from "./lib/layout";
+import { GuideView } from "./guide-view";
 import { Button } from "./atoms/button";
+import { FilterSheet } from "./atoms/filter-sheet";
+import { TooltipCard } from "./atoms/tooltip-card";
 import "./styles/sales-intelligence.css";
 
 function Selection({
@@ -34,6 +42,7 @@ function Selection({
   leadId,
   leadModel,
   accountId,
+  returnTo,
   update,
 }: {
   outreachId: string | null;
@@ -41,7 +50,8 @@ function Selection({
   leadId: string | null;
   leadModel: string | null;
   accountId: string | null;
-  update: (values: Record<string, string | null>) => void;
+  returnTo: string;
+  update: (values: Record<string, string | boolean | null | undefined | string[]>) => void;
 }) {
   const selectionParams = useSearchParams();
   const byLead = useQuery({
@@ -64,68 +74,136 @@ function Selection({
     queryFn: ({ signal }) => readSalesIntelligence(`numbers/${encodeURIComponent(resolvedNumber!)}`, numberSchema, signal),
     retry: false,
   });
+  const panel = parseSiPanel(selectionParams.get("panel"));
+  const record = resolvedOutreach?.data.outreach;
+  const title = number.data?.data.e164 ?? record?.lead_display?.name ?? copy.page.detailTitle;
+  const [command, setCommand] = useState<string | null>(null);
+  const [messaging, setMessaging] = useState(false);
+  const workRecords = [
+    ...(record ? [record] : []),
+    ...(number.data?.data.outreach_records.filter((item) => item.id !== record?.id) ?? []),
+  ];
+  const workId = selectionParams.get("outreach") ?? record?.id ?? workRecords[0]?.id;
+  const workRecord = workRecords.find((item) => item.id === workId) ?? record ?? null;
+  const ready = !outreach.isLoading && !byLead.isLoading && !number.isLoading;
   return (
-    <div className="si-local-stack">
-      {outreachId && outreach.isPending && <p role="status">Loading Outreach…</p>}
-      {!outreachId && leadId && byLead.isPending && <p role="status">Loading Outreach…</p>}
-      {outreach.error && <Failure error={outreach.error} retry={() => void outreach.refetch()} />}
-      {!outreachId && byLead.error instanceof SalesIntelligenceError && byLead.error.status === 404 && (
-        <p className="si-local-notice">{copy.coverage.noLeadOutreach}</p>
-      )}
-      {!outreachId && byLead.error && !(byLead.error instanceof SalesIntelligenceError && byLead.error.status === 404) && (
-        <Failure error={byLead.error} retry={() => void byLead.refetch()} />
-      )}
-      {resolvedNumber && number.isPending && <p role="status">Loading Number…</p>}
-      {number.error && <Failure error={number.error} retry={() => void number.refetch()} />}
-      {number.data && (
-        <>
-          <h3>{number.data.data.e164}</h3>
-          <div className="si-chiprow">
-            <ClassificationBadge value={number.data.data.classification} />
-            <EligibilityBadge value={number.data.data.eligibility} />
-          </div>
-          <p>
-            {copy.coverage.asOf(formatDateTime(number.data.as_of))}
-            {" · "}
-            {number.data.coverage.known_through
-              ? copy.coverage.knownThrough(formatDateTime(number.data.coverage.known_through))
-              : copy.coverage.unknown}
-          </p>
-          <section>
-            <h3>{copy.panel.runningSummary}</h3>
-            <p>{number.data.data.running_analysis?.text ?? copy.panel.runningSummaryEmpty}</p>
-          </section>
-          <Attachments numberId={number.data.data.id} />
-          <ManualAttachment number={number.data.data} />
-          {number.data.data.review_items.filter((item) => item.state === "open").map((item) => (
-            <Badge key={item.id} tone="amber">{reviewCauseLabel(item.cause_kind)}</Badge>
-          ))}
-          <Restrictions rows={number.data.data.restrictions} />
-        </>
-      )}
-      {resolvedOutreach && <OutreachDetail record={resolvedOutreach.data.outreach} accountId={accountId} />}
-      {number.data?.data.outreach_records.filter((record) => record.id !== resolvedOutreach?.data.outreach.id).map((record) => (
-        <OutreachDetail record={record} key={record.id} accountId={accountId} />
-      ))}
-      {resolvedNumber && <NumberTimeline numberId={resolvedNumber} />}
-      {resolvedNumber && (
-        <AnalysisPanel
-          key={resolvedNumber}
-          numberId={resolvedNumber}
-          selectedRun={selectionParams.get("analysis_run")}
-          onSelect={(id) => update({ analysis_run: id })}
+    <DetailPanel
+      title={title}
+      panel={panel}
+      onPanel={(next) => update({ panel: next })}
+      onClose={() => update({ outreach: null, number: null, lead: null, lead_model: null, panel: null })}
+      now={
+        <NowStrip
+          title={title}
+          number={number.data?.data}
+          outreach={record ?? null}
+          returnTo={returnTo}
+          ready={ready}
+          onCommand={record ? (next) => { update({ outreach: record.id }); setCommand(next); } : undefined}
+          onMessage={record ? () => { update({ outreach: record.id }); setMessaging(true); } : undefined}
         />
-      )}
-      {resolvedNumber && <ReviewItems subjectKey={`number:${resolvedNumber}`} />}
-      {leadId && leadModel && (
-        <>
-          <Link href={officialRecordHref(leadModel === "FormLead" ? "FormLead" : "CallLead", leadId)}>
-            Open official {leadModel === "FormLead" ? "Form Lead" : "Call Lead"}
-          </Link>
-          <Attachments lead={{ id: leadId, model: leadModel }} onNumber={(id) => update({ number: id })} />
-          <ReviewItems subjectKey={`lead:${leadModel}:${leadId}`} />
-        </>
-      )}
+      }
+    >
+      <div className="si-local-stack">
+        {outreach.error && <Failure error={outreach.error} retry={() => void outreach.refetch()} />}
+        {!outreachId && byLead.error instanceof SalesIntelligenceError && byLead.error.status === 404 && (
+          <p className="si-local-notice">{copy.coverage.noLeadOutreach}</p>
+        )}
+        {number.error && <Failure error={number.error} retry={() => void number.refetch()} />}
+        {panel === "activity" && resolvedNumber && <NumberTimeline numberId={resolvedNumber} />}
+        {panel === "summary" && (
+          <RunningSummaryPanel
+            analysis={number.data?.data.running_analysis}
+            onOpenRun={(runId) => update({ panel: "analysis", analysis_run: runId })}
+          />
+        )}
+        {panel === "analysis" && resolvedNumber && (
+          <AnalysisPanel
+            key={resolvedNumber}
+            numberId={resolvedNumber}
+            selectedRun={selectionParams.get("analysis_run")}
+            onSelect={(id) => update({ analysis_run: id })}
+          />
+        )}
+        {panel === "matches" && (
+          <>
+            {number.data && <Attachments numberId={number.data.data.id} returnTo={returnTo} />}
+            {number.data && <ManualAttachment number={number.data.data} />}
+            {leadId && leadModel && <Attachments lead={{ id: leadId, model: leadModel }} returnTo={returnTo} onNumber={(id) => update({ number: id })} />}
+          </>
+        )}
+        {panel === "work" && (
+          <>
+            {workRecords.length > 1 && (
+              <div className="si-local-stack">
+                <p className="si-text--subtle">{copy.panel.pickOutreach}</p>
+                {workRecords.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={item.id === workRecord?.id ? "si-outreachitem__open is-selected" : "si-outreachitem__open"}
+                    onClick={() => update({ outreach: item.id })}
+                  >
+                    {label(item.state)} · {item.lead_display?.name ?? copy.fields.unknown}
+                  </button>
+                ))}
+              </div>
+            )}
+            {workRecord && <OutreachDetail record={workRecord} accountId={accountId} />}
+            {number.data && <Restrictions rows={number.data.data.restrictions} />}
+            {resolvedNumber && <ReviewItems subjectKey={`number:${resolvedNumber}`} />}
+            {leadId && leadModel && <ReviewItems subjectKey={`lead:${leadModel}:${leadId}`} />}
+          </>
+        )}
+        {command && record && <CommandDialog command={command} record={record} onClose={() => setCommand(null)} />}
+        {messaging && record && <MessageRepDialog record={record} accountId={accountId} onClose={() => setMessaging(false)} />}
+      </div>
+    </DetailPanel>
+  );
+}
+
+function FirstVisitHint({ onOpen }: { onOpen: () => void }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    setOpen(window.localStorage.getItem("vantage-admin-si-guide-hint") !== "hidden");
+  }, []);
+  if (!open) return null;
+  return (
+    <p className="si-purpose">
+      <button type="button" className="si-btn si-btn--link" onClick={onOpen}>{copy.page.firstVisitGuide}</button>
+      <Button
+        variant="link"
+        size="sm"
+        onClick={() => {
+          window.localStorage.setItem("vantage-admin-si-guide-hint", "hidden");
+          setOpen(false);
+        }}
+      >
+        {copy.page.firstVisitDismiss}
+      </Button>
+    </p>
+  );
+}
+
+function PurposeLine() {
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    setOpen(window.localStorage.getItem("vantage-admin-si-purpose") !== "hidden");
+  }, []);
+  if (!open) return null;
+  return (
+    <div className="si-purpose">
+      <p>{copy.page.purpose}</p>
+      <Button
+        variant="link"
+        size="sm"
+        onClick={() => {
+          window.localStorage.setItem("vantage-admin-si-purpose", "hidden");
+          setOpen(false);
+        }}
+      >
+        {copy.page.purposeDismiss}
+      </Button>
     </div>
   );
 }
@@ -136,22 +214,37 @@ function toParam(value: string | boolean | undefined | null) {
   return String(value);
 }
 
+const REASON_BAND: Record<string, number> = {
+  promised_callback_overdue: 1,
+  no_call_yet: 2,
+  missed_call_no_callback: 3,
+  followups_due: 4,
+  no_next_step: 5,
+  missing_responsibility: 6,
+  going_cold: 7,
+};
+
 export function SalesIntelligenceWorkspace() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const [filtersOpen, setFiltersOpen] = useState(() =>
-    Boolean(params.get("band") || params.get("needs_review") || params.get("state") || params.get("agent_id")),
-  );
+  const { compact, sheet } = useSiLayout();
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  useEffect(() => { setFiltersOpen(readFiltersOpen()); }, []);
   const [search, setSearch] = useState(params.get("q") ?? "");
   const urlSearch = params.get("q") ?? "";
   useEffect(() => { setSearch(urlSearch); }, [urlSearch]);
   const searchDigits = /^\d+$/.test(search.trim());
   const shortPhone = searchDigits && search.trim().length > 0 && search.trim().length < 4;
-  const update = useCallback((values: Record<string, string | boolean | null | undefined>) => {
+  const update = useCallback((values: Record<string, string | boolean | null | undefined | string[]>) => {
     const next = new URLSearchParams(params);
     if (["number", "outreach", "lead"].some((key) => key in values) && !("analysis_run" in values)) next.delete("analysis_run");
     Object.entries(values).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        writeList(next, key === "bands" ? "band" : key === "states" ? "state" : key === "agent_ids" ? "agent_id" : key === "classifications" ? "classification" : key, value);
+        return;
+      }
       const encoded = toParam(value as string | boolean | null | undefined);
       if (encoded === null) next.delete(key);
       else next.set(key, encoded);
@@ -161,21 +254,10 @@ export function SalesIntelligenceWorkspace() {
 
   const live = useSalesIntelligenceLive();
   const agents = useQuery({ queryKey: ["catalog", "agents", "csi-current"], queryFn: () => fetchCatalogItems("agents", { includeInactive: true }) });
-  const view: SiView = params.get("view") === "numbers" ? "numbers" : params.get("view") === "reps" ? "reps" : params.get("view") === "coverage" ? "coverage" : "attention";
-  const attentionFilters = {
-    band: params.get("band") ?? "",
-    needs_review: params.get("needs_review") === "true",
-    state: params.get("state") ?? "",
-    agent_id: params.get("agent_id") ?? "",
-  };
-  const query = new URLSearchParams({ limit: "50" });
-  if (attentionFilters.band) query.set("band", attentionFilters.band);
-  if (attentionFilters.needs_review) query.set("needs_review", "true");
-  for (const key of ["state", "agent_id"] as const) {
-    if (attentionFilters[key]) query.set(key, attentionFilters[key]);
-  }
+  const view = parseSiView(params.get("view"));
+  const attentionFilters = attentionFiltersFromParams(params);
   const cursor = params.get("attention_cursor");
-  if (cursor) query.set("cursor", cursor);
+  const query = new URLSearchParams(attentionQueryString(attentionFilters, cursor));
   const list = useQuery({
     queryKey: [...salesIntelligenceKeys.all, "attention", query.toString()],
     enabled: view === "attention",
@@ -192,7 +274,6 @@ export function SalesIntelligenceWorkspace() {
   const numberId = params.get("number");
   const leadId = params.get("lead");
   const leadModel = params.get("lead_model");
-  const close = () => update({ outreach: null, number: null, lead: null, lead_model: null });
   const openRow = (row: AttentionItem) =>
     update({
       outreach: row.outreach?.id ?? null,
@@ -204,15 +285,52 @@ export function SalesIntelligenceWorkspace() {
     row.outreach?.id === outreachId
     || (row.subject.kind === "number_review" && row.subject.contact_number_id === numberId)
     || (row.subject.kind === "lead" && row.subject.id === leadId);
-  const filterCount = [attentionFilters.band, attentionFilters.needs_review, attentionFilters.state, attentionFilters.agent_id].filter(Boolean).length;
+  const filterCount = attentionFilters.bands.length + attentionFilters.states.length + attentionFilters.agent_ids.length + (attentionFilters.needs_review ? 1 : 0);
+  const closeFilters = () => { writeFiltersOpen(false); setFiltersOpen(false); };
+  const toggleFilters = () => {
+    setFiltersOpen((open) => {
+      writeFiltersOpen(!open);
+      return !open;
+    });
+  };
+  const bandCounts = new Map<number, number>();
+  let reviewCount = 0;
+  for (const [reason, count] of Object.entries(list.data?.data.reason_counts ?? {})) {
+    const band = REASON_BAND[reason];
+    if (band) bandCounts.set(band, (bandCounts.get(band) ?? 0) + count);
+  }
+  for (const row of list.data?.data.items ?? []) {
+    if (row.derived.attention_band == null) reviewCount += 1;
+  }
   const knownThrough = list.data?.coverage.known_through;
   const hasGaps = !!list.data?.coverage.gaps.length;
 
+  const headerRef = useRef<HTMLElement>(null);
+  const bandcardsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const header = headerRef.current;
+    const root = header?.closest(".si-root");
+    if (!(header instanceof HTMLElement) || !(root instanceof HTMLElement)) return;
+    const apply = () => {
+      const headerHeight = header.offsetHeight;
+      const cardsHeight = bandcardsRef.current?.offsetHeight ?? 0;
+      root.style.setProperty("--si-sticky-top", `${headerHeight}px`);
+      root.style.setProperty("--si-tray-top", `${headerHeight + cardsHeight}px`);
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(header);
+    if (bandcardsRef.current) observer.observe(bandcardsRef.current);
+    return () => observer.disconnect();
+  }, [view, list.data?.data.status]);
+
   return (
-    <div className="si-root si-workspace">
-      <header className="si-workspace__header">
+    <div className={outreachId || numberId || leadId ? "si-root si-workspace has-panel" : "si-root si-workspace"}>
+      <header ref={headerRef} className="si-workspace__header">
         <div className="si-workspace__titlebar">
-          <h1 className="si-workspace__title">{copy.page.title}</h1>
+          <div>
+            <h1 className="si-workspace__title">{copy.page.title}</h1>
+          </div>
           <div className="si-workspace__search">
             <SearchField
               value={search}
@@ -241,32 +359,100 @@ export function SalesIntelligenceWorkspace() {
               { key: "numbers", label: copy.page.views.numbers },
               { key: "reps", label: copy.page.views.reps },
               { key: "coverage", label: copy.page.views.coverage },
+              { key: "guide", label: copy.page.views.guide },
             ]}
           />
           {view === "attention" && (
-            <p className={hasGaps ? "si-coverage si-coverage--strip si-coverage--catching_up" : "si-coverage si-coverage--strip si-coverage--healthy"}>
-              {knownThrough ? copy.coverage.knownThrough(formatDateTime(knownThrough)) : copy.coverage.unknown}
-            </p>
+            <TooltipCard
+              title={copy.coverage.unknown}
+              guideTopic="coverage"
+              label={
+                <p className={hasGaps ? "si-coverage si-coverage--strip si-coverage--catching_up" : "si-coverage si-coverage--strip si-coverage--healthy"}>
+                  {knownThrough ? copy.coverage.knownThrough(formatDateTime(knownThrough)) : copy.coverage.unknown}
+                </p>
+              }
+            >
+              {copy.live.historyThroughTip}
+            </TooltipCard>
           )}
         </div>
       </header>
+      <div className="si-workspace__intro">
+        <PurposeLine />
+        <p className="si-viewintro">{copy.page.viewIntro[view]}</p>
+        <FirstVisitHint onOpen={() => update({ view: "guide" })} />
+      </div>
       <main className="si-workspace__main si-local-stack" role="tabpanel" id={`si-view-panel-${view}`} aria-labelledby={`si-view-tab-${view}`}>
+        {view === "guide" && <GuideView topic={params.get("topic")} />}
         {view === "coverage" && <CoverageView />}
         {view === "reps" && <Reps params={new URLSearchParams(params)} update={update} />}
         {view === "numbers" && <NumberBrowser params={new URLSearchParams(params)} update={update} />}
         {view === "attention" && (
-          <div className={filtersOpen ? "si-listview rail-open" : "si-listview"}>
+          <div className={!compact && filtersOpen ? "si-listview rail-open" : "si-listview"}>
+            {list.data?.data.status === "pending_projection" ? (
+              <p className="si-bandcards">{copy.page.preparing}</p>
+            ) : (
+              <div className="si-bandcards" ref={bandcardsRef}>
+                {([1, 2, 3, 4, 5, 6, 7] as const).filter((band) => (bandCounts.get(band) ?? 0) > 0).map((band) => (
+                  <TooltipCard
+                    key={band}
+                    title={`${band} · ${BANDS[band]}`}
+                    guideTopic="bands"
+                    label={
+                      <button
+                        type="button"
+                        className={attentionFilters.bands.includes(String(band)) ? "si-bandcard is-on" : "si-bandcard"}
+                        onClick={() => update({ bands: toggleValue(attentionFilters.bands, String(band)), attention_cursor: null })}
+                      >
+                        <strong>{band} · {BANDS[band]}</strong>
+                        <span>{bandCounts.get(band)}</span>
+                      </button>
+                    }
+                  >
+                    {copy.bandSoWhat[band]} {copy.bandSoWhat.once}
+                  </TooltipCard>
+                ))}
+                {reviewCount > 0 && (
+                  <button
+                    type="button"
+                    className={attentionFilters.needs_review ? "si-bandcard is-on" : "si-bandcard"}
+                    onClick={() => update({ needs_review: !attentionFilters.needs_review, attention_cursor: null })}
+                  >
+                    <strong>{copy.needsReview.title}</strong>
+                    <span>{reviewCount}</span>
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="si-filtertray">
             <FilterToolbar
-              open={filtersOpen}
-              onToggle={() => setFiltersOpen((open) => !open)}
+              open={compact ? sheetOpen : filtersOpen}
+              onToggle={() => {
+                if (compact) {
+                  setSheetOpen((open) => !open);
+                  return;
+                }
+                toggleFilters();
+              }}
               activeCount={filterCount}
               chips={attentionChips(attentionFilters, agents.data ?? [], update)}
             />
+            {compact && !sheet && sheetOpen && (
+              <div className="si-filterexpand">
+                <AttentionFilters value={attentionFilters} onChange={update} agents={agents.data ?? []} />
+              </div>
+            )}
+            </div>
             <div className="si-listview__grid">
-              {filtersOpen && (
-                <FilterRail title={copy.filters.attentionTitle} intro={copy.filters.attentionIntro} onClose={() => setFiltersOpen(false)}>
+              {!compact && filtersOpen && (
+                <FilterRail title={copy.filters.attentionTitle} intro={copy.filters.attentionIntro} onClose={closeFilters}>
                   <AttentionFilters value={attentionFilters} onChange={update} agents={agents.data ?? []} />
                 </FilterRail>
+              )}
+              {sheet && (
+                <FilterSheet title={copy.filters.attentionTitle} open={sheetOpen} onClose={() => setSheetOpen(false)}>
+                  <AttentionFilters value={attentionFilters} onChange={update} agents={agents.data ?? []} />
+                </FilterSheet>
               )}
               <div className="si-listview__list">
                 {list.error && <Failure error={list.error} retry={() => void list.refetch()} />}
@@ -281,7 +467,7 @@ export function SalesIntelligenceWorkspace() {
                     <p className="si-field__hint">{copy.page.countsDistinct}</p>
                     {!list.data.data.items.length && (
                       <EmptyState title={hasGaps ? copy.empty.attentionGaps : copy.empty.attentionComplete}>
-                        {knownThrough ? copy.coverage.knownThrough(formatDateTime(knownThrough)) : copy.coverage.unknown}
+                        {hasGaps ? copy.empty.attentionGapsNext : knownThrough ? copy.coverage.knownThrough(formatDateTime(knownThrough)) : copy.coverage.unknown}
                       </EmptyState>
                     )}
                     <AttentionBands items={list.data.data.items} selected={selected} onOpen={openRow} />
@@ -301,9 +487,15 @@ export function SalesIntelligenceWorkspace() {
         )}
       </main>
       {(outreachId || numberId || leadId) && (
-        <DetailPanel onClose={close}>
-          <Selection outreachId={outreachId} numberId={numberId} leadId={leadId} leadModel={leadModel} accountId={params.get("rc_account_id")} update={update} />
-        </DetailPanel>
+        <Selection
+          outreachId={outreachId}
+          numberId={numberId}
+          leadId={leadId}
+          leadModel={leadModel}
+          accountId={params.get("rc_account_id")}
+          returnTo={currentSalesIntelligenceHref(params)}
+          update={update}
+        />
       )}
     </div>
   );

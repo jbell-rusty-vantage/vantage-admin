@@ -3,9 +3,10 @@
 import { useId, useRef, type KeyboardEvent, type ReactNode, type SelectHTMLAttributes } from "react";
 import { AlertCircle, Building2, HelpCircle, ListFilter, Pause, Phone, PhoneOff, Radio, Search, User, UserX, X } from "lucide-react";
 import { copy } from "./sales-intelligence-copy";
-import { classificationLabel, cx, eligibilityLabel, label, reviewCauseLabel } from "./lib/format";
+import { classificationLabel, cx, eligibilityLabel, label, reviewCauseCardLabel, reviewCauseLabel } from "./lib/format";
 import { Badge, type Tone } from "./atoms/badge";
 import { Button } from "./atoms/button";
+import { TooltipCard } from "./atoms/tooltip-card";
 
 export function Field({
   label: fieldLabel,
@@ -161,11 +162,18 @@ export function SearchField({
 
 export function LiveIndicator({ status }: { status: "connecting" | "live" | "reconnecting" }) {
   return (
-    <span className="si-live" title={copy.live.liveNote}>
-      <span className={cx("si-dot", status === "live" && "si-dot--green si-dot--pulse", status === "reconnecting" && "si-dot--amber", status === "connecting" && "si-dot--amber")} />
-      <Radio size={14} aria-hidden />
-      <span>{copy.live[status]}</span>
-    </span>
+    <TooltipCard
+      title={copy.live[status] || "Live"}
+      label={
+        <span className="si-live">
+          <span className={cx("si-dot", status === "live" && "si-dot--green si-dot--pulse", status === "reconnecting" && "si-dot--amber", status === "connecting" && "si-dot--amber")} />
+          <Radio size={14} aria-hidden />
+          <span>{copy.live[status]}</span>
+        </span>
+      }
+    >
+      {copy.live.liveNote}
+    </TooltipCard>
   );
 }
 
@@ -210,16 +218,47 @@ const eligibilityTone: Record<string, Tone> = {
 
 export function ClassificationBadge({ value }: { value: string }) {
   const Icon = classificationIcon[value as keyof typeof classificationIcon] ?? HelpCircle;
-  return <Badge icon={<Icon size={12} aria-hidden />}>{classificationLabel(value)}</Badge>;
+  const title = classificationLabel(value);
+  return (
+    <TooltipCard
+      title={title}
+      guideTopic="numbers"
+      label={<Badge icon={<Icon size={12} aria-hidden />}>{title}</Badge>}
+    >
+      {copy.classificationSoWhat[value as keyof typeof copy.classificationSoWhat] ?? copy.classificationSoWhat.unknown}
+    </TooltipCard>
+  );
 }
 
 export function EligibilityBadge({ value }: { value: string }) {
   const Icon = eligibilityIcon[value as keyof typeof eligibilityIcon] ?? HelpCircle;
-  return <Badge tone={eligibilityTone[value] ?? "neutral"} icon={<Icon size={12} aria-hidden />}>{eligibilityLabel(value)}</Badge>;
+  const title = eligibilityLabel(value);
+  return (
+    <TooltipCard
+      title={title}
+      guideTopic="numbers"
+      label={<Badge tone={eligibilityTone[value] ?? "neutral"} icon={<Icon size={12} aria-hidden />}>{title}</Badge>}
+    >
+      {copy.eligibilitySoWhat[value as keyof typeof copy.eligibilitySoWhat] ?? copy.eligibilitySoWhat.unknown}
+    </TooltipCard>
+  );
 }
 
 export function ReviewBadge({ value }: { value: string }) {
-  return <Badge tone="amber" icon={<AlertCircle size={12} aria-hidden />}>{reviewCauseLabel(value)}</Badge>;
+  const short = reviewCauseCardLabel(value);
+  return (
+    <TooltipCard
+      title={short}
+      guideTopic="review"
+      label={
+        <Badge tone="amber" className="si-badge--wrap" icon={<AlertCircle size={12} aria-hidden />}>
+          {short}
+        </Badge>
+      }
+    >
+      {reviewCauseLabel(value)}
+    </TooltipCard>
+  );
 }
 
 export function FilterRail({
