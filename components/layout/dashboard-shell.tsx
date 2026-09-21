@@ -113,7 +113,14 @@ export function DashboardShell({
             <UserMenu email={adminEmail} role={adminRole} />
           </div>
         </header>
-        <main id={DASHBOARD_MAIN_ID} className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-6">
+        <main
+          id={DASHBOARD_MAIN_ID}
+          className={
+            pathname === "/sales-intelligence" || pathname.startsWith("/sales-intelligence/")
+              ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden overflow-x-hidden p-0"
+              : "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-6"
+          }
+        >
           {pageAllowed ? (
             children
           ) : (

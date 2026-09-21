@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { attentionSchema, numberSchema, outreachReadSchema, readSalesIntelligence, SalesIntelligenceError, type AttentionRow as AttentionItem } from "@/lib/api/salesIntelligence";
@@ -311,28 +311,9 @@ export function SalesIntelligenceWorkspace() {
   const knownThrough = list.data?.coverage.known_through;
   const hasGaps = !!list.data?.coverage.gaps.length;
 
-  const headerRef = useRef<HTMLElement>(null);
-  const bandcardsRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const header = headerRef.current;
-    const root = header?.closest(".si-root");
-    if (!(header instanceof HTMLElement) || !(root instanceof HTMLElement)) return;
-    const apply = () => {
-      const headerHeight = header.offsetHeight;
-      const cardsHeight = bandcardsRef.current?.offsetHeight ?? 0;
-      root.style.setProperty("--si-sticky-top", `${headerHeight}px`);
-      root.style.setProperty("--si-tray-top", `${headerHeight + cardsHeight}px`);
-    };
-    apply();
-    const observer = new ResizeObserver(apply);
-    observer.observe(header);
-    if (bandcardsRef.current) observer.observe(bandcardsRef.current);
-    return () => observer.disconnect();
-  }, [view, list.data?.data.status]);
-
   return (
     <div className={outreachId || numberId || leadId ? "si-root si-workspace has-panel" : "si-root si-workspace"}>
-      <header ref={headerRef} className="si-workspace__header">
+      <header className="si-workspace__header">
         <div className="si-workspace__titlebar">
           <div>
             <h1 className="si-workspace__title">{copy.page.title}</h1>
@@ -383,6 +364,7 @@ export function SalesIntelligenceWorkspace() {
           )}
         </div>
       </header>
+      <div className="si-workspace__content">
       <div className="si-workspace__intro">
         <PurposeLine />
         <p className="si-viewintro">{copy.page.viewIntro[view]}</p>
@@ -399,7 +381,7 @@ export function SalesIntelligenceWorkspace() {
             {list.data?.data.status === "pending_projection" ? (
               <p className="si-bandcards">{copy.page.preparing}</p>
             ) : (
-              <div className="si-bandcards" ref={bandcardsRef}>
+              <div className="si-bandcards">
                 {([1, 2, 3, 4, 5, 6, 7] as const).filter((band) => (bandCounts.get(band) ?? 0) > 0).map((band) => (
                   <TooltipCard
                     key={band}
@@ -493,6 +475,7 @@ export function SalesIntelligenceWorkspace() {
           </div>
         )}
       </main>
+      </div>
       {(outreachId || numberId || leadId) && (
         <Selection
           outreachId={outreachId}

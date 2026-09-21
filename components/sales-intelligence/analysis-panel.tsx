@@ -51,6 +51,8 @@ export function AnalysisPanel({numberId,selectedRun,onSelect}:{numberId:string;s
  <p><Badge tone={run.current?'blue':'neutral'}>{run.current?chain.run.current:chain.run.earlier}</Badge> {runStatusText(run.status)}</p>
  {run.current&&<p className="si-text--subtle">{copy.panel.originalIsCurrent}</p>}
  {run.processing_reason&&<p className="si-chain__meta">{label(run.processing_reason)}</p>}
+ {/* A completed analysis is only as useful as what it may change. Say so before the Owner reads the findings. */}
+ {run.conversation_id&&run.status==='completed'&&<p className={run.outreach?'si-text--subtle':'si-local-notice'}>{run.outreach?copy.panel.leadActionableRun:copy.panel.numberOnlyRun}</p>}
 
  <section className="si-chain-summary" aria-label={copy.panel.originalModelSummary}>
   <TooltipCard title={copy.panel.originalModelSummary} guideTopic="summary" label={<h4>{copy.panel.originalModelSummary}</h4>}>{copy.panel.originalModelTip}</TooltipCard>

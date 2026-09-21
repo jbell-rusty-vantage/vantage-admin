@@ -250,8 +250,8 @@
 .si-toggle.is-on { background: var(--si-navy); border-color: var(--si-navy); color: #fff; }
 
 /* ───────────────────────── Templates ───────────────────────── */
-.si-workspace { background: var(--si-bg); min-height: 100%; display: flex; flex-direction: column; }
-.si-workspace__header { background: var(--si-surface); border-bottom: 1px solid var(--si-line); padding: 14px 24px 0; position: sticky; top: 0; z-index: 3; }
+.si-workspace { background: var(--si-bg); flex: 1 1 auto; min-height: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.si-workspace__header { background: var(--si-surface); border-bottom: 1px solid var(--si-line); padding: 14px 24px 0; position: relative; flex: none; z-index: 3; }
 .si-workspace__titlebar { display: flex; align-items: center; gap: 20px; }
 .si-workspace__title { font-family: var(--si-font-heading); font-size: 24px; font-weight: 700; color: var(--si-navy); letter-spacing: -0.015em; white-space: nowrap; }
 .si-workspace__search { flex: 1; max-width: 520px; }
@@ -259,8 +259,7 @@
 .si-workspace__nav { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin-top: 10px; }
 .si-workspace__intro { padding: 8px 24px 0; background: var(--si-bg); }
 .si-workspace__coverage { padding-bottom: 8px; min-width: 0; }
-.si-workspace__content { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; }
-.si-workspace.has-panel .si-workspace__content { grid-template-columns: minmax(0, 1fr) minmax(420px, 520px); }
+.si-workspace__content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; }
 .si-workspace__main { padding: 16px 24px 40px; min-width: 0; }
 .si-workspace--blocked { display: grid; place-items: center; min-height: 60vh; }
 
@@ -533,7 +532,6 @@
 }
 
 @media (max-width: 1024px) {
-  .si-workspace.has-panel .si-workspace__content { grid-template-columns: minmax(0, 1fr); }
   .si-panel { position: fixed; inset: 0 0 0 auto; width: min(560px, 100vw); height: 100dvh; top: 0; z-index: 20; }
   .si-listview.rail-open .si-listview__grid,
   .si-listview__grid:has(.si-listview__aside),

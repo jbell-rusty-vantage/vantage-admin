@@ -28,6 +28,7 @@ export function SettingsForm({ settings }: { settings: SettingsRead }) {
   const [missed, setMissed] = useState(settings.policy.missed_callback_due_staffed_minutes);
   const [cold, setCold] = useState(settings.policy.going_cold_staffed_minutes);
   const [ceiling, setCeiling] = useState((settings.policy.monthly_ceiling_cents / 100).toFixed(2));
+  const [perRecording, setPerRecording] = useState(String(settings.policy.per_recording_ceiling_cents));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -37,6 +38,7 @@ export function SettingsForm({ settings }: { settings: SettingsRead }) {
     setMissed(settings.policy.missed_callback_due_staffed_minutes);
     setCold(settings.policy.going_cold_staffed_minutes);
     setCeiling((settings.policy.monthly_ceiling_cents / 100).toFixed(2));
+    setPerRecording(String(settings.policy.per_recording_ceiling_cents));
   }, [settings]);
   const day = (weekday: number) => hours.find((shift) => shift.day === weekday) ?? { day: weekday, start_minute: 480, end_minute: 1200 };
   const setDay = (weekday: number, patch: { start_minute?: number; end_minute?: number }) => {
@@ -45,7 +47,8 @@ export function SettingsForm({ settings }: { settings: SettingsRead }) {
     setHours(next.sort((a, b) => a.day - b.day));
   };
   const cents = Math.round(Number(ceiling) * 100);
-  const valid = Number.isSafeInteger(cents) && cents >= 0;
+  const perRecordingCents = Math.round(Number(perRecording));
+  const valid = Number.isSafeInteger(cents) && cents >= 0 && Number.isSafeInteger(perRecordingCents) && perRecordingCents >= 0;
   return (
     <form
       className="si-settings si-card"
@@ -71,6 +74,7 @@ export function SettingsForm({ settings }: { settings: SettingsRead }) {
                 missed_callback_due_staffed_minutes: missed,
                 going_cold_staffed_minutes: cold,
                 monthly_ceiling_cents: cents,
+                per_recording_ceiling_cents: perRecordingCents,
               },
             },
           });
@@ -141,6 +145,12 @@ export function SettingsForm({ settings }: { settings: SettingsRead }) {
         hint={copy.clocks.monthlyCeiling}
       >
         {({ id }) => <input id={id} className="si-input" type="number" min={0} step="0.01" value={ceiling} onChange={(event) => setCeiling(event.target.value)} />}
+      </Field>
+      <Field
+        label={<TooltipCard title="Per-recording AI ceiling (cents)" label="Per-recording AI ceiling (cents)">{copy.clocks.perRecordingCeiling}</TooltipCard>}
+        hint={copy.clocks.perRecordingCeiling}
+      >
+        {({ id }) => <input id={id} className="si-input" type="number" min={0} step="1" value={perRecording} onChange={(event) => setPerRecording(event.target.value)} />}
       </Field>
       <p className="si-field__hint">{copy.coverage.flagsReadOnly}</p>
       {error && <p role="alert">{error}</p>}

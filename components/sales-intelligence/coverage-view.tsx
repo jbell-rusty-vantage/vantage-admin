@@ -22,6 +22,32 @@ function cents(value: number | null) {
   return value == null ? copy.coverage.capabilityUnknown : `$${(value / 100).toFixed(2)}`;
 }
 
+/**
+ * Why a call analysis is or is not starting, with the numbers the server
+ * evaluated. A paused pipeline used to read only as "budget reached" even when
+ * the month had plenty left and one call's worst case was the real blocker.
+ */
+function AdmissionCard({ admission }: { admission: NonNullable<OwnerCoverage["analysis_admission"]> }) {
+  const paused = admission.status !== "admitted";
+  const fix = copy.coverage.admissionFix[admission.status];
+  const unresolved = admission.unresolved_reservations;
+  return (
+    <section className="si-card si-budget" aria-label={copy.coverage.admission}>
+      <TooltipCard title={copy.coverage.admission} guideTopic="coverage" label={<h3>{copy.coverage.admission}</h3>}>
+        {copy.coverage.admissionSoWhat}
+      </TooltipCard>
+      <p role={paused ? "status" : undefined} className={paused ? "si-local-notice" : undefined}>{copy.coverage.admissionStatus[admission.status]}</p>
+      {fix && <p className="si-text--subtle">{fix}</p>}
+      <p>{copy.coverage.admissionEstimate(cents(admission.estimated_cents_per_conversation), cents(admission.per_recording_ceiling_cents))}</p>
+      <p className="si-text--subtle">
+        {copy.coverage.admissionLimits(admission.limits.steps, admission.limits.total_input_tokens.toLocaleString())} · {admission.model}{admission.pricing_version ? ` · pricing ${admission.pricing_version}` : ""}
+      </p>
+      <p className="si-text--subtle">{copy.coverage.admissionPaused(admission.paused.per_recording_ceiling, admission.paused.budget, admission.paused.configuration)}</p>
+      {unresolved.count > 0 && <p className="si-text--subtle">{copy.coverage.admissionUnresolved(unresolved.count, cents(unresolved.estimated_cents))}</p>}
+    </section>
+  );
+}
+
 function Stage({ name, stage }: { name: string; stage: OwnerCoverage["stages"]["recording"] }) {
   return (
     <li>
@@ -94,7 +120,7 @@ export function CoverageView() {
             <p>{copy.coverage.clocksSoWhat}</p>
             {policy && (
               <p>
-                {policy.timezone} · first action {policy.first_action_due_staffed_minutes} staffed minutes · missed callback {policy.missed_callback_due_staffed_minutes} · going cold {policy.going_cold_staffed_minutes}
+                {policy.timezone} · first action {policy.first_action_due_staffed_minutes} staffed minutes · missed callback {policy.missed_callback_due_staffed_minutes} · going cold {policy.going_cold_staffed_minutes} · per-recording ceiling {cents(policy.per_recording_ceiling_cents)}
               </p>
             )}
           </section>
@@ -113,6 +139,7 @@ export function CoverageView() {
               </dl>
             )}
           </section>
+          {row.analysis_admission && <AdmissionCard admission={row.analysis_admission} />}
         </>
       )}
       {settings.error && <Failure error={settings.error} retry={() => void settings.refetch()} />}
