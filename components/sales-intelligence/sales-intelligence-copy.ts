@@ -439,12 +439,23 @@ export const copy = {
   numbers: {
     sortedByActivity: "Sorted by latest activity",
   },
+  loading: {
+    outreach: "Loading Outreach Intelligence",
+    numbers: "Loading numbers",
+  },
   actions: {
     open: "Open",
     filters: "Filters",
     clearFilters: "Clear filters",
     loadMore: "Load more",
     firstPage: "First page",
+    previous: "Previous",
+    next: "Next",
+    pages: "Pages",
+    pageRange: (start: number, end: number, total?: number | null) =>
+      total == null
+        ? `Showing ${start.toLocaleString("en-US")}–${end.toLocaleString("en-US")}`
+        : `Showing ${start.toLocaleString("en-US")}–${end.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}`,
     retry: "Try again",
     cancel: "Cancel",
     closePanel: "Close panel",

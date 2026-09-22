@@ -17,7 +17,7 @@ test("a change frame invalidates only the query keys its topics can change", () 
   assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention"]);
   assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["rep"]))), ["nudge-destinations", "reps"]);
   assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["outreach"]))), [
-    "attention", "number", "outreach", "outreach-by-lead", "timeline",
+    "number", "outreach", "outreach-by-lead", "timeline",
   ]);
   // Every mapped topic stays inside the Sales Intelligence tree and narrower than the whole tree.
   for (const [topic, keys] of Object.entries(salesIntelligenceTopicKeys)) {
@@ -33,9 +33,16 @@ test("two topics in one frame merge without repeating a key", () => {
   const keys = salesIntelligenceInvalidationKeys(change(["analysis", "outreach"]));
   assert.deepEqual(segments(keys), [
     "analysis-evidence", "analysis-evidence-content", "analysis-run", "analysis-runs",
-    "attention", "coverage", "number", "outreach", "outreach-by-lead", "timeline",
+    "coverage", "number", "outreach", "outreach-by-lead", "timeline",
   ]);
   assert.equal(new Set(keys.map((key) => key.join("/"))).size, keys.length);
+});
+
+test("record writes do not restart the published attention list", () => {
+  for (const topic of ["outreach", "attachment", "number", "review", "restriction", "analysis", "rep", "nudge"]) {
+    assert.equal(segments(salesIntelligenceInvalidationKeys(change([topic]))).includes("attention"), false, topic);
+  }
+  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention"]);
 });
 
 test("anything we cannot narrow honestly resyncs the whole tree", () => {

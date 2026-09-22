@@ -22,7 +22,7 @@ test("filter URL round-trip keeps multi-select and treats empty as all", () => {
   const again = new URLSearchParams();
   applyAttentionFilters(again, parsed);
   assert.equal(again.toString(), "band=1&band=3&state=open&state=unworked");
-  assert.equal(attentionQueryString({ bands: [], needs_review: false, states: [], agent_ids: [] }, null), "limit=50");
+  assert.equal(attentionQueryString({ bands: [], needs_review: false, states: [], agent_ids: [] }, null), "limit=100");
   assert.match(attentionQueryString(parsed, null), /band=1&band=3/);
   assert.deepEqual(toggleValue(["1"], "3"), ["1", "3"]);
   assert.deepEqual(toggleValue(["1", "3"], "1"), ["3"]);

@@ -8,11 +8,47 @@ import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
 import { copy } from "./sales-intelligence-copy";
 import { cx, formatDateTime, leadMatchSummary } from "./lib/format";
 import { Button } from "./atoms/button";
+import { NumbersListSkeleton } from "./list-skeletons";
+import { PageControls } from "./page-controls";
 import { FilterSheet } from "./atoms/filter-sheet";
 import { ClassificationBadge, EligibilityBadge, EmptyState, Failure, FilterRail, FilterToolbar } from "./chrome";
 import { numberChips, NumbersFilters } from "./filters";
 import { readFiltersOpen, readList, writeFiltersOpen, writeList } from "./lib/filter-state";
+import { LIST_PAGE_SIZE, numberNextPage, numberPageOffset, numberPreviousPage, pageWindow } from "./lib/paging";
 import { useSiLayout } from "./lib/layout";
+
+function NumberPages({
+  params,
+  count,
+  nextCursor,
+  update,
+}: {
+  params: URLSearchParams;
+  count: number;
+  nextCursor: string | null;
+  update: (values: Record<string, string | boolean | null | undefined | string[]>) => void;
+}) {
+  const cursor = params.get("number_cursor");
+  const before = readList(params, "number_before");
+  const window = pageWindow(numberPageOffset(before.length, Boolean(cursor)), count);
+  if (!window) return null;
+  return (
+    <PageControls
+      label={copy.actions.pageRange(window.start, window.end)}
+      canPrevious={Boolean(cursor)}
+      canNext={Boolean(nextCursor)}
+      onPrevious={() => {
+        const previous = numberPreviousPage(before);
+        update({ number_cursor: previous.cursor, number_before: previous.before });
+      }}
+      onNext={() => {
+        if (!nextCursor) return;
+        const next = numberNextPage(before, cursor, nextCursor);
+        update({ number_cursor: next.cursor, number_before: next.before });
+      }}
+    />
+  );
+}
 
 export function NumberBrowser({
   params,
@@ -25,7 +61,7 @@ export function NumberBrowser({
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
   useEffect(() => { setFiltersOpen(readFiltersOpen()); }, []);
-  const query = new URLSearchParams({ limit: "50" });
+  const query = new URLSearchParams({ limit: String(LIST_PAGE_SIZE) });
   writeList(query, "classification", readList(params, "classification"));
   for (const key of ["q", "attachment", "hygiene", "active_from", "active_to"]) {
     const value = params.get(key);
@@ -92,7 +128,7 @@ export function NumberBrowser({
           </FilterSheet>
         )}
         <div className="si-listview__list">
-          {list.isPending && <p role="status">Loading {copy.page.views.numbers}…</p>}
+          {list.isPending && <NumbersListSkeleton />}
           {list.error && <Failure message={copy.errors.numbersFailed} error={list.error} retry={() => void list.refetch()} />}
           {list.data && (
             <>
@@ -111,6 +147,7 @@ export function NumberBrowser({
                   </Button>
                 </>
               )}
+              <NumberPages params={params} count={list.data.data.items.length} nextCursor={list.data.data.cursor} update={update} />
               <div className="si-nhead" aria-hidden>
                 <span>{copy.columns.number}</span>
                 <span>{copy.columns.lead}</span>
@@ -160,14 +197,7 @@ export function NumberBrowser({
                   );
                 })}
               </ul>
-              <div className="si-loadmore">
-                {cursor && <Button variant="ghost" onClick={() => update({ number_cursor: null })}>{copy.actions.firstPage}</Button>}
-                {list.data.data.cursor && (
-                  <Button disabled={list.isFetching} onClick={() => update({ number_cursor: list.data!.data.cursor })}>
-                    {copy.actions.loadMore}
-                  </Button>
-                )}
-              </div>
+              <NumberPages params={params} count={list.data.data.items.length} nextCursor={list.data.data.cursor} update={update} />
             </>
           )}
         </div>

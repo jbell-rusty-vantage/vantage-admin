@@ -13,6 +13,8 @@ import { RunningSummaryPanel } from "./running-summary-panel";
 import { BANDS, copy } from "./sales-intelligence-copy";
 import { formatDateTime, label } from "./lib/format";
 import { AttentionBands } from "./attention";
+import { OutreachListSkeleton } from "./list-skeletons";
+import { PageControls } from "./page-controls";
 import { CommandDialog } from "./command-dialog";
 import { DetailPanel } from "./detail-panel";
 import { NumberBrowser } from "./number-browser";
@@ -29,6 +31,7 @@ import { CoverageView } from "./coverage-view";
 import { EmptyState, Failure, FilterRail, FilterToolbar, LiveIndicator, LivePulseNotice, SearchField, Tabs } from "./chrome";
 import { attentionChips, AttentionFilters } from "./filters";
 import { attentionFiltersFromParams, attentionQueryString, readFiltersOpen, toggleValue, writeFiltersOpen, writeList } from "./lib/filter-state";
+import { attentionPreviousCursor, decodeAttentionCursor, pageWindow } from "./lib/paging";
 import { useSiLayout } from "./lib/layout";
 import { GuideView } from "./guide-view";
 import { Button } from "./atoms/button";
@@ -232,6 +235,33 @@ const REASON_BAND: Record<string, number> = {
   going_cold: 7,
 };
 
+function AttentionPages({
+  cursor,
+  count,
+  total,
+  nextCursor,
+  onPage,
+}: {
+  cursor: string | null;
+  count: number;
+  total: number | null;
+  nextCursor: string | null;
+  onPage: (cursor: string | null) => void;
+}) {
+  const offset = decodeAttentionCursor(cursor)?.offset ?? 0;
+  const window = pageWindow(offset, count);
+  if (!window) return null;
+  return (
+    <PageControls
+      label={copy.actions.pageRange(window.start, window.end, total)}
+      canPrevious={offset > 0}
+      canNext={Boolean(nextCursor)}
+      onPrevious={() => onPage(attentionPreviousCursor(cursor))}
+      onNext={() => onPage(nextCursor)}
+    />
+  );
+}
+
 export function SalesIntelligenceWorkspace() {
   const params = useSearchParams();
   const router = useRouter();
@@ -257,6 +287,7 @@ export function SalesIntelligenceWorkspace() {
       if (encoded === null) next.delete(key);
       else next.set(key, encoded);
     });
+    if ("number_cursor" in values && values.number_cursor == null && !("number_before" in values)) next.delete("number_before");
     router.replace(`${pathname}?${next}`, { scroll: false });
   }, [params, pathname, router]);
 
@@ -448,7 +479,7 @@ export function SalesIntelligenceWorkspace() {
               )}
               <div className="si-listview__list">
                 {list.error && <Failure error={list.error} retry={() => void list.refetch()} />}
-                {list.isPending && <p role="status">Loading {copy.page.views.attention}…</p>}
+                {list.isPending && <OutreachListSkeleton />}
                 {list.data?.data.status === "pending_projection" && <p role="status" className="si-local-notice">{copy.page.pendingProjection}</p>}
                 {list.data?.data.status === "ready" && (
                   <>
@@ -462,15 +493,9 @@ export function SalesIntelligenceWorkspace() {
                         {hasGaps ? copy.empty.attentionGapsNext : knownThrough ? copy.coverage.knownThrough(formatDateTime(knownThrough)) : copy.coverage.unknown}
                       </EmptyState>
                     )}
+                    <AttentionPages cursor={cursor} count={list.data.data.items.length} total={list.data.data.total_items} nextCursor={list.data.data.cursor} onPage={(next) => update({ attention_cursor: next })} />
                     <AttentionBands items={list.data.data.items} selected={selected} onOpen={openRow} />
-                    <div className="si-loadmore">
-                      {cursor && <Button variant="ghost" onClick={() => update({ attention_cursor: null })}>{copy.actions.firstPage}</Button>}
-                      {list.data.data.cursor && (
-                        <Button disabled={list.isFetching} onClick={() => update({ attention_cursor: list.data!.data.cursor })}>
-                          {copy.actions.loadMore}
-                        </Button>
-                      )}
-                    </div>
+                    <AttentionPages cursor={cursor} count={list.data.data.items.length} total={list.data.data.total_items} nextCursor={list.data.data.cursor} onPage={(next) => update({ attention_cursor: next })} />
                   </>
                 )}
               </div>

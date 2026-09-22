@@ -8,13 +8,17 @@ const prefixes = (...segments:string[]):readonly (readonly string[])[] => segmen
 /** Topic slug to the query-key prefixes that topic can change. The server sends slugs derived from
  *  the changed collection only, so this stays a display-layer routing table, never domain truth. */
 export const salesIntelligenceTopicKeys:Readonly<Record<string, readonly (readonly string[])[]>> = {
- outreach: prefixes('attention','outreach','outreach-by-lead','number','timeline'),
- attachment: prefixes('attachments','attachment-pair','number','outreach','outreach-by-lead','attention'),
+ // The attention list is one published snapshot. Outreach, number, attachment,
+ // review and restriction writes do not change it; only a new snapshot does.
+ // Routing those writes here cancelled the in-flight list read, so Load more
+ // stayed disabled for as long as production kept writing.
+ outreach: prefixes('outreach','outreach-by-lead','number','timeline'),
+ attachment: prefixes('attachments','attachment-pair','number','outreach','outreach-by-lead'),
  analysis: prefixes('analysis-runs','analysis-run','analysis-evidence','analysis-evidence-content','number','coverage'),
- number: prefixes('number','numbers','timeline','attention','outreach','outreach-by-lead','coverage'),
+ number: prefixes('number','numbers','timeline','outreach','outreach-by-lead','coverage'),
  attention: prefixes('attention'),
- review: prefixes('reviews','attention','number','outreach','outreach-by-lead','timeline'),
- restriction: prefixes('number','outreach','outreach-by-lead','attention','timeline'),
+ review: prefixes('reviews','number','outreach','outreach-by-lead','timeline'),
+ restriction: prefixes('number','outreach','outreach-by-lead','timeline'),
  rep: prefixes('reps','nudge-destinations'),
  nudge: prefixes('nudges','timeline'),
 };

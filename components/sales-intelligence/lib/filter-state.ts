@@ -1,3 +1,5 @@
+import { LIST_PAGE_SIZE } from "./paging";
+
 const FILTERS_OPEN_KEY = "vantage-admin-si-filters-open";
 
 export const ATTENTION_LIST_KEYS = ["band", "state", "agent_id"] as const;
@@ -52,7 +54,7 @@ export function applyAttentionFilters(params: URLSearchParams, value: AttentionF
 }
 
 export function attentionQueryString(value: AttentionFilterValue, cursor: string | null): string {
-  const query = new URLSearchParams({ limit: "50" });
+  const query = new URLSearchParams({ limit: String(LIST_PAGE_SIZE) });
   applyAttentionFilters(query, value);
   if (cursor) query.set("cursor", cursor);
   return query.toString();
