@@ -33,7 +33,7 @@ export function AnalysisPanel({numberId,selectedRun,onSelect}:{numberId:string;s
  const [cursor,setCursor]=useState<string|null>(null),[historyCursor,setHistoryCursor]=useState<string|null>(null);
  const [command,setCommand]=useState<{action:AnalysisAction;finding?:AnalysisFinding;focus?:AnalysisFinding}|null>(null);
  const list=useQuery({queryKey:[...salesIntelligenceKeys.all,'analysis-runs',numberId,cursor],queryFn:({signal})=>readSalesIntelligence(`analysis-runs?contact_number_id=${numberId}${cursor?`&cursor=${cursor}`:''}`,analysisRunsSchema,signal),retry:false});
- const runId=selectedRun??list.data?.data.items[0]?.id;
+ const runId=selectedRun??list.data?.data.items.find(item=>item.status==='completed')?.id??list.data?.data.items[0]?.id;
  const detail=useQuery({queryKey:[...salesIntelligenceKeys.all,'analysis-run',runId,historyCursor],enabled:!!runId,queryFn:({signal})=>readSalesIntelligence(`analysis-runs/${runId}${historyCursor?`?history_cursor=${historyCursor}`:''}`,analysisSchema,signal),retry:false});
  const run=detail.data?.data;
  const gone=detail.error instanceof SalesIntelligenceError&&detail.error.status===404;

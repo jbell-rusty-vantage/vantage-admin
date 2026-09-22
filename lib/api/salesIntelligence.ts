@@ -65,7 +65,7 @@ export const timelineSchema = z.object({ as_of:z.string(), coverage, data:z.obje
 export const attentionSchema = z.object({ as_of: z.string(), coverage, data: z.object({ items: z.array(z.object({ subject_key:z.string(), subject,
   outreach: outreachSchema.nullable(), derived })), snapshot_id: z.string().nullable(), total_items:z.number().nullable(), cursor:z.string().nullable(), reason_counts:z.record(z.string(), z.number()).optional(),
   // Optional on the server DTO, so requiring it here would fail the whole Attention read on a page the server still publishes.
-  status:z.enum(['ready','pending_projection']).optional() }) });
+  status:z.enum(['ready','pending_projection']).optional(), stale:z.boolean().optional() }) });
 export const numberSchema = z.object({ as_of:z.string(), coverage, data:z.object({ id:z.string(), revision:z.number(), allowed_actions:z.array(availabilitySchema), e164:z.string(), classification:z.string(), eligibility:z.string(),
   outreach_records:z.array(outreachSchema), running_analysis:z.object({ text:z.string(), run_id:z.string().optional(), computed_at:z.string() }).nullable(),
   attachments:z.array(z.object({ id:z.string(), state:z.string(), certainty:z.string(), lead_ref:z.object({ model:z.string(), id:z.string() }) })),
