@@ -1,5 +1,7 @@
 # Vantage Admin Dashboard
 
+**Outreach availability and stored call analyses (September 22):** Attention keeps the last successful server list visible and marks delayed refresh using the optional `stale` field and original `as_of`. Running Summary also shows completed call summaries/assertions, paginated separately from pending Number synthesis, with links to full analysis and evidence. Conversation output is labeled separately; it never becomes an invented Number summary. Runtime: `components/sales-intelligence/stored-call-analyses.tsx` and `running-summary-panel.tsx`.
+
 Internal web application for lead search, bookings, cancellations, Granot intakes, analytics, and Workflow Observational.
 
 **Platform domain language:** [`../CONTEXT.md`](../CONTEXT.md)

@@ -119,6 +119,8 @@ function Selection({
           : ready && <EmptyState title={copy.panel.noNumberActivity}>{copy.panel.noNumberActivityWhy}</EmptyState>)}
         {panel === "summary" && (
           <RunningSummaryPanel
+            key={resolvedNumber ?? "no-number"}
+            numberId={resolvedNumber ?? undefined}
             analysis={number.data?.data.running_analysis}
             onOpenRun={(runId) => update({ panel: "analysis", analysis_run: runId })}
           />
@@ -378,6 +380,7 @@ export function SalesIntelligenceWorkspace() {
         {view === "numbers" && <NumberBrowser params={new URLSearchParams(params)} update={update} />}
         {view === "attention" && (
           <div className={!compact && filtersOpen ? "si-listview rail-open" : "si-listview"}>
+            {list.data?.data.stale && <p role="status" className="si-local-notice">Showing the last successful list from {formatDateTime(list.data.as_of)}. Refresh is delayed; open a record to check its current status before acting.</p>}
             {list.data?.data.status === "pending_projection" ? (
               <p className="si-bandcards">{copy.page.preparing}</p>
             ) : (

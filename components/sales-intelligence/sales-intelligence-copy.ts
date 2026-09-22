@@ -473,8 +473,8 @@ export const copy = {
   },
   panel: {
     runningSummary: "Running Summary",
-    runningSummaryEmpty: "No completed analysis available.",
-    runningSummaryWhy: "No completed number analysis is available yet. Common reasons: no transcript, the monthly analysis budget is paused, or this Number is not a customer.",
+    runningSummaryEmpty: "No completed Running Summary yet.",
+    runningSummaryWhy: "The Running Summary is a separate analysis across this Number’s calls. Completed call summaries and assertions are shown below, even when that synthesis has not finished.",
     runningSummaryTip: "Current Number picture. It can span more than one Lead. Not what one older run wrote.",
     runningSummarySource: (time: string) => `From the number analysis at ${time}.`,
     runningSummaryOpenRun: "Open that run on Number Analysis",

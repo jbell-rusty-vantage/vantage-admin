@@ -2,6 +2,7 @@ import { copy } from "./sales-intelligence-copy";
 import { evidenceChainCopy as chain } from "./evidence-chain-copy";
 import { formatDateTime } from "./lib/format";
 import { TooltipCard } from "./atoms/tooltip-card";
+import { StoredCallAnalyses } from "./stored-call-analyses";
 
 export function runningSummaryText(analysis: { text: string; computed_at: string; run_id?: string } | null | undefined) {
   return analysis?.text ?? null;
@@ -9,9 +10,11 @@ export function runningSummaryText(analysis: { text: string; computed_at: string
 
 export function RunningSummaryPanel({
   analysis,
+  numberId,
   onOpenRun,
 }: {
   analysis: { text: string; computed_at: string; run_id?: string } | null | undefined;
+  numberId?: string;
   onOpenRun: (runId: string) => void;
 }) {
   const text = runningSummaryText(analysis);
@@ -44,6 +47,7 @@ export function RunningSummaryPanel({
           <p className="si-text--subtle">{copy.panel.runningSummaryWhy}</p>
         </>
       )}
+      {numberId && <StoredCallAnalyses key={numberId} numberId={numberId} onOpenRun={onOpenRun} />}
     </section>
   );
 }
