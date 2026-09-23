@@ -348,6 +348,9 @@ export const copy = {
     completion_target: "A suggested close, not an official close",
     disposition_reopen: "The Lead's current Priority no longer closes this work. Reopen it if it should be worked.",
     disposition_review: "The Lead's Granot disposition needs your decision before this work continues.",
+    prior_fulfilled_unclaimed: "A later call suggests an earlier promise was fulfilled, but its follow-up is still open.",
+    prior_contradiction: "A later call contradicts an earlier finding. Decide which one stands.",
+    record_disputed_on_call: "The customer disputed something Vantage's records say happened (a text, a callback).",
   },
   reviewCauseShort: {
     identity: "Identity unclear",
@@ -361,6 +364,9 @@ export const copy = {
     completion_target: "Suggested closure",
     disposition_reopen: "Reopen review",
     disposition_review: "Disposition review",
+    prior_fulfilled_unclaimed: "Promise fulfilled?",
+    prior_contradiction: "Earlier finding contradicted",
+    record_disputed_on_call: "Record disputed on call",
   },
   bandSoWhat: {
     1: "A rep said they would call, and that time has passed.",
