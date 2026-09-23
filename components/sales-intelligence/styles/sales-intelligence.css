@@ -671,3 +671,20 @@
 .si-livepulse { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 20px; font-size: 13px; color: var(--si-ink-2); }
 .si-livepulse strong { color: var(--si-green); }
 .si-live.is-pulsing { color: var(--si-green); }
+
+/* LP-07: one inline Sort by control per list. */
+.si-sort { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.si-sort__label { font-size: 12px; font-weight: 600; color: var(--si-ink-3); }
+.si-sort__select { min-width: 0; max-width: 100%; }
+.si-sort__direction { display: inline-flex; align-items: center; gap: 4px; }
+/* LP-04: Lead progress on cards and detail. Server words only. */
+.si-leadprogress { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.si-leadprogress__line { font-weight: 500; }
+.si-leadprogress--detail { gap: 4px; }
+.si-leadprogress--detail p { margin: 0; }
+.si-leadprogress__command { display: inline-flex; flex-direction: column; gap: 4px; max-width: 32rem; }
+.si-booked { display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 720px) {
+  .si-sort { width: 100%; }
+  .si-sort__select { flex: 1 1 auto; }
+}

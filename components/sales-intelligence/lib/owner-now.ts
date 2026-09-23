@@ -154,6 +154,19 @@ export function splitCommands(actions: readonly Availability[], known: Record<st
   return { call, secondary, more: rest.filter((item) => !secondary.includes(item)) };
 }
 
+/**
+ * D-03: Override disposition blocked only by FEATURE_DISABLED is switched off for the whole
+ * deployment, so it is not offered at all. Any other blocker still shows it, disabled, with its sentence.
+ * Other commands keep their existing disabled-with-reason behavior.
+ */
+export function offeredActions<T extends Pick<Availability, "action" | "enabled" | "blocker_codes">>(actions: readonly T[]): T[] {
+  return actions.filter((item) => item.action !== "override_disposition" || item.enabled
+    || !(item.blocker_codes.length > 0 && item.blocker_codes.every((code) => code === "FEATURE_DISABLED")));
+}
+
+/** LP-01 §4 blocker codes that carry their own Owner sentence. */
+const DISPOSITION_CODES = ["CRM_DISPOSITION_CLOSED", "DISPOSITION_REVIEW", "FEATURE_DISABLED"] as const;
+
 export const callBlockerText = (codes: readonly string[], blockers: Record<string, string>) =>
   codes.map((code) => blockers[code]).filter(Boolean).join(" ");
 
@@ -171,7 +184,11 @@ export function callBlockerSentence(
 ): string {
   const state = callStateOf(record);
   const restricted = record?.derived.call_blockers.includes("restriction") ?? false;
-  if (record?.state === "closed") return sentences.record_closed;
+  // A disposition code names its own reason, so it outranks the generic closed sentence.
+  const disposition = codes.filter((code) => (DISPOSITION_CODES as readonly string[]).includes(code));
+  if (disposition.length) return callBlockerText(disposition, fallbacks);
+  // Reopen and override act on a closed record; "This Outreach is closed" would not say why they are blocked.
+  if (record?.state === "closed" && action !== "reopen" && action !== "override_disposition") return sentences.record_closed;
   if (action === "start_call") {
     if (state === "in_progress") return sentences.call_already_in_progress;
     if (restricted) return sentences.contact_restricted;

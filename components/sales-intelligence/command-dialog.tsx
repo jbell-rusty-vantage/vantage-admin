@@ -7,6 +7,7 @@ import { salesIntelligenceKeys } from '@/lib/query/salesIntelligence';
 import { buildIntent,commandLabels,initialDraft,type Draft } from './lib/commands';
 import { copy } from "./sales-intelligence-copy";
 import { formatDateTime,label } from './lib/format';
+import { progressLine } from './lib/lead-progress';
 import { ownershipPhrase } from './ownership';
 import { Button } from './atoms/button';
 
@@ -19,7 +20,8 @@ export function CommandDialog({command,record,action,onClose}:{command:string;re
  const intent=useRef<CommandIntent|null>(null),submitting=useRef(false);
  const agents=useQuery({queryKey:['catalog','agents','csi-current'],queryFn:()=>fetchCatalogItems('agents',{includeInactive:true}),enabled:['assign','create_followup','patch_followup'].includes(command)});
  useEffect(()=>{const dialog=ref.current,opener=document.activeElement,parent=opener?.closest('dialog');dialog?.showModal();return ()=>{dialog?.close();if(opener instanceof HTMLElement&&opener.isConnected&&!opener.matches(':disabled'))opener.focus();else parent?.querySelector<HTMLElement>('button:not(:disabled),a[href]')?.focus();};},[]);
- const changed=record.revision!==baseline.record.revision||action?.revision!==baseline.action?.revision;
+ const changed=record.revision!==baseline.record.revision||action?.revision!==baseline.action?.revision
+  ||record.lead_progress?.disposition_revision!==baseline.record.lead_progress?.disposition_revision;
  const available=(action??record).allowed_actions.find(a=>a.action===command)?.enabled===true;
  const change=(field:keyof Draft,value:string)=>{setDraft(old=>({...old,[field]:value}));intent.current=null;setError('');};
  async function submit() {
@@ -45,7 +47,7 @@ export function CommandDialog({command,record,action,onClose}:{command:string;re
  }
  const editor=['create_followup','patch_followup'].includes(command),withAgent=editor||command==='assign';
  const withDate=editor||command==='set_waiting'||command==='snooze_followup';
- const withReason=['patch_followup','assign','set_waiting','reopen','snooze_followup','cancel_followup'].includes(command);
+ const withReason=['patch_followup','assign','set_waiting','reopen','override_disposition','snooze_followup','cancel_followup'].includes(command);
  const withNote=['mark_worked','add_note','close','complete_followup','start_call','end_call'].includes(command);
  return <dialog ref={ref} className="si-root si-local-command" aria-labelledby={titleId} onCancel={event=>{event.stopPropagation();if(pending)event.preventDefault();else onClose();}}>
  <form className="si-local-stack" onSubmit={event=>{event.preventDefault();void submit();}}>
@@ -54,6 +56,7 @@ export function CommandDialog({command,record,action,onClose}:{command:string;re
  <p>{ownershipPhrase('owned', record.assignment.agent)} · {label(record.state)}</p>
  {command==='close' && <p>Closing cancels active follow-ups and preserves their history.</p>}
  {command==='reopen' && <p>Reopening checks current eligibility. Cancelled follow-ups remain in history.</p>}
+ {command==='override_disposition' && <><p>{copy.leadProgress.overrideExplain}</p>{record.lead_progress&&<p>{progressLine(record.lead_progress)} · {record.lead_progress.disposition_label}</p>}</>}
  {command==='mark_worked' && <p>This records work without claiming that anyone spoke with the customer. A next step is optional.</p>}
  {command==='start_call' && <><p>{copy.call.startExplain}</p><p>{copy.call.notRecording}</p></>}
  {command==='end_call' && <p>{copy.call.endExplain}</p>}

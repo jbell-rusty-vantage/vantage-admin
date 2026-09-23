@@ -8,10 +8,11 @@ import { OwnershipSplit } from "./ownership";
 import { RelatedRecordChips } from "./related-record-chips";
 import { CallStateBadge, CallStateLine } from "./call-state";
 import { LeadProvenance } from "./lead-provenance";
+import { LeadProgressLine } from "./lead-progress";
 import { Button } from "./atoms/button";
 import { TooltipCard } from "./atoms/tooltip-card";
 import { commandLabels } from "./lib/commands";
-import { callBlockerSentence, callBlockerText, callStateOf, splitCommands } from "./lib/owner-now";
+import { callBlockerSentence, callBlockerText, callStateOf, offeredActions, splitCommands } from "./lib/owner-now";
 
 type Availability = Outreach["allowed_actions"][number];
 
@@ -73,7 +74,7 @@ export function NowStrip({
       ? bandLabel(outreach.derived.attention_band)
       : copy.needsReview.title;
   const onTheCall = callStateOf(outreach) === "in_progress";
-  const deck = outreach && onCommand ? splitCommands(outreach.allowed_actions, commandLabels) : null;
+  const deck = outreach && onCommand ? splitCommands(offeredActions(outreach.allowed_actions), commandLabels) : null;
   return (
     <div className={cx("si-now", onTheCall && "si-now--live")}>
       <div className="si-now__identity">
@@ -95,6 +96,7 @@ export function NowStrip({
             ? `${label(action.kind)} · ${action.due_at ? copy.time.due(formatDateTime(action.due_at)) : copy.time.dueDateNeeded}`
             : copy.panel.noNextStep}
         </p>
+        <LeadProgressLine record={outreach} />
         <OwnershipSplit
           promisedBy={action?.origin === "rep_promise" ? action.promised_by : undefined}
           assignedTo={action?.assignment.agent}

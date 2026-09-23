@@ -40,6 +40,8 @@ const display: Record<string, string> = {
   ...copy.followupOrigin,
   ...copy.attachment,
   restriction: "Calling paused",
+  disposition_review: copy.reviewCauseShort.disposition_review,
+  disposition_reopen: copy.reviewCauseShort.disposition_reopen,
   review_only: "Review only",
   suppressed: copy.eligibility.suppressed,
   owner_confirmed: "Confirmed by you",

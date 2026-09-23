@@ -26,6 +26,8 @@ export function buildIntent(command:string,draft:Draft,record:Outreach,action:Fo
  else if(command==='add_note')body.text=text(draft.note);
  else if(command==='close') {body.reason=draft.closeReason;if(draft.note.trim())body.note=text(draft.note);}
  else if(command==='reopen')body.reason=text(draft.reason);
+ // LP-01 §4: the override is scoped to the disposition revision the Owner was looking at.
+ else if(command==='override_disposition') {const revision=record.lead_progress?.disposition_revision;if(!revision)throw new Error('This record has no current Lead disposition to override.');body.reason=text(draft.reason);body.disposition_revision=revision;}
  else if(command==='create_followup') {path='followups';body.outreach_record_id=record.id;body.action={kind:draft.kind,description:text(draft.description),due_at:easternInstant(draft.due),responsible_agent_id:draft.agent||null};}
  else if(action) {
   body.expected_revisions=[{target:'outreach',id:record.id,revision:record.revision}];

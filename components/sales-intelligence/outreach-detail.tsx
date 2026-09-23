@@ -7,12 +7,13 @@ import { FollowupCard } from './followup-card';
 import { OwnershipSplit } from './ownership';
 import { CallStateBadge, CallStateLine } from './call-state';
 import { LeadProvenance } from './lead-provenance';
+import { LeadProgressSection } from './lead-progress';
 import { Badge } from './atoms/badge';
 import { Button } from './atoms/button';
 import { CommandDialog } from './command-dialog';
 import { MessageRepDialog } from './message-rep-dialog';
 import { commandLabels } from './lib/commands';
-import { callBlockerSentence, splitCommands } from './lib/owner-now';
+import { callBlockerSentence, offeredActions, splitCommands } from './lib/owner-now';
 import { copy } from "./sales-intelligence-copy";
 import { contactTypeLabel, formatDateTime,label } from './lib/format';
 
@@ -23,7 +24,7 @@ export function OutreachDetail({record,accountId}:{record:Outreach;accountId?:st
  const [messaging,setMessaging]=useState(false);
  const selected=record.followups.find(action=>action.id===editing?.actionId);
  const link=record.subject.kind==='lead'?officialRecordHref(record.subject.model,record.subject.id):null;
- const deck=splitCommands(record.allowed_actions,commandLabels);
+ const deck=splitCommands(offeredActions(record.allowed_actions),commandLabels);
  const command=(item:Availability,variant:'primary'|'secondary'|'ghost'='secondary')=>
   <Button key={item.action} variant={variant} disabled={!item.enabled}
    title={item.enabled?undefined:callBlockerSentence(item.action,record,item.blocker_codes,copy.call.blockers,copy.call.blockerCodes)||undefined}
@@ -33,6 +34,7 @@ export function OutreachDetail({record,accountId}:{record:Outreach;accountId?:st
  <CallStateLine record={record}/>
  <OwnershipSplit overallOwner={record.assignment.agent}/>
  <LeadProvenance record={record}/>
+ <LeadProgressSection record={record} onCommand={command=>setEditing({command})}/>
  {record.lead_display&&<p>{record.lead_display.name??copy.fields.unknown} · Job Number {record.lead_display.job_no??copy.time.notObserved} · {record.lead_display.source_company??copy.fields.unknown}</p>}
  {link&&<Link href={link}>Open official Lead</Link>}
  {record.related_record_links?.filter(item=>item.model==='BookedLead'||item.model==='CancelledLead').map(item=><Link key={`${item.model}:${item.id}`} href={officialRecordHref(item.model,item.id)}>Open official {item.model==='BookedLead'?'Booking':'Cancellation'} · {label(item.certainty)}</Link>)}

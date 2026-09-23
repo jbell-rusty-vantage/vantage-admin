@@ -12,7 +12,10 @@ import { NowStrip } from "./now-strip";
 import { RunningSummaryPanel } from "./running-summary-panel";
 import { BANDS, copy } from "./sales-intelligence-copy";
 import { formatDateTime, label } from "./lib/format";
-import { AttentionBands } from "./attention";
+import { AttentionBands, AttentionFlatList } from "./attention";
+import { SortControl } from "./sort-control";
+import { BookedNotice, LeadProgressSection } from "./lead-progress";
+import { OUTREACH_SORT_OPTIONS, applyOutreachSort, outreachLayout, outreachSortFromParams } from "./lib/sort";
 import { OutreachListSkeleton } from "./list-skeletons";
 import { PageControls } from "./page-controls";
 import { CommandDialog } from "./command-dialog";
@@ -109,6 +112,7 @@ function Selection({
       }
     >
       <div className="si-local-stack">
+        <BookedNotice record={record ?? null} returnTo={returnTo} />
         {outreach.error && <Failure error={outreach.error} retry={() => void outreach.refetch()} />}
         {!outreachId && byLead.error && (
           byLead.error instanceof SalesIntelligenceError && byLead.error.status === 404
@@ -120,6 +124,7 @@ function Selection({
         {panel === "activity" && (resolvedNumber
           ? <NumberTimeline numberId={resolvedNumber} />
           : ready && <EmptyState title={copy.panel.noNumberActivity}>{copy.panel.noNumberActivityWhy}</EmptyState>)}
+        {panel === "summary" && <LeadProgressSection record={record ?? null} />}
         {panel === "summary" && (
           <RunningSummaryPanel
             key={resolvedNumber ?? "no-number"}
@@ -296,7 +301,9 @@ export function SalesIntelligenceWorkspace() {
   const view = parseSiView(params.get("view"));
   const attentionFilters = attentionFiltersFromParams(params);
   const cursor = params.get("attention_cursor");
+  const sortState = outreachSortFromParams(params);
   const query = new URLSearchParams(attentionQueryString(attentionFilters, cursor));
+  applyOutreachSort(query, sortState);
   const list = useQuery({
     queryKey: [...salesIntelligenceKeys.all, "attention", query.toString()],
     enabled: view === "attention",
@@ -308,6 +315,17 @@ export function SalesIntelligenceWorkspace() {
       update({ attention_cursor: null });
     }
   }, [cursor, list.error, update]);
+  // §14.4: a cursor minted under another sort is rejected; restart from page one. A sort this
+  // server rejects falls back to Attention order and says so. Admin never sorts the page itself.
+  const sortRequested = sortState.sort !== "attention";
+  useEffect(() => {
+    if (!(list.error instanceof SalesIntelligenceError) || list.error.code !== "INVALID_INPUT") return;
+    if (cursor) update({ attention_cursor: null });
+    else if (sortRequested) update({ sort: null, direction: null, attention_cursor: null, sort_unavailable: true });
+  }, [cursor, list.error, sortRequested, update]);
+  const servedSort = list.data?.data.sort;
+  const sortUnavailable = params.get("sort_unavailable") === "true" || (sortRequested && !!list.data && !servedSort);
+  const layout = sortUnavailable ? "bands" : outreachLayout(servedSort);
 
   const outreachId = params.get("outreach");
   const numberId = params.get("number");
@@ -459,7 +477,28 @@ export function SalesIntelligenceWorkspace() {
               }}
               activeCount={filterCount}
               chips={attentionChips(attentionFilters, agents.data ?? [], update)}
+              note={
+                <SortControl
+                  options={OUTREACH_SORT_OPTIONS}
+                  value={sortState.sort}
+                  direction={sortState.direction}
+                  onChange={(next) => update({
+                    sort: next.sort === "attention" ? null : next.sort,
+                    direction: next.sort === "attention" ? null : next.direction,
+                    attention_cursor: null,
+                    sort_unavailable: null,
+                  })}
+                />
+              }
             />
+            {sortUnavailable && (
+              <p role="status" className="si-local-notice">
+                {copy.sort.unavailable}{" "}
+                {params.get("sort_unavailable") === "true" && (
+                  <button type="button" className="si-btn si-btn--link" onClick={() => update({ sort_unavailable: null })}>{copy.sort.dismiss}</button>
+                )}
+              </p>
+            )}
             {compact && !sheet && sheetOpen && (
               <div className="si-filterexpand">
                 <AttentionFilters value={attentionFilters} onChange={update} agents={agents.data ?? []} />
@@ -494,7 +533,10 @@ export function SalesIntelligenceWorkspace() {
                       </EmptyState>
                     )}
                     <AttentionPages cursor={cursor} count={list.data.data.items.length} total={list.data.data.total_items} nextCursor={list.data.data.cursor} onPage={(next) => update({ attention_cursor: next })} />
-                    <AttentionBands items={list.data.data.items} selected={selected} onOpen={openRow} />
+                    {layout === "flat" && <p className="si-text--sm si-text--subtle">{copy.sort.acrossBands}</p>}
+                    {layout === "flat"
+                      ? <AttentionFlatList items={list.data.data.items} selected={selected} onOpen={openRow} sortedBy={servedSort} />
+                      : <AttentionBands items={list.data.data.items} selected={selected} onOpen={openRow} />}
                     <AttentionPages cursor={cursor} count={list.data.data.items.length} total={list.data.data.total_items} nextCursor={list.data.data.cursor} onPage={(next) => update({ attention_cursor: next })} />
                   </>
                 )}

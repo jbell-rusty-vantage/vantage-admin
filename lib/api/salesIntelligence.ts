@@ -42,8 +42,29 @@ const subject = z.discriminatedUnion('kind', [z.object({ kind: z.literal('number
 const followup = z.object({ id: z.string(), revision:z.number(), allowed_actions:z.array(availabilitySchema),kind: z.string(), description: z.string(), status: z.string(), due_at: z.string().nullable(),
   disposition:z.string().nullable().optional(),completion_basis:z.string().nullable().optional(),
   snoozed_until: z.string().nullable(), overdue: z.boolean(), origin: z.string(), assignment, promised_by: agent.nullable(), paused_channels: z.array(z.string()) });
+// LP-01 §7: server-owned Lead progress. Every label is a server word; Admin never derives Quoted from
+// Priority or policy from a code. Optional so a server without it still renders.
+export const leadProgressSchema = z.object({ lead_ref: z.object({ model: z.enum(['FormLead','CallLead']), id: z.string() }),
+  granot_priority: z.string().nullable(), priority_label: z.string(), quoted: z.boolean().nullable(),
+  disposition: z.string(), disposition_label: z.string(), work_observed: z.boolean(), basis: z.string().nullable(), basis_label: z.string().nullable(),
+  provenance: z.string(), source_origin: z.string().nullable(), source_applied_at: z.string().nullable(), last_progress_at: z.string().nullable(),
+  first_work_observed_at: z.string().nullable(), closure: z.object({ basis: z.string(), closed_at: z.string().nullable() }).nullable(),
+  override: z.object({ reason: z.string(), decided_at: z.string(), decided_by: z.string(), disposition_revision: z.string() }).nullable(),
+  reopen_review_id: z.string().nullable(), disposition_revision: z.string(), explanation: z.string().nullable(), no_call_observed: z.boolean(), projected_at: z.string() });
+export type LeadProgress = z.infer<typeof leadProgressSchema>;
+// §14.1 ordering keys frozen into each Attention row; Admin renders server order and never sorts a page locally.
+export const sortKeysSchema = z.object({ next_action_due: z.string().nullable(), lead_received: z.string().nullable(), last_human_contact: z.string().nullable(), last_lead_progress: z.string().nullable() });
+export const ATTENTION_SORTS = ['attention','next_action_due','lead_received','last_human_contact','last_lead_progress'] as const;
+export type AttentionSort = (typeof ATTENTION_SORTS)[number];
+export const ATTENTION_SORT_DEFAULT_DIRECTION: Record<AttentionSort, 'asc'|'desc'> = { attention: 'asc', next_action_due: 'asc', lead_received: 'desc', last_human_contact: 'asc', last_lead_progress: 'desc' };
+export const NUMBER_SORTS = ['last_activity','last_human_conversation','first_observed'] as const;
+export type NumberSort = (typeof NUMBER_SORTS)[number];
+export function parseAttentionSort(value: string | null | undefined): AttentionSort { return (ATTENTION_SORTS as readonly string[]).includes(value ?? '') ? value as AttentionSort : 'attention'; }
+export function parseNumberSort(value: string | null | undefined): NumberSort { return (NUMBER_SORTS as readonly string[]).includes(value ?? '') ? value as NumberSort : 'last_activity'; }
+export function parseDirection(value: string | null | undefined, fallback: 'asc'|'desc'): 'asc'|'desc' { return value === 'asc' || value === 'desc' ? value : fallback; }
 export const outreachSchema = z.object({ id: z.string(), revision: z.number(), subject, state: z.string(), reason: z.string().nullable(),
   allowed_actions:z.array(availabilitySchema),
+  lead_progress: leadProgressSchema.nullable().optional(),
   lead_display:z.object({name:z.string().nullable(),job_no:z.string().nullable(),source_company:z.string().nullable()}).nullable().optional(),
   latest_number_call:z.object({id:z.string(),happened_at:z.string(),direction:z.string(),provider_result:z.string().nullable(),contact_type:z.string()}).nullable().optional(),
   related_record_links:z.array(z.object({model:z.enum(['FormLead','CallLead','BookedLead','CancelledLead']),id:z.string(),href:z.string(),certainty:z.string()})).optional(),
@@ -54,18 +75,29 @@ export const outreachSchema = z.object({ id: z.string(), revision: z.number(), s
   primary_number: z.object({ id: z.string(), e164: z.string() }).nullable().optional(), assignment, followups: z.array(followup), derived,
   last_meaningful_contact_at: z.string().nullable() });
 const coverage = z.object({ known_through: z.string().nullable(), gaps: z.array(z.object({ from:z.string(), to:z.string(), reason:z.string() })), ai_paused:z.boolean() });
+// §7 Number card: the one resolved Lead's progress, or an explicit multiple/none. Never merged across Leads.
+export const attachedLeadProgressSchema = z.object({ status: z.enum(['resolved','multiple','none']),
+  lead_ref: z.object({ model: z.enum(['FormLead','CallLead']), id: z.string() }).optional(), lead_progress: leadProgressSchema.nullable().optional(),
+  booking: z.object({ id: z.string(), cancelled: z.boolean() }).nullable().optional(), outreach_state: z.string().nullable().optional(),
+  lead_display: z.object({ name: z.string().nullable(), job_no: z.string().nullable() }).nullable().optional() });
+export type AttachedLeadProgress = z.infer<typeof attachedLeadProgressSchema>;
 export const numberSearchSchema = z.object({ as_of:z.string(), coverage, data:z.object({
   items:z.array(z.object({ id:z.string(), revision:z.number(), e164:z.string(), provider_names:z.array(z.string()),
-    classification:z.string(), eligibility:z.string(), linked:z.boolean(), last_activity_at:z.string(),
-    rollups:z.object({ interactions_total:z.number(), human_conversations_total:z.number(), attached_lead_count:z.number(), candidate_lead_count:z.number() }) })),
-  cursor:z.string().nullable() }) });
+    classification:z.string(), eligibility:z.string(), linked:z.boolean(), last_activity_at:z.string(), first_observed_at:z.string().optional(),
+    rollups:z.object({ interactions_total:z.number(), human_conversations_total:z.number(), attached_lead_count:z.number(), candidate_lead_count:z.number(), last_human_conversation_at:z.string().nullable().optional() }),
+    attached_lead_progress: attachedLeadProgressSchema.optional() })),
+  cursor:z.string().nullable(),
+  // LP-06: the order the server applied to this page; absent on pre-sort servers.
+  sort:z.object({ sort:z.string(), direction:z.enum(['asc','desc']) }).optional() }) });
 export const timelineSchema = z.object({ as_of:z.string(), coverage, data:z.object({ number_id:z.string(),
   items:z.array(z.object({ id:z.string(), kind:z.string(), happened_at:z.string(), observed_at:z.string(), description:z.string(),
     evidence_refs:z.array(z.string()), detail:z.record(z.string(),z.json()) })), cursor:z.string().nullable() }) });
 export const attentionSchema = z.object({ as_of: z.string(), coverage, data: z.object({ items: z.array(z.object({ subject_key:z.string(), subject,
-  outreach: outreachSchema.nullable(), derived })), snapshot_id: z.string().nullable(), total_items:z.number().nullable(), cursor:z.string().nullable(), reason_counts:z.record(z.string(), z.number()).optional(),
+  outreach: outreachSchema.nullable(), derived, sort_keys: sortKeysSchema.optional() })), snapshot_id: z.string().nullable(), total_items:z.number().nullable(), cursor:z.string().nullable(), reason_counts:z.record(z.string(), z.number()).optional(),
   // Optional on the server DTO, so requiring it here would fail the whole Attention read on a page the server still publishes.
-  status:z.enum(['ready','pending_projection']).optional(), stale:z.boolean().optional() }) });
+  status:z.enum(['ready','pending_projection']).optional(), stale:z.boolean().optional(),
+  // §14.1: the sort the server produced this page under. Absent means the server has no sort contract; the UI shows "unavailable" rather than sorting locally.
+  sort:z.string().optional(), direction:z.enum(['asc','desc']).optional(), view:z.string().optional() }) });
 export const numberSchema = z.object({ as_of:z.string(), coverage, data:z.object({ id:z.string(), revision:z.number(), allowed_actions:z.array(availabilitySchema), e164:z.string(), classification:z.string(), eligibility:z.string(),
   outreach_records:z.array(outreachSchema), running_analysis:z.object({ text:z.string(), run_id:z.string().optional(), computed_at:z.string() }).nullable(),
   attachments:z.array(z.object({ id:z.string(), state:z.string(), certainty:z.string(), lead_ref:z.object({ model:z.string(), id:z.string() }) })),

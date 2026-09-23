@@ -10,6 +10,8 @@ import { ProvenanceBadge } from "./lead-provenance";
 import { copy } from "./sales-intelligence-copy";
 import { bandLabel, contactTypeLabel, cx, formatDateTime, formatSuppliedAge, label } from "./lib/format";
 import { callStateOf, provenanceStateOf } from "./lib/owner-now";
+import { LeadProgressLine } from "./lead-progress";
+import { OUTREACH_SORT_OPTIONS, sortKeyText, sortOption } from "./lib/sort";
 
 function identity(row: Row) {
   const record = row.outreach;
@@ -25,7 +27,18 @@ function lastOutcome(record: NonNullable<Row["outreach"]>) {
   return [label(call.direction), result, contactTypeLabel(call.contact_type)].filter(Boolean).join(" · ");
 }
 
-export function AttentionRow({ row, selected, onOpen }: { row: Row; selected: boolean; onOpen: () => void }) {
+/** Under a time sort the list is flat, so each card carries the band it would have been grouped under. */
+function BandTag({ band }: { band: number | null }) {
+  return (
+    <Badge tone={band != null && band <= 2 ? "amber" : "neutral"} className="si-badge--wrap">
+      {band == null ? copy.needsReview.title : copy.sort.band(band, bandLabel(band))}
+    </Badge>
+  );
+}
+
+export function AttentionRow({ row, selected, onOpen, showBand = false, sortedBy }: { row: Row; selected: boolean; onOpen: () => void; showBand?: boolean; sortedBy?: string }) {
+  const sortOptionShown = sortedBy ? sortOption(OUTREACH_SORT_OPTIONS, sortedBy) : undefined;
+  const sortValue = sortedBy && row.sort_keys ? (row.sort_keys as Record<string, string | null | undefined>)[sortedBy] : undefined;
   const record = row.outreach;
   const primary = row.derived.reasons[0];
   const secondary = row.derived.reasons.slice(1);
@@ -48,6 +61,11 @@ export function AttentionRow({ row, selected, onOpen }: { row: Row; selected: bo
           </span>
         )}
         {record && <span className="si-text--subtle si-text--sm">{label(record.state)}</span>}
+        {showBand && <BandTag band={row.derived.attention_band} />}
+        {sortOptionShown && sortOptionShown.kind === "time" && sortValue !== undefined && (
+          <span className="si-text--sm si-text--subtle">{sortOptionShown.label}: {sortKeyText(sortOptionShown, sortValue, formatDateTime, copy.fields.unknown)}</span>
+        )}
+        <LeadProgressLine record={record} />
       </div>
       <div className="si-row__reason">
         <span className={cx("si-row__reasontext", row.derived.overdue && "is-danger")}>
@@ -146,5 +164,29 @@ export function AttentionBands({
         </section>
       )}
     </div>
+  );
+}
+
+/**
+ * LP-07 (§14.1): under a time sort the server has already ordered the whole snapshot
+ * across bands. Render exactly that order; grouping by band here would undo it.
+ */
+export function AttentionFlatList({
+  items,
+  selected,
+  onOpen,
+  sortedBy,
+}: {
+  items: Row[];
+  sortedBy?: string;
+  selected: (row: Row) => boolean;
+  onOpen: (row: Row) => void;
+}) {
+  return (
+    <ul className="si-rows si-rows--flat">
+      {items.map((row) => (
+        <AttentionRow key={row.subject_key} row={row} selected={selected(row)} onOpen={() => onOpen(row)} showBand sortedBy={sortedBy} />
+      ))}
+    </ul>
   );
 }

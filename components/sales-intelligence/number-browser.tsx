@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { numberSearchSchema, readSalesIntelligence } from "@/lib/api/salesIntelligence";
+import { numberSearchSchema, readSalesIntelligence, SalesIntelligenceError } from "@/lib/api/salesIntelligence";
 import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
 import { copy } from "./sales-intelligence-copy";
 import { cx, formatDateTime, leadMatchSummary } from "./lib/format";
@@ -16,6 +16,10 @@ import { numberChips, NumbersFilters } from "./filters";
 import { readFiltersOpen, readList, writeFiltersOpen, writeList } from "./lib/filter-state";
 import { LIST_PAGE_SIZE, numberNextPage, numberPageOffset, numberPreviousPage, pageWindow } from "./lib/paging";
 import { useSiLayout } from "./lib/layout";
+import { currentSalesIntelligenceHref } from "./lib/official-record";
+import { NUMBER_SORT_OPTIONS, applyNumberSort, isDefaultNumberSort, numberSortFromParams, sortOption } from "./lib/sort";
+import { SortControl } from "./sort-control";
+import { AttachedLeadLine } from "./lead-progress";
 
 function NumberPages({
   params,
@@ -69,11 +73,25 @@ export function NumberBrowser({
   }
   const cursor = params.get("number_cursor");
   if (cursor) query.set("cursor", cursor);
+  const sortState = numberSortFromParams(params);
+  applyNumberSort(query, sortState);
   const list = useQuery({
     queryKey: [...salesIntelligenceKeys.all, "numbers", query.toString()],
     queryFn: ({ signal }) => readSalesIntelligence(`numbers?${query}`, numberSearchSchema, signal),
     retry: false,
   });
+  // §14.4: a cursor from another sort is rejected, so restart at page one; a sort this server
+  // rejects falls back to the default order and says so. The loaded page is never re-sorted here.
+  const sortRequested = !isDefaultNumberSort(sortState);
+  useEffect(() => {
+    if (!(list.error instanceof SalesIntelligenceError) || list.error.code !== "INVALID_INPUT") return;
+    if (cursor) update({ number_cursor: null });
+    else if (sortRequested) update({ number_sort: null, number_direction: null, number_cursor: null, number_sort_unavailable: true });
+  }, [cursor, list.error, sortRequested, update]);
+  const servedSort = list.data?.data.sort;
+  const sortUnavailable = params.get("number_sort_unavailable") === "true" || (sortRequested && !!list.data && !servedSort);
+  const shownSort = sortUnavailable || !servedSort || servedSort.sort === "last_activity" ? null : sortOption(NUMBER_SORT_OPTIONS, servedSort.sort);
+  const returnTo = currentSalesIntelligenceHref(params);
   const filters = {
     classifications: readList(params, "classification"),
     attachment: params.get("attachment") ?? "any",
@@ -106,11 +124,29 @@ export function NumberBrowser({
         note={
           <>
             {shortPhone && <span className="si-text--sm si-text--amber" role="note">{copy.page.searchHint}</span>}
-            <span className="si-text--sm si-text--subtle">{copy.numbers.sortedByActivity}</span>
+            <SortControl
+              options={NUMBER_SORT_OPTIONS}
+              value={sortState.sort}
+              direction={sortState.direction}
+              onChange={(next) => update({
+                number_sort: next.sort === "last_activity" && next.direction === "desc" ? null : next.sort,
+                number_direction: next.sort === "last_activity" && next.direction === "desc" ? null : next.direction,
+                number_cursor: null,
+                number_sort_unavailable: null,
+              })}
+            />
           </>
         }
       />
       </div>
+      {sortUnavailable && (
+        <p role="status" className="si-local-notice">
+          {copy.sort.unavailable}{" "}
+          {params.get("number_sort_unavailable") === "true" && (
+            <button type="button" className="si-btn si-btn--link" onClick={() => update({ number_sort_unavailable: null })}>{copy.sort.dismiss}</button>
+          )}
+        </p>
+      )}
       {compact && !sheet && sheetOpen && (
         <div className="si-filterexpand">
           <NumbersFilters value={filters} onChange={update} />
@@ -174,9 +210,16 @@ export function NumberBrowser({
                           <ClassificationBadge value={number.classification} />
                           <EligibilityBadge value={number.eligibility} />
                         </div>
-                        <span className="si-text--sm si-text--subtle">
-                          {leadMatchSummary(number.rollups.attached_lead_count, number.rollups.candidate_lead_count)}
-                        </span>
+                        {!(number.attached_lead_progress?.status === "none" && !number.rollups.candidate_lead_count) && (
+                          <span className="si-text--sm si-text--subtle">
+                            {leadMatchSummary(number.rollups.attached_lead_count, number.rollups.candidate_lead_count)}
+                          </span>
+                        )}
+                        <AttachedLeadLine
+                          value={number.attached_lead_progress}
+                          returnTo={returnTo}
+                          onReviewMatches={() => update({ number: number.id, outreach: null, lead: null, lead_model: null, panel: "matches" })}
+                        />
                       </div>
                       <div className="si-nrow__activity">
                         <span className="si-ownership__label">{copy.fields.lastActivity}</span>
@@ -186,6 +229,21 @@ export function NumberBrowser({
                           {" · "}
                           {copy.lead.interactions(number.rollups.interactions_total)}
                         </span>
+                        {shownSort?.value === "first_observed" && (
+                          <span className="si-text--sm">
+                            {copy.sort.firstObserved}: {number.first_observed_at ? formatDateTime(number.first_observed_at) : copy.fields.unknown}
+                          </span>
+                        )}
+                        {shownSort?.value === "last_human_conversation" && (
+                          <span className="si-text--sm">
+                            {copy.sort.lastHumanConversation}:{" "}
+                            {number.rollups.last_human_conversation_at === undefined
+                              ? copy.fields.unknown
+                              : number.rollups.last_human_conversation_at === null
+                                ? copy.sort.noConversation
+                                : formatDateTime(number.rollups.last_human_conversation_at)}
+                          </span>
+                        )}
                       </div>
                       <div className="si-nrow__actions">
                         <Button variant="ghost" size="sm" onClick={() => update({ number: number.id, outreach: null, lead: null, lead_model: null })} aria-label={`${copy.actions.open} ${number.e164}`}>
