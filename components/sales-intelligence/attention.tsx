@@ -11,7 +11,7 @@ import { copy } from "./sales-intelligence-copy";
 import { bandLabel, contactTypeLabel, cx, formatDateTime, formatSuppliedAge, label } from "./lib/format";
 import { callStateOf, provenanceStateOf } from "./lib/owner-now";
 import { LeadProgressLine } from "./lead-progress";
-import { OUTREACH_SORT_OPTIONS, sortKeyText, sortOption } from "./lib/sort";
+import { OUTREACH_SORT_OPTIONS, cardScores, sortKeyText, sortOption, type CardScores } from "./lib/sort";
 
 function identity(row: Row) {
   const record = row.outreach;
@@ -27,19 +27,70 @@ function lastOutcome(record: NonNullable<Row["outreach"]>) {
   return [label(call.direction), result, contactTypeLabel(call.contact_type)].filter(Boolean).join(" · ");
 }
 
-/** Under a time sort the list is flat, so each card carries the band it would have been grouped under. */
-function BandTag({ band }: { band: number | null }) {
+/**
+ * Under a time or score sort the list is flat, so each card carries the band it would have been grouped
+ * under. In `all_outreach` a row can sit outside Attention entirely; that is said, not shown as review.
+ */
+function BandTag({ row }: { row: Row }) {
+  const band = row.derived.attention_band;
+  // Server marker only: `in_attention: false` is outside Attention; any other band-less row is a review row.
+  const text = band != null ? copy.sort.band(band, bandLabel(band)) : row.in_attention === false ? copy.sort.noBand : copy.needsReview.title;
   return (
     <Badge tone={band != null && band <= 2 ? "amber" : "neutral"} className="si-badge--wrap">
-      {band == null ? copy.needsReview.title : copy.sort.band(band, bandLabel(band))}
+      {text}
     </Badge>
   );
 }
 
-export function AttentionRow({ row, selected, onOpen, showBand = false, sortedBy }: { row: Row; selected: boolean; onOpen: () => void; showBand?: boolean; sortedBy?: string }) {
+/**
+ * Move assessment §8.1: both scores, full labels, always visible, in one consistent place on
+ * every Outreach card. Numbers are `N / 100`; Unknown / Pending / Not applicable / Not assessed
+ * are server facts and read as words, never as zero.
+ */
+function ScoreRow({ scores, subject, onOpenAssessment }: { scores: CardScores; subject: string; onOpenAssessment?: () => void }) {
+  return (
+    <div className="si-row__scores">
+      <span className="si-cardscores" role="group" aria-label={copy.scores.rowLabel}>
+        {scores.scores.map((item, index) => (
+          <span key={item.key} className="si-cardscores__item">
+            {index > 0 && <span className="si-cardscores__sep" aria-hidden>·</span>}
+            <span className="si-cardscores__label">{item.label}</span>{" "}
+            <strong className={cx("si-cardscores__value", !item.numeric && "is-word")}>{item.value}</strong>
+          </span>
+        ))}
+        {scores.stale && <Badge tone="amber" className="si-cardscores__flag" title={copy.scores.staleTip}>{copy.scores.stale}</Badge>}
+        {scores.limited && <Badge className="si-cardscores__flag" title={copy.scores.limitedTip}>{copy.scores.limited}</Badge>}
+      </span>
+      {onOpenAssessment && (
+        <Button variant="secondary" size="sm" className="si-cardscores__open" onClick={onOpenAssessment} aria-label={`${copy.scores.open} · ${subject}`}>
+          {copy.scores.open}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export function AttentionRow({
+  row,
+  selected,
+  onOpen,
+  onOpenAssessment,
+  showBand = false,
+  sortedBy,
+}: {
+  row: Row;
+  selected: boolean;
+  onOpen: () => void;
+  /** Opens this same subject on the assessment panel; absent for review-only rows (no Outreach to assess). */
+  onOpenAssessment?: () => void;
+  showBand?: boolean;
+  sortedBy?: string;
+}) {
   const sortOptionShown = sortedBy ? sortOption(OUTREACH_SORT_OPTIONS, sortedBy) : undefined;
-  const sortValue = sortedBy && row.sort_keys ? (row.sort_keys as Record<string, string | null | undefined>)[sortedBy] : undefined;
+  const sortValue = sortedBy && row.sort_keys ? (row.sort_keys as Record<string, unknown>)[sortedBy] : undefined;
   const record = row.outreach;
+  const scores = record ? cardScores(row) : null;
+  const sortedScore = sortOptionShown?.kind === "score" ? scores?.scores.find((item) => item.key === sortOptionShown.value) : undefined;
   const primary = row.derived.reasons[0];
   const secondary = row.derived.reasons.slice(1);
   const action = record?.followups.find((item) => item.status === "open");
@@ -50,6 +101,7 @@ export function AttentionRow({ row, selected, onOpen, showBand = false, sortedBy
     <li
       className={cx("si-row", selected && "is-selected", row.derived.overdue && "is-overdue", onTheCall && "is-live")}
       aria-current={selected || undefined}
+      data-subject-key={row.subject_key}
     >
       <button type="button" className="si-row__hit" onClick={onOpen} aria-label={`${copy.actions.open} ${identity(row)}`} />
       <div className="si-row__identity">
@@ -61,9 +113,12 @@ export function AttentionRow({ row, selected, onOpen, showBand = false, sortedBy
           </span>
         )}
         {record && <span className="si-text--subtle si-text--sm">{label(record.state)}</span>}
-        {showBand && <BandTag band={row.derived.attention_band} />}
-        {sortOptionShown && sortOptionShown.kind === "time" && sortValue !== undefined && (
+        {showBand && <BandTag row={row} />}
+        {sortOptionShown && sortOptionShown.kind === "time" && (typeof sortValue === "string" || sortValue === null) && (
           <span className="si-text--sm si-text--subtle">{sortOptionShown.label}: {sortKeyText(sortOptionShown, sortValue, formatDateTime, copy.fields.unknown)}</span>
+        )}
+        {sortOptionShown && sortOptionShown.kind === "score" && (
+          <span className="si-text--sm si-row__sortline">{sortOptionShown.label}: {sortedScore?.value ?? copy.scores.notAssessed}</span>
         )}
         <LeadProgressLine record={record} />
       </div>
@@ -110,18 +165,23 @@ export function AttentionRow({ row, selected, onOpen, showBand = false, sortedBy
           {copy.actions.open}
         </Button>
       </div>
+      {scores && <ScoreRow scores={scores} subject={identity(row)} onOpenAssessment={onOpenAssessment} />}
     </li>
   );
 }
+
+const assessmentOpener = (row: Row, open?: (row: Row) => void) => (open && row.outreach ? () => open(row) : undefined);
 
 export function AttentionBands({
   items,
   selected,
   onOpen,
+  onOpenAssessment,
 }: {
   items: Row[];
   selected: (row: Row) => boolean;
   onOpen: (row: Row) => void;
+  onOpenAssessment?: (row: Row) => void;
 }) {
   const reviewOnly: Row[] = [];
   const groups = new Map<number, Row[]>();
@@ -144,7 +204,7 @@ export function AttentionBands({
             </h3>
             <ul className="si-rows">
               {rows.map((row) => (
-                <AttentionRow key={row.subject_key} row={row} selected={selected(row)} onOpen={() => onOpen(row)} />
+                <AttentionRow key={row.subject_key} row={row} selected={selected(row)} onOpen={() => onOpen(row)} onOpenAssessment={assessmentOpener(row, onOpenAssessment)} />
               ))}
             </ul>
           </section>
@@ -158,7 +218,7 @@ export function AttentionBands({
           </h3>
           <ul className="si-rows">
             {reviewOnly.map((row) => (
-              <AttentionRow key={row.subject_key} row={row} selected={selected(row)} onOpen={() => onOpen(row)} />
+              <AttentionRow key={row.subject_key} row={row} selected={selected(row)} onOpen={() => onOpen(row)} onOpenAssessment={assessmentOpener(row, onOpenAssessment)} />
             ))}
           </ul>
         </section>
@@ -168,24 +228,26 @@ export function AttentionBands({
 }
 
 /**
- * LP-07 (§14.1): under a time sort the server has already ordered the whole snapshot
+ * LP-07 (§14.1) / Move assessment §8.2: under a time or score sort the server has already ordered the whole snapshot
  * across bands. Render exactly that order; grouping by band here would undo it.
  */
 export function AttentionFlatList({
   items,
   selected,
   onOpen,
+  onOpenAssessment,
   sortedBy,
 }: {
   items: Row[];
   sortedBy?: string;
   selected: (row: Row) => boolean;
   onOpen: (row: Row) => void;
+  onOpenAssessment?: (row: Row) => void;
 }) {
   return (
     <ul className="si-rows si-rows--flat">
       {items.map((row) => (
-        <AttentionRow key={row.subject_key} row={row} selected={selected(row)} onOpen={() => onOpen(row)} showBand sortedBy={sortedBy} />
+        <AttentionRow key={row.subject_key} row={row} selected={selected(row)} onOpen={() => onOpen(row)} onOpenAssessment={assessmentOpener(row, onOpenAssessment)} showBand sortedBy={sortedBy} />
       ))}
     </ul>
   );

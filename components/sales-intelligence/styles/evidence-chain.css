@@ -66,6 +66,8 @@
 .si-root .si-chain-summary { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--si-line); border-radius: var(--si-r-lg); background: var(--si-surface); }
 .si-root .si-chain-summary__overview { font-size: 15px; }
 .si-root .si-chain-summary__fields { display: grid; grid-template-columns: minmax(120px, auto) minmax(0, 1fr); gap: 6px 14px; margin: 0; font-size: 14px; }
+/* Each wrapper div is transparent to the grid so dt/dd pairs align in their own columns. */
+.si-root .si-chain-summary__fields > div { display: contents; }
 .si-root .si-chain-summary__fields dt { font-weight: 600; color: var(--si-ink-2); }
 .si-root .si-chain-summary__fields dd { margin: 0; overflow-wrap: anywhere; }
 
@@ -74,3 +76,11 @@
   .si-root .si-chain__rows dd, .si-root .si-chain-summary__fields dd { padding-bottom: 6px; }
   .si-root .si-chain__disclose > summary { min-height: 44px; }
 }
+
+/* Stored call output on the Running Summary tab: the same six-section reading as the analysis panel. */
+.si-root .si-storedcall__sections { display: grid; grid-template-columns: minmax(120px, auto) minmax(0, 1fr); gap: 6px 14px; margin: 0; font-size: 14px; }
+.si-root .si-storedcall__sections > div { display: contents; }
+.si-root .si-storedcall__sections dt { font-weight: 600; color: var(--si-ink-2); }
+.si-root .si-storedcall__sections dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.si-root .si-storedcall__narrative { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 720px) { .si-root .si-storedcall__sections { grid-template-columns: minmax(0, 1fr); gap: 2px; } .si-root .si-storedcall__sections dd { padding-bottom: 6px; } }

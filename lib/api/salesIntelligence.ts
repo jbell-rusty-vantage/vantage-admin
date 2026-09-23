@@ -53,10 +53,38 @@ export const leadProgressSchema = z.object({ lead_ref: z.object({ model: z.enum(
   reopen_review_id: z.string().nullable(), disposition_revision: z.string(), explanation: z.string().nullable(), no_call_observed: z.boolean(), projected_at: z.string() });
 export type LeadProgress = z.infer<typeof leadProgressSchema>;
 // §14.1 ordering keys frozen into each Attention row; Admin renders server order and never sorts a page locally.
-export const sortKeysSchema = z.object({ next_action_due: z.string().nullable(), lead_received: z.string().nullable(), last_human_contact: z.string().nullable(), last_lead_progress: z.string().nullable() });
-export const ATTENTION_SORTS = ['attention','next_action_due','lead_received','last_human_contact','last_lead_progress'] as const;
+// Move assessment §8: score keys are optional so snapshots published before the contract still parse (missing reads as unknown).
+export const sortKeysSchema = z.object({ next_action_due: z.string().nullable(), lead_received: z.string().nullable(), last_human_contact: z.string().nullable(), last_lead_progress: z.string().nullable(),
+  transaction_intent: z.number().nullable().optional(), move_likelihood: z.number().nullable().optional(),
+  assessment_status: z.string().nullable().optional(), assessment_stale: z.boolean().nullable().optional() });
+export const ATTENTION_SORTS = ['attention','next_action_due','lead_received','last_human_contact','last_lead_progress','transaction_intent','move_likelihood'] as const;
 export type AttentionSort = (typeof ATTENTION_SORTS)[number];
-export const ATTENTION_SORT_DEFAULT_DIRECTION: Record<AttentionSort, 'asc'|'desc'> = { attention: 'asc', next_action_due: 'asc', lead_received: 'desc', last_human_contact: 'asc', last_lead_progress: 'desc' };
+export const ATTENTION_SCORE_SORTS = ['transaction_intent','move_likelihood'] as const;
+export type AttentionScoreSort = (typeof ATTENTION_SCORE_SORTS)[number];
+export function isScoreSort(value: string | null | undefined): value is AttentionScoreSort { return (ATTENTION_SCORE_SORTS as readonly string[]).includes(value ?? ''); }
+export const ATTENTION_SORT_DEFAULT_DIRECTION: Record<AttentionSort, 'asc'|'desc'> = { attention: 'asc', next_action_due: 'asc', lead_received: 'desc', last_human_contact: 'asc', last_lead_progress: 'desc', transaction_intent: 'desc', move_likelihood: 'desc' };
+// Move assessment §8.1: the compact projection on an Outreach record. Server enums stay z.string() so a grown value still renders.
+export const moveAssessmentSchema = z.object({ artifact_id: z.string().nullable(), status: z.string(), applicability: z.string(),
+  transaction_intent: z.number().nullable(), move_likelihood: z.number().nullable(),
+  transaction_intent_confidence: z.string().nullable(), move_likelihood_confidence: z.string().nullable(),
+  context_as_of: z.string().nullable(), latest_conversation_at: z.string().nullable(), stale: z.boolean(), stale_reason: z.string().nullable(), published_at: z.string().nullable() });
+export type MoveAssessment = z.infer<typeof moveAssessmentSchema>;
+export type ScoreLabel = `${number} / 100` | 'Unknown' | 'Pending' | 'Not applicable' | 'Not assessed' | 'Unavailable';
+/**
+ * MA-01 §11: the card/sort wording for one score, straight from server facts. A number is `N / 100`
+ * (never a percent); a real 0 stays `0 / 100`. `not_applicable` (status or read-time applicability)
+ * wins over a number because the server sorts it as null. Assessed without a number is Unknown;
+ * a queued job without a number is Pending; absent or `not_assessed` is Not assessed. Failed,
+ * purged or unsupported results are Unavailable, never zero and never Unknown.
+ */
+export function scoreLabel(status: string | null | undefined, score: number | null | undefined, applicability?: string | null): ScoreLabel {
+  if (status === 'not_applicable' || applicability === 'not_applicable') return 'Not applicable';
+  if (typeof score === 'number' && Number.isFinite(score)) return `${Math.round(score)} / 100`;
+  if (status === 'pending') return 'Pending';
+  if (status === 'ready' || status === 'insufficient_evidence' || status === 'ambiguous_subject') return 'Unknown';
+  if (status === 'failed' || status === 'purged' || status === 'unsupported' || status === 'unavailable') return 'Unavailable';
+  return 'Not assessed';
+}
 export const NUMBER_SORTS = ['last_activity','last_human_conversation','first_observed'] as const;
 export type NumberSort = (typeof NUMBER_SORTS)[number];
 export function parseAttentionSort(value: string | null | undefined): AttentionSort { return (ATTENTION_SORTS as readonly string[]).includes(value ?? '') ? value as AttentionSort : 'attention'; }
@@ -72,6 +100,7 @@ export const outreachSchema = z.object({ id: z.string(), revision: z.number(), s
    certainty_label:z.string().nullable(),decided_by:z.string(),decided_at:z.string().nullable(),confidence:z.number().nullable(),observed_at:z.string(),
    lead_display:z.object({name:z.string().nullable(),job_no:z.string().nullable()}).nullable()}).nullable().optional(),
   call_progress:z.object({state:z.string(),started_at:z.string(),started_by:z.string().nullable(),ended_at:z.string().nullable(),ended_by:z.string().nullable(),note:z.string().nullable()}).nullable().optional(),
+  move_assessment: moveAssessmentSchema.nullable().optional(),
   primary_number: z.object({ id: z.string(), e164: z.string() }).nullable().optional(), assignment, followups: z.array(followup), derived,
   last_meaningful_contact_at: z.string().nullable() });
 const coverage = z.object({ known_through: z.string().nullable(), gaps: z.array(z.object({ from:z.string(), to:z.string(), reason:z.string() })), ai_paused:z.boolean() });
@@ -93,11 +122,13 @@ export const timelineSchema = z.object({ as_of:z.string(), coverage, data:z.obje
   items:z.array(z.object({ id:z.string(), kind:z.string(), happened_at:z.string(), observed_at:z.string(), description:z.string(),
     evidence_refs:z.array(z.string()), detail:z.record(z.string(),z.json()) })), cursor:z.string().nullable() }) });
 export const attentionSchema = z.object({ as_of: z.string(), coverage, data: z.object({ items: z.array(z.object({ subject_key:z.string(), subject,
-  outreach: outreachSchema.nullable(), derived, sort_keys: sortKeysSchema.optional() })), snapshot_id: z.string().nullable(), total_items:z.number().nullable(), cursor:z.string().nullable(), reason_counts:z.record(z.string(), z.number()).optional(),
+  outreach: outreachSchema.nullable(), derived, sort_keys: sortKeysSchema.optional(),
+  // Move assessment §8: `false` rows are reachable only in `view=all_outreach`; absent reads as in Attention.
+  in_attention: z.boolean().optional() })), snapshot_id: z.string().nullable(), total_items:z.number().nullable(), cursor:z.string().nullable(), reason_counts:z.record(z.string(), z.number()).optional(),
   // Optional on the server DTO, so requiring it here would fail the whole Attention read on a page the server still publishes.
   status:z.enum(['ready','pending_projection']).optional(), stale:z.boolean().optional(),
   // §14.1: the sort the server produced this page under. Absent means the server has no sort contract; the UI shows "unavailable" rather than sorting locally.
-  sort:z.string().optional(), direction:z.enum(['asc','desc']).optional(), view:z.string().optional() }) });
+  sort:z.string().optional(), direction:z.enum(['asc','desc']).optional(), view:z.string().optional(), freshness:z.string().optional() }) });
 export const numberSchema = z.object({ as_of:z.string(), coverage, data:z.object({ id:z.string(), revision:z.number(), allowed_actions:z.array(availabilitySchema), e164:z.string(), classification:z.string(), eligibility:z.string(),
   outreach_records:z.array(outreachSchema), running_analysis:z.object({ text:z.string(), run_id:z.string().optional(), computed_at:z.string() }).nullable(),
   attachments:z.array(z.object({ id:z.string(), state:z.string(), certainty:z.string(), lead_ref:z.object({ model:z.string(), id:z.string() }) })),

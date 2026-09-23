@@ -14,7 +14,8 @@ import {salesIntelligenceKeys} from '@/lib/query/salesIntelligence';
 import {Badge,type Tone} from './atoms/badge';
 import {Button} from './atoms/button';
 import {copy} from './sales-intelligence-copy';
-import {evidenceChainCopy as chain} from './evidence-chain-copy';
+import {evidenceChainCopy as chain,assessmentCopy as ac} from './evidence-chain-copy';
+import {evidenceAvailabilityText,evidenceKindText,evidenceTextLabel,focusEvidence,locatorText,readAssessmentEvidence,type EvidenceItem,type EvidenceSection} from '@/lib/api/salesIntelligenceAssessment';
 import {formatDateTime,label} from './lib/format';
 import './styles/evidence-chain.css';
 
@@ -29,7 +30,7 @@ export function useRunEvidence(runId:string,cursor:string|null=null) {
 type Snapshot={id:string;tool:string|null;retrieved_at:string|null;unavailable:boolean};
 
 /** Retained content for one snapshot, paged exactly as the server pages it. */
-function EvidenceContent({runId,snapshotId}:{runId:string;snapshotId:string}) {
+export function EvidenceContent({runId,snapshotId}:{runId:string;snapshotId:string}) {
  const [offset,setOffset]=useState<string|null>(null);
  const content=useQuery({queryKey:[...salesIntelligenceKeys.all,'analysis-evidence-content',runId,snapshotId,offset],
   queryFn:({signal})=>readSalesIntelligence(`analysis-runs/${runId}/evidence/${snapshotId}${offset?`?cursor=${offset}`:''}`,analysisEvidenceContentSchema,signal),retry:false});
@@ -88,8 +89,10 @@ function Verdict({verdict}:{verdict:ChainVerdict}) {
  return <Badge tone={badgeTone(verdict.tone)} className="si-badge--wrap">{verdict.text}</Badge>;
 }
 
-export function EvidenceChain({run,finding,position,total,activityHref,workHref,onAction,onLookAgain}:{
+export function EvidenceChain({run,finding,position,total,activityHref,workHref,onAction,onLookAgain,bare}:{
  run:Analysis;finding:AnalysisFinding;position:number;total:number;activityHref:string;
+ /** Inside a readable finding card: the claim is already shown above, so only the chain renders. */
+ bare?:boolean;
  workHref:(followupId:string)=>string|null;
  onAction:(action:'confirm_finding'|'correct_finding'|'retract_finding')=>void;onLookAgain:()=>void;
 }) {
@@ -111,14 +114,14 @@ export function EvidenceChain({run,finding,position,total,activityHref,workHref,
  });
  const attention=review.tone==='red'||effects.some(row=>row.verdict.tone==='red')||claimVerdict.tone==='red';
  const basis=facts.basis?pick(chain.claim.basis,facts.basis):null;
- return <article className={`si-chain-card${attention?' si-chain-card--attention':finding.review_state==='confirmed'?' si-chain-card--decided':''}`}>
- <header className="si-chain-card__head">
+ return <article className={bare?'si-chain-card si-chain-card--bare':`si-chain-card${attention?' si-chain-card--attention':finding.review_state==='confirmed'?' si-chain-card--decided':''}`}>
+ {!bare&&<><header className="si-chain-card__head">
   <h5 className="si-chain-card__kind">{finding.assertion.kind?label(finding.assertion.kind):chain.chain.claimFallback}</h5>
   <span className="si-chain__meta">{chain.chain.claimIndex(position,total)}</span>
  </header>
  <p className="si-chain-card__claim">{finding.assertion.claim}</p>
  <div className="si-chain-card__glance"><Verdict verdict={review}/><Verdict verdict={claimVerdict}/>
- {worstEffect?<Verdict verdict={worstEffect.verdict}/>:<Badge className="si-badge--wrap">{chain.effect.none}</Badge>}</div>
+ {worstEffect?<Verdict verdict={worstEffect.verdict}/>:<Badge className="si-badge--wrap">{chain.effect.none}</Badge>}</div></>}
  <ol className="si-chain" aria-label={chain.chain.stepsLabel}>
   <Step n={1} title={chain.chain.steps.source} tone="neutral" lede={<span>{run.conversation_id?chain.source.oneConversation:chain.source.wholeNumber}</span>}>
    <p className="si-chain__meta">{chain.source.ranAt(formatDateTime(run.created_at))} {run.completed_at?chain.source.finishedAt(formatDateTime(run.completed_at)):chain.source.notFinished}</p>
@@ -209,4 +212,84 @@ export function EvidenceChain({run,finding,position,total,activityHref,workHref,
   </Step>
  </ol>
  </article>;
+}
+
+/* ── One evidence viewer for assessment citations and analysis evidence (§8.3 Evidence) ── */
+
+export type EvidenceFocus={source:'assessment'|'run';ids:string[];label:string};
+type EvidenceSourceKey='assessment'|'run';
+
+function EvidenceItemCard({item,runId,onOpenRun}:{item:EvidenceItem;runId:string|null;onOpenRun:(runId:string)=>void}) {
+ const [open,setOpen]=useState(false);
+ const target=item.open,summary=evidenceTextLabel(item)===ac.textLabel.summary;
+ const snapshotRun=target?.kind==='analysis_evidence'&&typeof target.run_id==='string'?target.run_id:null;
+ const snapshotId=target?.kind==='analysis_evidence'&&typeof target.snapshot_id==='string'?target.snapshot_id:null;
+ const href=target?.kind==='record'&&typeof target.href==='string'?target.href:null;
+ const otherRun=target?.kind==='analysis_run'&&typeof target.run_id==='string'?target.run_id:null;
+ return <li className="si-evi" data-evidence={item.id}>
+  <span className="si-chain__snap__head"><strong>{evidenceKindText(item.kind)}</strong>
+   <Badge tone={item.availability==='retained'?'neutral':'amber'}>{evidenceAvailabilityText(item.availability)}</Badge></span>
+  <span className="si-evi__where">{locatorText(item.source)}</span>
+  {item.text!==null?<div className="si-evi__text"><span className="si-evi__textlabel">{evidenceTextLabel(item)}</span>
+   <p className={summary?'si-evi__summary':'si-chain__quote'}>{item.text}</p></div>
+   :item.availability==='retained'&&!snapshotId&&!href&&<span className="si-chain__meta">{ac.evidence.noText}</span>}
+  {summary&&item.text!==null&&<span className="si-chain__meta">{ac.evidence.summaryNote}</span>}
+  <span className="si-evi__actions">
+   {href&&<Link className="si-link" href={href}>{ac.evidence.openRecord}</Link>}
+   {otherRun&&otherRun!==runId&&<Button size="sm" variant="link" onClick={()=>onOpenRun(otherRun)}>{ac.evidence.openRun}</Button>}
+   {snapshotId&&snapshotRun&&<Button size="sm" variant="link" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?ac.evidence.closeSnapshot:ac.evidence.openSnapshot}</Button>}
+  </span>
+  {open&&snapshotId&&snapshotRun&&<EvidenceContent runId={snapshotRun} snapshotId={snapshotId}/>}
+ </li>;
+}
+
+function EvidenceItems({section,focus,runId,onOpenRun}:{section:EvidenceSection;focus:string[]|null;runId:string|null;onOpenRun:(runId:string)=>void}) {
+ if(section.availability!=='ready'){
+  const text=ac.evidence.unavailableSection[section.availability as keyof typeof ac.evidence.unavailableSection]??ac.evidence.unavailableSection.unavailable;
+  return <p className="si-local-notice">{text}</p>;
+ }
+ const shown=focusEvidence(section.items,focus);
+ return <>
+  {shown.missing.length>0&&<p className="si-local-notice">{ac.evidence.missingIds(shown.missing.length)}</p>}
+  {!shown.items.length?<p>{ac.evidence.none}</p>:<ul className="si-evi__list">{shown.items.map(item=><EvidenceItemCard key={item.id} item={item} runId={runId} onOpenRun={onOpenRun}/>)}</ul>}
+ </>;
+}
+
+export function EvidenceViewer({artifactId,runId,runEvidence,focus,onClearFocus,back,onOpenRun}:{
+ /** The assessment version on screen, if any. */
+ artifactId:string|null;
+ /** The analysis run selected on Summary & findings, if any. */
+ runId:string|null;
+ runEvidence:{data:EvidenceSection|null;pending:boolean;error:boolean;retry:()=>void};
+ focus:EvidenceFocus|null;onClearFocus:()=>void;
+ back:{label:string;onBack:()=>void}|null;
+ onOpenRun:(runId:string)=>void;
+}) {
+ const sources:EvidenceSourceKey[]=[...(artifactId?['assessment' as const]:[]),...(runId?['run' as const]:[])];
+ const [picked,setPicked]=useState<EvidenceSourceKey|null>(null);
+ const source=focus?.source??(picked&&sources.includes(picked)?picked:sources[0]??null);
+ const assessment=useQuery({queryKey:[...salesIntelligenceKeys.all,'assessment-evidence',artifactId],enabled:!!artifactId&&source==='assessment',retry:false,
+  queryFn:({signal})=>readAssessmentEvidence(artifactId!,signal)});
+ return <section className="si-local-stack" aria-label={ac.evidence.title}>
+  <header className="si-evi__head">
+   <h4>{ac.evidence.title}</h4>
+   {back&&<Button size="sm" onClick={back.onBack}>{ac.evidence.back(back.label)}</Button>}
+  </header>
+  {sources.length>1&&!focus&&<div className="si-seg" role="group" aria-label={ac.evidence.sourcesLabel}>
+   {sources.map(key=><Button key={key} size="sm" aria-pressed={source===key} onClick={()=>setPicked(key)}>{key==='assessment'?ac.evidence.assessmentSource:ac.evidence.runSource}</Button>)}
+  </div>}
+  {focus&&<p className="si-evi__focus" role="status">{ac.evidence.focused(focus.label)} <Button size="sm" variant="link" onClick={()=>{setPicked(focus.source);onClearFocus();}}>{ac.evidence.showAll}</Button></p>}
+  {!source&&<p>{ac.evidence.needsSource}</p>}
+  {source==='assessment'&&<>
+   {assessment.isPending&&<p role="status">{ac.evidence.loading}</p>}
+   {assessment.error&&<p role="alert">{ac.evidence.failed} <Button variant="link" onClick={()=>void assessment.refetch()}>{copy.actions.retry}</Button></p>}
+   {assessment.data&&<EvidenceItems section={assessment.data.data} focus={focus?.ids??null} runId={runId} onOpenRun={onOpenRun}/>}
+  </>}
+  {source==='run'&&runId&&<>
+   {runEvidence.pending&&<p role="status">{ac.evidence.loading}</p>}
+   {runEvidence.error&&<p role="alert">{ac.evidence.failed} <Button variant="link" onClick={runEvidence.retry}>{copy.actions.retry}</Button></p>}
+   {runEvidence.data&&<EvidenceItems section={runEvidence.data} focus={focus?.ids??null} runId={runId} onOpenRun={onOpenRun}/>}
+   {!focus&&<RunEvidenceList key={runId} runId={runId}/>}
+  </>}
+ </section>;
 }

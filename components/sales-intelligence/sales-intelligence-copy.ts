@@ -128,11 +128,29 @@ export const copy = {
     switchTo: (next: string) => `switch to ${next}`,
     unavailable: "Sorting unavailable on this server. Showing the default order.",
     acrossBands: "Sorted across all bands. Each card keeps its band.",
+    // Move assessment §8.2: score mode ranks every eligible Outreach record, not only Attention.
+    rankedAcrossBands: "Ranked across all bands. Each card keeps its band; Unknown and unassessed records come last.",
+    rankedWithinBands: (count: number) => `Ranked within ${count === 1 ? "the selected band" : "the selected bands"}. Clear the band filter to rank across all bands.`,
+    noBand: "Not in Attention",
+    freshOnly: "Fresh assessments only",
+    freshOnlyHint: "Leave out assessments that are older than the latest conversation.",
+    scope: (view: string | undefined, count: number | null) =>
+      `${view === "all_outreach" ? "All Outreach" : "Attention"} · ${count == null ? "count unknown" : `${count} ${count === 1 ? "subject" : "subjects"}`}`,
     band: (band: number, name: string) => `Band ${band} · ${name}`,
     firstObserved: "First observed",
     lastHumanConversation: "Last human conversation",
     noConversation: "No conversation observed",
     dismiss: "Dismiss",
+  },
+  // Move assessment §8.1: card score row. Server facts only; never a percent sign.
+  scores: {
+    rowLabel: "Move assessment scores",
+    open: "View assessment",
+    stale: "Stale",
+    staleTip: "Assessed before the latest conversation. The score is kept until a refresh.",
+    limited: "Limited evidence",
+    limitedTip: "Both scores rest on low-confidence evidence. Open the assessment for the reasons.",
+    notAssessed: "Not assessed",
   },
   provenance: {
     heading: "Why this Lead",

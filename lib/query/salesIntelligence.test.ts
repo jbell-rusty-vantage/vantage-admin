@@ -17,7 +17,7 @@ test("a change frame invalidates only the query keys its topics can change", () 
   assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention"]);
   assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["rep"]))), ["nudge-destinations", "reps"]);
   assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["outreach"]))), [
-    "number", "outreach", "outreach-by-lead", "timeline",
+    "assessment", "number", "outreach", "outreach-by-lead", "timeline",
   ]);
   // Every mapped topic stays inside the Sales Intelligence tree and narrower than the whole tree.
   for (const [topic, keys] of Object.entries(salesIntelligenceTopicKeys)) {
@@ -32,8 +32,8 @@ test("a change frame invalidates only the query keys its topics can change", () 
 test("two topics in one frame merge without repeating a key", () => {
   const keys = salesIntelligenceInvalidationKeys(change(["analysis", "outreach"]));
   assert.deepEqual(segments(keys), [
-    "analysis-evidence", "analysis-evidence-content", "analysis-run", "analysis-runs",
-    "coverage", "number", "outreach", "outreach-by-lead", "timeline",
+    "analysis-evidence", "analysis-evidence-content", "analysis-output", "analysis-presentation", "analysis-run", "analysis-runs",
+    "assessment", "assessment-artifact", "assessment-evidence", "assessment-output", "coverage", "number", "outreach", "outreach-by-lead", "timeline",
   ]);
   assert.equal(new Set(keys.map((key) => key.join("/"))).size, keys.length);
 });

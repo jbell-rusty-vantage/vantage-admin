@@ -12,9 +12,9 @@ export const salesIntelligenceTopicKeys:Readonly<Record<string, readonly (readon
  // review and restriction writes do not change it; only a new snapshot does.
  // Routing those writes here cancelled the in-flight list read, so Load more
  // stayed disabled for as long as production kept writing.
- outreach: prefixes('outreach','outreach-by-lead','number','timeline'),
+ outreach: prefixes('outreach','outreach-by-lead','number','timeline','assessment'),
  attachment: prefixes('attachments','attachment-pair','number','outreach','outreach-by-lead'),
- analysis: prefixes('analysis-runs','analysis-run','analysis-evidence','analysis-evidence-content','number','coverage'),
+ analysis: prefixes('analysis-runs','analysis-run','analysis-evidence','analysis-evidence-content','analysis-presentation','analysis-output','assessment','assessment-artifact','assessment-evidence','assessment-output','number','coverage'),
  number: prefixes('number','numbers','timeline','outreach','outreach-by-lead','coverage'),
  attention: prefixes('attention'),
  review: prefixes('reviews','number','outreach','outreach-by-lead','timeline'),

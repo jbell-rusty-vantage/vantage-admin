@@ -1,9 +1,11 @@
 import { copy } from "./sales-intelligence-copy";
+import { assessmentCopy } from "./evidence-chain-copy";
 
 export const SI_VIEW_KEYS = ["attention", "numbers", "reps", "coverage", "guide"] as const;
 export type SiViewKey = (typeof SI_VIEW_KEYS)[number];
 
-export const SI_PANEL_KEYS = ["activity", "summary", "analysis", "matches", "work"] as const;
+// `assessment` opens the same analysis reading surface on its Assessment section (Move assessment §8.1/§8.3).
+export const SI_PANEL_KEYS = ["activity", "summary", "analysis", "assessment", "matches", "work"] as const;
 export type SiPanelKey = (typeof SI_PANEL_KEYS)[number];
 
 export const GUIDE_TOPIC_KEYS = [
@@ -28,9 +30,10 @@ export const SI_VIEW_TABS = SI_VIEW_KEYS.map((key) => ({
   label: copy.page.views[key],
 }));
 
+const PANEL_LABELS: Record<SiPanelKey, string> = { ...copy.panel.tabs, assessment: assessmentCopy.tab };
 export const SI_PANEL_TABS = SI_PANEL_KEYS.map((key) => ({
   key,
-  label: copy.panel.tabs[key],
+  label: PANEL_LABELS[key],
 }));
 
 export const GUIDE_TOPICS = GUIDE_TOPIC_KEYS.map((key) => ({

@@ -6,7 +6,7 @@ const runSummary = z.object({ id:z.string(), revision:z.number(), status:z.strin
 export const analysisRunsSchema=z.object({data:z.object({items:z.array(runSummary),next_cursor:z.string().nullable()})});
 const assertion=z.object({key:z.string(),kind:z.string(),claim:z.string()}).catchall(z.json());
 export const analysisSchema=z.object({data:runSummary.extend({current:z.boolean(),editable:z.boolean(),output_digest:z.string().nullable(),suggestion_output_digest:z.string().nullable(),
- model_version:z.string(),prompt_version:z.string(),processing_reason:z.string().nullable(),original_evidence_available:z.boolean(),contact_number_id:z.string(),
+ model_version:z.string(),prompt_version:z.string(),processing_reason:z.string().nullable().optional().transform(value=>value??null),original_evidence_available:z.boolean(),contact_number_id:z.string(),
  reanalysis_requests:z.array(z.object({id:z.string(),run_id:z.string(),mode:z.string(),status:z.string(),reason:z.string().nullable(),created_at:z.string(),focus_finding_id:z.string().nullable().optional()})).default([]),
  outreach:z.object({id:z.string(),revision:z.number(),state:z.string()}).nullable(),
  output:z.object({summary:z.object({overview:z.string()}).catchall(z.json()),next_step_suggestion:z.object({description:z.string(),action_kind:z.string()}).catchall(z.json()).nullable()}).catchall(z.json()).nullable(),
@@ -126,4 +126,38 @@ export function requestsForFinding(requests:Analysis['reanalysis_requests'],find
 }
 export function requestsForRun(requests:Analysis['reanalysis_requests']):Analysis['reanalysis_requests'] {
  return requests.filter(request=>!request.focus_finding_id);
+}
+
+/* ── Readable Summary & findings (Move assessment §8.3) ──
+ * The server presentation DTO is the reading source for every stored version. When a server
+ * cannot serve it, the run detail is read as recorded; nothing is inferred to fill the gap. */
+type PresentedSummary={sections:{key:string;label:string;text:string}[];narrative:string|null};
+type PresentedFinding={id:string;kind:string;claim:string;basis:string;actor:string;action_status:string|null;clarity:string;review_state:string;
+ evidence:{id:string}[];effects:{kind:string;status:string;reason:string|null;target_id:string|null}[]};
+export type ReadableFinding={id:string;kind:string;claim:string;basis:string|null;actor:string|null;actionStatus:string|null;clarity:string|null;
+ reviewState:string;effects:{kind:string;status:string;reason:string|null;target_id:string|null}[];evidenceIds:string[];detail:AnalysisFinding|null};
+const SUMMARY_KEYS=['overview','customer_wanted','money_and_dates','outcome','commitments','discrepancies'] as const;
+export function readableSummary(presented:PresentedSummary|null|undefined,output:Analysis['output']|null|undefined,labelOf:(key:string)=>string):PresentedSummary|null {
+ if(presented)return presented;
+ if(!output)return null;
+ const summary=record(output.summary);
+ return {sections:SUMMARY_KEYS.flatMap(key=>{const value=text(summary[key]);return value?[{key,label:labelOf(key),text:value}]:[];}),narrative:null};
+}
+export function readableFindings(presented:readonly PresentedFinding[]|null|undefined,detail:readonly AnalysisFinding[]|null|undefined):ReadableFinding[] {
+ const byId=new Map((detail??[]).map(finding=>[finding.id,finding]));
+ if(presented)return presented.map(finding=>{const match=byId.get(finding.id)??null;return {id:finding.id,kind:finding.kind,claim:finding.claim,basis:finding.basis,
+  actor:finding.actor,actionStatus:finding.action_status,clarity:finding.clarity,reviewState:match?.review_state??finding.review_state,effects:finding.effects,
+  evidenceIds:finding.evidence.map(ref=>ref.id),detail:match};});
+ return (detail??[]).map(finding=>{const facts=assertionFacts(finding.assertion);return {id:finding.id,kind:finding.assertion.kind,claim:finding.assertion.claim,
+  basis:facts.basis,actor:facts.actor,actionStatus:facts.actionStatus,clarity:facts.clarity,reviewState:finding.review_state,
+  effects:finding.effects.map(effect=>({kind:effect.kind,status:effect.status,reason:effect.reason,target_id:effect.target_id})),evidenceIds:[],detail:finding};});
+}
+/** The one outcome that must stay visible without opening the chain: a blocked or stale effect, a retraction or a failed check. */
+export function findingAlert(finding:ReadableFinding):ChainVerdict|null {
+ const review=reviewVerdict(finding.reviewState);
+ if(review.tone==='red')return review;
+ const effect=finding.effects.map(row=>effectVerdict(row.status,row.reason)).find(verdict=>verdict.important);
+ if(effect)return effect;
+ if(finding.detail){const checks=validationVerdict(finding.detail.validation);if(checks.tone==='red')return checks;}
+ return null;
 }

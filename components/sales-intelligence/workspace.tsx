@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { attentionSchema, numberSchema, outreachReadSchema, readSalesIntelligence, SalesIntelligenceError, type AttentionRow as AttentionItem } from "@/lib/api/salesIntelligence";
+import { attentionSchema, isScoreSort, numberSchema, outreachReadSchema, readSalesIntelligence, SalesIntelligenceError, type AttentionRow as AttentionItem } from "@/lib/api/salesIntelligence";
 import { useSalesIntelligenceLive, salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
 import { fetchCatalogItems } from "@/lib/api/catalog";
 import { currentSalesIntelligenceHref } from "./lib/official-record";
@@ -15,7 +15,7 @@ import { formatDateTime, label } from "./lib/format";
 import { AttentionBands, AttentionFlatList } from "./attention";
 import { SortControl } from "./sort-control";
 import { BookedNotice, LeadProgressSection } from "./lead-progress";
-import { OUTREACH_SORT_OPTIONS, applyOutreachSort, outreachLayout, outreachSortFromParams } from "./lib/sort";
+import { OUTREACH_SORT_OPTIONS, applyOutreachSort, outreachLayout, outreachSortFromParams, outreachSortUpdate } from "./lib/sort";
 import { OutreachListSkeleton } from "./list-skeletons";
 import { PageControls } from "./page-controls";
 import { CommandDialog } from "./command-dialog";
@@ -133,10 +133,14 @@ function Selection({
             onOpenRun={(runId) => update({ panel: "analysis", analysis_run: runId })}
           />
         )}
-        {panel === "analysis" && resolvedNumber && (
+        {/* One reading surface for both tabs: Assessment opens it on the Assessment section, Number Analysis on Summary & findings.
+            A Lead-only subject without a Contact Number still gets its assessment (MAUX-03, §8.3). */}
+        {(panel === "analysis" || panel === "assessment") && (resolvedNumber || workId) && (
           <AnalysisPanel
-            key={resolvedNumber}
-            numberId={resolvedNumber}
+            key={`${panel}:${resolvedNumber ?? ""}:${workId ?? ""}`}
+            numberId={resolvedNumber ?? null}
+            outreachId={workId ?? null}
+            initialSection={panel === "assessment" ? "assessment" : "summary"}
             selectedRun={selectionParams.get("analysis_run")}
             onSelect={(id) => update({ analysis_run: id })}
           />
@@ -321,23 +325,28 @@ export function SalesIntelligenceWorkspace() {
   useEffect(() => {
     if (!(list.error instanceof SalesIntelligenceError) || list.error.code !== "INVALID_INPUT") return;
     if (cursor) update({ attention_cursor: null });
-    else if (sortRequested) update({ sort: null, direction: null, attention_cursor: null, sort_unavailable: true });
+    else if (sortRequested) update({ sort: null, direction: null, freshness: null, attention_cursor: null, sort_unavailable: true });
   }, [cursor, list.error, sortRequested, update]);
   const servedSort = list.data?.data.sort;
-  const sortUnavailable = params.get("sort_unavailable") === "true" || (sortRequested && !!list.data && !servedSort);
+  // A page without `sort`, or produced under another sort, means this server cannot honour the choice.
+  const sortUnavailable = params.get("sort_unavailable") === "true" || (sortRequested && !!list.data && servedSort !== sortState.sort);
+  const scoreMode = isScoreSort(sortState.sort) && !sortUnavailable;
   const layout = sortUnavailable ? "bands" : outreachLayout(servedSort);
 
   const outreachId = params.get("outreach");
   const numberId = params.get("number");
   const leadId = params.get("lead");
   const leadModel = params.get("lead_model");
-  const openRow = (row: AttentionItem) =>
-    update({
-      outreach: row.outreach?.id ?? null,
-      number: row.outreach?.primary_number?.id ?? (row.subject.kind === "number_review" ? row.subject.contact_number_id : null),
-      lead: row.subject.kind === "lead" ? row.subject.id : null,
-      lead_model: row.subject.kind === "lead" ? row.subject.model : null,
-    });
+  const selectionOf = (row: AttentionItem) => ({
+    outreach: row.outreach?.id ?? null,
+    number: row.outreach?.primary_number?.id ?? (row.subject.kind === "number_review" ? row.subject.contact_number_id : null),
+    lead: row.subject.kind === "lead" ? row.subject.id : null,
+    lead_model: row.subject.kind === "lead" ? row.subject.model : null,
+  });
+  const openRow = (row: AttentionItem) => update(selectionOf(row));
+  // §8.1 `View assessment`: the same subject, on the assessment panel. Only selection keys change,
+  // so sort, direction, filters and page (`attention_cursor`) stay in the URL.
+  const openAssessment = (row: AttentionItem) => update({ ...selectionOf(row), panel: "assessment" });
   const selected = (row: AttentionItem) =>
     row.outreach?.id === outreachId
     || (row.subject.kind === "number_review" && row.subject.contact_number_id === numberId)
@@ -357,7 +366,8 @@ export function SalesIntelligenceWorkspace() {
     if (band) bandCounts.set(band, (bandCounts.get(band) ?? 0) + count);
   }
   for (const row of list.data?.data.items ?? []) {
-    if (row.derived.attention_band == null) reviewCount += 1;
+    // In `all_outreach` a band-less row can simply be outside Attention; only review rows count as review.
+    if (row.derived.attention_band == null && row.in_attention !== false) reviewCount += 1;
   }
   const knownThrough = list.data?.coverage.known_through;
   const hasGaps = !!list.data?.coverage.gaps.length;
@@ -430,6 +440,9 @@ export function SalesIntelligenceWorkspace() {
         {view === "attention" && (
           <div className={!compact && filtersOpen ? "si-listview rail-open" : "si-listview"}>
             {list.data?.data.stale && <p role="status" className="si-local-notice">Showing the last successful list from {formatDateTime(list.data.as_of)}. Refresh is delayed; open a record to check its current status before acting.</p>}
+            {list.data?.data.status === "ready" && (
+              <p className="si-text--sm si-text--subtle si-listscope">{copy.sort.scope(list.data.data.view, list.data.data.total_items)}</p>
+            )}
             {list.data?.data.status === "pending_projection" ? (
               <p className="si-bandcards">{copy.page.preparing}</p>
             ) : (
@@ -478,17 +491,24 @@ export function SalesIntelligenceWorkspace() {
               activeCount={filterCount}
               chips={attentionChips(attentionFilters, agents.data ?? [], update)}
               note={
-                <SortControl
-                  options={OUTREACH_SORT_OPTIONS}
-                  value={sortState.sort}
-                  direction={sortState.direction}
-                  onChange={(next) => update({
-                    sort: next.sort === "attention" ? null : next.sort,
-                    direction: next.sort === "attention" ? null : next.direction,
-                    attention_cursor: null,
-                    sort_unavailable: null,
-                  })}
-                />
+                <span className="si-sortbar">
+                  <SortControl
+                    options={OUTREACH_SORT_OPTIONS}
+                    value={sortState.sort}
+                    direction={sortState.direction}
+                    onChange={(next) => update(outreachSortUpdate(sortState, next))}
+                  />
+                  {isScoreSort(sortState.sort) && (
+                    <label className="si-sort__fresh" title={copy.sort.freshOnlyHint}>
+                      <input
+                        type="checkbox"
+                        checked={!!sortState.fresh}
+                        onChange={(event) => update({ freshness: event.target.checked ? "fresh" : null, attention_cursor: null })}
+                      />
+                      {copy.sort.freshOnly}
+                    </label>
+                  )}
+                </span>
               }
             />
             {sortUnavailable && (
@@ -533,10 +553,14 @@ export function SalesIntelligenceWorkspace() {
                       </EmptyState>
                     )}
                     <AttentionPages cursor={cursor} count={list.data.data.items.length} total={list.data.data.total_items} nextCursor={list.data.data.cursor} onPage={(next) => update({ attention_cursor: next })} />
-                    {layout === "flat" && <p className="si-text--sm si-text--subtle">{copy.sort.acrossBands}</p>}
+                    {layout === "flat" && (
+                      <p className="si-text--sm si-text--subtle">
+                        {!scoreMode ? copy.sort.acrossBands : attentionFilters.bands.length ? copy.sort.rankedWithinBands(attentionFilters.bands.length) : copy.sort.rankedAcrossBands}
+                      </p>
+                    )}
                     {layout === "flat"
-                      ? <AttentionFlatList items={list.data.data.items} selected={selected} onOpen={openRow} sortedBy={servedSort} />
-                      : <AttentionBands items={list.data.data.items} selected={selected} onOpen={openRow} />}
+                      ? <AttentionFlatList items={list.data.data.items} selected={selected} onOpen={openRow} onOpenAssessment={openAssessment} sortedBy={servedSort} />
+                      : <AttentionBands items={list.data.data.items} selected={selected} onOpen={openRow} onOpenAssessment={openAssessment} />}
                     <AttentionPages cursor={cursor} count={list.data.data.items.length} total={list.data.data.total_items} nextCursor={list.data.data.cursor} onPage={(next) => update({ attention_cursor: next })} />
                   </>
                 )}
