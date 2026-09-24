@@ -64,13 +64,52 @@ const GOOGLE_DRIVE_PREFIX = "/api/v1/admin/google-drive";
 const GRANOT_AUTOMATION_PREFIX = "/api/v1/admin/granot-automation";
 const GRANOT_LIFECYCLE_PREFIX = "/api/v1/admin/granot-lifecycle";
 
+/**
+ * S8-REP (addendum §4.1): the only dashboard pages a rep may open. `/sales-intelligence` (its
+ * Overview, Needs Attention, All Outreach and Closed tabs are query state on the same page) and
+ * one Outreach record's page. Numbers, Messages / rep threads, Operations, Daily Operations, the
+ * Registry and settings stay denied. The main server still decides which records the rep sees.
+ */
+const REP_DASHBOARD_PATHS: readonly RegExp[] = [
+  /^\/sales-intelligence$/,
+  /^\/sales-intelligence\/outreach\/[a-f\d]{24}$/i,
+];
+
+const CSI_API = "/api/v1/admin/sales-intelligence";
+const OBJECT_ID = "[a-f\\d]{24}";
+/**
+ * S8-REP: every main-server call the rep UI makes, method by method. Everything else is denied
+ * here and again on the server (which also forces the rep's scope and returns 404 outside it).
+ * The live stream goes through `/api/sales-intelligence-live`, not this proxy.
+ */
+const REP_PROXY_ROUTES: ReadonlyArray<{ method: VantageApiMethod; pattern: RegExp }> = [
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/attention$`) },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/overview$`) },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/closed-history$`) },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/${OBJECT_ID}$`, "i") },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/${OBJECT_ID}/(?:timeline|assessment|findings)$`, "i") },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/numbers/${OBJECT_ID}/conversations$`, "i") },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/conversations/${OBJECT_ID}/(?:transcript|media)$`, "i") },
+  // E9: complete, snooze and re-date (`PATCH /followups/:id` with only `due_at`) their own follow-ups.
+  { method: "POST", pattern: new RegExp(`^${CSI_API}/followups/${OBJECT_ID}/(?:complete|snooze)$`, "i") },
+  { method: "PATCH", pattern: new RegExp(`^${CSI_API}/followups/${OBJECT_ID}$`, "i") },
+];
+
+export function canRepProxyVantagePath(method: VantageApiMethod, path: string): boolean {
+  const normalized = normalizeProxyPath(path);
+  return REP_PROXY_ROUTES.some(route => route.method === method && route.pattern.test(normalized));
+}
+
 export function canAccessDashboardPath(role: AdminRole, pathname: string): boolean {
   if (role === "owner") {
     return true;
   }
-  // S8-USERS: a rep is denied every dashboard path until S8-REP opens its
-  // Sales Intelligence scope. Anything that is not exactly "admin" is denied
-  // too, so a new role never inherits the Admin allowances below.
+  // S8-REP: a rep reaches only its Sales Intelligence pages. Anything that is
+  // not exactly "admin" or "rep" is denied, so a new role never inherits the
+  // Admin allowances below.
+  if (role === "rep") {
+    return REP_DASHBOARD_PATHS.some(pattern => pattern.test(pathname));
+  }
   if (role !== "admin") {
     return false;
   }
@@ -110,7 +149,11 @@ export function canProxyVantagePath(input: {
   if (input.role === "owner") {
     return true;
   }
-  // S8-USERS: reps (and any role that is not exactly "admin") reach no API yet.
+  // S8-REP: a rep reaches only the Sales Intelligence calls its UI makes.
+  if (input.role === "rep") {
+    return canRepProxyVantagePath(input.method, input.path);
+  }
+  // Any role that is not exactly "admin" reaches no API.
   if (input.role !== "admin") {
     return false;
   }

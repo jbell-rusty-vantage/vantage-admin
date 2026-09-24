@@ -8,11 +8,18 @@ import { applyRoleRouteGuard, DASHBOARD_PATH_PREFIXES } from "./routeGuard";
 import { signAccessToken } from "./tokens";
 import { salesIntelligenceLive } from "../sales-intelligence-live";
 
-/** S8-USERS: a rep can sign in but is denied every dashboard path and API until S8-REP. */
+/**
+ * S8-USERS: a rep can sign in but is denied every dashboard path and API outside its Sales
+ * Intelligence scope. S8-REP opens exactly the SI pages and calls (`repAccess.test.ts`); every
+ * other path stays denied here.
+ */
 
 const DASHBOARD_PATHS = [
-  ...DASHBOARD_PATH_PREFIXES,
-  "/sales-intelligence/outreach/65f0000000000000000000aa",
+  ...DASHBOARD_PATH_PREFIXES.filter((path) => path !== "/sales-intelligence"),
+  "/sales-intelligence/numbers/65f0000000000000000000aa",
+  "/sales-intelligence/legacy",
+  "/sales-intelligence/outreach",
+  "/sales-intelligence/outreach/65f0000000000000000000aa/messages",
   "/operations-registry?tab=agents",
   "/granot-lifecycle/health",
   "/settings",
@@ -25,8 +32,10 @@ const DASHBOARD_PATHS = [
 ];
 
 const API_PATHS = [
-  "api/v1/admin/sales-intelligence/attention?scope=production",
-  "api/v1/admin/sales-intelligence/outreach/65f0000000000000000000aa",
+  "api/v1/admin/sales-intelligence/numbers?scope=production",
+  "api/v1/admin/sales-intelligence/settings",
+  "api/v1/admin/sales-intelligence/outreach/65f0000000000000000000aa/commands",
+  "api/v1/internal/sales-intelligence/history/story",
   "api/v1/admin/catalog/agents",
   "api/v1/admin/form-leads",
   "api/v1/form-leads/abc",
@@ -39,7 +48,7 @@ const API_PATHS = [
   "api/v1/admin/search?q=x",
 ] as const;
 
-test("canAccessDashboardPath denies a rep every dashboard path", () => {
+test("canAccessDashboardPath denies a rep every dashboard path outside its Sales Intelligence pages", () => {
   for (const path of DASHBOARD_PATHS) {
     assert.equal(canAccessDashboardPath("rep", path), false, path);
   }
@@ -50,7 +59,7 @@ test("canAccessDashboardPath denies a rep every dashboard path", () => {
   assert.equal(canAccessDashboardPath("admin", "/sales-intelligence"), false);
 });
 
-test("canProxyVantagePath denies a rep every API, including the ones Admin may call", () => {
+test("canProxyVantagePath denies a rep every API outside its Sales Intelligence calls, including the ones Admin may call", () => {
   for (const path of API_PATHS) {
     for (const method of ["GET", "POST", "PATCH", "PUT", "DELETE"] as const) {
       assert.equal(canProxyVantagePath({ role: "rep", method, path }), false, `${method} ${path}`);
@@ -95,7 +104,7 @@ test("the request-boundary role guard returns 403 for a rep on every dashboard p
   assert.equal(applyRoleRouteGuard(garbage), null);
 });
 
-test("the Sales Intelligence live BFF refuses a rep", async () => {
+test("the Sales Intelligence live BFF refuses a rep without a linked Agent", async () => {
   setTestEnv();
   const response = await salesIntelligenceLive(new Request("http://localhost/api/sales-intelligence-live?scope=production"), {
     admin: { id: "65f0000000000000000000a1", email: "rep@example.invalid", role: "rep" },

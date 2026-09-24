@@ -1,5 +1,6 @@
 import { proxyForwardHeaders, currentCsiScope } from "./auth/proxyForwardHeaders";
 import type { TrustedAdminIdentity } from "./auth/trustedProxyHeaders";
+import { isValidAdminAgentId } from "./auth/proxySigning";
 
 export const CSI_LIVE_PATH = "api/v1/admin/sales-intelligence/live?scope=production";
 
@@ -10,11 +11,21 @@ export async function salesIntelligenceLive(request: Request, deps: {
   fetch?: typeof fetch;
 }) {
   if (!deps.admin) return Response.json({ ok: false, error: "Unauthorized." }, { status: 401 });
-  if (deps.admin.role !== "owner") return Response.json({ ok: false, error: "Forbidden." }, { status: 403 });
+  // S8-REP: the Owner, or a rep with a linked Agent (the main server scopes the rep's stream and refuses
+  // a rep while SALES_INTELLIGENCE_REP_ACCESS is off). Admin stays refused.
+  if (deps.admin.role !== "owner" && !(deps.admin.role === "rep" && isValidAdminAgentId(deps.admin.agent_id))) {
+    return Response.json({ ok: false, error: "Forbidden." }, { status: 403 });
+  }
   if (!currentCsiScope(`api/v1/admin/sales-intelligence/live${new URL(request.url).search}`)) {
     return Response.json({ ok: false, code: "UNSUPPORTED_SCOPE" }, { status: 403 });
   }
-  const { headers } = proxyForwardHeaders(new Headers(), deps.admin, "GET", CSI_LIVE_PATH);
+  let headers: Headers;
+  try {
+    ({ headers } = proxyForwardHeaders(new Headers(), deps.admin, "GET", CSI_LIVE_PATH));
+  } catch {
+    // A rep is never forwarded unsigned.
+    return Response.json({ ok: false, error: "Forbidden." }, { status: 403 });
+  }
   headers.set("accept", "text/event-stream");
   headers.set("x-api-secret", deps.apiSecret);
   const cursor = request.headers.get("last-event-id");

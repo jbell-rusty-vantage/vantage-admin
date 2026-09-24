@@ -23,6 +23,12 @@ export type SessionUser = {
   id: string;
   email: string;
   role: AdminRole;
+  /**
+   * S8-REP: a rep's linked Agent id, read from the AdminUser row on every session check (so an
+   * Owner re-link applies on the next request). Present only for a rep; Owner and Admin objects
+   * keep their pre-S8 shape.
+   */
+  agent_id?: string | null;
 };
 
 export type AuthTokens = {
@@ -173,9 +179,12 @@ function issueTokens(admin: AdminUserDocument): AuthTokens {
 }
 
 function toPublicAdmin(admin: AdminUserDocument): SessionUser {
-  return {
+  const user: SessionUser = {
     id: admin._id.toString(),
     email: admin.email,
     role: admin.role,
   };
+  // S8-REP: only a rep carries its Agent; Owner/Admin objects are unchanged.
+  if (admin.role === "rep") user.agent_id = typeof admin.agent_id === "string" && admin.agent_id ? admin.agent_id : null;
+  return user;
 }

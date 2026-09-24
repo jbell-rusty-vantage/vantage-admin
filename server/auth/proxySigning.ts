@@ -7,6 +7,12 @@ import { createHmac, randomUUID } from "node:crypto";
  *   admin_id, normalized_email, normalized_role, timestamp, request_id, method, path
  *
  * HMAC-SHA256 with `VANTAGE_ADMIN_PROXY_SIGNING_SECRET`, lowercase hex digest.
+ *
+ * S8-REP (additive): when the role is `rep`, and only then, an eighth line carries the rep's
+ * linked Agent id (`x-vantage-admin-agent-id`, lowercase). Owner and Admin payloads keep exactly
+ * seven lines, so their signatures and headers are byte-identical to the pre-S8 contract and a
+ * server that predates S8-REP still verifies them. A 7-line payload never equals an 8-line one (a
+ * normalized path has no newline), so a rep signature can't be replayed under another role.
  */
 
 export const ADMIN_PROXY_HEADER_NAMES = {
@@ -18,6 +24,10 @@ export const ADMIN_PROXY_HEADER_NAMES = {
   signature: "x-vantage-admin-signature",
 } as const;
 
+/** S8-REP: the rep's linked Agent id. Sent and signed only when the role is `rep`. */
+export const ADMIN_PROXY_AGENT_HEADER = "x-vantage-admin-agent-id";
+const AGENT_ID_PATTERN = /^[a-f\d]{24}$/i;
+
 export type CanonicalAdminActorFields = {
   adminId: string;
   email: string;
@@ -26,6 +36,8 @@ export type CanonicalAdminActorFields = {
   requestId: string;
   method: string;
   path: string;
+  /** S8-REP: required when `role` is `rep`; ignored for every other role. */
+  agentId?: string | null;
 };
 
 export function normalizeAdminEmail(email: string): string {
@@ -48,8 +60,16 @@ export function normalizeAdminPath(path: string): string {
     : withLeadingSlash;
 }
 
+export function normalizeAdminAgentId(agentId: string): string {
+  return agentId.trim().toLowerCase();
+}
+
+export function isValidAdminAgentId(agentId: unknown): agentId is string {
+  return typeof agentId === "string" && AGENT_ID_PATTERN.test(agentId.trim());
+}
+
 export function buildCanonicalAdminActorPayload(fields: CanonicalAdminActorFields): string {
-  return [
+  const lines = [
     fields.adminId.trim(),
     normalizeAdminEmail(fields.email),
     normalizeAdminRole(fields.role),
@@ -57,7 +77,14 @@ export function buildCanonicalAdminActorPayload(fields: CanonicalAdminActorField
     fields.requestId.trim(),
     normalizeAdminMethod(fields.method),
     normalizeAdminPath(fields.path),
-  ].join("\n");
+  ];
+  if (normalizeAdminRole(fields.role) === "rep") {
+    if (!isValidAdminAgentId(fields.agentId)) {
+      throw new Error("A rep actor must be signed with its linked Agent id.");
+    }
+    lines.push(normalizeAdminAgentId(fields.agentId));
+  }
+  return lines.join("\n");
 }
 
 export function signAdminActorPayload(payload: string, secret: string): string {

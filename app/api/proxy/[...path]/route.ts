@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getAccessTokenCookie,
-  getAdminFromAccessToken,
+  getSessionUserFromAccessToken,
   getRefreshTokenCookie,
   getRequestMetadata,
   refreshAdminSession,
@@ -28,7 +28,8 @@ async function requireAdmin() {
   const accessToken = getAccessTokenCookie(cookieStore);
 
   if (accessToken) {
-    const admin = await getAdminFromAccessToken(accessToken);
+    // S8-REP: a rep is a proxy caller too; `canProxyVantagePath` limits it to its Sales Intelligence calls.
+    const admin = await getSessionUserFromAccessToken(accessToken);
     if (admin) {
       return admin;
     }
@@ -180,12 +181,14 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
   const shouldAudit = MUTATING_METHODS.has(method) || isExportRequest(method, backendPath);
   const body = await readRequestBody(request, method);
   if (!currentCsiScope(backendPath, body)) return NextResponse.json({ ok: false, code: "UNSUPPORTED_SCOPE", error: "Current records only." }, { status: 403 });
-  const { headers: forwardHeaders, requestId } = proxyForwardHeaders(
-    request.headers,
-    admin,
-    method,
-    backendPath,
-  );
+  let forwarded: ReturnType<typeof proxyForwardHeaders>;
+  try {
+    forwarded = proxyForwardHeaders(request.headers, admin, method, backendPath);
+  } catch {
+    // S8-REP: a rep without a linked Agent, or without a signing secret, is never forwarded.
+    return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+  }
+  const { headers: forwardHeaders, requestId } = forwarded;
 
   try {
     const vantageResponse = await requestVantageApi(backendPath, {
