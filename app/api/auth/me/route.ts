@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAccessTokenCookie, getAdminFromAccessToken } from "@/server/auth";
+import { getAccessTokenCookie, getSessionUserFromAccessToken } from "@/server/auth";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -10,7 +10,8 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
 
-  const admin = await getAdminFromAccessToken(accessToken);
+  // S8-USERS: a rep is a signed-in user too (its pages and APIs stay denied).
+  const admin = await getSessionUserFromAccessToken(accessToken);
   if (!admin) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }

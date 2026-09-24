@@ -1,6 +1,8 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { canAccessDashboardPath } from "./authorization";
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "./cookies";
+import { verifyAccessToken } from "./tokens";
 
 /** Public pages required for Twilio A2P campaign registration (no auth). */
 export const PUBLIC_LEGAL_PATHS = ["/privacy-policy", "/terms-and-conditions"] as const;
@@ -34,6 +36,23 @@ export const DASHBOARD_PATH_PREFIXES = [
   "/reporting",
   "/ingestion",
 ] as const;
+
+/** Public set-password page for an invite link (page itself is Team 2's U8). */
+export const ACCEPT_INVITE_PAGE = "/accept-invite";
+
+/** Pages that never need a session: login, the API, public and legal pages, static assets. */
+function isSessionFreePath(pathname: string): boolean {
+  return (
+    pathname === "/login" ||
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_next/") ||
+    pathname === "/favicon.ico" ||
+    /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/.test(pathname) ||
+    [...PUBLIC_APP_PATHS, ...PUBLIC_LEGAL_PATHS, ACCEPT_INVITE_PAGE].some(
+      (path) => pathname === path || pathname.startsWith(`${path}/`),
+    )
+  );
+}
 
 export function shouldProtectPath(pathname: string): boolean {
   if (
@@ -76,4 +95,39 @@ export function applyAuthRouteGuard(request: NextRequest): NextResponse | null {
   const loginUrl = new URL("/login", request.url);
   loginUrl.searchParams.set("next", pathname);
   return NextResponse.redirect(loginUrl);
+}
+
+/**
+ * S8-USERS: role gate at the request boundary for roles whose pages do not
+ * gate themselves. Owner and Admin keep today's behaviour (layouts and the API
+ * enforce it). A rep is denied every dashboard path that
+ * `canAccessDashboardPath` does not allow (today: all of them), on every page
+ * that is not session-free. An unreadable
+ * or expired access token falls through to the dashboard layout, which
+ * re-verifies and redirects to /login.
+ */
+export function applyRoleRouteGuard(request: NextRequest): NextResponse | null {
+  const { pathname } = request.nextUrl;
+  // Every page that is not session-free, including dashboard pages missing
+  // from DASHBOARD_PATH_PREFIXES (for example /daily or /granot-lifecycle).
+  if (isSessionFreePath(pathname)) {
+    return null;
+  }
+  const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
+  if (!accessToken) {
+    return null;
+  }
+  let role: string;
+  try {
+    role = verifyAccessToken(accessToken).role;
+  } catch {
+    return null;
+  }
+  if (role === "owner" || role === "admin") {
+    return null;
+  }
+  if (role === "rep" && canAccessDashboardPath("rep", pathname)) {
+    return null;
+  }
+  return new NextResponse("Forbidden.", { status: 403, headers: { "content-type": "text/plain" } });
 }

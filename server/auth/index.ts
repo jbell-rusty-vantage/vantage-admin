@@ -11,11 +11,13 @@ export { getRequestMetadata, type RequestMetadata } from "./request";
 export {
   authenticateAdmin,
   getAdminFromAccessToken,
+  getSessionUserFromAccessToken,
   normalizeEmail,
   refreshAdminSession,
   resolveAdminIdFromRefreshToken,
   type AuthTokens,
   type PublicAdminUser,
+  type SessionUser,
 } from "./session";
 export {
   signAccessToken,

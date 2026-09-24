@@ -1,11 +1,13 @@
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { getServerEnv } from "@/lib/env/server";
-import type { AdminRole } from "@/server/models";
+import { isAdminRole, type AdminRole } from "@/server/models/adminRoles";
 
 export type AccessTokenPayload = {
   sub: string;
   email: string;
   role: AdminRole;
+  /** AdminUser.token_version at issue; absent on tokens issued before S8-USERS. */
+  token_version?: number;
 };
 
 export type RefreshTokenPayload = {
@@ -53,7 +55,8 @@ function isAccessTokenPayload(payload: string | JwtPayload): payload is Verified
     typeof payload !== "string" &&
     typeof payload.sub === "string" &&
     typeof payload.email === "string" &&
-    (payload.role === "owner" || payload.role === "admin")
+    isAdminRole(payload.role) &&
+    (payload.token_version === undefined || typeof payload.token_version === "number")
   );
 }
 

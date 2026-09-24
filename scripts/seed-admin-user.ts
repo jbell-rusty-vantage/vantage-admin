@@ -20,11 +20,40 @@ function readSeedRole(): AdminRole {
   return role as AdminRole;
 }
 
+/**
+ * Rep seeding (S8-USERS): `NEW_SEED_ROLE=rep` needs the main-server Agent id,
+ * from `--agent-id <id>` / `--agent-id=<id>` or `NEW_SEED_AGENT_ID`. The script
+ * can't check that the Agent is active (the Users tab does); the partial unique
+ * index still refuses a second active rep on the same Agent.
+ */
+function readSeedAgentId(role: AdminRole): string | null {
+  const argv = process.argv.slice(2);
+  const flagIndex = argv.findIndex((arg) => arg === "--agent-id" || arg.startsWith("--agent-id="));
+  const fromFlag =
+    flagIndex === -1
+      ? undefined
+      : argv[flagIndex]?.includes("=")
+        ? argv[flagIndex]?.split("=")[1]
+        : argv[flagIndex + 1];
+  const agentId = (fromFlag ?? process.env.NEW_SEED_AGENT_ID)?.trim().toLowerCase() || null;
+  if (role !== "rep") {
+    if (agentId) {
+      throw new Error("--agent-id is only for NEW_SEED_ROLE=rep");
+    }
+    return null;
+  }
+  if (!agentId || !/^[a-f0-9]{24}$/.test(agentId)) {
+    throw new Error("NEW_SEED_ROLE=rep requires --agent-id <main-server Agent ObjectId>");
+  }
+  return agentId;
+}
+
 async function main(): Promise<void> {
   const env = getServerEnv();
   const email = normalizeEmail(requiredSeedEnv("NEW_SEED_EMAIL"));
   const password = requiredSeedEnv("NEW_SEED_PASSWORD");
   const role = readSeedRole();
+  const agentId = readSeedAgentId(role);
 
   await connectAdminMongo();
   await AdminUser.createIndexes();
@@ -36,6 +65,7 @@ async function main(): Promise<void> {
   if (existingAdmin) {
     existingAdmin.password_hash = passwordHash;
     existingAdmin.role = role;
+    existingAdmin.agent_id = agentId;
     existingAdmin.active = true;
     existingAdmin.token_version += 1;
     existingAdmin.password_changed_at = now;
@@ -50,6 +80,7 @@ async function main(): Promise<void> {
     email,
     password_hash: passwordHash,
     role,
+    agent_id: agentId,
     active: true,
     token_version: 0,
     created_at: now,

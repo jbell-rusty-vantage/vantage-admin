@@ -15,6 +15,10 @@ export async function GET(request: NextRequest) {
   if (!admin) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
+  // S8-USERS: reps are denied every API until S8-REP (Owner/Admin unchanged).
+  if (admin.role !== "owner" && admin.role !== "admin") {
+    return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+  }
 
   const params = request.nextUrl.searchParams;
   const page = Math.max(Number(params.get("page") ?? 1), 1);

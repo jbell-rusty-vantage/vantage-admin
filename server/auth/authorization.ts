@@ -68,6 +68,12 @@ export function canAccessDashboardPath(role: AdminRole, pathname: string): boole
   if (role === "owner") {
     return true;
   }
+  // S8-USERS: a rep is denied every dashboard path until S8-REP opens its
+  // Sales Intelligence scope. Anything that is not exactly "admin" is denied
+  // too, so a new role never inherits the Admin allowances below.
+  if (role !== "admin") {
+    return false;
+  }
   if (
     pathname === "/granot-lifecycle/health"
     || pathname.startsWith("/granot-lifecycle/health/")
@@ -103,6 +109,10 @@ export function canProxyVantagePath(input: {
 }): boolean {
   if (input.role === "owner") {
     return true;
+  }
+  // S8-USERS: reps (and any role that is not exactly "admin") reach no API yet.
+  if (input.role !== "admin") {
+    return false;
   }
 
   const path = normalizeProxyPath(input.path);
