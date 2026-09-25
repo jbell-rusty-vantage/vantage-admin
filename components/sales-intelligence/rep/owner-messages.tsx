@@ -26,8 +26,15 @@ export function ownerMessageItems(nudges: readonly Pick<NudgeRecord, "id" | "bod
 }
 
 /** The pure block (tests and the gallery). Renders nothing without messages. */
-export function OwnerMessagesView({ nudges, asOf, refreshing = false }: { nudges: readonly NudgeRecord[]; asOf: string; refreshing?: boolean }) {
+/**
+ * Coordinator decision (UI-2 §5): the rep sees only messages that reached its RingCentral (`sent`, or `fallback_sent` by
+ * pager), so `Also sent to your RingCentral` is always true; pending, failed or unknown deliveries are the Owner's plumbing.
+ */
+export const DELIVERED_TO_REP: ReadonlySet<string> = new Set(["sent", "fallback_sent"]);
+
+export function OwnerMessagesView({ nudges: all, asOf, refreshing = false }: { nudges: readonly NudgeRecord[]; asOf: string; refreshing?: boolean }) {
   const headingId = useId();
+  const nudges = all.filter((nudge) => DELIVERED_TO_REP.has(nudge.status));
   if (!nudges.length) return null;
   return (
     <section className="si-work__messages si-ownermsgs" aria-labelledby={headingId} data-owner-messages={nudges.length}>

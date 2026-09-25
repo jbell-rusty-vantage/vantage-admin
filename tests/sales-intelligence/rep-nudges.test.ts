@@ -117,3 +117,13 @@ fixtureTest("A10: the rep timeline fixture renders exactly one nudge event (Dana
   assert.equal(count(renderTimeline("S12/rep-marcus-outreach-timeline-nudges__t3-promise-across-b.json", MARCUS)), 1);
   assert.equal(count(renderTimeline("S12/owner-outreach-timeline-nudges__t3-promise-across-b.json", OWNER_VIEWER)), 3);
 });
+
+fixtureTest("A10: only messages that reached the rep's RingCentral show (sent, fallback_sent); pending, failed and unknown don't", () => {
+  const base = JSON.parse(fs.readFileSync(path.join(findContractsDir() ?? "", "S12/rep-outreach-nudges__t3-promise-across-b.json"), "utf8")).data;
+  const item = base.nudges.items[0];
+  const make = (status: string, body: string) => ({ ...item, id: `${item.id}-${status}`, status, body_as_sent: body });
+  const html = renderToStaticMarkup(createElement(OwnerMessagesView, { nudges: [make("sent", "BODY-SENT"), make("fallback_sent", "BODY-PAGER"), make("failed", "BODY-FAILED"), make("pending", "BODY-PENDING"), make("unknown_delivery", "BODY-UNKNOWN")], asOf: base.as_of ?? item.created_at }));
+  for (const shown of ["BODY-SENT", "BODY-PAGER"]) assert.ok(html.includes(shown), shown);
+  for (const hidden of ["BODY-FAILED", "BODY-PENDING", "BODY-UNKNOWN"]) assert.ok(!html.includes(hidden), hidden);
+  assert.equal(renderToStaticMarkup(createElement(OwnerMessagesView, { nudges: [make("failed", "X")], asOf: item.created_at })), "");
+});
