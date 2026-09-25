@@ -17,14 +17,15 @@ import type { ReactNode } from "react";
 import { HeaderLive } from "../data/live";
 import { siKeys } from "../data/query-keys";
 import { readOutreach } from "../data/use-outreach";
-import { Region, RouteTabs, type RouteTab } from "../primitives";
+import { DelayedSkeleton, Region, RouteTabs, type RouteTab } from "../primitives";
+import { useIsRep } from "../rep/viewer";
 import { copy } from "../sales-intelligence-copy";
-import { Timeline } from "../timeline";
+import { Timeline, TimelineSkeleton } from "../timeline";
 import { AnalysisTab, AnalysisTabSkeleton } from "./analysis";
 import { OUTREACH_TABS, backHref, outreachRouteHref, parseOutreachTab, validReturn, type OutreachTab } from "./deep-links";
 import { AnalysisSectionsSkeleton, OutreachNotFound, isNotFoundError } from "./page-states";
 import { RecordHeader } from "./record-header";
-import { WorkTab } from "./work-tab";
+import { WorkTab, WorkTabSkeleton } from "./work-tab";
 
 const h = copy.ui1.outreach;
 
@@ -64,21 +65,24 @@ export function OutreachPageFrame({ back, header, tabs, active, notFound, childr
   notFound?: boolean;
   children?: ReactNode;
 }) {
+  // UI2-SCOPE (UI-2 §3): a rep's back link reads `Back`, and its live indicator reads no coverage (Owner-only) and links
+  // to no Coverage page, as the desk header does for a rep.
+  const rep = useIsRep();
   return (
-    <div className="si-root si-outreach">
+    <div className="si-root si-outreach" data-viewer={rep ? "rep" : undefined}>
       <div className="si-outreach__bar">
         <Link className="si-btn si-btn--secondary si-btn--md si-hit si-outreach__back" href={back}>
           <ArrowLeft size={16} aria-hidden />
-          {h.back}
+          {rep ? copy.ui2.scope.back : h.back}
         </Link>
-        <HeaderLive className="si-outreach__live" />
+        {rep ? <HeaderLive className="si-outreach__live" healthEnabled={false} coverageHref={null} /> : <HeaderLive className="si-outreach__live" />}
       </div>
       {notFound ? (
         <OutreachNotFound back={back} />
       ) : (
         <>
           {header}
-          <RouteTabs items={tabs} active={active} label={h.tabsLabel} />
+          <RouteTabs items={tabs} active={active} label={h.tabsLabel} className="si-outreach__tabs" />
           <div className="si-outreach__body" data-tab={active}>{children}</div>
         </>
       )}
@@ -88,11 +92,20 @@ export function OutreachPageFrame({ back, header, tabs, active, notFound, childr
 
 /**
  * Watches the same detail read as the header (shared key, no second request) without suspending, so a 404 becomes the
- * page state instead of the header region's error.
+ * page state instead of the header region's error. UI2-SCOPE: `ready` is false until the detail read has answered, so
+ * the active tab's regions (assessment, findings, timeline, …) never mount for a record that turns out to be a 404
+ * (they logged `INVALID_INPUT` before, for the Owner too); any other failure lets them mount and fail in place.
  */
-function useOutreachMissing(id: string): boolean {
+function useOutreachGate(id: string): { missing: boolean; ready: boolean } {
   const query = useQuery({ queryKey: siKeys.outreach(id), queryFn: ({ signal }) => readOutreach(id, signal), retry: false });
-  return isNotFoundError(query.error);
+  const missing = isNotFoundError(query.error);
+  return { missing, ready: !!query.data || (!!query.error && !missing) };
+}
+
+/** The active tab's shape while the detail read is pending (after 150 ms, UI-0 §2.4). */
+function TabSkeleton({ tab, rep }: { tab: OutreachTab; rep: boolean }) {
+  const shape = tab === "work" ? <WorkTabSkeleton /> : tab === "timeline" ? <TimelineSkeleton /> : <AnalysisTabSkeleton role={rep ? "rep" : "owner"} />;
+  return <DelayedSkeleton>{shape}</DelayedSkeleton>;
 }
 
 export function OutreachPage({ id, tab, run, siReturn, analysis, timeline }: OutreachPageProps) {
@@ -101,15 +114,19 @@ export function OutreachPage({ id, tab, run, siReturn, analysis, timeline }: Out
   const back = backHref(kept);
   // Official-record links return here, to this tab.
   const returnTo = outreachRouteHref(id, { tab: active, siReturn: kept });
-  const missing = useOutreachMissing(id);
+  const { missing, ready } = useOutreachGate(id);
+  // UI2-SCOPE (UX15): the analysis kit's role is the viewer's; a rep's kit has no Full output, Advanced or Apply.
+  const rep = useIsRep();
+  const role = rep ? "rep" : "owner";
   let content: ReactNode;
-  if (active === "timeline") content = timeline ?? <Timeline scope="outreach" id={id} />;
+  if (!ready) content = <TabSkeleton tab={active} rep={rep} />;
+  else if (active === "timeline") content = timeline ?? <Timeline scope="outreach" id={id} />;
   else if (active === "work") content = <WorkTab id={id} returnTo={returnTo} />;
   else
     content = analysis ?? (
-      <Region name="outreach-analysis" skeleton={<AnalysisTabSkeleton />}>
+      <Region name="outreach-analysis" skeleton={<AnalysisTabSkeleton role={role} />}>
         {/* The record header already shows the card's lines 1–4 and 7, so Situation doesn't repeat them. */}
-        <AnalysisTab outreachId={id} role="owner" run={run ?? null} cardLines={false} />
+        <AnalysisTab outreachId={id} role={role} run={rep ? null : run ?? null} cardLines={false} />
       </Region>
     );
   return (

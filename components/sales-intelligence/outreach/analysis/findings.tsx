@@ -77,6 +77,9 @@ function ReviewActions({ finding, onAction, showLookAgain }: { finding: CurrentF
   const allowed = reviewable ? finding.allowed_actions.filter((a) => (REVIEW_ACTIONS as readonly string[]).includes(a.action)) : [];
   const main = allowed.filter((a) => a.action !== "retract_finding");
   const retract = allowed.find((a) => a.action === "retract_finding");
+  // UI2-SCOPE (UI-2 §3): without a handler (a rep's page) the review actions don't render at all, even when the
+  // server lists them on the finding: a rep has no finding command in the E9 allowlist.
+  if (!onAction && !showLookAgain) return null;
   if (main.length === 0 && !retract && !showLookAgain) return null;
   const button = (action: FindingAction, label: string, enabled = true, blockers: readonly string[] = []) => (
     <Button key={action} variant="secondary" size="sm" className="si-hit" disabled={!enabled || !onAction} title={blockers.length ? blockers.join(", ") : undefined} data-action={action} onClick={() => onAction?.(finding, action)}>
@@ -293,7 +296,14 @@ function WithPresentation({ runId, children }: { runId: string; children: (prese
  * The section wrapper the analysis frame mounts. `newestRunId` is `outreach.newest_run_id` (null → no changes block).
  * `showLookAgain` is the frame's Owner switch (UX27).
  */
-export function FindingsSection({ outreachId, newestRunId, showLookAgain = false, reviewHref }: { outreachId: string; newestRunId: string | null; showLookAgain?: boolean; reviewHref?: (reviewItemId: string) => string }) {
+export function FindingsSection({ outreachId, newestRunId, showLookAgain = false, reviewHref, review = true }: {
+  outreachId: string;
+  newestRunId: string | null;
+  showLookAgain?: boolean;
+  reviewHref?: (reviewItemId: string) => string;
+  /** UI2-SCOPE: `false` (a rep) renders no Confirm / Correct / Retract, so no run command dialog can open. */
+  review?: boolean;
+}) {
   const client = useQueryClient();
   const [includeSuperseded, setIncludeSuperseded] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -311,7 +321,7 @@ export function FindingsSection({ outreachId, newestRunId, showLookAgain = false
       relations={presentation?.summary_findings.prior_finding_relations}
       relationEvidence={presentation?.evidence.items as EvidenceView[] | undefined}
       instructionAssessments={presentation?.summary_findings.owner_instruction_assessments}
-      onAction={(finding, action) => setCommand({ finding, action })}
+      onAction={review ? (finding, action) => setCommand({ finding, action }) : undefined}
       showLookAgain={showLookAgain}
       reviewHref={reviewHref}
       replaced={{ shown: includeSuperseded, pending, onToggle: () => startTransition(() => setIncludeSuperseded((on) => !on)) }}

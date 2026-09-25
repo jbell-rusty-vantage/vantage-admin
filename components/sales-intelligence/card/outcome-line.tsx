@@ -18,6 +18,7 @@ import type { ClosedOutcome } from "@/lib/api/salesIntelligence";
 import { Chip } from "../primitives";
 import { copy } from "../sales-intelligence-copy";
 import { officialRecordHref } from "../lib/official-record";
+import { useIsRep } from "../rep/viewer";
 import { etDateKey, formatDate, formatExactFull } from "../lib/time";
 
 const k = copy.ui1.closed;
@@ -72,6 +73,8 @@ export type OutcomeLineProps = {
 };
 
 export function OutcomeLine({ outcome, asOf, receivedAt, returnTo }: OutcomeLineProps) {
+  // UI2-SCOPE (UI-2 §3): official-record pages are Owner-only, so a rep's Booked line has no `Open Booking` link.
+  const rep = useIsRep();
   const duration = durationText(outcome);
   const tail = duration ? <span className="si-outcome__duration"> ({duration})</span> : null;
   const sep = k.sep;
@@ -86,7 +89,7 @@ export function OutcomeLine({ outcome, asOf, receivedAt, returnTo }: OutcomeLine
           <Chip tone="green" icon={null} className="si-outcome__booked">{k.booked}</Chip>{" "}
           <Day t={booking?.book_date ?? outcome.closed_at} asOf={asOf} />
           {tail}
-          {booking && (
+          {booking && !rep && (
             <>
               {sep}
               <Link className="si-link si-outcome__link" href={officialRecordHref("BookedLead", booking.id, returnTo)} data-action="open-booking">

@@ -12,6 +12,8 @@ import { Button } from "../atoms/button";
 import { BandBadge, Chip, StatePill, TimeText, type BandNumber, type ChipTone } from "../primitives";
 import { copy } from "../sales-intelligence-copy";
 import { cx } from "../lib/format";
+import { OWNER_VIEWER, type Viewer } from "../rep/viewer-session";
+import { useViewer } from "../rep/viewer";
 import { TIME_WORDS, formatCountdown, formatDate, formatDayCount, formatDuration, formatExact } from "../lib/time";
 import { elapsedMs, reasonSegment } from "./reason-phrase";
 
@@ -84,8 +86,10 @@ const blockerLabel = (value: string): string => {
 /**
  * Line 1 chips, left to right (UI-1 §2.1): live chip (`live_call`, else `Owner calling`), call blockers, `Needs review`,
  * `Details disagree`, `Newer call since assessment`. Each is a server boolean or enum; nothing is derived here.
+ * UI2-SCOPE (UI-2 §3): for a rep (`rep: true`) the `Don't call` chip has no "open the record for the end date" tip: the
+ * end date is on the Number read, which is Owner-only, so the record doesn't show it to a rep either.
  */
-export function lineOneChips(row: CardRow, asOf: string): CardChip[] {
+export function lineOneChips(row: CardRow, asOf: string, { rep = false }: { rep?: boolean } = {}): CardChip[] {
   const o = row.outreach;
   const chips: CardChip[] = [];
   if (o?.live_call) {
@@ -101,7 +105,7 @@ export function lineOneChips(row: CardRow, asOf: string): CardChip[] {
       tone: "amber",
       icon: <PhoneOff size={12} aria-hidden />,
       label: blockerLabel(value),
-      tip: value === "restriction" ? ch.blocker.restrictionTip : undefined,
+      tip: value === "restriction" && !rep ? ch.blocker.restrictionTip : undefined,
     });
   }
   if (row.filter_keys?.needs_review) chips.push({ id: "needs-review", tone: "neutral", icon: <CircleHelp size={12} aria-hidden />, label: ch.needsReview });
@@ -137,11 +141,12 @@ const isBand = (n: unknown): n is BandNumber => typeof n === "number" && Number.
 export function LineOne({ row, asOf, layout, identity }: { row: CardRow; asOf: string; layout: "grouped" | "flat"; identity: ReactNode }) {
   const o = row.outreach;
   const band = row.derived.attention_band;
+  const rep = useViewer().role === "rep";
   return (
     <span className="si-card__l1">
       <span className="si-card__l1main">
         <span className="si-card__identity">{identity}</span>
-        {lineOneChips(row, asOf).map((chip) => (
+        {lineOneChips(row, asOf, { rep }).map((chip) => (
           <ChipView key={chip.id} chip={chip} />
         ))}
       </span>
@@ -306,8 +311,19 @@ export function LineSix({ o, asOf, onApply }: { o: CardOutreach; asOf: string; o
 
 // ── Line 7 ────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** `Promised by {name}` › `Assigned to {name} (from Granot)` › `Unassigned`. */
-export function whoText(o: CardOutreach): string {
+/**
+ * `Promised by {name}` › `Assigned to {name} (from Granot)` › `Unassigned`.
+ * UI2-SCOPE (UI-2 §3, A05; COPY-UI2 §2 precedence): for a rep viewer, `Yours` when the rep is the assigned agent (even if
+ * they also promised) › `Promised by you` › `Assigned to {name}` › `Unassigned`. Two server ids compared to the session's
+ * Agent id; no state is derived. The Owner's text is unchanged.
+ */
+export function whoText(o: CardOutreach, viewer: Viewer = OWNER_VIEWER): string {
+  if (viewer.role === "rep") {
+    const agent = o.assignment.agent;
+    if (agent && viewer.agentId && agent.id === viewer.agentId) return copy.ui2.scope.yours;
+    if (viewer.agentId && o.next_action?.promised_by?.id === viewer.agentId) return copy.ui2.scope.promisedByYou;
+    return agent ? c.assignedTo(agent.name) : c.unassigned;
+  }
   const promised = o.next_action?.promised_by;
   if (promised?.name) return c.promisedBy(promised.name);
   const agent = o.assignment.agent;
@@ -334,8 +350,9 @@ export function uncertainFiveText(o: CardOutreach): string | null {
 }
 
 export function LineSeven({ row, o, asOf, sortLine }: { row: CardRow; o: CardOutreach; asOf: string; sortLine?: ReactNode }) {
+  const viewer = useViewer();
   const why = reasonSegment({ outreach: o, derived: row.derived }, asOf);
-  const parts: ReactNode[] = [<span key="who" data-seg="who">{whoText(o)}</span>];
+  const parts: ReactNode[] = [<span key="who" data-seg="who">{whoText(o, viewer)}</span>];
   if (why) {
     parts.push(
       <CardTip key="why" title={copy.ui1.reason.allTitle} lines={why.tooltipLines} label={<span data-seg="why">{why.text}</span>} />,

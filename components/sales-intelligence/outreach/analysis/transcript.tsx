@@ -5,7 +5,7 @@
  * `completeness.missing_ranges` prints its markers. `scrollToSegments(conversationId, sids)` opens that card's
  * transcript, loads pages until the first sid is there, scrolls to it and highlights every cited sid for a moment.
  */
-import { useEffect, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import type { TranscriptPage } from "@/lib/api/salesIntelligence";
 import { Button } from "../../atoms/button";
 import { useTranscript } from "../../data/use-conversations";
@@ -16,6 +16,13 @@ import { formatExactFull } from "../../lib/time";
 import { useKitPrefix } from "./kit-id";
 
 const tr = copy.ui1.analysis.transcript;
+
+/**
+ * UI2-PHONE (UI-2 §7): "transcript segments are tappable to jump". The conversation card provides a seek function when it
+ * shows the player; each timed segment then renders its offset as a 44 px button that plays the recording from there.
+ * Without a player (no recording, audio removed) the offset stays plain text.
+ */
+export const TranscriptSeekContext = createContext<((ms: number) => void) | null>(null);
 
 export type TranscriptSegment = TranscriptPage["data"]["segments"][number];
 
@@ -108,6 +115,7 @@ export type TranscriptViewProps = {
 
 export function TranscriptView({ conversationId, segments, available, missingRanges, hasMore, loadingMore = false, moreFailed = false, onLoadMore, highlight = [] }: TranscriptViewProps) {
   const prefix = useKitPrefix();
+  const seek = useContext(TranscriptSeekContext);
   const marked = new Set(highlight);
   const before = missingRanges.filter((r) => r.startsWith("segments_before"));
   const after = missingRanges.filter((r) => !r.startsWith("segments_before"));
@@ -131,7 +139,21 @@ export function TranscriptView({ conversationId, segments, available, missingRan
               <li key={sid} id={prefix + segmentAnchor(conversationId, sid)} className={cx("si-transcript__turn", marked.has(sid) && "is-highlighted")} data-sid={sid} data-speaker={segment.speaker}>
                 <span className="si-transcript__who">
                   <span className="si-transcript__speaker">{segment.speaker_label}</span>
-                  {segment.start_ms != null && (
+                  {segment.start_ms != null && seek ? (
+                    <button
+                      type="button"
+                      className="si-transcript__seek si-hit"
+                      data-seek-ms={segment.start_ms}
+                      aria-label={copy.ui2.phone.playFrom(offsetText(segment.start_ms), exact)}
+                      onClick={() => seek(segment.start_ms!)}
+                    >
+                      {segment.at && exact ? (
+                        <time dateTime={segment.at} title={exact} className="si-time si-transcript__offset">{offsetText(segment.start_ms)}</time>
+                      ) : (
+                        <span className="si-transcript__offset">{offsetText(segment.start_ms)}</span>
+                      )}
+                    </button>
+                  ) : segment.start_ms != null && (
                     segment.at && exact ? (
                       <time dateTime={segment.at} title={exact} aria-label={tr.offsetLabel(offsetText(segment.start_ms), exact)} className="si-time si-transcript__offset">
                         {offsetText(segment.start_ms)}

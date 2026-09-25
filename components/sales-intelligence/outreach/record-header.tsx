@@ -29,6 +29,7 @@ import { RelatedRecordChips } from "../related-record-chips";
 import { BandBadge, Region, RegionProgress, SkeletonBlock, SkeletonLines, StatePill, type BandNumber } from "../primitives";
 import { cx } from "../lib/format";
 import { formatDuration, formatExact } from "../lib/time";
+import { useIsRep, useViewer } from "../rep/viewer";
 import { RecordCommands } from "./commands";
 
 const h = copy.ui1.outreach;
@@ -84,8 +85,15 @@ export function useCallRestriction(o: Outreach): { restriction: CallRestriction;
  * `restriction` chip reading `Don't call until {date}` (or `Don't call` with no end) once the restriction is known.
  * Until then it reads the card's `Don't call`.
  */
-export function headerChips(row: CardRow, asOf: string, restriction: CallRestriction, known: boolean): CardChip[] {
+export function headerChips(row: CardRow, asOf: string, restriction: CallRestriction, known: boolean, { rep = false }: { rep?: boolean } = {}): CardChip[] {
   const ch = copy.ui1.chip.blocker;
+  // UI2-SCOPE (UI-2 §3, TEAM-UI2 §10.4): a rep's chip comes from `derived.call_blockers` alone and reads `Don't call`
+  // with no date (the end date is on the Owner-only Number read), and there is no `Needs review` chip.
+  if (rep) {
+    return lineOneChips(row, asOf, { rep })
+      .filter((chip) => chip.id !== "needs-review")
+      .map((chip) => (chip.id === "blocker-restriction" ? { ...chip, label: copy.ui2.scope.dontCallNoDate, tip: undefined } : chip));
+  }
   return lineOneChips(row, asOf).map((chip) => {
     if (chip.id !== "blocker-restriction") return chip;
     if (!known) return { ...chip, tip: undefined };
@@ -128,7 +136,8 @@ export function receiverTip(o: Pick<Outreach, "receiver_agent">, asOf: string): 
 }
 
 function HeaderLineSeven({ o, row, asOf }: { o: Outreach; row: CardRow; asOf: string }) {
-  const parts: ReactNode[] = [<span key="who" data-seg="who">{whoText(o)}</span>];
+  const viewer = useViewer();
+  const parts: ReactNode[] = [<span key="who" data-seg="who">{whoText(o, viewer)}</span>];
   if (showReceiverAgent(o)) {
     const tip = receiverTip(o, asOf);
     const text = <span data-seg="receiver">{h.receiverAgent(o.receiver_agent!.agent!.name)}</span>;
@@ -160,20 +169,25 @@ export type RecordHeaderViewProps = {
   refreshing?: boolean;
 };
 
-/** The pure header (tests and the gallery render it from fixtures). */
+/**
+ * The pure header (tests and the gallery render it from fixtures). UI2-SCOPE (UI-2 §3, E10): under a rep viewer it keeps
+ * the call blocker chip (no date), the provenance line, the receiver agent and line 7, and drops every Owner control:
+ * record commands, `Message rep`, Lead progress controls, `Attach a Lead` / `Review`, and the official-record links.
+ */
 export function RecordHeaderView({ outreach: o, asOf, returnTo, restriction = null, restrictionKnown = false, onCommand, onMessageRep, messageRepDisabledReason, refreshing }: RecordHeaderViewProps) {
+  const rep = useIsRep();
   const row = headerRow(o);
   const band = o.derived.attention_band;
   const route = routeText(o, asOf);
   const live = !!o.live_call || o.call_progress?.state === "in_progress";
   return (
-    <header className={cx("si-now si-recordheader", live && "is-live")} data-outreach={o.id}>
+    <header className={cx("si-now si-recordheader", live && "is-live", rep && "is-rep")} data-outreach={o.id} data-viewer={rep ? "rep" : undefined}>
       <RegionProgress active={!!refreshing} />
       <div className="si-now__identity">
         <div className="si-recordheader__l1" data-line="1">
           <h1 className="si-heading si-heading--1 si-recordheader__title">{identityText(o)}</h1>
           <span className="si-chiprow">
-            {headerChips(row, asOf, restriction, restrictionKnown).map((chip) => <ChipView key={chip.id} chip={chip} />)}
+            {headerChips(row, asOf, restriction, restrictionKnown, { rep }).map((chip) => <ChipView key={chip.id} chip={chip} />)}
           </span>
           <span className="si-recordheader__side">
             <StatePill state={o.state} />
@@ -189,22 +203,37 @@ export function RecordHeaderView({ outreach: o, asOf, returnTo, restriction = nu
         <p className="si-recordheader__line" data-line="6"><LineSix o={o} asOf={asOf} /></p>
         <HeaderLineSeven o={o} row={row} asOf={asOf} />
         <p className="si-recordheader__line si-recordheader__band" data-band-line>{bandLine(o, asOf)}</p>
-        <LeadProgressSection record={o} onCommand={onCommand} />
+        <LeadProgressSection record={o} onCommand={rep ? undefined : onCommand} />
       </div>
 
       <RecordProvenance record={o} asOfText={(t) => formatExact(t, asOf)} />
 
-      <RelatedRecordChips outreach={o} numberId={numberIdOf(o)} returnTo={returnTo} />
+      {!rep && <RelatedRecordChips outreach={o} numberId={numberIdOf(o)} returnTo={returnTo} />}
 
-      {onCommand && (
+      {onCommand && !rep && (
         <RecordCommands record={o} onCommand={onCommand} onMessageRep={onMessageRep} messageRepDisabledReason={messageRepDisabledReason} />
       )}
     </header>
   );
 }
 
-/** The live header: the detail read, the restriction read, the command dialog and the Message rep panel. */
+/**
+ * UI2-SCOPE (A04): a rep's live header reads the detail only. No Number read (`GET /numbers/:id`), no nudge destinations
+ * (`GET /reps`), no command dialog and no Message rep panel: those reads are Owner-only and would answer 403.
+ */
+function RepRecordHeaderLive({ id, returnTo }: { id: string; returnTo: string }) {
+  const { outreach, asOf, isRefetching } = useOutreach(id);
+  useReportAsOf(asOf);
+  return <RecordHeaderView outreach={outreach} asOf={asOf} returnTo={returnTo} refreshing={isRefetching} />;
+}
+
+/** The viewer picks the live header at the smallest mount point, so an Owner-only hook never runs for a rep. */
 function RecordHeaderLive({ id, returnTo }: { id: string; returnTo: string }) {
+  return useIsRep() ? <RepRecordHeaderLive id={id} returnTo={returnTo} /> : <OwnerRecordHeaderLive id={id} returnTo={returnTo} />;
+}
+
+/** The live header: the detail read, the restriction read, the command dialog and the Message rep panel. */
+function OwnerRecordHeaderLive({ id, returnTo }: { id: string; returnTo: string }) {
   const { outreach, asOf, isRefetching } = useOutreach(id);
   useReportAsOf(asOf);
   const { restriction, known } = useCallRestriction(outreach);

@@ -92,7 +92,8 @@ function FlowBar({ flow, links, period }: { flow: Flow; links: OverviewLinks | n
   );
 }
 
-export function DeskHealthBlock({ data, links }: { data: Overview | null; links: OverviewLinks | null }) {
+/** UI2-OVERVIEW: `title` names the rep's block (`Your desk health`); the numbers are the rep's scope as served. */
+export function DeskHealthBlock({ data, links, title = t.title }: { data: Overview | null; links: OverviewLinks | null; title?: string }) {
   const headingId = useId();
   const desk = data?.desk ?? null;
   const speed = desk?.speed_to_lead ?? null;
@@ -102,7 +103,7 @@ export function DeskHealthBlock({ data, links }: { data: Overview | null; links:
   const keptTip = kept && kept.kept_share != null ? t.keptTip(count(kept.kept_contact_unknown), count(kept.kept_unreached)) : null;
   return (
     <section className="si-ovblock si-ovdesk" aria-labelledby={headingId}>
-      <h2 id={headingId} className="si-heading si-heading--2">{t.title}</h2>
+      <h2 id={headingId} className="si-heading si-heading--2">{title}</h2>
       <div className="si-ovdesk__grid">
         <Metric title={t.speedToLead} data="speed_to_lead">
           <p className="si-ovmetric__line">{speedLine(speed)}</p>

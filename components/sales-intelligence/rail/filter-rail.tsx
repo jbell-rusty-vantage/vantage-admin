@@ -6,6 +6,7 @@
  * (`activeFilterChips`), so a collapsed region never hides a filter.
  */
 import { Disclosure } from "../primitives";
+import { useIsRep } from "../rep/viewer";
 import { copy } from "../sales-intelligence-copy";
 import { cx } from "../lib/format";
 import { RegionBody } from "./region-controls";
@@ -21,8 +22,12 @@ export type FilterRailProps = {
   className?: string;
 };
 
-/** The regions alone (shared by the rail and the narrow-layout sheet). */
+/**
+ * The regions alone (shared by the rail and the narrow-layout sheet). UI2-SCOPE (UI-2 §3): a rep's rail has no Rep
+ * region; a foot note says the list is the rep's own records (the server forces the scope).
+ */
 export function RailRegions({ regions, value, onChange, reps, asOf }: FilterRailProps) {
+  const rep = useIsRep();
   return (
     <div className="si-rail__regions">
       {regions.map((region) => (
@@ -32,6 +37,7 @@ export function RailRegions({ regions, value, onChange, reps, asOf }: FilterRail
           </div>
         </Disclosure>
       ))}
+      {rep && <p className="si-rail__repnote si-text--sm si-text--subtle" data-rail-note="rep">{copy.ui2.scope.noRailRep}</p>}
     </div>
   );
 }

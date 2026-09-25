@@ -9,6 +9,11 @@
  * 5. Attachments, read-only; the connected Number links out to the legacy Numbers view (`legacyNumberHref`).
  * 6. Messages to the rep: the history plus the inline composer (`MessageRepPanel` mode `inline`, UI1-CHAT).
  * Every read refetches in place from its live topic (`outreach`, `number`, `review`, `nudge`, `attachment`).
+ *
+ * UI2-SCOPE + UI2-FOLLOWUP (UI-2 §3–§4, A04): a rep's Work tab is the follow-ups with the rep's own actions
+ * (`RepFollowups`) and nothing else. Owner corrections, review items, restrictions (`GET /numbers/:id`), attachments and
+ * the Message rep history and composer (`GET /nudges`, `GET /reps`) are Owner-only and never mount for a rep.
+ * (`Messages from the Owner`, UI2-NUDGES, joins after CF12.)
  */
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { numberSchema, readSalesIntelligence, type OwnerInstruction } from "@/lib/api/salesIntelligence";
@@ -24,6 +29,8 @@ import { Region, RegionProgress, SkeletonBlock, SkeletonLines, TimeText } from "
 import { Restrictions } from "../restrictions";
 import { ReviewItems } from "../review-items";
 import { copy } from "../sales-intelligence-copy";
+import { RepFollowups } from "../rep/followup-actions";
+import { useIsRep } from "../rep/viewer";
 import { numberIdOf, subjectKeyOf } from "./record-header";
 
 const w = copy.ui1.outreach.work;
@@ -134,7 +141,33 @@ export function WorkTabSkeleton() {
   );
 }
 
+function RepFollowupsLive({ id }: { id: string }) {
+  const { outreach, asOf, isRefetching } = useOutreach(id);
+  return (
+    <>
+      <RegionProgress active={isRefetching} />
+      <RepFollowups record={outreach} asOf={asOf} />
+    </>
+  );
+}
+
+/** The rep's Work tab: the follow-ups region only (every other region reads an Owner-only route). */
+function RepWorkTab({ id }: { id: string }) {
+  const client = useQueryClient();
+  return (
+    <div className="si-work" data-tab="work" data-viewer="rep">
+      <Region name="work-followups" skeleton={<SkeletonBlock height={120} />} onRetry={() => void client.resetQueries({ queryKey: siKeys.outreach(id) })}>
+        <RepFollowupsLive id={id} />
+      </Region>
+    </div>
+  );
+}
+
 export function WorkTab({ id, returnTo }: { id: string; returnTo: string }) {
+  return useIsRep() ? <RepWorkTab id={id} /> : <OwnerWorkTab id={id} returnTo={returnTo} />;
+}
+
+function OwnerWorkTab({ id, returnTo }: { id: string; returnTo: string }) {
   const client = useQueryClient();
   const retryOutreach = () => void client.resetQueries({ queryKey: siKeys.outreach(id) });
   const retryNumber = () => void client.resetQueries({ queryKey: [...salesIntelligenceKeys.all, "number"] });

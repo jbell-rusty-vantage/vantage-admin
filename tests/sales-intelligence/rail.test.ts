@@ -148,7 +148,9 @@ test("390 px: the Filters ({n}) button with sliders-horizontal opens the same re
   const html = decode(renderToStaticMarkup(createElement(FilterSheet, { regions: outreachRegions("attention"), value: v, onChange: () => {}, reps: REPS, asOf: AS_OF, alwaysShown: true })));
   assert.ok(html.includes('class="si-railsheet is-static"'));
   assert.match(html, /aria-haspopup="dialog" aria-expanded="false"><svg[^>]*lucide-sliders-horizontal[^>]*>.*?<\/svg>Filters \(3\)<\/button>/);
-  assert.ok(html.includes('<dialog class="si-root si-filtersheet"'));
+  // UI2-PHONE (UI-2 §7): the sheet is the shared bottom sheet, with `Clear all` and `Show results`.
+  assert.ok(html.includes('<dialog class="si-root si-sheet si-sheet--bottom si-railsheet__sheet"'));
+  assert.ok(html.includes('data-action="clear-all"') && html.includes(">Clear all<") && html.includes('data-action="show-results"') && html.includes(">Show results<"));
   assert.equal((html.match(/si-rail__region"/g) ?? []).length, 5);
   const skeleton = renderToStaticMarkup(createElement(FilterRail.Skeleton));
   assert.equal((skeleton.match(/si-rail__skregion/g) ?? []).length, 5);

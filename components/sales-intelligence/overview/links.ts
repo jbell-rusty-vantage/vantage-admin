@@ -12,6 +12,11 @@ export type OverviewLinkContext = {
   attachment: "lead" | "none" | null;
   /** `data.scope.agent_id` on a one-rep scope; null for the whole desk. */
   agentId?: string | null;
+  /**
+   * UI2-OVERVIEW (UI-2 §1, §6): a rep's links. The server forces the rep's scope, so no link carries `agent_id` or
+   * `unassigned`, and none opens an Owner-only view (Coverage, RingCentral Accounts): those fall back to the rep's lists.
+   */
+  rep?: boolean;
 };
 
 /** The closed outcomes behind each Flow out segment that has a list (Closed view `outcome=`). */
@@ -27,8 +32,9 @@ export function siHref(state: Partial<DeskUrlState>): string {
   return query ? `${SI_PATH}?${query}` : SI_PATH;
 }
 
-export function overviewLinks(ctx: OverviewLinkContext) {
+export function overviewLinks(ctx: OverviewLinkContext): OverviewLinks {
   const preset = { priority: [...ctx.priority], attachment: ctx.attachment };
+  if (ctx.rep) return repOverviewLinks(preset);
   const scoped = { ...preset, agent_id: ctx.agentId ? [ctx.agentId] : [] };
   return {
     /** Band tile → All Outreach filtered to that band (UX-C1: the Owner has no Needs Attention tab). */
@@ -65,4 +71,42 @@ export function overviewLinks(ctx: OverviewLinkContext) {
     repOverdue: (agentId: string) => siHref({ view: "all_outreach", ...preset, agent_id: [agentId], band: ["1"] }),
   };
 }
-export type OverviewLinks = ReturnType<typeof overviewLinks>;
+export type OverviewLinks = {
+  band: (band: number) => string;
+  needsReview: () => string;
+  unassigned: () => string;
+  liveCalls: () => string;
+  overdueNow: () => string;
+  coverage: () => string;
+  rep: (agentId: string) => string;
+  accounts: () => string;
+  closed: (segment: string, period: { from_day: string; to_day: string }) => string | null;
+  flowIn: (period: { from_day: string; to_day: string }) => string;
+  repOverdue: (agentId: string) => string;
+};
+
+/**
+ * UI2-OVERVIEW: the rep's links, the same lists without a scope param (the rep's pages never send one). The rep's
+ * blocks render no Unassigned, Coverage, rep-name or RingCentral Accounts link; those entries point at the rep's own
+ * lists so a stray call still opens a rep page.
+ */
+function repOverviewLinks(preset: { priority: string[]; attachment: "lead" | "none" | null }): OverviewLinks {
+  const all = (extra: Partial<DeskUrlState> = {}) => siHref({ view: "all_outreach", ...preset, ...extra });
+  return {
+    band: (band) => all({ band: [String(band)] }),
+    needsReview: () => all({ needs_review: true }),
+    unassigned: () => all(),
+    liveCalls: () => all({ sort: "last_call" }),
+    overdueNow: () => all({ band: ["1"] }),
+    coverage: () => SI_PATH,
+    rep: () => all(),
+    accounts: () => SI_PATH,
+    closed: (segment, period) => {
+      if (segment === "moved_to_quoted") return all({ priority: ["1"], received_from: period.from_day, received_to: period.to_day });
+      const outcome = FLOW_OUTCOMES[segment];
+      return outcome ? siHref({ view: "closed", outcome, ...preset, closed_from: period.from_day, closed_to: period.to_day }) : null;
+    },
+    flowIn: (period) => all({ received_from: period.from_day, received_to: period.to_day }),
+    repOverdue: () => all({ band: ["1"] }),
+  };
+}

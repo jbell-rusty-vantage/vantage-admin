@@ -1996,6 +1996,8 @@ export const copy = {
       openAnalysis: "Open analysis",
       noRailRep: "Your records only",
       dontCallNoDate: "Don't call",
+      /** UI2-SCOPE: the record page's back link for a rep (the desk list heading already names the rep's view). */
+      back: "Back",
     },
     /** UI2-FOLLOWUP (UI-2 §4): the rep's follow-up actions (E9), each with a required note. */
     followup: {
@@ -2023,6 +2025,19 @@ export const copy = {
         owner: "Set by the Owner.",
       },
       due: (t: string) => `Due ${t}`,
+      /** UI2-FOLLOWUP: Complete needs an outcome (the server's `disposition` is required); the E9 list, in the rep's words. */
+      outcomeLabel: "What happened",
+      outcomes: {
+        spoke_with_customer: "Spoke with the customer",
+        completed: "Done",
+        no_answer: "No answer",
+        left_voicemail: "Left a voicemail",
+        customer_called: "The customer called",
+        connected_contact_unknown: "Connected, not sure who answered",
+      } as Record<string, string>,
+      dateRequired: "Pick a date.",
+      dateZone: "Eastern time.",
+      actionsLabel: (description: string) => `Your actions for ${description}`,
     },
     /** UI2-NUDGES (UI-2 §5): the read-only `Messages from the Owner` block on the rep's Work tab. */
     nudges: {
@@ -2053,6 +2068,8 @@ export const copy = {
       clearAll: "Clear all",
       jumpTo: "Jump to",
       close: "Close",
+      /** UI2-PHONE: a transcript segment's offset button (plays the recording from there). */
+      playFrom: (offset: string, exact: string | null) => (exact ? `Play the recording from ${offset} into the call, ${exact}` : `Play the recording from ${offset} into the call`),
     },
     /** UI2-SHELL: the rep Guide (UI-2 §2). */
     guide: {

@@ -10,6 +10,7 @@ import { CardShell } from "../primitives";
 import { legacyNumberHref } from "../lib/legacy-links";
 import { copy } from "../sales-intelligence-copy";
 import { cx } from "../lib/format";
+import { useIsRep } from "../rep/viewer";
 import { CardActions, NumberReviewActions } from "./card-actions";
 import {
   ChipView,
@@ -44,11 +45,15 @@ export type OutreachCardProps = {
   line6Override?: ReactNode;
 };
 
-/** Number-only identity links to the legacy Number (UI-1 §1.3), with the `Previous version` note. */
+/**
+ * Number-only identity links to the legacy Number (UI-1 §1.3), with the `Previous version` note. UI2-SCOPE: not for a
+ * rep (the Numbers view is Owner-only), whose identity is plain text.
+ */
 function Identity({ row }: { row: CardRow }) {
   const o = row.outreach!;
   const text = identityText(o);
-  if (isNumberOnly(o) && o.primary_number) {
+  const rep = useIsRep();
+  if (isNumberOnly(o) && o.primary_number && !rep) {
     return (
       <>
         <Link className="si-card__idlink" href={legacyNumberHref(o.primary_number.id)}>
@@ -74,7 +79,11 @@ export function OutreachCard({
   line6Override,
 }: OutreachCardProps) {
   const o = row.outreach;
+  const rep = useIsRep();
   if (!o) return <NumberReviewCard row={row} asOf={asOf} />;
+  // UI2-SCOPE (UI-2 §3): a rep has no `Apply` (not in the E9 allowlist) and no `Message rep`.
+  const onApply = rep ? undefined : onApplySuggestion;
+  const onMessage = rep ? undefined : onMessageRep;
   const closed = view === "closed" || o.state === "closed";
   const live = !!o.live_call || o.call_progress?.state === "in_progress";
   const lines: ReactNode[] = [
@@ -83,12 +92,12 @@ export function OutreachCard({
     <LineThree key={3} o={o} asOf={asOf} />,
     countsText(o),
     <LineFive key={5} o={o} />,
-    line6Override ?? <LineSix key={6} o={o} asOf={asOf} onApply={onApplySuggestion ? () => onApplySuggestion(row) : undefined} />,
+    line6Override ?? <LineSix key={6} o={o} asOf={asOf} onApply={onApply ? () => onApply(row) : undefined} />,
     <LineSeven key={7} row={row} o={o} asOf={asOf} sortLine={sortLine ? <SortLine sortLine={sortLine} /> : undefined} />,
   ];
   return (
     <CardShell
-      className={cx("si-outreachcard", isNumberOnly(o) && "is-number-only", closed && "is-closed")}
+      className={cx("si-outreachcard", isNumberOnly(o) && "is-number-only", closed && "is-closed", rep && "is-rep")}
       lines={lines}
       live={live}
       onOpen={onOpen ? () => onOpen(row) : undefined}
@@ -97,7 +106,7 @@ export function OutreachCard({
         <CardActions
           o={o}
           closed={closed}
-          onMessageRep={onMessageRep ? () => onMessageRep(row) : undefined}
+          onMessageRep={onMessage ? () => onMessage(row) : undefined}
           messageRepDisabledReason={messageRepDisabledReason}
         />
       }
@@ -107,6 +116,7 @@ export function OutreachCard({
 
 /** Final spec §5.7: a Number in Attention needing review, with no Outreach. */
 export function NumberReviewCard({ row }: { row: CardRow; asOf: string }) {
+  const rep = useIsRep();
   const subject = row.subject;
   const numberId = subject.kind === "number_review" ? subject.contact_number_id : null;
   const interactions = row.sort_keys?.interactions;
@@ -131,7 +141,7 @@ export function NumberReviewCard({ row }: { row: CardRow; asOf: string }) {
     <CardShell
       className="si-outreachcard is-number-review"
       lines={lines}
-      actions={numberId ? <NumberReviewActions contactNumberId={numberId} /> : undefined}
+      actions={numberId && !rep ? <NumberReviewActions contactNumberId={numberId} /> : undefined}
     />
   );
 }

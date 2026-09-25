@@ -23,13 +23,14 @@ export const totalLine = (total: Total | null): string => (total ? t.total(money
 export const splitLine = (total: Total): string => t.split(money(total.rate), money(total.legacy), count(total.unpriced_leads), count(total.zero_leads));
 export const outcomesLine = (o: Total["outcomes"]): string => t.outcomes(count(o.leads), count(o.quoted), count(o.booked_in_granot), count(o.booked_official), count(o.bookings));
 
-export function SpendBlock({ data }: { data: Overview | null }) {
+/** UI2-OVERVIEW: `title` names the rep's block (`Your Lead spend`). */
+export function SpendBlock({ data, title = t.title }: { data: Overview | null; title?: string }) {
   const headingId = useId();
   const total = data?.spend.total ?? null;
   const sources = data?.spend.by_source ?? [];
   return (
     <section className="si-ovblock si-ovspend" aria-labelledby={headingId}>
-      <h2 id={headingId} className="si-heading si-heading--2">{t.title}</h2>
+      <h2 id={headingId} className="si-heading si-heading--2">{title}</h2>
       <p className="si-ovspend__total" data-spend="total">{totalLine(total)}</p>
       {total && (
         <p className={total.unpriced_leads > 0 ? "si-ovspend__split has-unpriced" : "si-ovspend__split"} data-spend="split">

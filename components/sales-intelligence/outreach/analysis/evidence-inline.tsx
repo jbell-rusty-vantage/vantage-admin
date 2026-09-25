@@ -6,6 +6,10 @@
  * (`{record label} · {text}`, `as of {t}`), and the purged / unavailable sentences. The browser never decides which
  * citation is missing: an empty list prints `No evidence cited`, or `This score should cite evidence and does not.`
  * when the caller passes the server's `evidence_missing` (or a level above `unknown`) as `shouldCite`.
+ *
+ * UI2-SCOPE (UX15): an item's `open` locator is never followed here. `open.kind: "analysis_evidence"` points at the
+ * Owner-only `GET /analysis-runs/:id/evidence`, so the kit prints the served text inline and makes no link or read from
+ * it, for the Owner and the rep alike (`Open in transcript` scrolls within the page).
  */
 import { FileSearch } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";

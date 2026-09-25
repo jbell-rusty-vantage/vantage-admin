@@ -9,6 +9,8 @@ import Link from "next/link";
 import { useId } from "react";
 import { Button } from "../atoms/button";
 import { legacyNumberHref } from "../lib/legacy-links";
+import { outreachRouteHref } from "../outreach/deep-links";
+import { useIsRep } from "../rep/viewer";
 import { copy } from "../sales-intelligence-copy";
 import type { CardOutreach } from "./card-lines";
 
@@ -23,6 +25,28 @@ export function defaultMessageRepDisabledReason(o: CardOutreach): string | null 
 
 const linkClass = "si-btn si-btn--secondary si-btn--md si-hit si-card__action";
 
+/**
+ * UI2-SCOPE (UI-2 §3, A04): a rep's card actions. `Open` opens the record on its Work tab (the rep's follow-ups and what
+ * they can do there) and `Open analysis` on its Analysis tab; there is no `Message rep` (Owner-only, and its availability
+ * read is `GET /reps`). A closed record keeps `Open` only. Both are full-width buttons below 480 px (UI-2 §7).
+ */
+export function RepCardActions({ o, closed }: { o: CardOutreach; closed: boolean }) {
+  const s = copy.ui2.scope;
+  return (
+    <>
+      <Link className={`${linkClass} si-card__repaction`} href={outreachRouteHref(o.id, { tab: "work" })} data-action="open" data-viewer="rep">
+        {s.open}
+      </Link>
+      {!closed && (
+        <Link className={`${linkClass} si-card__repaction`} href={outreachHref(o.id)} data-action="open-analysis" data-viewer="rep">
+          <FileSearch size={16} aria-hidden />
+          {s.openAnalysis}
+        </Link>
+      )}
+    </>
+  );
+}
+
 export function CardActions({
   o,
   closed,
@@ -35,6 +59,8 @@ export function CardActions({
   messageRepDisabledReason?: string | null;
 }) {
   const noteId = useId();
+  const rep = useIsRep();
+  if (rep) return <RepCardActions o={o} closed={closed} />;
   if (closed) {
     return (
       <Link className={linkClass} href={outreachHref(o.id)} data-action="open">

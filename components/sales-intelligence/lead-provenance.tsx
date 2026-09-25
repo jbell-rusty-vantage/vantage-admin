@@ -10,6 +10,7 @@ import { copy } from "./sales-intelligence-copy";
 import { formatDateTime, label } from "./lib/format";
 import { legacyNumberHref, legacyNumbersHref } from "./lib/legacy-links";
 import { leadAttachmentOf, leadNameOf, provenanceStateOf, serverProvenanceState, type ProvenanceState } from "./lib/owner-now";
+import { useIsRep } from "./rep/viewer";
 
 const icon = {
   attached_by_you: ShieldCheck,
@@ -108,6 +109,8 @@ const recordTone: Record<ProvenanceState, Tone> = { ...tone, attached_by_you: "n
 
 export function RecordProvenance({ record, asOfText }: { record: Outreach; asOfText?: (iso: string) => string }) {
   const p = copy.ui1.outreach.provenance;
+  // UI2-SCOPE (UI-2 §3): a rep keeps the provenance line but not `Attach a Lead` / `Review` (the Numbers view is Owner-only).
+  const rep = useIsRep();
   const state = serverProvenanceState(record);
   const when = asOfText ?? formatDateTime;
   const numberHref = record.primary_number?.id ? legacyNumberHref(record.primary_number.id) : legacyNumbersHref();
@@ -135,7 +138,7 @@ export function RecordProvenance({ record, asOfText }: { record: Outreach; asOfT
   const certainty = attachment?.certainty_label ?? (attachment?.certainty ? label(attachment.certainty) : null);
   const who = leadNameOf(record);
   const Icon = icon[state];
-  const linkOut = state === "needs_a_lead" || state === "ambiguous";
+  const linkOut = !rep && (state === "needs_a_lead" || state === "ambiguous");
   return (
     <section className="si-provenance" aria-label={copy.provenance.heading} data-provenance={state}>
       <span className="si-ownership__label">{copy.provenance.heading}</span>

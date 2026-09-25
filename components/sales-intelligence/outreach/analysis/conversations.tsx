@@ -16,7 +16,7 @@ import { cx } from "../../lib/format";
 import { formatDuration, formatExactFull } from "../../lib/time";
 import { AudioPlayer, type AudioState } from "./audio-player";
 import { useKitPrefix } from "./kit-id";
-import { Transcript, TranscriptSkeleton, currentTargetSeq, scrollToSegments, useTranscriptTarget } from "./transcript";
+import { Transcript, TranscriptSeekContext, TranscriptSkeleton, currentTargetSeq, scrollToSegments, useTranscriptTarget } from "./transcript";
 
 export { scrollToSegments };
 
@@ -117,6 +117,13 @@ export function ConversationCardView({ card, transcriptOpen = false, renderTrans
 
   const sections = card.summary_sections.filter((section) => section.text);
   const showPlayer = card.media_available && card.recording_state === "available";
+  // UI2-PHONE: a timed transcript segment plays the card's recording from its offset (native controls stay the player).
+  const seek = (ms: number) => {
+    const audio = document.getElementById(cardId)?.querySelector("audio");
+    if (!audio) return;
+    audio.currentTime = ms / 1000;
+    void audio.play().catch(() => undefined);
+  };
   const hasTranscript = card.transcript_available !== false;
   return (
     <article id={cardId} className={cx("si-conv", card.in_progress && "is-live")} data-conversation={card.conversation_id} data-recording={card.recording_state}>
@@ -146,7 +153,9 @@ export function ConversationCardView({ card, transcriptOpen = false, renderTrans
             <span className="si-disclosure__title">{c.transcript}</span>
           </button>
           <div id={panelId} className="si-disclosure__panel" hidden={!open}>
-            {open ? renderTranscript(card.conversation_id) : null}
+            <TranscriptSeekContext.Provider value={showPlayer ? seek : null}>
+              {open ? renderTranscript(card.conversation_id) : null}
+            </TranscriptSeekContext.Provider>
           </div>
         </div>
       )}

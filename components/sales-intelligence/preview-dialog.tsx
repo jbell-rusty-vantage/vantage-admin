@@ -8,6 +8,9 @@
  * Mechanics (read from `_legacy/detail-panel.tsx`, not imported): focus moves into the panel when it opens and
  * returns to the opener when it closes; Escape closes it; Tab cycles inside it. The list behind stays usable with
  * the mouse, so picking another card swaps the record.
+ *
+ * UI2-SCOPE (UI-2 §3): for a rep the same dialog, without Owner commands: no `Apply` on the suggestion, and line 7 reads
+ * the rep's `Yours` / `Promised by you` (the card's own rule). It reads only the detail, which a rep may read.
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
@@ -22,6 +25,7 @@ import { useOutreach } from "./data/use-outreach";
 import { Region, SkeletonBlock, SkeletonLines } from "./primitives";
 import { copy } from "./sales-intelligence-copy";
 import { cx } from "./lib/format";
+import { useIsRep } from "./rep/viewer";
 
 const c = copy.ui1.card;
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -63,6 +67,7 @@ export function PreviewBody({
 }) {
   const o = row.outreach!;
   const route = routeText(o, asOf);
+  const onApply = useIsRep() ? undefined : onApplySuggestion;
   return (
     <div className="si-preview__content">
       <section className="si-preview__block" aria-label={identityText(o)}>
@@ -83,7 +88,7 @@ export function PreviewBody({
       <section className="si-preview__block" aria-labelledby="si-preview-next">
         <h3 id="si-preview-next" className="si-heading si-heading--4">{c.nextStepTitle}</h3>
         <p className="si-preview__line">
-          <LineSix o={o} asOf={asOf} onApply={onApplySuggestion ? () => onApplySuggestion(row) : undefined} />
+          <LineSix o={o} asOf={asOf} onApply={onApply ? () => onApply(row) : undefined} />
         </p>
       </section>
       <section className="si-preview__block" aria-labelledby="si-preview-activity">

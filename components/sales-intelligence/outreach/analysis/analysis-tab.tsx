@@ -22,7 +22,7 @@ import { useRunPresentation } from "../../data/use-run";
 import { outreachHref } from "../../card";
 import { FullOutputSection } from "../../full-output";
 import { copy } from "../../sales-intelligence-copy";
-import { Disclosure, Region, SkeletonLines, SubNav } from "../../primitives";
+import { Disclosure, JumpSelect, Region, SkeletonLines, SubNav } from "../../primitives";
 import { useLandOnHash } from "../land-on-hash";
 import { AdvancedSection, AdvancedSkeleton } from "./advanced";
 import { ConversationsSection, ConversationsSkeleton } from "./conversations";
@@ -74,7 +74,7 @@ export const reviewItemHref = (outreachId: string, reviewItemId: string) => `${o
 
 /** The default Findings slot: FIND's section; the Owner gets `Look again` (UX27) and the review-item links. */
 export const defaultFindings: AnalysisSlot = ({ outreachId, runId, role }) => (
-  <FindingsSection outreachId={outreachId} newestRunId={runId} showLookAgain={role === "owner"} reviewHref={role === "owner" ? (id) => reviewItemHref(outreachId, id) : undefined} />
+  <FindingsSection outreachId={outreachId} newestRunId={runId} showLookAgain={role === "owner"} review={role === "owner"} reviewHref={role === "owner" ? (id) => reviewItemHref(outreachId, id) : undefined} />
 );
 function ConversationsSlot({ numberId }: { numberId: string | null }) {
   const client = useQueryClient();
@@ -152,6 +152,8 @@ function AnalysisTabBody({ outreachId, role, run = null, cardLines = true, rende
   return (
     <div ref={root} className="si-analysis" data-role={role}>
       <SubNav items={sectionsFor(role).map(({ id, label }) => ({ id: kid(id), label }))} label={f.subNavLabel} className="si-analysis__subnav" />
+      {/* UI2-PHONE (UI-2 §7): below 768 px the sub-nav collapses into this select (CSS swaps them). */}
+      <JumpSelect items={sectionsFor(role).map(({ id, label }) => ({ id: kid(id), label }))} label={copy.ui2.phone.jumpTo} className="si-analysis__jump" />
       <Section id="situation" title={titleOf("situation")}>
         <Region name="analysis-situation" skeleton={<SituationSkeleton />} onRetry={reset(outreachKey, ...runKeys)}>
           <SituationSection outreachId={outreachId} cardLines={cardLines} />

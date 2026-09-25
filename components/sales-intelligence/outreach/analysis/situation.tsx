@@ -14,6 +14,7 @@ import { useRunPresentation } from "../../data/use-run";
 import { LineOne, LineSeven, LineSix, LineThree, countsText, identityText, outreachHref, routeText, type CardRow } from "../../card";
 import { copy } from "../../sales-intelligence-copy";
 import { officialRecordHref } from "../../lib/official-record";
+import { useIsRep } from "../../rep/viewer";
 import { etDateKey, formatDate, formatExactFull } from "../../lib/time";
 import { Region, RegionProgress, SkeletonLines } from "../../primitives";
 import { ViewEvidence, refIds } from "./cite";
@@ -43,13 +44,15 @@ export function summaryLabel(summary: NonNullable<Outreach["latest_summary"]>, a
 }
 
 function OfficialLine({ outreach }: { outreach: Outreach }) {
+  // UI2-SCOPE (UI-2 §3): the official Booking page is Owner-only, so a rep sees the status without the link.
+  const rep = useIsRep();
   const official = outreach.official;
   const cost = leadCostText(outreach.lead_cost);
   if (!official && !cost) return null;
   const parts: ReactNode[] = [];
   if (official) {
     parts.push(<span key="status" data-official={official.status}>{`${s.official} ${s.status[official.status] ?? official.status}`}</span>);
-    if (official.booking_id) {
+    if (official.booking_id && !rep) {
       parts.push(
         <Link key="booking" className="si-link si-hit si-situation__link" href={officialRecordHref("BookedLead", official.booking_id, outreachHref(outreach.id))}>
           {s.openBooking}

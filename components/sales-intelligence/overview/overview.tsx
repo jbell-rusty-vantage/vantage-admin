@@ -30,6 +30,8 @@ import { overviewLinks, type OverviewLinks } from "./links";
 import { NowBlock, NowBlockSkeleton } from "./now-block";
 import { PeriodPicker, PeriodPickerSkeleton, type PeriodPatch } from "./period-picker";
 import { RepsBlock, RepsBlockSkeleton } from "./reps-block";
+import { RepMediansBlock, RepMediansBlockSkeleton } from "./rep-medians-block";
+import { useIsRep } from "../rep/viewer";
 import { SpendBlock, SpendBlockSkeleton } from "./spend-block";
 
 const t = copy.ui1.overview;
@@ -41,9 +43,19 @@ export const isFeatureOff = (error: unknown): boolean => regionErrorCode(error) 
  * The links behind the numbers. Priority is the one the server applied (`filters.priority`), so a tile links to
  * the list it counted; the Lead toggle and a one-rep scope (`scope.agent_id`) are carried as well.
  */
-export function linksFor(data: OverviewData, attachment: PresetValue["attachment"]): OverviewLinks {
-  return overviewLinks({ priority: data.filters.priority ?? [], attachment, agentId: data.scope?.agent_id ?? null });
+export function linksFor(data: OverviewData, attachment: PresetValue["attachment"], rep = false): OverviewLinks {
+  return overviewLinks({ priority: data.filters.priority ?? [], attachment, agentId: data.scope?.agent_id ?? null, rep });
 }
+
+/**
+ * UI2-OVERVIEW (UI-2 §6, A08): block titles for the viewer. A rep gets `Your records now`, `Your desk health`,
+ * `You and the team` (You | Team median, in place of Reps) and `Your Lead spend`; the scope is the server's
+ * (`data.scope.agent_id`) and no link carries it.
+ */
+const blockTitles = (rep: boolean) => ({
+  health: rep ? copy.ui2.overview.healthTitle : t.desk.title,
+  spend: rep ? copy.ui2.overview.spendTitle : t.spend.title,
+});
 
 /** Renders `fallback` for a feature-off read; any other error goes up to the Region's boundary. */
 class FeatureOffBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { error: unknown }> {
@@ -64,7 +76,8 @@ type Render = (data: OverviewData | null, links: OverviewLinks | null) => ReactN
 
 function Connected({ params, attachment, render, reportAsOf }: { params: OverviewParams; attachment: PresetValue["attachment"]; render: Render; reportAsOf?: boolean }) {
   const { overview, isFetching } = useOverview(params);
-  const links = useMemo(() => linksFor(overview, attachment), [overview, attachment]);
+  const rep = useIsRep();
+  const links = useMemo(() => linksFor(overview, attachment, rep), [overview, attachment, rep]);
   return (
     <>
       <RegionProgress active={isFetching} />
@@ -142,18 +155,20 @@ export function OverviewView({ data, period, preset, onPeriod, onPreset, classNa
   onPreset: (next: PresetValue) => void;
   className?: string;
 }) {
-  const links = data ? linksFor(data, preset.attachment) : null;
+  const rep = useIsRep();
+  const links = data ? linksFor(data, preset.attachment, rep) : null;
+  const titles = blockTitles(rep);
   return (
-    <div className={cx("si-overview", className)} data-overview-status={data ? data.status : "off"}>
+    <div className={cx("si-overview", className)} data-overview-status={data ? data.status : "off"} data-viewer={rep ? "rep" : undefined}>
       <header className="si-ovhead">
         <OverviewHeaderBody data={data} period={period} onPeriod={onPeriod} />
         <PresetRow preset={preset} onPreset={onPreset} />
       </header>
       <div className="si-overview__blocks">
-        <NowBlock data={data} links={links} />
-        <DeskHealthBlock data={data} links={links} />
-        <RepsBlock data={data} links={links} />
-        <SpendBlock data={data} />
+        <NowBlock data={data} links={links} rep={rep} />
+        <DeskHealthBlock data={data} links={links} title={titles.health} />
+        {rep ? <RepMediansBlock data={data} /> : <RepsBlock data={data} links={links} />}
+        <SpendBlock data={data} title={titles.spend} />
       </div>
     </div>
   );
@@ -170,9 +185,11 @@ export function Overview({ userId, className }: { userId?: string | null; classN
   const period: OverviewPeriodState = { period: state.period, from: state.from, to: state.to };
   const onPeriod = (patch: PeriodPatch) => update(patch);
   const attachment = preset.value.attachment;
+  const rep = useIsRep();
+  const titles = blockTitles(rep);
 
   return (
-    <div className={cx("si-overview", className)}>
+    <div className={cx("si-overview", className)} data-viewer={rep ? "rep" : undefined}>
       <RegionProgress active={isPending || preset.isPending} />
       <header className="si-ovhead">
         <OverviewRegion
@@ -186,10 +203,14 @@ export function Overview({ userId, className }: { userId?: string | null; classN
         <PresetRow preset={preset.value} onPreset={preset.setValue} />
       </header>
       <div className="si-overview__blocks">
-        <OverviewRegion name="overview-now" params={params} attachment={attachment} skeleton={<NowBlockSkeleton />} render={(data, links) => <NowBlock data={data} links={links} />} />
-        <OverviewRegion name="overview-desk" params={params} attachment={attachment} skeleton={<DeskHealthBlockSkeleton />} render={(data, links) => <DeskHealthBlock data={data} links={links} />} />
-        <OverviewRegion name="overview-reps" params={params} attachment={attachment} skeleton={<RepsBlockSkeleton />} render={(data, links) => <RepsBlock data={data} links={links} />} />
-        <OverviewRegion name="overview-spend" params={params} attachment={attachment} skeleton={<SpendBlockSkeleton />} render={(data) => <SpendBlock data={data} />} />
+        <OverviewRegion name="overview-now" params={params} attachment={attachment} skeleton={<NowBlockSkeleton />} render={(data, links) => <NowBlock data={data} links={links} rep={rep} />} />
+        <OverviewRegion name="overview-desk" params={params} attachment={attachment} skeleton={<DeskHealthBlockSkeleton />} render={(data, links) => <DeskHealthBlock data={data} links={links} title={titles.health} />} />
+        {rep ? (
+          <OverviewRegion name="overview-you" params={params} attachment={attachment} skeleton={<RepMediansBlockSkeleton />} render={(data) => <RepMediansBlock data={data} />} />
+        ) : (
+          <OverviewRegion name="overview-reps" params={params} attachment={attachment} skeleton={<RepsBlockSkeleton />} render={(data, links) => <RepsBlock data={data} links={links} />} />
+        )}
+        <OverviewRegion name="overview-spend" params={params} attachment={attachment} skeleton={<SpendBlockSkeleton />} render={(data) => <SpendBlock data={data} title={titles.spend} />} />
       </div>
     </div>
   );

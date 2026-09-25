@@ -45,13 +45,17 @@ function CaptureLine({ status, href }: { status: string | null; href: string | n
   );
 }
 
-export function NowBlock({ data, links }: { data: Overview | null; links: OverviewLinks | null }) {
+/**
+ * UI2-OVERVIEW (UI-2 §6): `rep` is the rep's Now: `Your records now`, the rep's bands and Needs review, no Unassigned
+ * tile (a rep's scope has no unassigned records to open) and the capture line without its Coverage link (Owner-only).
+ */
+export function NowBlock({ data, links, rep = false }: { data: Overview | null; links: OverviewLinks | null; rep?: boolean }) {
   const now = data?.now ?? null;
   const go = (make: () => string) => (links && now ? make() : null);
   const headingId = useId();
   return (
     <section className="si-ovblock si-ovnow" aria-labelledby={headingId}>
-      <h2 id={headingId} className="si-heading si-heading--2">{t.title}</h2>
+      <h2 id={headingId} className="si-heading si-heading--2">{rep ? copy.ui2.overview.nowTitle : t.title}</h2>
       <ul className="si-ovnow__bands">
         {BAND_NUMBERS.map((band) => (
           <li key={band}>
@@ -67,11 +71,13 @@ export function NowBlock({ data, links }: { data: Overview | null; links: Overvi
             <BandBadge band={null} variant="needs_review" />
           </Tile>
         </li>
-        <li>
-          <Tile href={go(() => links!.unassigned())} label={t.unassigned} value={now?.unassigned ?? null} data={{ "data-now": "unassigned" }}>
-            {t.unassigned}
-          </Tile>
-        </li>
+        {!rep && (
+          <li>
+            <Tile href={go(() => links!.unassigned())} label={t.unassigned} value={now?.unassigned ?? null} data={{ "data-now": "unassigned" }}>
+              {t.unassigned}
+            </Tile>
+          </li>
+        )}
         <li>
           <Tile href={go(() => links!.liveCalls())} label={t.liveCalls} value={now?.live_calls ?? null} data={{ "data-now": "live_calls" }}>
             <Radio size={14} aria-hidden className="si-ovtile__live" />
@@ -79,7 +85,7 @@ export function NowBlock({ data, links }: { data: Overview | null; links: Overvi
           </Tile>
         </li>
       </ul>
-      <CaptureLine status={now?.capture_health?.status ?? null} href={links && now ? links.coverage() : null} />
+      <CaptureLine status={now?.capture_health?.status ?? null} href={links && now && !rep ? links.coverage() : null} />
     </section>
   );
 }
