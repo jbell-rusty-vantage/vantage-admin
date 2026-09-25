@@ -23,7 +23,9 @@ const refs = z.array(evidenceRefSchema).optional().transform(value => value ?? [
 
 export const scoreSchema = z.object({ score: z.number().nullable(), level: nstr, label: z.string(), confidence: nstr, rationale: nstr,
   conditions: strs, evidence: refs, stale: z.boolean().optional().default(false), stale_reason: nstr,
-  applicability: z.string().optional().default('active') });
+  applicability: z.string().optional().default('active'),
+  // UI1-DATA: server level word (`· {Level}`) and RD11 `This score should cite evidence and does not.`
+  level_label: nstr, evidence_missing: z.boolean().optional().default(false) });
 export type Score = z.infer<typeof scoreSchema>;
 
 const place = z.object({ city: nstr, state: nstr, zip: nstr });
@@ -42,6 +44,23 @@ export type InventoryItem = z.infer<typeof inventoryItemSchema>;
 export const conflictSchema = z.object({ affects: z.string(), explanation: z.string(), evidence: refs });
 export const sourceManifestEntrySchema = z.object({ kind: z.string(), id: z.string(), version: z.string(), conversation_id: nstr, call_at: nstr, lineage: strs });
 
+/* ── UI1-DATA: final §11.3 column 3 (`From the calls`) and §11.4 move table. Every label is a server word. ── */
+export const engagementSchema = z.object({ work_status: z.string(), work_status_label: z.string(), rationale: nstr, evidence: refs,
+  promised_callbacks: z.array(z.object({ by: z.string(), by_label: z.string(), raw_text: z.string(), date: nstr, date_label: nstr, time_text: nstr,
+    status: z.string(), status_label: z.string(), followup_created: z.boolean(), followup_id: nstr, evidence: refs })).optional().default([]),
+  next_steps: z.array(z.object({ action: z.string(), action_label: z.string(), description: z.string(), owner: z.string(), owner_label: z.string(),
+    date: nstr, date_label: nstr, date_text: nstr, status: z.string(), status_label: z.string(), followup_created: z.boolean(), followup_id: nstr, evidence: refs })).optional().default([]),
+  effects: z.object({ applied: z.boolean(), mark_worked: z.boolean().optional(), blocked: z.json().nullable().optional(), blocked_label: nstr,
+    followup_ids: strs, followups: z.array(z.object({ kind: z.string(), description: z.string(), origin: z.string(), source: z.string() })).optional().default([]),
+    skipped: z.array(z.object({ index: z.number(), source: z.string(), text: z.string(), reason: z.string(), reason_label: z.string() })).optional().default([]) }).nullable().optional().transform(value => value ?? null) });
+export type Engagement = z.infer<typeof engagementSchema>;
+export const moveTableSchema = z.object({ original_origin_label: nstr, inventory_count: z.number(), source_coverage_text: nstr,
+  rows: z.array(z.object({ key: z.string(), label: z.string(), lead_on_file: nstr, original: nstr,
+    customer: z.array(z.object({ text: z.string(), marker: nstr, evidence: refs })),
+    conflict: z.object({ explanation: z.string(), cells: strs, evidence: refs }).nullable() })),
+  score_conflicts: z.array(z.object({ affects: z.string(), affects_label: nstr, explanation: z.string(), evidence: refs })).optional().default([]) });
+export type MoveTable = z.infer<typeof moveTableSchema>;
+
 export const assessmentSectionSchema = z.object({
   availability: z.string(), artifact_id: nstr, schema_version: nstr, rubric_version: nstr, model_version: nstr,
   generated_at: nstr, context_as_of: nstr, latest_conversation_at: nstr, input_mode: nstr,
@@ -52,6 +71,11 @@ export const assessmentSectionSchema = z.object({
   conflicts: z.array(conflictSchema).optional().default([]),
   coverage: z.object({ conversations_available: z.number(), conversations_selected: z.number(), findings_selected: z.number() }).nullable().optional().transform(value => value ?? null),
   source_manifest: z.array(sourceManifestEntrySchema).optional().default([]),
+  // UI1-DATA (S3-READS): additive; absent on older servers.
+  engagement: engagementSchema.nullable().optional().transform(value => value ?? null),
+  move_table: moveTableSchema.nullable().optional().transform(value => value ?? null),
+  newer_calls_count: z.number().nullable().optional().transform(value => value ?? null),
+  stale: z.boolean().optional(), stale_reason: nstr, published_at: nstr,
 });
 export type AssessmentSection = z.infer<typeof assessmentSectionSchema>;
 export const assessmentVersionSchema = z.object({ artifact_id: z.string(), status: z.string(), label: z.string(), current: z.boolean().optional().default(false),
@@ -61,7 +85,9 @@ export const assessmentVersionSchema = z.object({ artifact_id: z.string(), statu
 export type AssessmentVersion = z.infer<typeof assessmentVersionSchema>;
 export const outreachAssessmentSchema = z.object({
   subject: z.object({ outreach_record_id: z.string(), subject_key: z.string(), subject: loose, state: z.string(), contact_number_id: nstr, applicability: z.string() }),
-  availability: z.string(), current: assessmentSectionSchema.nullable(), versions: z.array(assessmentVersionSchema) });
+  availability: z.string(), current: assessmentSectionSchema.nullable(), versions: z.array(assessmentVersionSchema),
+  // UI1-DATA (§11.9): the Lead-only move table when there is no current assessment; absent without a Lead.
+  lead_move_table: moveTableSchema.nullable().optional().transform(value => value ?? null) });
 export type OutreachAssessment = z.infer<typeof outreachAssessmentSchema>;
 
 export const summaryFindingsSectionSchema = z.object({
@@ -71,15 +97,29 @@ export const summaryFindingsSectionSchema = z.object({
   said_on_call: z.array(z.object({ index: z.number(), call_index: z.number().optional().default(0), kind: z.string(), speaker: z.string(), text: z.string(), segment_ids: z.array(z.number()).optional().default([]) })).optional().default([]),
   findings: z.array(z.object({ id: z.string(), kind: z.string(), claim: z.string(), basis: z.string(), actor: z.string(), action_status: nstr, clarity: z.string(),
     review_state: z.string(), evidence: refs,
-    effects: z.array(z.object({ kind: z.string(), status: z.string(), reason: nstr, target_id: nstr })).optional().default([]) })),
-  suggested_next_step: z.object({ action_kind: z.string(), description: z.string(), date_text: nstr, timezone_text: nstr, rationale: z.string(), target_followup_id: nstr }).nullable().optional().transform(value => value ?? null),
+    effects: z.array(z.object({ kind: z.string(), status: z.string(), reason: nstr, target_id: nstr })).optional().default([]),
+    // UI1-DATA (final §11.5): the server's presentation words for each finding.
+    category: nstr, category_label: nstr, source_word: nstr, action_status_word: nstr, value_line: nstr,
+    work_result: nstr, work_result_detail: nstr, call_at: nstr, superseded_by: nstr })),
+  suggested_next_step: z.object({ action_kind: z.string(), description: z.string(), date_text: nstr, timezone_text: nstr, rationale: z.string(), target_followup_id: nstr,
+    // UI1-DATA (§11.3): `Applied {exact} → follow-up due {exact}`; null → the `Apply` button.
+    action_label: nstr, applied_at: nstr, followup_due_at: nstr, followup_id: nstr }).nullable().optional().transform(value => value ?? null),
   applied_actions: z.array(z.object({ id: z.string(), kind: z.string(), description: z.string(), status: z.string(), due_at: nstr })).optional().default([]),
+  // UI1-DATA (context provenance): `Records disputed on a call`, `Changes since the last analysis`, `Your changes and what the model made of them`.
+  story_discrepancies: z.array(z.object({ story_event_id: z.string(), event_kind: z.string(), claim: z.string(), review_item_id: nstr, review_item_state: nstr, evidence: refs })).optional().default([]),
+  prior_finding_relations: z.array(z.object({ prior_finding_id: z.string(), prior_kind: z.string(), prior_claim: z.string(), relation: z.string(), relation_word: z.string(),
+    group: z.string(), by_finding_id: nstr, by_claim: nstr, note: nstr, review_item_id: nstr, review_item_state: nstr, evidence: refs })).optional().default([]),
+  owner_instruction_assessments: z.array(z.object({ instruction_id: z.string(), instruction_revision: z.number(), instruction_text: z.string(),
+    assessment: z.string(), assessment_word: z.string(), reason: z.string() })).optional().default([]),
 });
 export type SummaryFindingsSection = z.infer<typeof summaryFindingsSectionSchema>;
 export type PresentedFinding = SummaryFindingsSection['findings'][number];
 
 export const evidenceItemSchema = z.object({ id: z.string(), kind: z.string(), source: evidenceLocatorSchema, availability: z.string(), text: nstr,
-  open: z.object({ kind: z.string() }).catchall(z.json()).nullable().optional().transform(value => value ?? null) });
+  open: z.object({ kind: z.string() }).catchall(z.json()).nullable().optional().transform(value => value ?? null),
+  // UI1-DATA (final §11.6): server labels and quote facts; `purged_at` → `Original removed under retention on {t}`.
+  source_label: nstr, record_label: nstr, purged_at: nstr, quote: nstr, speaker: nstr, speaker_label: nstr, at: nstr, call_at: nstr, as_of: nstr,
+  conversation_id: nstr, segment_ids: z.array(z.number()).optional().default([]) });
 export type EvidenceItem = z.infer<typeof evidenceItemSchema>;
 export const evidenceSectionSchema = z.object({ availability: z.string(), items: z.array(evidenceItemSchema) });
 export type EvidenceSection = z.infer<typeof evidenceSectionSchema>;

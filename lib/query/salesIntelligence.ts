@@ -12,15 +12,18 @@ export const salesIntelligenceTopicKeys:Readonly<Record<string, readonly (readon
  // review and restriction writes do not change it; only a new snapshot does.
  // Routing those writes here cancelled the in-flight list read, so Load more
  // stayed disabled for as long as production kept writing.
- outreach: prefixes('outreach','outreach-by-lead','number','timeline','assessment'),
+ // UI1-DATA: 'overview' and 'closed-history' read Outreach records directly (not the snapshot), so record writes refresh them.
+ outreach: prefixes('outreach','outreach-by-lead','number','timeline','assessment','overview','closed-history'),
  attachment: prefixes('attachments','attachment-pair','number','outreach','outreach-by-lead'),
- analysis: prefixes('analysis-runs','analysis-run','analysis-evidence','analysis-evidence-content','analysis-presentation','analysis-output','assessment','assessment-artifact','assessment-evidence','assessment-output','number','coverage'),
- number: prefixes('number','numbers','timeline','outreach','outreach-by-lead','coverage'),
- attention: prefixes('attention'),
- review: prefixes('reviews','number','outreach','outreach-by-lead','timeline'),
+ analysis: prefixes('analysis-runs','analysis-run','analysis-evidence','analysis-evidence-content','analysis-presentation','analysis-output','assessment','assessment-artifact','assessment-evidence','assessment-output','number','coverage','findings','conversations','transcript'),
+ number: prefixes('number','numbers','timeline','outreach','outreach-by-lead','coverage','conversations','transcript'),
+ // A new snapshot also moves the Overview's Now block (C8) and can move rows out of the 90-day Closed partition.
+ attention: prefixes('attention','overview','closed-history'),
+ review: prefixes('reviews','number','outreach','outreach-by-lead','timeline','findings'),
  restriction: prefixes('number','outreach','outreach-by-lead','timeline'),
  rep: prefixes('reps','nudge-destinations'),
- nudge: prefixes('nudges','timeline'),
+ // The Outreach detail read carries `nudges.items` (Work tab), so a nudge refreshes it too.
+ nudge: prefixes('nudges','timeline','outreach'),
 };
 export type SalesIntelligenceFrame = { version?:unknown; reason?:unknown; topics?:unknown; as_of?:unknown };
 /** Anything we cannot narrow honestly resyncs the whole tree: a version 1 payload, an "other" or

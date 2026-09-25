@@ -861,6 +861,27 @@ export const copy = {
         tabItems: { analysis: "Analysis", timeline: "Timeline", work: "Work" },
       },
     },
+    // UI1-DATA: UI-1 §3.4 / §3.5 sort words. Keys are the server sort keys; `null` is the card's sort line when the key is null.
+    data: {
+      sorts: {
+        attention: { label: "Attention order", asc: null, desc: null, null: null },
+        lead_received: { label: "Lead received", asc: "Oldest first", desc: "Newest first", null: "Not a Lead" },
+        last_call: { label: "Last call", asc: "Oldest", desc: "Newest", null: "No call observed" },
+        last_human_contact: { label: "Last conversation", asc: "Oldest", desc: "Newest", null: "No conversation observed" },
+        next_action_due: { label: "Next action due", asc: "Soonest", desc: "Latest", null: "No next action" },
+        last_lead_progress: { label: "Last Lead progress", asc: "Oldest", desc: "Newest", null: "Time unknown" },
+        transaction_intent: { label: "Transaction intent", asc: "Lowest", desc: "Highest", null: "Unknown" },
+        move_likelihood: { label: "Move likelihood", asc: "Lowest", desc: "Highest", null: "Unknown" },
+        interactions: { label: "Interactions", asc: "Lowest", desc: "Highest", null: "No Number" },
+      },
+      closedSorts: {
+        closed: { label: "Closed", asc: "Oldest first", desc: "Newest first", null: null },
+        lead_received: { label: "Lead received", asc: "Oldest first", desc: "Newest first", null: "Not a Lead" },
+        time_to_close: { label: "Time to close", asc: "Shortest first", desc: "Longest first", null: "Time unknown" },
+      },
+      sortUnavailable: "Sorting unavailable on this server. Showing the default order.",
+      freshOnly: "Fresh assessments only",
+    },
   },
 } as const;
 

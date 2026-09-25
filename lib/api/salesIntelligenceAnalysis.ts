@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { evidenceChainCopy as chainCopy } from '@/components/sales-intelligence/evidence-chain-copy';
 import { copy } from '@/components/sales-intelligence/sales-intelligence-copy';
+import { availabilitySchema, readSalesIntelligence } from './salesIntelligence';
 
 const runSummary = z.object({ id:z.string(), revision:z.number(), status:z.string(), mode:z.string(), conversation_id:z.string().nullable(), created_at:z.string(), completed_at:z.string().nullable() });
 export const analysisRunsSchema=z.object({data:z.object({items:z.array(runSummary),next_cursor:z.string().nullable()})});
@@ -13,9 +14,29 @@ export const analysisSchema=z.object({data:runSummary.extend({current:z.boolean(
  findings:z.array(z.object({id:z.string(),revision:z.number(),assertion,review_state:z.string(),validation:z.json(),effects:z.array(z.object({id:z.string(),kind:z.string(),status:z.string(),reason:z.string().nullable(),target_id:z.string().nullable(),applied_at:z.string()}))})),
  actions:z.array(z.object({id:z.string(),revision:z.number(),kind:z.string(),description:z.string(),due_at:z.string().nullable(),responsible_agent_id:z.string().nullable(),status:z.string(),origin:z.string()})),
  instructions:z.array(z.object({id:z.string(),instruction_id:z.string(),revision:z.number(),finding_id:z.string().nullable(),field:z.string(),prior:z.json(),current:z.json(),actor:z.string(),happened_at:z.string(),assessment:z.string(),reason:z.string(),finding_ids:z.array(z.string()),stale:z.boolean()})),instructions_complete:z.boolean(),
- history:z.array(z.object({id:z.string(),event:z.string(),actor:z.string(),happened_at:z.string(),prior:z.json(),current:z.json()})),history_next_cursor:z.string().nullable().default(null)})});
+ history:z.array(z.object({id:z.string(),event:z.string(),actor:z.string(),happened_at:z.string(),prior:z.json(),current:z.json()})),history_next_cursor:z.string().nullable().default(null),
+ // UI1-DATA: additive run facts (Advanced disclosure, UX27).
+ analysis_pipeline:z.string().nullable().optional(),per_recording_ceiling_exceeded:z.boolean().optional(),
+ usage:z.object({actual_cents:z.number().nullable()}).catchall(z.json()).nullable().optional()})});
 export const analysisEvidenceSchema=z.object({data:z.object({items:z.array(z.object({id:z.string(),tool:z.string().nullable(),digest:z.string().nullable(),retrieved_at:z.string().nullable(),unavailable:z.boolean(),completeness:z.string().nullable().optional()})),next_cursor:z.string().nullable()})});
 export const analysisEvidenceContentSchema=z.object({data:z.object({id:z.string(),unavailable:z.boolean(),reason:z.string().optional(),purged_at:z.string().nullable().optional(),as_of:z.string().nullable().optional(),complete:z.boolean().optional(),content:z.string().nullable(),next_cursor:z.string().nullable()})});
+/* ── UI1-DATA: `GET /outreach/:id/findings` (final §11.5–11.6). Every word (`category_label`, `source_word`,
+ * `action_status_word`, `value_line`, `work_result_detail`, `speaker_label`) is shown as sent; `work_result`,
+ * `clarity` and `review_state` stay strings. `reason` explains an empty list (`no_number`, `retention_pending`). ── */
+const findingEvidenceSchema=z.object({id:z.string(),kind:z.string(),availability:z.string(),text:z.string().nullable(),
+ quote:z.string().nullable().optional(),speaker:z.string().nullable().optional(),speaker_label:z.string().nullable().optional(),at:z.string().nullable().optional(),
+ conversation_id:z.string().nullable().optional(),segment_ids:z.array(z.number()).optional(),record_label:z.string().nullable().optional(),
+ as_of:z.string().nullable().optional(),purged_at:z.string().nullable().optional(),
+ source:z.object({source:z.string()}).catchall(z.json()),open:z.object({kind:z.string()}).catchall(z.json()).nullable().optional()});
+export const currentFindingSchema=z.object({id:z.string(),run_id:z.string(),conversation_id:z.string().nullable(),call_at:z.string().nullable(),
+ kind:z.string(),category:z.string(),category_label:z.string(),claim:z.string(),source_word:z.string(),action_status_word:z.string().nullable(),
+ clarity:z.string(),value_line:z.string().nullable(),work_result:z.string(),work_result_detail:z.string().nullable(),review_state:z.string(),
+ superseded_by:z.string().nullable().optional(),allowed_actions:z.array(availabilitySchema),evidence:z.array(findingEvidenceSchema)});
+export type CurrentFinding=z.infer<typeof currentFindingSchema>;
+export const currentFindingsSchema=z.object({as_of:z.string(),data:z.object({items:z.array(currentFindingSchema),reason:z.string().nullable(),truncated:z.boolean()})});
+export type CurrentFindings=z.infer<typeof currentFindingsSchema>['data'];
+export const readOutreachFindings=(outreachId:string,options:{includeSuperseded?:boolean}={},signal?:AbortSignal)=>
+ readSalesIntelligence(`outreach/${encodeURIComponent(outreachId)}/findings${options.includeSuperseded?'?include_superseded=true':''}`,currentFindingsSchema,signal);
 export type Analysis=z.infer<typeof analysisSchema>['data'];
 export type AnalysisFinding=Analysis['findings'][number];
 export type AnalysisEffect=AnalysisFinding['effects'][number];

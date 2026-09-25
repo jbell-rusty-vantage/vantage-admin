@@ -14,10 +14,10 @@ const change = (topics: string[]) => ({ version: 2, reason: "change", topics, as
 const segments = (keys: readonly (readonly string[])[]) => keys.map((key) => key[1] ?? "*").sort();
 
 test("a change frame invalidates only the query keys its topics can change", () => {
-  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention"]);
+  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention", "closed-history", "overview"]);
   assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["rep"]))), ["nudge-destinations", "reps"]);
   assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["outreach"]))), [
-    "assessment", "number", "outreach", "outreach-by-lead", "timeline",
+    "assessment", "closed-history", "number", "outreach", "outreach-by-lead", "overview", "timeline",
   ]);
   // Every mapped topic stays inside the Sales Intelligence tree and narrower than the whole tree.
   for (const [topic, keys] of Object.entries(salesIntelligenceTopicKeys)) {
@@ -33,7 +33,8 @@ test("two topics in one frame merge without repeating a key", () => {
   const keys = salesIntelligenceInvalidationKeys(change(["analysis", "outreach"]));
   assert.deepEqual(segments(keys), [
     "analysis-evidence", "analysis-evidence-content", "analysis-output", "analysis-presentation", "analysis-run", "analysis-runs",
-    "assessment", "assessment-artifact", "assessment-evidence", "assessment-output", "coverage", "number", "outreach", "outreach-by-lead", "timeline",
+    "assessment", "assessment-artifact", "assessment-evidence", "assessment-output", "closed-history", "conversations", "coverage", "findings",
+    "number", "outreach", "outreach-by-lead", "overview", "timeline", "transcript",
   ]);
   assert.equal(new Set(keys.map((key) => key.join("/"))).size, keys.length);
 });
@@ -42,7 +43,7 @@ test("record writes do not restart the published attention list", () => {
   for (const topic of ["outreach", "attachment", "number", "review", "restriction", "analysis", "rep", "nudge"]) {
     assert.equal(segments(salesIntelligenceInvalidationKeys(change([topic]))).includes("attention"), false, topic);
   }
-  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention"]);
+  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention", "closed-history", "overview"]);
 });
 
 test("anything we cannot narrow honestly resyncs the whole tree", () => {
