@@ -3,7 +3,7 @@
  * UI1-SHELL: the record header's command grouping (UI-1 §5.1, UX26). Only the order is decided here; every
  * command, its enabled flag and its blockers come from the server's `allowed_actions[]`.
  * - One primary: `End the call` when enabled, otherwise `Start the call` (`splitCommands`).
- * - Then at most two of `Mark as worked`, `Add next step`, `Assign`, in that preference.
+ * - Then `Mark as worked`, `Add next step`, `Assign`, each when offered (UX-C4: `Assign` no longer overflows into More).
  * - Everything else under `More actions`. `Override disposition` is hidden when its only blocker is
  *   `FEATURE_DISABLED` (`offeredActions`).
  * - A disabled command keeps its focusable tooltip anchor and says why as a sentence (the call blocker copy,
@@ -39,13 +39,13 @@ export const HEADER_COMMAND_LABELS: Record<string, string> = {
   override_disposition: k.override,
 };
 
-/** `More actions` order: the UX26 list, then anything else the header knows (an overflowed `Assign`). */
-const MORE_ORDER = ["set_waiting", "add_note", "close", "reopen", "override_disposition", "assign", "create_followup", "mark_worked"];
+/** `More actions` order: the UX26 list. The everyday three are always secondaries in the header (UX-C4). */
+const MORE_ORDER = ["set_waiting", "add_note", "close", "reopen", "override_disposition"];
 
 export type CommandGroups = { primary: Availability | null; secondary: Availability[]; more: Availability[] };
 
 export function groupCommands(actions: readonly Availability[]): CommandGroups {
-  const deck = splitCommands(offeredActions(actions), HEADER_COMMAND_LABELS);
+  const deck = splitCommands(offeredActions(actions), HEADER_COMMAND_LABELS, 3);
   const rank = (a: Availability) => {
     const at = MORE_ORDER.indexOf(a.action);
     return at === -1 ? MORE_ORDER.length : at;

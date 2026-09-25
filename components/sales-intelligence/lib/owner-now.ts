@@ -148,11 +148,12 @@ export function leadNameOf(record: Subject): string | null {
  * Orders the buttons, not the work: the server owns bands, clocks and ranking.
  * One call decision comes first, the two everyday commands next, the long tail
  * behind a disclosure. Commands with no Owner label are never rendered blind.
+ * `secondaryLimit` (default 2) caps the everyday commands; the record header lifts all three (UX-C4).
  */
 const EVERYDAY = ["mark_worked", "create_followup", "assign"] as const;
 const CALL = ["start_call", "end_call"] as const;
 
-export function splitCommands(actions: readonly Availability[], known: Record<string, string>) {
+export function splitCommands(actions: readonly Availability[], known: Record<string, string>, secondaryLimit = 2) {
   const named = actions.filter((item) => known[item.action]);
   const calls = named.filter((item) => (CALL as readonly string[]).includes(item.action));
   // An offered-but-blocked End the call must not outrank a usable Start the call.
@@ -166,7 +167,7 @@ export function splitCommands(actions: readonly Availability[], known: Record<st
     const index = EVERYDAY.indexOf(item.action as (typeof EVERYDAY)[number]);
     return index === -1 ? EVERYDAY.length : index;
   };
-  const secondary = rest.filter((item) => rank(item) < EVERYDAY.length).sort((a, b) => rank(a) - rank(b)).slice(0, 2);
+  const secondary = rest.filter((item) => rank(item) < EVERYDAY.length).sort((a, b) => rank(a) - rank(b)).slice(0, secondaryLimit);
   return { call, secondary, more: rest.filter((item) => !secondary.includes(item)) };
 }
 

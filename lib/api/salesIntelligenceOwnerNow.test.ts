@@ -110,6 +110,12 @@ test("the deck gives the call one primary button and hides the long tail", () =>
   const closed = splitCommands([availability("end_call", false, ["no_call_in_progress"]), availability("start_call", false, ["record_closed"])], commandLabels);
   assert.equal(closed.call?.action, "start_call");
   assert.equal(closed.call?.enabled, false);
+  // UX-C4: the record header lifts all three everyday commands; the default stays two (the legacy strip, the detail page).
+  const everyday = [availability("start_call"), availability("assign", false, ["x"]), availability("create_followup"), availability("mark_worked"), availability("close")];
+  assert.deepEqual(splitCommands(everyday, commandLabels).secondary.map((item) => item.action), ["mark_worked", "create_followup"]);
+  const header = splitCommands(everyday, commandLabels, 3);
+  assert.deepEqual(header.secondary.map((item) => item.action), ["mark_worked", "create_followup", "assign"]);
+  assert.deepEqual(header.more.map((item) => item.action), ["close"]);
   // Commands with no Owner label are never rendered blind.
   assert.deepEqual(splitCommands([availability("unlabelled_command")], commandLabels).more, []);
 });

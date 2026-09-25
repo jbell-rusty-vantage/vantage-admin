@@ -51,12 +51,12 @@ fixtureTest("every S1, S5c, S6, AC and S11 detail fixture renders the record hea
   }
 });
 
-fixtureTest("A41: one primary call button, at most two secondaries in preference order, the rest under More actions, disabled reasons", () => {
+fixtureTest("A41 / UX-C4: one primary call button, the three everyday secondaries in preference order (Assign included), the rest under More actions, disabled reasons", () => {
   const o = detail("S1/outreach__s-assessment-pending.json").data.outreach;
   const groups = groupCommands(o.allowed_actions);
   assert.equal(groups.primary?.action, "start_call");
-  assert.deepEqual(groups.secondary.map((a) => a.action), ["mark_worked", "create_followup"]);
-  assert.deepEqual(groups.more.map((a) => a.action), ["set_waiting", "add_note", "close", "reopen", "override_disposition", "assign"]);
+  assert.deepEqual(groups.secondary.map((a) => a.action), ["mark_worked", "create_followup", "assign"]);
+  assert.deepEqual(groups.more.map((a) => a.action), ["set_waiting", "add_note", "close", "reopen", "override_disposition"]);
   assert.ok(!groups.more.some((a) => a.action === "end_call" || a.action === "start_call"), "the other call command isn't repeated");
   const html = renderToStaticMarkup(createElement(RecordCommands, { record: o, onCommand: noop, onMessageRep: noop, messageRepDisabledReason: null }));
   const t = text(html);
@@ -69,6 +69,8 @@ fixtureTest("A41: one primary call button, at most two secondaries in preference
   assert.ok(t.includes("Reopen (Not available on this record right now.)"), "Reopen's reason");
   assert.ok(t.includes("Override disposition (This is not available on the record as it stands.)"), "ILLEGAL_TRANSITION sentence");
   assert.ok(html.includes("data-more") && html.includes("hidden"), "More actions starts closed");
+  assert.equal((html.match(/data-command="assign"/g) ?? []).length, 1, "Assign once");
+  assert.ok(html.indexOf('data-command="assign"') < html.indexOf("data-more"), "Assign sits in the header row, not under More actions");
 });
 
 fixtureTest("A41: End the call is the primary while a call is running (live fixture); a blocked Start keeps its reason", () => {
