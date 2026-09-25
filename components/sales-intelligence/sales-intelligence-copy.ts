@@ -2062,6 +2062,8 @@ export const copy = {
       mediansNote: "Team medians appear when enough reps have activity.",
       teamSize: (n: number) => `Team of ${n} ${n === 1 ? "rep" : "reps"}`,
       noActivity: "No activity for you in this period.",
+      /** Gate (2026-09-25): the Lead toggle is hidden on the Overview until `GET /overview` can filter by Lead. */
+      leadFilterNote: "The Has a Lead / No Lead filter works on the lists. The Overview counts every record for now.",
       nowTitle: "Your records now",
       healthTitle: "Your desk health",
       spendTitle: "Your Lead spend",

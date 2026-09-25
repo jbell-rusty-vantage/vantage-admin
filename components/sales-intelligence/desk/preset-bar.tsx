@@ -77,7 +77,7 @@ export const priorityToggle = (key: string, value: PresetValue): PresetValue => 
   attachment: value.attachment,
 });
 
-export function PresetBar({ counts, view, value, onChange, className }: PresetBarProps) {
+export function PresetBar({ counts, view, value, onChange, className, hideLead = false }: PresetBarProps & { hideLead?: boolean }) {
   const preset: PriorityPreset = presetOf(value.priority);
   const noLead = value.attachment === "none";
   const noteId = useId();
@@ -105,6 +105,7 @@ export function PresetBar({ counts, view, value, onChange, className }: PresetBa
         )}
       </div>
       <PriorityMenu counts={counts} view={view} value={value} onChange={onChange} disabled={noLead} noteId={noteId} />
+      {!hideLead && (
       <div className="si-seg si-presetbar__lead" role="group" aria-label={copy.ui1.desk.lead.label}>
         {LEADS.map((option) => {
           const active = value.attachment === option.value;
@@ -125,6 +126,7 @@ export function PresetBar({ counts, view, value, onChange, className }: PresetBa
           );
         })}
       </div>
+      )}
       {noLead && <p id={noteId} className="si-presetbar__note">{copy.ui1.desk.lead.noLeadDisablesPresets}</p>}
     </div>
   );

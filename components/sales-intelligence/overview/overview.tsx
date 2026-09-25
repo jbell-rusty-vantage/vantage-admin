@@ -135,10 +135,14 @@ function OverviewHeaderSkeleton() {
 
 /** The preset bar and the Priority note, shared by the connected page and the static view. */
 function PresetRow({ preset, onPreset }: { preset: PresetValue; onPreset: (next: PresetValue) => void }) {
+  // Operator (UI-2 gate, 2026-09-25): `GET /overview` can't filter by Lead, so the Lead toggle is hidden here and the page
+  // says so; the Overview reads every record, and a preset click keeps the lists' own Lead choice untouched.
+  const shown: PresetValue = { ...preset, attachment: null };
   return (
     <div className="si-ovhead__preset">
-      <PresetBar counts={null} view="overview" value={preset} onChange={onPreset} />
+      <PresetBar counts={null} view="overview" value={shown} onChange={(next) => onPreset({ ...next, attachment: preset.attachment })} hideLead />
       <p className="si-ovhead__note" data-overview="note">{t.period.note}</p>
+      <p className="si-ovhead__note" data-overview="lead-note">{copy.ui2.overview.leadFilterNote}</p>
     </div>
   );
 }
@@ -184,7 +188,8 @@ export function Overview({ userId, className }: { userId?: string | null; classN
   const params = useMemo(() => overviewParamsFromDesk(state), [state]);
   const period: OverviewPeriodState = { period: state.period, from: state.from, to: state.to };
   const onPeriod = (patch: PeriodPatch) => update(patch);
-  const attachment = preset.value.attachment;
+  // The Overview's links don't carry the Lead toggle either (its numbers ignore it; see PresetRow).
+  const attachment = null;
   const rep = useIsRep();
   const titles = blockTitles(rep);
 

@@ -169,18 +169,23 @@ export function serializeDeskUrl(state: Partial<DeskUrlState>, role: UrlRole = "
 export function isDeskView(view: PageView): view is DeskView { return view === "attention" || view === "all_outreach" || view === "closed"; }
 
 /** The sort the server is asked for in a view: a valid URL sort, else the view's default (Closed has its own list). */
-export function effectiveSort(view: DeskView, sort: string | null): { sort: DeskSort | ClosedSort; direction: "asc" | "desc" } & { closed: boolean } {
+/**
+ * The view's default sort when the URL names none. Operator (UI-2 gate, 2026-09-25): a rep's My work (`attention`) opens in
+ * Attention order, grouped by band; every other view (and every Owner view) opens in Lead received, newest first (UX-C1).
+ */
+export function effectiveSort(view: DeskView, sort: string | null, role: UrlRole = "owner"): { sort: DeskSort | ClosedSort; direction: "asc" | "desc" } & { closed: boolean } {
   if (view === "closed") {
     const chosen = (CLOSED_SORTS as readonly string[]).includes(sort ?? "") ? (sort as ClosedSort) : CLOSED_DEFAULT_SORT;
     return { sort: chosen, direction: CLOSED_SORT_DEFAULT_DIRECTION[chosen], closed: true };
   }
-  const chosen = (DESK_SORTS as readonly string[]).includes(sort ?? "") ? (sort as DeskSort) : DESK_DEFAULT_SORT;
+  const fallback: DeskSort = role === "rep" && view === "attention" ? "attention" : DESK_DEFAULT_SORT;
+  const chosen = (DESK_SORTS as readonly string[]).includes(sort ?? "") ? (sort as DeskSort) : fallback;
   return { sort: chosen, direction: DESK_SORT_DEFAULT_DIRECTION[chosen], closed: false };
 }
 
 /** `GET /attention` params for a desk view. Closed-only params go only to Closed; `freshness` only with a score sort. */
-export function attentionParamsFromDesk(state: DeskUrlState, view: DeskView): AttentionParams {
-  const { sort, direction: fallback } = effectiveSort(view, state.sort);
+export function attentionParamsFromDesk(state: DeskUrlState, view: DeskView, role: UrlRole = "owner"): AttentionParams {
+  const { sort, direction: fallback } = effectiveSort(view, state.sort, role);
   const closed = view === "closed";
   return {
     view, sort, direction: state.direction ?? fallback,

@@ -138,7 +138,7 @@ function DeskList({ view, state, query, update, pending, userId, renderTimelineP
   const preset = usePresetSelection({ userId });
   const asOf = useNewestAsOf();
   const [degrade, setDegrade] = useState<Degrade>(NO_DEGRADE);
-  const requested = attentionParamsFromDesk(state, view);
+  const requested = attentionParamsFromDesk(state, view, useIsRep() ? "rep" : "owner");
   const params = applyDegrade(requested, degrade);
   const error = useQueryError(siKeys.attention(params));
   const next = nextDegrade(error, params, degrade);

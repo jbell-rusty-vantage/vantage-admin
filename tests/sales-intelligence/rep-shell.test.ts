@@ -106,3 +106,20 @@ test("UI2: the Owner's `by you` words read as the Owner's to a rep", async () =>
   const value = parseDeskUrl(new URLSearchParams("view=closed&outcome=owner"), "rep");
   assert.equal(activeFilterChips(value, closedRegions(), [], { rep: true })[0]?.label, "Closed by the Owner");
 });
+
+test("gate: a rep's My work opens in Attention order; every other view and the Owner keep Lead received", async () => {
+  const { effectiveSort } = await import("../../components/sales-intelligence/data/url-state");
+  assert.equal(effectiveSort("attention", null, "rep").sort, "attention");
+  assert.equal(attentionParamsFromDesk(parseDeskUrl(new URLSearchParams(""), "rep"), "attention", "rep").sort, "attention");
+  assert.equal(effectiveSort("all_outreach", null, "rep").sort, "lead_received");
+  assert.equal(effectiveSort("attention", null).sort, "lead_received");
+  assert.equal(effectiveSort("attention", "last_call", "rep").sort, "last_call");
+});
+
+test("gate: the Overview's preset bar hides the Lead toggle and states the limitation", async () => {
+  const { PresetBar } = await import("../../components/sales-intelligence/desk/preset-bar");
+  const hidden = html(createElement(PresetBar, { counts: null, view: "overview", value: { priority: [], attachment: null }, onChange: () => {}, hideLead: true }));
+  assert.doesNotMatch(hidden, /data-lead-btn/);
+  const shown = html(createElement(PresetBar, { counts: null, view: "all_outreach", value: { priority: [], attachment: null }, onChange: () => {} }));
+  assert.match(shown, /data-lead-btn/);
+});
