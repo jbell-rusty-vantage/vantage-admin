@@ -15,6 +15,7 @@ import { LiveSection } from "./sections/live";
 import { LoadingSection } from "./sections/loading-errors";
 import { MetricsSection } from "./sections/metrics";
 import { NavigationSection } from "./sections/navigation";
+import { OverviewSection } from "./sections/overview";
 import { PresetBarSection } from "./sections/preset-bar";
 import { RailSection } from "./sections/rail";
 import { FrameContext, Placeholder } from "./sections/section";
@@ -42,7 +43,7 @@ export const GALLERY_SECTIONS: { id: SectionId; render: () => ReactNode }[] = [
   { id: "timeline", render: () => <TimelineSection /> },
   { id: "analysis", render: () => <Placeholder id="analysis" stage="UI1-TOP / UI1-MOVE / UI1-FIND" /> },
   { id: "chat", render: () => <ChatSection /> },
-  { id: "overview", render: () => <Placeholder id="overview" stage="UI1-OVERVIEW" /> },
+  { id: "overview", render: () => <OverviewSection /> },
   { id: "closed", render: () => <ClosedSection /> },
   { id: "coverage", render: () => <CoverageSection /> },
 ];
