@@ -67,7 +67,7 @@ export function OutreachPageFrame({ back, header, tabs, active, notFound, childr
   return (
     <div className="si-root si-outreach">
       <div className="si-outreach__bar">
-        <Link className="si-outreach__back si-hit" href={back}>
+        <Link className="si-btn si-btn--secondary si-btn--md si-hit si-outreach__back" href={back}>
           <ArrowLeft size={16} aria-hidden />
           {h.back}
         </Link>

@@ -177,6 +177,6 @@ test("A15: history takes the Closed filters, and closed_before at the 90-day edg
   assert.equal(historyClosedBefore(asOf, "2026-09-01T04:00:00.000Z"), "2026-06-26T20:34:35.790Z");
   // The Closed list itself sends the closed-only params and its own sort.
   const params = attentionParamsFromDesk(state, "closed");
-  assert.equal(params.sort, "closed");
+  assert.equal(params.sort, "lead_received");
   assert.equal(params.direction, "desc");
 });

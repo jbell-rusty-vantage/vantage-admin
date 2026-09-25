@@ -2,7 +2,7 @@
 /**
  * UI1-DESK (UI-1 §3.4, final spec §7.2, §8): the sort select, the direction toggle and `Fresh assessments only`.
  *
- * - Needs Attention and All Outreach offer the same nine sorts; only the default differs. Closed has three.
+ * - Needs Attention and All Outreach offer the same nine sorts. Closed has three. Every view defaults to Lead received, newest first.
  * - The direction toggle uses the sort's words and resets to the sort's default when the sort changes
  *   (`deskUrlUpdate` drops `direction` with a new `sort`). Attention order has no direction.
  * - Score sorts show `Fresh assessments only` (`freshness=fresh`).
@@ -11,7 +11,7 @@
 import { ArrowDownUp } from "lucide-react";
 import { useId } from "react";
 import {
-  CLOSED_SORTS, DESK_SORT_ORDER, deskDefaultSort, isScoreSort,
+  CLOSED_DEFAULT_SORT, CLOSED_SORTS, DESK_SORT_ORDER, DESK_DEFAULT_SORT, isScoreSort,
 } from "@/lib/api/salesIntelligence";
 import type { DeskUrlPatch } from "../data/url-state";
 import type { DeskView } from "../data/requests";
@@ -30,7 +30,7 @@ export function sortWords(view: DeskView, sort: string): SortWords | null {
 }
 
 export function defaultSortOf(view: DeskView): string {
-  return view === "closed" ? "closed" : deskDefaultSort(view);
+  return view === "closed" ? CLOSED_DEFAULT_SORT : DESK_DEFAULT_SORT;
 }
 
 /** The patch for a newly chosen sort: the view's default is written as no `sort` (and the direction resets). */

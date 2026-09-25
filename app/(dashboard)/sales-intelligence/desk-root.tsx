@@ -10,7 +10,7 @@ import "@/components/sales-intelligence/styles/sales-intelligence.css";
 
 export function DeskRoot({ userId }: { userId: string | null }) {
   return (
-    <div className="si-root">
+    <div className="si-root si-route">
       <Desk userId={userId} overview={<Overview userId={userId} />} renderTimelinePreview={(outreachId) => <TimelinePreview outreachId={outreachId} />} />
     </div>
   );

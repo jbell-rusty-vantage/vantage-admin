@@ -76,11 +76,12 @@ test("old deep links are preserved and resolved (ADMIN-REBUILD traps 4–5)", ()
 test("desk requests: default sorts per view, closed-only params only on Closed, freshness only with a score sort", () => {
   const state = parseDeskUrl(url("band=2&outcome=booked&closed_from=2026-09-01T04%3A00%3A00.000Z&freshness=fresh&priority=0&priority=not_set"));
   const attention = attentionQuery(attentionParamsFromDesk(state, "attention"));
-  assert.equal(attention.get("sort"), "attention");
-  assert.equal(attention.get("direction"), "asc");
+  // Every view defaults to Lead received, newest first (Owner, 2026-09-25).
+  assert.equal(attention.get("sort"), "lead_received");
+  assert.equal(attention.get("direction"), "desc");
   assert.equal(attention.has("outcome"), false);
   assert.equal(attention.has("closed_from"), false);
-  assert.equal(attention.has("freshness"), false, "Attention order is not a score sort");
+  assert.equal(attention.has("freshness"), false, "Lead received is not a score sort");
   assert.deepEqual(attention.getAll("priority"), ["0", "not_set"]);
   assert.equal(attention.get("band"), "2");
   const all = attentionQuery(attentionParamsFromDesk(state, "all_outreach"));
@@ -89,13 +90,13 @@ test("desk requests: default sorts per view, closed-only params only on Closed, 
   const scored = attentionQuery(attentionParamsFromDesk({ ...state, sort: "transaction_intent" }, "all_outreach"));
   assert.equal(scored.get("freshness"), "fresh");
   const closed = attentionQuery(attentionParamsFromDesk(state, "closed"));
-  assert.equal(closed.get("sort"), "closed");
+  assert.equal(closed.get("sort"), "lead_received");
   assert.equal(closed.get("direction"), "desc");
   assert.equal(closed.get("outcome"), "booked");
   assert.equal(closed.has("band"), false);
   // A desk sort that Closed doesn't have falls back to Closed's default, and vice versa.
-  assert.equal(attentionQuery(attentionParamsFromDesk({ ...state, sort: "last_call" }, "closed")).get("sort"), "closed");
-  assert.equal(attentionQuery(attentionParamsFromDesk({ ...state, sort: "time_to_close" }, "attention")).get("sort"), "attention");
+  assert.equal(attentionQuery(attentionParamsFromDesk({ ...state, sort: "last_call" }, "closed")).get("sort"), "lead_received");
+  assert.equal(attentionQuery(attentionParamsFromDesk({ ...state, sort: "time_to_close" }, "attention")).get("sort"), "lead_received");
   // UI-1 §3.4: Last conversation defaults to newest first on the new desk.
   assert.equal(attentionQuery(attentionParamsFromDesk({ ...state, sort: "last_human_contact" }, "attention")).get("direction"), "desc");
 });

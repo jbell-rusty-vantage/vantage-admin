@@ -123,7 +123,9 @@ test("A09: both lists offer the nine sorts; Closed three; direction words; score
   assert.equal(next.get("direction"), null);
   assert.equal(next.get("cursor"), null);
   assert.equal(sortPatch("all_outreach", "lead_received").sort, null);
-  assert.equal(sortPatch("attention", "attention").sort, null);
+  assert.equal(sortPatch("attention", "lead_received").sort, null);
+  assert.equal(sortPatch("attention", "attention").sort, "attention");
+  assert.equal(sortPatch("closed", "lead_received").sort, null);
 });
 
 fixtureTest("A10: five metric tiles from data.metrics with As of; each applies its filter", () => {

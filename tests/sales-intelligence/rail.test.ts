@@ -159,6 +159,6 @@ test("CSS: the rail is sticky, capped to the viewport, scrolls inside, 44 px con
   const css = fs.readFileSync(path.join(process.cwd(), "components/sales-intelligence/styles/sales-intelligence.css"), "utf8");
   const block = css.slice(css.indexOf("/* UI-1: RAIL"));
   const rule = block.slice(block.indexOf(".si-rail {"), block.indexOf("}", block.indexOf(".si-rail {")));
-  for (const decl of ["position: sticky", "max-height: calc(100dvh", "overflow-y: auto"]) assert.ok(rule.includes(decl), decl);
+  for (const decl of ["position: sticky", "max-height: calc(var(--si-scroll-h, 100dvh)", "overflow-y: auto"]) assert.ok(rule.includes(decl), decl);
   assert.match(block, /\.si-rail__check \{ min-height: var\(--si-hit\); \}/);
 });

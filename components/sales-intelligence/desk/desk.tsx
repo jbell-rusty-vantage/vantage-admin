@@ -14,12 +14,13 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { CoverageView } from "../coverage-view";
 import { GuideView } from "../guide-view";
 import { Reps } from "../reps";
 import { useNewestAsOf } from "../data/live";
 import { currentSalesIntelligenceHref } from "../lib/official-record";
+import { rememberDeskHref } from "../outreach/deep-links";
 import { siKeys } from "../data/query-keys";
 import { attentionParamsFromDesk, closedHistoryParamsFromDesk, isDeskView, type DeskUrlPatch, type DeskUrlState, type PageView } from "../data/url-state";
 import type { AttentionParams, DeskView } from "../data/requests";
@@ -195,17 +196,42 @@ function DeskList({ view, state, query, update, pending, userId, renderTimelineP
 function OtherView({ view, slot }: { view: Exclude<PageView, DeskView>; slot?: ReactNode }) {
   const update = useLooseUpdate();
   const params = useSearchParams();
-  if (slot !== undefined) return <Region name={`view-${view}`} skeleton={<SkeletonLines lines={6} />}>{slot}</Region>;
+  if (slot !== undefined) return <Region className="si-desk__other" name={`view-${view}`} skeleton={<SkeletonLines lines={6} />}>{slot}</Region>;
   const body =
     view === "coverage" ? <CoverageView /> :
     view === "guide" ? <GuideView topic={params.get("topic")} /> :
     view === "reps" ? <Reps params={new URLSearchParams(params.toString())} update={update} /> :
     <SkeletonLines lines={6} />;
-  return <Region name={`view-${view}`} skeleton={<SkeletonLines lines={6} />}>{body}</Region>;
+  return <Region className="si-desk__other" name={`view-${view}`} skeleton={<SkeletonLines lines={6} />}>{body}</Region>;
+}
+
+/**
+ * The scroll area's visible height as `--si-scroll-h`, so the sticky filter rail's `max-height` fits the part of the
+ * page that scrolls (not the whole window, which also holds the app header and the desk header).
+ */
+function useScrollHeightVar() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const write = () => el.style.setProperty("--si-scroll-h", `${el.clientHeight}px`);
+    write();
+    const observer = new ResizeObserver(write);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return ref;
 }
 
 export function Desk({ userId, overview, coverage, reps, guide, renderTimelinePreview }: DeskProps) {
   const { state, update, isPending, query } = useDeskUrlState();
+  const contentRef = useScrollHeightVar();
+  // A record's `Back` returns to this view with its filters and sort (not the open side dialog).
+  useEffect(() => {
+    const kept = new URLSearchParams(query);
+    for (const key of ["outreach", "lead", "lead_model"]) kept.delete(key);
+    rememberDeskHref(currentSalesIntelligenceHref(kept));
+  }, [query]);
   const view = state.view;
   const onSearch = (q: string | null) => update(isDeskView(view) || q === null ? { q } : { view: "all_outreach", q });
   const slots: Record<Exclude<PageView, DeskView>, ReactNode | undefined> = { overview, coverage, reps, guide };
@@ -215,7 +241,7 @@ export function Desk({ userId, overview, coverage, reps, guide, renderTimelinePr
         <PageHeader q={state.q} onSearch={onSearch} />
         <ViewTabs active={view} query={query} />
       </header>
-      <div className="si-desk__content">
+      <div ref={contentRef} className="si-desk__content">
         {isDeskView(view) ? (
           <DeskList key={view} view={view} state={state} query={query} update={update} pending={isPending} userId={userId} renderTimelinePreview={renderTimelinePreview} />
         ) : (

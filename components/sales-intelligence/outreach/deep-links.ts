@@ -70,6 +70,26 @@ export function deepLinkTarget(params: Params): DeepLinkTarget | null {
 }
 
 /** The desk the back link returns to: `si_return` when it's a Sales Intelligence path, else the desk's default view. */
+const LAST_DESK_KEY = "si:last-desk-href";
+
+/** The desk remembers its URL (view, filters, sort; not the open side dialog) so a record's Back returns to it. */
+export function rememberDeskHref(href: string): void {
+  try {
+    window.sessionStorage.setItem(LAST_DESK_KEY, href);
+  } catch {
+    // Storage blocked: Back falls back to the desk's default view.
+  }
+}
+
+function lastDeskHref(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return validReturn(window.sessionStorage.getItem(LAST_DESK_KEY));
+  } catch {
+    return null;
+  }
+}
+
 export function backHref(siReturn: string | null | undefined): string {
-  return validReturn(siReturn) ?? "/sales-intelligence";
+  return validReturn(siReturn) ?? lastDeskHref() ?? "/sales-intelligence";
 }

@@ -98,8 +98,10 @@ export const CLOSED_SORTS = ['closed','lead_received','time_to_close'] as const;
 export type ClosedSort = (typeof CLOSED_SORTS)[number];
 export const CLOSED_SORT_DEFAULT_DIRECTION: Record<ClosedSort, 'asc'|'desc'> = { closed: 'desc', lead_received: 'desc', time_to_close: 'asc' };
 export function parseClosedSort(value: string | null | undefined): ClosedSort { return (CLOSED_SORTS as readonly string[]).includes(value ?? '') ? value as ClosedSort : 'closed'; }
-/** The view's default sort (UI-1 §1.1): Needs Attention → Attention order; All Outreach → Lead received (Owner correction C). */
-export function deskDefaultSort(view: 'attention' | 'all_outreach'): DeskSort { return view === 'all_outreach' ? 'lead_received' : 'attention'; }
+/** The default sort on Needs Attention and All Outreach: Lead received, newest first (Owner, 2026-09-25; Needs Attention was Attention order). */
+export const DESK_DEFAULT_SORT: DeskSort = 'lead_received';
+/** Closed's default sort: Lead received, newest first (Owner, 2026-09-25; was Closed date). */
+export const CLOSED_DEFAULT_SORT: ClosedSort = 'lead_received';
 // Move assessment §8.1: the compact projection on an Outreach record. Server enums stay z.string() so a grown value still renders.
 export const moveAssessmentSchema = z.object({ artifact_id: z.string().nullable(), status: z.string(), applicability: z.string(),
   transaction_intent: z.number().nullable(), move_likelihood: z.number().nullable(),

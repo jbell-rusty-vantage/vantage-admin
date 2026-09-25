@@ -7,7 +7,7 @@
  * ADMIN-REBUILD traps 4–5) and every key this module doesn't own are carried through untouched.
  */
 import {
-  DESK_SORTS, CLOSED_SORTS, CLOSED_SORT_DEFAULT_DIRECTION, DESK_SORT_DEFAULT_DIRECTION, deskDefaultSort, isScoreSort,
+  DESK_SORTS, CLOSED_SORTS, CLOSED_DEFAULT_SORT, CLOSED_SORT_DEFAULT_DIRECTION, DESK_SORT_DEFAULT_DIRECTION, DESK_DEFAULT_SORT, isScoreSort,
   type DeskSort, type ClosedSort,
 } from "@/lib/api/salesIntelligence";
 import { readList, writeList } from "../lib/filter-state";
@@ -133,10 +133,10 @@ export function isDeskView(view: PageView): view is DeskView { return view === "
 /** The sort the server is asked for in a view: a valid URL sort, else the view's default (Closed has its own list). */
 export function effectiveSort(view: DeskView, sort: string | null): { sort: DeskSort | ClosedSort; direction: "asc" | "desc" } & { closed: boolean } {
   if (view === "closed") {
-    const chosen = (CLOSED_SORTS as readonly string[]).includes(sort ?? "") ? (sort as ClosedSort) : "closed";
+    const chosen = (CLOSED_SORTS as readonly string[]).includes(sort ?? "") ? (sort as ClosedSort) : CLOSED_DEFAULT_SORT;
     return { sort: chosen, direction: CLOSED_SORT_DEFAULT_DIRECTION[chosen], closed: true };
   }
-  const chosen = (DESK_SORTS as readonly string[]).includes(sort ?? "") ? (sort as DeskSort) : deskDefaultSort(view);
+  const chosen = (DESK_SORTS as readonly string[]).includes(sort ?? "") ? (sort as DeskSort) : DESK_DEFAULT_SORT;
   return { sort: chosen, direction: DESK_SORT_DEFAULT_DIRECTION[chosen], closed: false };
 }
 

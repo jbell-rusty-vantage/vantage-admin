@@ -14,7 +14,7 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import type { AttentionRow } from "@/lib/api/salesIntelligence";
+import { CLOSED_DEFAULT_SORT, type AttentionRow } from "@/lib/api/salesIntelligence";
 import { OutreachCard } from "../card";
 import { OutcomeLine } from "../card/outcome-line";
 import { UpdatedListPill, attentionListShape, useListRefresh, useReportAsOf } from "../data/live";
@@ -190,7 +190,7 @@ export function ClosedList({ params, history, state, update, pending, returnTo, 
         view="closed"
         rows={rows}
         asOf={asOf}
-        sort={params.sort ?? "closed"}
+        sort={params.sort ?? CLOSED_DEFAULT_SORT}
         q={params.q ?? null}
         totalItems={first.data.total_items}
         stale={first.data.stale ?? false}
