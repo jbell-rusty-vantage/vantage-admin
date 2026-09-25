@@ -864,9 +864,9 @@
 .si-gallery__placeholder { padding: 16px; border: 1px dashed var(--si-line-strong); border-radius: var(--si-r-lg); color: var(--si-ink-3); font-size: 13px; }
 
 /* UI-1: CARD (the Outreach card, UI-1 §2 / final spec §5; the side dialog, final spec §4) */
-.si-card .si-cardshell__line { line-height: 18px; }
-.si-card.is-number-only .si-cardshell__line--2.is-empty { display: none; }
-.si-card.is-number-review .si-cardshell__line.is-empty { display: none; }
+.si-outreachcard .si-cardshell__line { line-height: 18px; }
+.si-outreachcard.is-number-only .si-cardshell__line--2.is-empty { display: none; }
+.si-outreachcard.is-number-review .si-cardshell__line.is-empty { display: none; }
 .si-card__l1 { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
 .si-card__l1main { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
 .si-card__l1side { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-left: auto; font-weight: 400; }

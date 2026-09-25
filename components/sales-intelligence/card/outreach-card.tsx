@@ -88,7 +88,7 @@ export function OutreachCard({
   ];
   return (
     <CardShell
-      className={cx("si-card", isNumberOnly(o) && "is-number-only", closed && "is-closed")}
+      className={cx("si-outreachcard", isNumberOnly(o) && "is-number-only", closed && "is-closed")}
       lines={lines}
       live={live}
       onOpen={onOpen ? () => onOpen(row) : undefined}
@@ -129,7 +129,7 @@ export function NumberReviewCard({ row }: { row: CardRow; asOf: string }) {
   ];
   return (
     <CardShell
-      className="si-card is-number-review"
+      className="si-outreachcard is-number-review"
       lines={lines}
       actions={numberId ? <NumberReviewActions contactNumberId={numberId} /> : undefined}
     />
