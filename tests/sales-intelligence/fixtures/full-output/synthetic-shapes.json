@@ -1,0 +1,46 @@
+{
+  "summary": {
+    "overview": "Customer is moving a two-bedroom apartment from Atlanta to Charlotte and asked for a binding estimate before committing. They compared two other movers on the call and said price was the deciding factor.",
+    "customer_wanted": "A binding estimate by Friday",
+    "money_and_dates": "Budget around $2,000; moving October 15.",
+    "outcome": "quote_requested",
+    "commitments": ["Rep will send the estimate by email", "Customer will confirm the elevator booking"],
+    "discrepancies": []
+  },
+  "findings": [
+    {
+      "kind": "customer_request",
+      "claim": "The customer asked for a binding estimate before Friday.",
+      "basis": "Stated directly by the customer near the end of the call.",
+      "actor": "customer",
+      "clarity": "explicit",
+      "action_status": "open",
+      "value": { "target_date": "2026-10-02", "amount": null },
+      "confidence": null,
+      "evidence": [
+        { "id": "e1", "kind": "transcript", "speaker": "customer", "call_at": "2026-09-24T14:05:00.000Z", "quote": "Can you get me a binding number by Friday?", "segment_ids": ["s12", "s13"] },
+        { "id": "e2", "kind": "transcript", "speaker": "rep", "quote": "Yes, I will email it tomorrow.", "segment_ids": ["s14"] }
+      ]
+    }
+  ],
+  "scores": {
+    "transaction_intent": { "level": "high", "confidence": "medium", "score": 75, "rationale": "Asked for a binding estimate and gave a firm date.", "conditions": ["Price within budget"], "evidence": [{ "id": "e1", "quote": "Can you get me a binding number by Friday?" }] },
+    "move_likelihood": { "level": "very_high", "confidence": "high", "score": 90, "rationale": "Lease ends October 14.", "conditions": [], "evidence": [] }
+  },
+  "move_details": [
+    { "field": "origin", "value": "Atlanta, GA", "status": "stated" },
+    { "field": "destination", "value": "Charlotte, NC", "status": "stated" },
+    { "field": "move_date", "value": "2026-10-15", "status": "stated" }
+  ],
+  "said_on_call": ["We have a freight elevator.", "No piano."],
+  "engagement": {
+    "work_status": "waiting_on_customer",
+    "rationale": "",
+    "promised_callbacks": [{ "by": "rep", "date": null, "status": "pending", "detail": { "channel": { "kind": "phone", "note": { "text": "Call after 5 PM", "deep": { "leaf": "deepest value" } } } } }],
+    "next_steps": []
+  },
+  "generated_at": "2026-09-24T18:58:37.661Z",
+  "coverage": null,
+  "complete": true,
+  "limitations": {}
+}

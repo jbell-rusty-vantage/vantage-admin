@@ -2,7 +2,7 @@
 /**
  * Full output (specification §8.4). The complete retained structured output of one
  * assessment version, conversation summary, findings run or legacy analysis, read
- * as stored: a readable view, the actual JSON, and Copy output. The exact model
+ * as stored: a readable view (a short report, `full-output-readable.tsx`, UX-C3), the actual JSON, and Copy output. The exact model
  * object and the server-expanded accepted envelope are shown and copied separately.
  * Opening, switching or copying never starts model processing.
  */
@@ -18,26 +18,7 @@ import { assessmentCopy as copy } from "./evidence-chain-copy";
 import { copy as siCopy } from "./sales-intelligence-copy";
 import { formatDateTime } from "./lib/format";
 import { FieldRows } from "./outreach/analysis/field-rows";
-
-type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
-
-/** Every key and every array element, in stored order. No clamps and nothing omitted. */
-function Readable({ value }: { value: Json }) {
-  if (value === null) return <span className="si-out__null">{copy.output.nullValue}</span>;
-  if (Array.isArray(value)) {
-    if (!value.length) return <span className="si-out__null">[] {copy.output.emptyValue}</span>;
-    return <ol className="si-out__list" aria-label={copy.output.items(value.length)}>{value.map((item, index) => <li key={index}><Readable value={item} /></li>)}</ol>;
-  }
-  if (typeof value === "object") {
-    const entries = Object.entries(value);
-    if (!entries.length) return <span className="si-out__null">{"{}"} {copy.output.emptyValue}</span>;
-    return <dl className="si-out__obj">{entries.map(([key, item]) => <div key={key} className="si-out__row">
-      <dt><code>{key}</code></dt><dd><Readable value={item} /></dd>
-    </div>)}</dl>;
-  }
-  if (typeof value === "string") return value === "" ? <span className="si-out__null">{'""'} {copy.output.emptyValue}</span> : <span className="si-out__str">{value}</span>;
-  return <span className="si-out__scalar">{String(value)}</span>;
-}
+import { ReadableOutput, type Json } from "./full-output-readable";
 
 async function copyText(text: string, host: Element | null): Promise<boolean> {
   try {
@@ -128,7 +109,7 @@ function OutputView({ output }: { output: Loaded }) {
         <span role="status" className="si-text--subtle">{status === "copied" ? copy.output.copied : status === "failed" ? copy.output.copyFailed : ""}</span>
       </div>
       {view === "readable"
-        ? <div className="si-out__readable" role="region" aria-label={`${copy.output.readable}: ${selected?.label ?? ""}`} tabIndex={0}><Readable value={(selected?.value ?? null) as Json} /></div>
+        ? <div className="si-out__readable" role="region" aria-label={`${copy.output.readable}: ${selected?.label ?? ""}`} tabIndex={0}><ReadableOutput value={(selected?.value ?? null) as Json} /></div>
         : <pre className="si-out__json" role="region" aria-label={`${copy.output.json}: ${selected?.label ?? ""}`} tabIndex={0}>{text}</pre>}
     </>}
     <details className="si-chain__disclose">

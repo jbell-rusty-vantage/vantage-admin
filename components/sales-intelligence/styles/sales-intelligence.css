@@ -1503,14 +1503,42 @@
 .si-analysis .si-out__head, .si-analysis .si-out__tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .si-analysis .si-out__readable, .si-analysis .si-out__json { max-height: min(70vh, 720px); overflow: auto; padding: 10px 12px; border: 1px solid var(--si-line); border-radius: var(--si-r); background: var(--si-surface); }
 .si-analysis .si-out__json { margin: 0; font-family: var(--si-font-mono); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.si-analysis .si-out__obj { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 13px; }
-.si-analysis .si-out__row { display: grid; grid-template-columns: minmax(6rem, 12rem) minmax(0, 1fr); gap: 2px 10px; }
-.si-analysis .si-out__row > dt code, .si-analysis .si-out__digest { font-family: var(--si-font-mono); font-size: 12px; color: var(--si-ink-2); overflow-wrap: anywhere; }
-.si-analysis .si-out__row > dd { margin: 0; min-width: 0; }
-.si-analysis .si-out__list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding-left: 20px; list-style: decimal; }
-.si-analysis .si-out__list > li { padding: 4px 0 4px 6px; border-left: 2px solid var(--si-line); }
-.si-analysis .si-out__str { white-space: pre-wrap; overflow-wrap: anywhere; }
-.si-analysis .si-out__null { font-style: italic; color: var(--si-ink-3); }
+.si-analysis .si-out__digest { font-family: var(--si-font-mono); font-size: 12px; color: var(--si-ink-2); overflow-wrap: anywhere; }
+/* UX-C3: Readable is a short report. Headings, prose at 14 px / 72ch, inline label runs, quotes, tables, muted empties. */
+.si-analysis .si-out__readable { padding: 14px 16px; }
+.si-analysis .si-out__report { display: flex; flex-direction: column; gap: 18px; font-size: 14px; line-height: 1.5; color: var(--si-ink); overflow-wrap: anywhere; }
+.si-analysis .si-out__section { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.si-analysis .si-out__section + .si-out__section { padding-top: 14px; border-top: 1px solid var(--si-line); }
+.si-analysis .si-out__h { margin: 0; font-size: 15px; font-weight: 700; color: var(--si-ink); }
+.si-analysis .si-out__field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.si-analysis .si-out__label { font-weight: 600; color: var(--si-ink-2); }
+.si-analysis .si-out__nest { display: flex; flex-direction: column; gap: 8px; padding-left: 12px; border-left: 2px solid var(--si-line); min-width: 0; }
+.si-analysis .si-out__prose { margin: 0; max-width: 72ch; white-space: pre-wrap; }
+.si-analysis .si-out__meta { margin: 0; max-width: 72ch; }
+.si-analysis .si-out__meta strong { font-weight: 600; color: var(--si-ink-2); }
+.si-analysis .si-out__sep { color: var(--si-ink-3); }
+.si-analysis .si-out__empty { font-style: italic; color: var(--si-ink-3); }
+.si-analysis .si-out__bullets { display: flex; flex-direction: column; gap: 2px; margin: 0; padding-left: 20px; list-style: disc; max-width: 72ch; }
+.si-analysis .si-out__blocks { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.si-analysis .si-out__blocks > li { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px solid var(--si-line); border-radius: var(--si-r); background: var(--si-surface-2); min-width: 0; }
+.si-analysis .si-out__findings { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.si-analysis .si-out__finding { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--si-line); border-radius: var(--si-r); min-width: 0; }
+.si-analysis .si-out__finding > .si-out__meta { font-size: 13px; color: var(--si-ink-3); }
+.si-analysis .si-out__claim { margin: 0; max-width: 72ch; font-weight: 600; }
+.si-analysis .si-out__quotes { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.si-analysis .si-out__quoteitem { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.si-analysis .si-out__quote { margin: 0; max-width: 72ch; padding: 2px 0 2px 12px; border-left: 3px solid var(--si-line-strong, var(--si-line)); font-style: italic; white-space: pre-wrap; }
+.si-analysis .si-out__quoteby { margin: 0; padding-left: 15px; font-size: 13px; color: var(--si-ink-3); }
+.si-analysis .si-out__quotemeta { display: flex; flex-direction: column; gap: 2px; padding-left: 15px; font-size: 13px; color: var(--si-ink-3); }
+.si-analysis .si-out__tablewrap { max-width: 100%; overflow-x: auto; }
+.si-analysis .si-out__table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+.si-analysis .si-out__table th, .si-analysis .si-out__table td { padding: 6px 10px; border-bottom: 1px solid var(--si-line); text-align: left; vertical-align: top; }
+.si-analysis .si-out__table thead th { font-weight: 600; color: var(--si-ink-2); background: var(--si-surface-2); }
+.si-analysis .si-out__table tbody th { font-weight: 600; white-space: nowrap; }
+.si-analysis .si-out__table--scores td:last-child { min-width: 24ch; }
+.si-analysis .si-out__table .si-out__prose { max-width: 60ch; }
+.si-analysis .si-out__more > summary { display: inline-flex; align-items: center; min-height: var(--si-hit); cursor: pointer; font-weight: 600; color: var(--si-link, var(--si-ink-2)); }
+.si-analysis .si-out__more[open] > summary { min-height: 0; margin-bottom: 4px; }
 .si-analysis .si-chain__disclose { border: 1px solid var(--si-line); border-radius: var(--si-r); background: var(--si-surface-2); }
 .si-analysis .si-chain__disclose > summary { display: flex; align-items: center; min-height: var(--si-hit); padding: 4px 10px; cursor: pointer; font-size: 13px; font-weight: 600; }
 .si-analysis .si-chain__panel { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 12px; background: var(--si-surface); border-top: 1px solid var(--si-line); }
@@ -1521,7 +1549,7 @@
   .si-movetable tr { padding: 6px 0; border-bottom: 1px solid var(--si-line); }
   .si-movetable th, .si-movetable td { border-bottom: 0; padding: 4px 0; }
   .si-movetable tbody td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 600; color: var(--si-ink-3); }
-  .si-analysis .si-fields__row, .si-analysis .si-out__row { grid-template-columns: minmax(0, 1fr); }
+  .si-analysis .si-fields__row { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* UI-1: ANALYSIS-WIRE (one `View evidence` toggle across the kit; the `?event=` timeline row; final spec §11.6, §10) */
