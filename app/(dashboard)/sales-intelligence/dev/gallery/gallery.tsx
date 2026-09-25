@@ -5,6 +5,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { SubNav } from "@/components/sales-intelligence/primitives";
 import { copy } from "@/components/sales-intelligence/sales-intelligence-copy";
 import { AnalysisFindingsSection } from "./sections/analysis-findings";
+import { AnalysisSection } from "./sections/analysis";
 import { BadgesSection, PillsSection } from "./sections/badges";
 import { CardSection } from "./sections/card";
 import { ChatSection } from "./sections/chat";
@@ -20,7 +21,7 @@ import { OverviewSection } from "./sections/overview";
 import { PresetBarSection } from "./sections/preset-bar";
 import { RailSection } from "./sections/rail";
 import { RecordHeaderSection } from "./sections/record-header";
-import { FrameContext, Placeholder } from "./sections/section";
+import { FrameContext } from "./sections/section";
 import { TimeSection } from "./sections/time";
 import { TimelineSection } from "./sections/timeline";
 import { TokensSection } from "./sections/tokens";
@@ -44,7 +45,7 @@ export const GALLERY_SECTIONS: { id: SectionId; render: () => ReactNode }[] = [
   { id: "presets", render: () => <PresetBarSection /> },
   { id: "rail", render: () => <RailSection /> },
   { id: "timeline", render: () => <TimelineSection /> },
-  { id: "analysis", render: () => <Placeholder id="analysis" stage="UI1-TOP / UI1-MOVE / UI1-FIND" /> },
+  { id: "analysis", render: () => <AnalysisSection /> },
   { id: "analysis-findings", render: () => <AnalysisFindingsSection /> },
   { id: "chat", render: () => <ChatSection /> },
   { id: "overview", render: () => <OverviewSection /> },

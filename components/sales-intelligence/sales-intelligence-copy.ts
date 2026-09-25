@@ -1863,6 +1863,102 @@ export const copy = {
         /** Proposal: a segment's start offset, `{m}:{ss}` into the call. */
         offsetLabel: (offset: string, exact: string) => `${offset} into the call, ${exact}`,
       },
+
+    /**
+     * UI1-TOP + UI1-MOVE (final spec §11.1–11.4, §11.9, §14; UI-1 §5.2; COPY-UI1 §8 `official.*`, `advanced.*`). The analysis
+     * kit's frame, Situation, Scores, the next-step strip, Move details and Advanced. UI1-FIND / UI1-CONV add their own
+     * sub-objects here. Drafts not in COPY-UI1 or the final spec are marked "Proposal".
+     */
+      frame: {
+        subNavLabel: "Analysis sections",
+        sections: { situation: "Situation", scores: "Scores", move: "Move details", findings: "Findings", conversations: "Conversations", fullOutput: "Full output" },
+        /** Proposal: the region label of the three-column strip (it has no sub-nav entry; final §11 lists six sections). */
+        nextStep: "Recorded and suggested next step",
+        /** Proposal: shown only until the Findings / Conversations sections are mounted in their slot. */
+        slotPending: "This section is not available yet.",
+        hideEvidence: "Hide evidence",
+        /** Proposal: an evidence item with no retained text or quote. */
+        evidenceNoText: "No text was retained for this item.",
+      },
+      situation: {
+        latest: (date: string, n: number) => `Latest analysis, ${date} · ${n} conversation${n === 1 ? "" : "s"}`,
+        latestNoCount: (date: string) => `Latest analysis, ${date}`,
+        fromConversation: (date: string) => `From the conversation on ${date}`,
+        none: "No analysis has run on this Number yet.",
+        official: "Official:",
+        status: { open_lead: "Open Lead", booked: "Booked", cancelled: "Cancelled", bad_lead: "Bad Lead", duplicate: "Duplicate", no_sync: "No-Sync" } as Record<string, string>,
+        openBooking: "Open Booking",
+        priority: (code: string, label: string) => `Granot Priority ${code} (${label})`,
+        leadCost: (amount: string) => `Lead cost $${amount}`,
+        leadCostBasis: { legacy: "(legacy price)", unpriced: "(unpriced)" } as Record<string, string>,
+        disputed: (n: number) => `Records disputed on a call (${n})`,
+        showInTimeline: "Show in timeline",
+      },
+      scores: {
+        confidence: (word: string) => `Confidence ${word}`,
+        conditions: "Conditions",
+        evidenceMissing: "This score should cite evidence and does not.",
+        assessed: "Assessed",
+        covers: (n: number) => `covers ${n} conversation${n === 1 ? "" : "s"}`,
+        through: "through",
+        newer: (k: number) => `${k} newer call${k === 1 ? "" : "s"} not yet assessed`,
+        leadOnly: "from the Lead on file only; no conversation was available.",
+        stale: { move_date_passed: "Stale: the move date has passed." } as Record<string, string>,
+        /** Proposal: a `stale_reason` this admin has no sentence for. */
+        staleOther: "Stale.",
+        closed: "Assessed before this work closed.",
+        notApplicable: (label: string) => `Not applicable: Granot marks this Lead ${label}.`,
+      },
+      nextStep: {
+        recorded: "Next step (recorded)",
+        noRecorded: "No next step set",
+        due: "Due",
+        suggested: "Suggested next step (not applied)",
+        noSuggestion: "No suggestion",
+        apply: "Apply",
+        applyLabel: (description: string) => `Apply: ${description}`,
+        applied: "Applied",
+        appliedDue: "→ follow-up due",
+        fromCalls: "From the calls",
+        notAssessed: "Not assessed",
+        callbacks: (n: number) => `Promised callbacks (${n})`,
+        nextSteps: (n: number) => `Next steps (${n})`,
+        notApplied: (n: number) => `Not applied (${n})`,
+        followupCreated: "→ follow-up created",
+      },
+      advanced: {
+        title: "Advanced",
+        paid: "This starts a paid analysis.",
+        reanalyzeOriginal: "Re-analyze original evidence",
+        reanalyzeCurrent: "Re-analyze current context",
+        includeCorrections: "Include my corrections",
+        /** Proposal: the kept dialog lists each correction with a checkbox; this line points there. */
+        includeCorrectionsHint: "You choose which of your corrections to include in the next step.",
+        originalGone: "The original evidence is no longer stored.",
+        confirm: "Confirm analysis",
+        earlier: "Earlier requests",
+        /** Proposal: the empty list of earlier requests. */
+        earlierNone: "No earlier requests.",
+        lookAgain: "Look again",
+        mode: { original_evidence: "Original evidence", current_context: "Current context" } as Record<string, string>,
+        /** Proposal: request status words (`reanalysis_requests[].status`); an unknown value prints as sent. */
+        requestStatus: { queued: "Queued", running: "Running", completed: "Done", failed: "Didn't finish", rejected: "Refused", cancelled: "Cancelled" } as Record<string, string>,
+      },
+      move: {
+        tableLabel: "Move details",
+        detail: "Detail",
+        customer: "Customer said",
+        lead: "Lead on file",
+        original: "Original submission",
+        notMentioned: "Not mentioned",
+        notOnFile: "Not on file",
+        marker: { flexible: "(flexible)", conditional: "(conditional)", changed: "(changed)", retracted: "(retracted)", declined: "(declined)" } as Record<string, string>,
+        disagree: "Details disagree",
+        disagreeLine: (explanation: string) => `Details disagree: ${explanation}`,
+        inventory: (n: number) => `Inventory (${n})`,
+        conflicts: (n: number) => `Conflicts (${n})`,
+        none: "No move details were stated in the retained conversations.",
+      },
     },
   },
 } as const;

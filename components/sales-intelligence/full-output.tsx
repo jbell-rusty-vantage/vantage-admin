@@ -17,7 +17,7 @@ import { Button } from "./atoms/button";
 import { assessmentCopy as copy } from "./evidence-chain-copy";
 import { copy as siCopy } from "./sales-intelligence-copy";
 import { formatDateTime } from "./lib/format";
-import { FieldRows } from "./_legacy/assessment-section";
+import { FieldRows } from "./outreach/analysis/field-rows";
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 
