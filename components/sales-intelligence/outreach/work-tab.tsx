@@ -13,7 +13,7 @@
  * UI2-SCOPE + UI2-FOLLOWUP (UI-2 §3–§4, A04): a rep's Work tab is the follow-ups with the rep's own actions
  * (`RepFollowups`) and nothing else. Owner corrections, review items, restrictions (`GET /numbers/:id`), attachments and
  * the Message rep history and composer (`GET /nudges`, `GET /reps`) are Owner-only and never mount for a rep.
- * (`Messages from the Owner`, UI2-NUDGES, joins after CF12.)
+ * UI2-NUDGES adds `Messages from the Owner` (read-only, from the same detail read).
  */
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { numberSchema, readSalesIntelligence, type OwnerInstruction } from "@/lib/api/salesIntelligence";
@@ -30,6 +30,7 @@ import { Restrictions } from "../restrictions";
 import { ReviewItems } from "../review-items";
 import { copy } from "../sales-intelligence-copy";
 import { RepFollowups } from "../rep/followup-actions";
+import { OwnerMessages, OwnerMessagesSkeleton } from "../rep/owner-messages";
 import { useIsRep } from "../rep/viewer";
 import { numberIdOf, subjectKeyOf } from "./record-header";
 
@@ -158,6 +159,10 @@ function RepWorkTab({ id }: { id: string }) {
     <div className="si-work" data-tab="work" data-viewer="rep">
       <Region name="work-followups" skeleton={<SkeletonBlock height={120} />} onRetry={() => void client.resetQueries({ queryKey: siKeys.outreach(id) })}>
         <RepFollowupsLive id={id} />
+      </Region>
+      {/* UI2-NUDGES (UI-2 §5): the same detail read, so no extra request; omitted when there are no messages. */}
+      <Region name="work-owner-messages" skeleton={<OwnerMessagesSkeleton />} onRetry={() => void client.resetQueries({ queryKey: siKeys.outreach(id) })}>
+        <OwnerMessages id={id} />
       </Region>
     </div>
   );

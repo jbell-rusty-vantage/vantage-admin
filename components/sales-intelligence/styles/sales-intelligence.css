@@ -1732,3 +1732,8 @@ span.si-evidence__none { display: inline-flex; align-items: center; min-height: 
 .si-transcript__seek .si-transcript__offset { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .si-transcript__seek:focus-visible { outline: 2px solid var(--si-blue); outline-offset: -2px; }
 .si-jump.si-jump--static { display: flex; } /* the gallery sample shows the phone select at any width */
+
+/* UI-2: UI2-NUDGES (the rep's read-only `Messages from the Owner` block; UI-2 §5) */
+.si-ownermsgs { position: relative; }
+.si-ownermsgs__also { margin: -4px 0 0; }
+.si-ownermsgs__thread { max-height: none; overflow: visible; }
