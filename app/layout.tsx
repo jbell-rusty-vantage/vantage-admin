@@ -1,17 +1,21 @@
 import type { Metadata } from "next";
-import { Archivo, Public_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const archivo = Archivo({
+// Self-hosted (Google Fonts latin variable subsets) so the build never fetches
+// fonts.googleapis.com: the fetched CSS broke Turbopack's next/font/google on CI.
+const archivo = localFont({
+  src: "./fonts/archivo-latin-wght.woff2",
   variable: "--font-archivo",
-  subsets: ["latin"],
-  weight: ["700", "800"],
+  weight: "700 800",
+  display: "swap",
 });
 
-const publicSans = Public_Sans({
+const publicSans = localFont({
+  src: "./fonts/public-sans-latin-wght.woff2",
   variable: "--font-public-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: "400 700",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
