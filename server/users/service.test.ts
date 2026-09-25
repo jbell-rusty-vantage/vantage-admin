@@ -212,6 +212,100 @@ test("C15: the last active Owner can't be demoted or deactivated", async () => {
   assert.ok(refused.length >= 5, "refusals are audited");
 });
 
+test("V-T3 M10: two Owners stepping each other down concurrently never leave zero active Owners", async () => {
+  const OWNER_B_ID = "0000000000000000000000b2";
+  const ownerB: UsersActor = { id: OWNER_B_ID, email: "owner.b@example.invalid", role: "owner" };
+  const cases: Array<[string, (deps: UsersDeps) => [Promise<unknown>, Promise<unknown>]]> = [
+    ["demote each other", (deps) => [
+      updateAdminUser(deps, OWNER, OWNER_B_ID, { role: "admin" }),
+      updateAdminUser(deps, ownerB, OWNER_ID, { role: "admin" }),
+    ]],
+    ["deactivate each other", (deps) => [
+      deactivateAdminUser(deps, OWNER, OWNER_B_ID),
+      deactivateAdminUser(deps, ownerB, OWNER_ID),
+    ]],
+    ["one demotes to rep, the other deactivates", (deps) => [
+      updateAdminUser(deps, OWNER, OWNER_B_ID, { role: "rep", agent_id: AGENT_A }),
+      deactivateAdminUser(deps, ownerB, OWNER_ID),
+    ]],
+    ["both step themselves down", (deps) => [
+      updateAdminUser(deps, OWNER, OWNER_ID, { role: "admin", email: "was.owner@example.invalid" }),
+      updateAdminUser(deps, ownerB, OWNER_B_ID, { active: false }),
+    ]],
+  ];
+  for (const [name, run] of cases) {
+    const h = harness({ seed: [ownerRecord(), ownerRecord({ id: OWNER_B_ID, email: "owner.b@example.invalid" })] });
+    const outcomes = await Promise.allSettled(run(h.deps));
+    const activeOwners = h.users.rows.filter((row) => row.role === "owner" && row.active);
+    assert.ok(activeOwners.length >= 1, `${name}: at least one active Owner remains`);
+    for (const outcome of outcomes) {
+      if (outcome.status === "rejected") {
+        assert.ok(outcome.reason instanceof UsersError && outcome.reason.code === "last_owner", `${name}: refused as last_owner`);
+      }
+    }
+    // At most one racer wins. When the two re-counts both see zero (the calls interleave at every
+    // await), both revert and the state is exactly the starting state (roles, active, email).
+    const fulfilled = outcomes.filter((outcome) => outcome.status === "fulfilled").length;
+    assert.ok(fulfilled <= 1, name);
+    if (fulfilled === 0) {
+      assert.deepEqual(
+        h.users.rows.map((row) => [row.email, row.role, row.active, row.agent_id]),
+        [["owner@example.invalid", "owner", true, null], ["owner.b@example.invalid", "owner", true, null]],
+        name,
+      );
+    }
+    assert.equal(h.audits.filter((entry) => entry.error_code === "last_owner").length, 2 - fulfilled, `${name}: refusals audited`);
+    assert.equal(h.audits.filter((entry) => entry.ok).length, fulfilled, `${name}: only the winner is audited ok`);
+  }
+
+  // Sequentially, the first still succeeds and the second is refused, as before.
+  const h = harness({ seed: [ownerRecord(), ownerRecord({ id: OWNER_B_ID, email: "owner.b@example.invalid" })] });
+  await updateAdminUser(h.deps, OWNER, OWNER_B_ID, { role: "admin" });
+  await rejectsWith(updateAdminUser(h.deps, ownerB, OWNER_ID, { role: "admin" }), "last_owner");
+  assert.deepEqual(h.users.rows.map((row) => row.role), ["owner", "admin"]);
+});
+
+test("V-T3 M10: the compensating revert doesn't overwrite a newer change to the same user", async () => {
+  const OWNER_B_ID = "0000000000000000000000b2";
+  const h = harness({ seed: [ownerRecord(), ownerRecord({ id: OWNER_B_ID, email: "owner.b@example.invalid" })] });
+  // Simulate a racer: when this caller re-counts after demoting B, A has been demoted by someone
+  // else and B has meanwhile been changed again (deactivated) by a third writer.
+  const realCount = h.users.countActiveOwners.bind(h.users);
+  let calls = 0;
+  h.users.countActiveOwners = async () => {
+    calls += 1;
+    if (calls === 2) {
+      h.users.rows[0] = { ...h.users.rows[0]!, role: "admin" };
+      h.users.rows[1] = { ...h.users.rows[1]!, active: false };
+    }
+    return realCount();
+  };
+  await rejectsWith(updateAdminUser(h.deps, OWNER, OWNER_B_ID, { role: "admin" }), "last_owner");
+  assert.equal(h.users.rows[1]!.active, false, "the newer change is kept");
+  assert.equal(h.users.rows[1]!.role, "admin");
+});
+
+test("V-T3 M10: an Owner step-down applies only to the state it read (user_changed otherwise)", async () => {
+  const OWNER_B_ID = "0000000000000000000000b2";
+  const h = harness({
+    seed: [
+      ownerRecord(),
+      ownerRecord({ id: OWNER_B_ID, email: "owner.b@example.invalid" }),
+      ownerRecord({ id: "0000000000000000000000c3", email: "owner.c@example.invalid" }),
+    ],
+  });
+  const realCount = h.users.countActiveOwners.bind(h.users);
+  let calls = 0;
+  h.users.countActiveOwners = async () => {
+    calls += 1;
+    // Between the guard's read and the write, another caller already demoted B.
+    if (calls === 1) h.users.rows[1] = { ...h.users.rows[1]!, role: "admin", token_version: 7 };
+    return realCount();
+  };
+  await rejectsWith(deactivateAdminUser(h.deps, OWNER, OWNER_B_ID), "user_changed");
+  assert.deepEqual([h.users.rows[1]!.role, h.users.rows[1]!.active, h.users.rows[1]!.token_version], ["admin", true, 7]);
+});
+
 test("C15: an invite token works once, expires after 72 hours, and only its hash is stored", async () => {
   const h = harness();
   const rep = await createRep(h.deps);
@@ -371,8 +465,32 @@ test("http maps service errors to status codes", async () => {
   assert.equal(created.status, 422);
 });
 
-test("invite base URL prefers ADMIN_PUBLIC_BASE_URL, else the request origin", () => {
-  assert.equal(inviteBaseUrl("https://admin.vantage.test/api/admin-users/x/invite", undefined), "https://admin.vantage.test");
-  assert.equal(inviteBaseUrl("https://preview.vercel.test/api/x", "https://admin.vantage.test/"), "https://admin.vantage.test");
-  assert.equal(inviteBaseUrl("https://preview.vercel.test/api/x", "javascript:alert(1)"), "https://preview.vercel.test");
+test("invite base URL comes only from ADMIN_PUBLIC_BASE_URL (an origin), never the request", () => {
+  assert.equal(inviteBaseUrl("https://admin.vantage.test/"), "https://admin.vantage.test");
+  assert.equal(inviteBaseUrl(" https://admin.vantage.test "), "https://admin.vantage.test");
+  assert.equal(inviteBaseUrl("http://localhost:3000"), "http://localhost:3000");
+  for (const bad of [undefined, "", "   ", "javascript:alert(1)", "not a url", "https://admin.vantage.test/sub",
+    "https://admin.vantage.test/?x=1", "https://admin.vantage.test/#f", "https://user:pw@admin.vantage.test"]) {
+    assert.equal(inviteBaseUrl(bad), null, String(bad));
+  }
+});
+
+test("V-T3 m16: with no configured base URL the invite is refused as not_configured and nothing is written", async () => {
+  const h = harness();
+  const rep = await createAdminUser(h.deps, OWNER, { email: "rep@example.invalid", password: REP_PASSWORD, role: "rep", agent_id: AGENT_A });
+  const response = await handleAdminUsersOperation(OWNER, { kind: "invite", id: rep.id, baseUrl: inviteBaseUrl(undefined) }, h.deps);
+  assert.equal(response.status, 503);
+  const body = (await response.json()) as { ok: boolean; code: string; error: string; issues?: Array<{ path: string; code: string }> };
+  assert.equal(body.code, "not_configured");
+  assert.match(body.error, /ADMIN_PUBLIC_BASE_URL/);
+  assert.deepEqual(body.issues, [{ path: "ADMIN_PUBLIC_BASE_URL", code: "missing_env" }]);
+  assert.equal(JSON.stringify(body).includes("accept-invite"), false, "no link");
+  assert.equal(h.invites.rows.length, 0, "no invite token minted");
+  assert.equal(h.mails.length, 0, "nothing mailed");
+  const refusal = h.audits.find((entry) => entry.action === "admin_user_invite");
+  assert.equal(refusal?.ok, false);
+  assert.equal(refusal?.error_code, "not_configured");
+  // Non-Owners are still refused first.
+  const admin = await handleAdminUsersOperation({ id: rep.id, email: "a@example.invalid", role: "admin" }, { kind: "invite", id: rep.id, baseUrl: null }, h.deps);
+  assert.equal(admin.status, 403);
 });

@@ -104,7 +104,7 @@ export function createMongoAdminUsersStore(connect: () => Promise<void> = connec
       await connect();
       try {
         const row = await AdminUser.findOneAndUpdate(
-          { _id: id },
+          { _id: id, ...(change.expect ?? {}) },
           {
             $set: { ...change.set, updated_at: change.now },
             ...(change.incrementTokenVersion ? { $inc: { token_version: 1 } } : {}),

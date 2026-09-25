@@ -3,6 +3,7 @@ import { connectAdminMongo } from "@/lib/db/adminMongo";
 import { getServerEnv } from "@/lib/env/server";
 import { hashPassword, normalizeEmail } from "@/server/auth";
 import { ADMIN_ROLES, AdminUser, type AdminRole } from "@/server/models";
+import { passwordSchema } from "@/server/users/validation";
 
 function requiredSeedEnv(name: string): string {
   const value = process.env[name]?.trim();
@@ -52,6 +53,11 @@ async function main(): Promise<void> {
   const env = getServerEnv();
   const email = normalizeEmail(requiredSeedEnv("NEW_SEED_EMAIL"));
   const password = requiredSeedEnv("NEW_SEED_PASSWORD");
+  // V-T3 m25: the same password policy as the Users tab (10 characters to 72 bytes).
+  const policy = passwordSchema.safeParse(password);
+  if (!policy.success) {
+    throw new Error(`NEW_SEED_PASSWORD: ${policy.error.issues[0]?.message ?? "does not meet the password policy."}`);
+  }
   const role = readSeedRole();
   const agentId = readSeedAgentId(role);
 
@@ -63,6 +69,13 @@ async function main(): Promise<void> {
   const existingAdmin = await AdminUser.findOne({ email });
 
   if (existingAdmin) {
+    // V-T3 m25: never demote the last active Owner (the Users tab's guard, with the same
+    // re-count after the write in case another change raced this one).
+    const leavesOwners = existingAdmin.role === "owner" && existingAdmin.active && role !== "owner";
+    if (leavesOwners && (await AdminUser.countDocuments({ role: "owner", active: true })) <= 1) {
+      throw new Error(`Refused: "${email}" is the last active Owner; seed another Owner first.`);
+    }
+    const before = { role: existingAdmin.role, agent_id: existingAdmin.agent_id ?? null, active: existingAdmin.active };
     existingAdmin.password_hash = passwordHash;
     existingAdmin.role = role;
     existingAdmin.agent_id = agentId;
@@ -70,6 +83,13 @@ async function main(): Promise<void> {
     existingAdmin.token_version += 1;
     existingAdmin.password_changed_at = now;
     await existingAdmin.save();
+    if (leavesOwners && (await AdminUser.countDocuments({ role: "owner", active: true })) < 1) {
+      await AdminUser.updateOne(
+        { _id: existingAdmin._id, role },
+        { $set: { role: before.role, agent_id: before.agent_id, active: before.active } },
+      );
+      throw new Error(`Refused: demoting "${email}" would leave no active Owner; its role was put back.`);
+    }
     console.log(
       `Updated admin user "${email}" with role "${role}" in "${env.ADMIN_AUTH_DB_NAME}".`,
     );

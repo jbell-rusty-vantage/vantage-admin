@@ -213,8 +213,15 @@ export async function updateAdminUser(
       // Role changes and deactivation end existing sessions.
       incrementTokenVersion: roleChanged || deactivated,
       now,
+      // V-T3 M10: an Owner step-down applies only to the state the guard read, so a racer can't
+      // write over (or later revert) a change that another caller already made and reported.
+      ...(leavesOwners ? { expect: { role: current.role, active: current.active } } : {}),
     });
+    if (!updated && leavesOwners && (await deps.users.findById(current.id))) {
+      throw new UsersError("user_changed", "This user was changed by someone else. Reload and try again.");
+    }
     if (!updated) throw new UsersError("not_found", "User not found.");
+    if (leavesOwners) await compensateIfNoOwnerLeft(deps, current, updated, now);
     if (deactivated) await deps.invites.revokeOutstanding(current.id, now);
 
     const changed = [
@@ -236,6 +243,36 @@ export async function updateAdminUser(
     });
     return toAdminUserView(updated);
   });
+}
+
+/**
+ * V-T3 M10: the count above and the update are separate operations (the admin database may not
+ * run transactions), so two Owners stepping each other down at the same time could both pass the
+ * count. After the write, re-count: if no active Owner is left, put this user's role and active
+ * flag back (only while the stored user still holds the values written here) and refuse. Every
+ * racing caller whose re-count sees zero reverts, so at least one active Owner always remains;
+ * both racers may be refused, and the Owner can simply retry. The token_version bump is kept, so
+ * the restored Owner signs in again. An email change in the same patch is put back best-effort.
+ */
+async function compensateIfNoOwnerLeft(
+  deps: UsersDeps,
+  before: AdminUserRecord,
+  written: AdminUserRecord,
+  now: Date,
+): Promise<void> {
+  if ((await deps.users.countActiveOwners()) >= 1) return;
+  await deps.users.update(before.id, {
+    set: { role: before.role, active: before.active, agent_id: before.agent_id },
+    incrementTokenVersion: false,
+    now,
+    expect: { role: written.role, active: written.active },
+  });
+  if (written.email !== before.email) {
+    await deps.users
+      .update(before.id, { set: { email: before.email }, incrementTokenVersion: false, now, expect: { role: before.role, active: before.active } })
+      .catch(() => null);
+  }
+  throw new UsersError("last_owner", "The last active Owner can't be demoted or deactivated.");
 }
 
 function pickChanged(user: AdminUserRecord, fields: string[]): Record<string, unknown> {
@@ -296,7 +333,7 @@ export async function sendAdminUserInvite(
   deps: UsersDeps,
   actor: UsersActor | null,
   id: string,
-  options: { baseUrl: string },
+  options: { baseUrl: string | null },
 ): Promise<InviteResult> {
   assertOwner(actor);
   const user = await loadUser(deps, id);
@@ -307,6 +344,15 @@ export async function sendAdminUserInvite(
     payload: { email: user.email } as Record<string, unknown>,
   };
   return withFailureAudit(deps, base, async () => {
+    // V-T3 m16: no configured origin, no link (never the request's Host).
+    const baseUrl = options.baseUrl;
+    if (!baseUrl) {
+      throw new UsersError(
+        "not_configured",
+        "Invite links are not configured. Set ADMIN_PUBLIC_BASE_URL to the admin's public origin (for example https://admin.example.com).",
+        [{ path: "ADMIN_PUBLIC_BASE_URL", code: "missing_env" }],
+      );
+    }
     if (!user.active) throw new UsersError("user_inactive", "Reactivate the user before inviting them.");
     const now = deps.now();
     const token = deps.randomToken();
@@ -320,7 +366,7 @@ export async function sendAdminUserInvite(
       created_at: now,
     });
     // The token rides in the fragment so it never reaches request logs or Referer headers.
-    const link = `${options.baseUrl.replace(/\/+$/, "")}${ACCEPT_INVITE_PATH}#token=${token}`;
+    const link = `${baseUrl.replace(/\/+$/, "")}${ACCEPT_INVITE_PATH}#token=${token}`;
     let delivery: InviteDeliveryStatus;
     try {
       delivery = await deps.mailer.sendInvite({ actor, to: user.email, link, expiresAt });

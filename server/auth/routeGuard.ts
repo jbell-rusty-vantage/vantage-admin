@@ -40,14 +40,33 @@ export const DASHBOARD_PATH_PREFIXES = [
 /** Public set-password page for an invite link (page itself is Team 2's U8). */
 export const ACCEPT_INVITE_PAGE = "/accept-invite";
 
+/**
+ * The files in `public/` (served at the site root) plus the App Router icon.
+ * Exact paths, not an extension pattern: a dynamic page segment such as
+ * `/customers/x.png` must not pass as an asset (V-T3 M11).
+ * `routeGuard.test.ts` keeps this list equal to the `public/` folder.
+ */
+export const PUBLIC_ASSET_PATHS: ReadonlySet<string> = new Set([
+  "/favicon.ico",
+  "/file.svg",
+  "/globe.svg",
+  "/next.svg",
+  "/vercel.svg",
+  "/window.svg",
+  "/vantage/vantagelogo.png",
+]);
+
+/** Next build output and the exact public assets: never gated by role. */
+function isStaticAssetPath(pathname: string): boolean {
+  return pathname.startsWith("/_next/") || PUBLIC_ASSET_PATHS.has(pathname);
+}
+
 /** Pages that never need a session: login, the API, public and legal pages, static assets. */
 function isSessionFreePath(pathname: string): boolean {
   return (
     pathname === "/login" ||
     pathname.startsWith("/api/") ||
-    pathname.startsWith("/_next/") ||
-    pathname === "/favicon.ico" ||
-    /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/.test(pathname) ||
+    isStaticAssetPath(pathname) ||
     [...PUBLIC_APP_PATHS, ...PUBLIC_LEGAL_PATHS, ACCEPT_INVITE_PAGE].some(
       (path) => pathname === path || pathname.startsWith(`${path}/`),
     )
@@ -100,11 +119,14 @@ export function applyAuthRouteGuard(request: NextRequest): NextResponse | null {
 /**
  * S8-USERS: role gate at the request boundary for roles whose pages do not
  * gate themselves. Owner and Admin keep today's behaviour (layouts and the API
- * enforce it). A rep is denied every dashboard path that
- * `canAccessDashboardPath` does not allow (today: all of them), on every page
- * that is not session-free. An unreadable
- * or expired access token falls through to the dashboard layout, which
- * re-verifies and redirects to /login.
+ * enforce it). A verified rep is denied every page outside its allowlist
+ * (`canAccessDashboardPath`), whatever the path's extension; only the
+ * session-free pages and the exact static assets pass (V-T3 M11).
+ *
+ * An access-token cookie that can't be verified (expired, bad signature,
+ * malformed) is "no session": the page redirects to /login, as the dashboard
+ * layout would, instead of falling through. No access-token cookie at all is
+ * left to `applyAuthRouteGuard` and the layout, as before.
  */
 export function applyRoleRouteGuard(request: NextRequest): NextResponse | null {
   const { pathname } = request.nextUrl;
@@ -121,7 +143,9 @@ export function applyRoleRouteGuard(request: NextRequest): NextResponse | null {
   try {
     role = verifyAccessToken(accessToken).role;
   } catch {
-    return null;
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
   }
   if (role === "owner" || role === "admin") {
     return null;

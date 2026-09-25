@@ -94,14 +94,17 @@ test("the request-boundary role guard returns 403 for a rep on every dashboard p
   for (const role of ["owner", "admin"] as const) {
     assert.equal(applyRoleRouteGuard(requestWithRole("/form-leads", role)), null, role);
   }
-  // Login, the API and public pages are not dashboard paths; a stale/garbage token falls through.
+  // Login, the API and public pages are not dashboard paths.
   assert.equal(applyRoleRouteGuard(requestWithRole("/login", "rep")), null);
   assert.equal(applyRoleRouteGuard(requestWithRole("/api/auth/me", "rep")), null);
   assert.equal(applyRoleRouteGuard(requestWithRole("/employee-booking", "rep")), null);
   assert.equal(applyRoleRouteGuard(requestWithRole("/accept-invite", "rep")), null);
   assert.equal(applyRoleRouteGuard(requestWithRole("/privacy-policy", "rep")), null);
+  // V-T3 M11: a garbage token is "no session" (redirect to /login), never a pass.
   const garbage = new NextRequest("http://localhost:3000/form-leads", { headers: { cookie: `${ACCESS_TOKEN_COOKIE}=garbage` } });
-  assert.equal(applyRoleRouteGuard(garbage), null);
+  const redirected = applyRoleRouteGuard(garbage);
+  assert.equal(redirected?.status, 307);
+  assert.equal(new URL(redirected!.headers.get("location")!).pathname, "/login");
 });
 
 test("the Sales Intelligence live BFF refuses a rep without a linked Agent", async () => {

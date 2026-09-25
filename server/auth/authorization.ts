@@ -86,13 +86,13 @@ const REP_PROXY_ROUTES: ReadonlyArray<{ method: VantageApiMethod; pattern: RegEx
   { method: "GET", pattern: new RegExp(`^${CSI_API}/attention$`) },
   { method: "GET", pattern: new RegExp(`^${CSI_API}/overview$`) },
   { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/closed-history$`) },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/${OBJECT_ID}$`, "i") },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/${OBJECT_ID}/(?:timeline|assessment|findings)$`, "i") },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/numbers/${OBJECT_ID}/conversations$`, "i") },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/conversations/${OBJECT_ID}/(?:transcript|media)$`, "i") },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/${OBJECT_ID}$`) },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/${OBJECT_ID}/(?:timeline|assessment|findings)$`) },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/numbers/${OBJECT_ID}/conversations$`) },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/conversations/${OBJECT_ID}/(?:transcript|media)$`) },
   // E9: complete, snooze and re-date (`PATCH /followups/:id` with only `due_at`) their own follow-ups.
-  { method: "POST", pattern: new RegExp(`^${CSI_API}/followups/${OBJECT_ID}/(?:complete|snooze)$`, "i") },
-  { method: "PATCH", pattern: new RegExp(`^${CSI_API}/followups/${OBJECT_ID}$`, "i") },
+  { method: "POST", pattern: new RegExp(`^${CSI_API}/followups/${OBJECT_ID}/(?:complete|snooze)$`) },
+  { method: "PATCH", pattern: new RegExp(`^${CSI_API}/followups/${OBJECT_ID}$`) },
 ];
 
 export function canRepProxyVantagePath(method: VantageApiMethod, path: string): boolean {
@@ -271,7 +271,17 @@ export function canProxyVantagePath(input: {
   return false;
 }
 
+/**
+ * The pathname the main server will actually be asked for: the query is dropped and dot segments
+ * (including percent-encoded ones such as `%2e%2e`) are resolved the way `buildVantageApiUrl`'s
+ * WHATWG URL resolution resolves them, so the allowlists judge the resolved path (V-T3 m14).
+ */
 function normalizeProxyPath(path: string): string {
   const withoutQuery = path.split("?")[0] ?? "";
-  return withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
+  const rooted = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
+  try {
+    return new URL(rooted, "http://proxy.invalid").pathname;
+  } catch {
+    return rooted;
+  }
 }

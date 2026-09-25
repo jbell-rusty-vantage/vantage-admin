@@ -21,7 +21,7 @@ export type AdminUsersOperation =
   | { kind: "update"; id: string; body: unknown }
   | { kind: "set_password"; id: string; body: unknown }
   | { kind: "deactivate"; id: string }
-  | { kind: "invite"; id: string; baseUrl: string };
+  | { kind: "invite"; id: string; baseUrl: string | null };
 
 const NO_STORE = { "cache-control": "no-store" };
 
@@ -85,23 +85,27 @@ export async function handleAcceptInvite(body: unknown, deps: UsersDeps): Promis
   }
 }
 
+/** The admin env that pins the invite link's origin (V-T3 m16). */
+export const INVITE_BASE_URL_ENV = "ADMIN_PUBLIC_BASE_URL";
+
 /**
- * Invite link base: `ADMIN_PUBLIC_BASE_URL` when set (http/https origin),
- * otherwise the Owner's own request origin.
+ * Invite link base: the origin in `ADMIN_PUBLIC_BASE_URL` (http/https, no path, query or
+ * fragment), else null. It is never built from the request (host header), so a forged Host
+ * can't mint a link to another site; with no valid value the invite is refused as
+ * `not_configured`. The main server mails only links on its `SALES_INTELLIGENCE_ADMIN_BASE_URL`,
+ * so the two must name the same origin.
  */
-export function inviteBaseUrl(requestUrl: string, configured = process.env.ADMIN_PUBLIC_BASE_URL): string {
+export function inviteBaseUrl(configured = process.env[INVITE_BASE_URL_ENV]): string | null {
   const trimmed = configured?.trim();
-  if (trimmed) {
-    try {
-      const url = new URL(trimmed);
-      if (url.protocol === "https:" || url.protocol === "http:") {
-        return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
-      }
-    } catch {
-      // fall back to the request origin
-    }
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (url.username || url.password || url.search || url.hash || url.pathname !== "/") return null;
+    return url.origin;
+  } catch {
+    return null;
   }
-  return new URL(requestUrl).origin;
 }
 
 /** Reads a JSON body; a missing or malformed body becomes `undefined` (then `invalid_input`). */

@@ -20,6 +20,7 @@ import {
   deactivateAdminUser,
   sendAdminUserInvite,
   setAdminUserPassword,
+  updateAdminUser,
 } from "./service";
 import { UsersError, type UsersActor, type UsersAuditEntry, type UsersDeps } from "./types";
 
@@ -28,10 +29,11 @@ import { UsersError, type UsersActor, type UsersAuditEntry, type UsersDeps } fro
  * Skipped unless ADMIN_USERS_REPLICA_URI is set, so `pnpm test` never needs Mongo:
  *   ADMIN_USERS_REPLICA_URI="mongodb://127.0.0.1:27189/?replicaSet=csi01" \
  *     node --import tsx --test server/users/mongoStore.replica.test.ts
- * Uses its own database `testvantagemovers_t3admusers` and drops it before and after.
+ * Uses its own database `testvantagemovers_t3admusers` (or ADMIN_USERS_REPLICA_DB, which must be a
+ * `testvantagemovers_*` name) and drops it before and after.
  */
 const REPLICA_URI = process.env.ADMIN_USERS_REPLICA_URI?.trim();
-const DB_NAME = "testvantagemovers_t3admusers";
+const DB_NAME = process.env.ADMIN_USERS_REPLICA_DB?.trim() || "testvantagemovers_t3admusers";
 const skip = !REPLICA_URI;
 const AGENT_A = "65f0000000000000000000aa";
 const REP_PASSWORD = "replica-rep-password-1";
@@ -64,6 +66,7 @@ before(async () => {
   if (skip) return;
   setTestEnv();
   process.env.MONGODB_URI = REPLICA_URI;
+  assert.match(DB_NAME, /^testvantagemovers_[a-z0-9]+$/, "a test database only");
   process.env.ADMIN_AUTH_DB_NAME = DB_NAME;
   resetServerEnvForTests();
   await connectAdminMongo();
@@ -204,4 +207,72 @@ test("replica: an invite is single use under a race, stored only as a hash, and 
   for (const secret of [REP_PASSWORD, "race-password", token, late, "$2"]) {
     assert.equal(serialized.includes(secret), false);
   }
+});
+
+test("replica: Owners demoting or deactivating each other concurrently never leave zero active Owners (V-T3 M10)", { skip }, async () => {
+  const second = await createAdminUser(deps(), owner, {
+    email: "owner.b@example.invalid",
+    password: "replica-owner-b-password",
+    role: "owner",
+  });
+  const ownerB: UsersActor = { id: second.id, email: second.email, role: "owner" };
+  const both = [owner.id, ownerB.id];
+  const restore = () =>
+    AdminUser.updateMany({ _id: { $in: both } }, { $set: { role: "owner", active: true, agent_id: null } }).exec();
+  const races: Array<[string, () => Array<Promise<unknown>>]> = [
+    ["demote each other", () => [
+      updateAdminUser(deps(), owner, ownerB.id, { role: "admin" }),
+      updateAdminUser(deps(), ownerB, owner.id, { role: "admin" }),
+    ]],
+    ["deactivate each other", () => [
+      deactivateAdminUser(deps(), owner, ownerB.id),
+      deactivateAdminUser(deps(), ownerB, owner.id),
+    ]],
+    ["both step themselves down", () => [
+      updateAdminUser(deps(), owner, owner.id, { role: "admin" }),
+      deactivateAdminUser(deps(), ownerB, ownerB.id),
+    ]],
+    ["four calls at once", () => [
+      updateAdminUser(deps(), owner, ownerB.id, { role: "admin" }),
+      deactivateAdminUser(deps(), ownerB, owner.id),
+      deactivateAdminUser(deps(), owner, owner.id),
+      updateAdminUser(deps(), ownerB, ownerB.id, { role: "admin" }),
+    ]],
+  ];
+  const tally = { rounds: 0, allRefused: 0, someWon: 0 };
+  for (let round = 0; round < 15; round += 1) {
+    for (const [name, run] of races) {
+      await restore();
+      const calls = run();
+      const outcomes = await Promise.allSettled(calls);
+      const activeOwners = await AdminUser.countDocuments({ role: "owner", active: true }).exec();
+      assert.ok(activeOwners >= 1, `${name} (round ${round}): ${activeOwners} active Owners`);
+      const fulfilled = outcomes.filter((outcome) => outcome.status === "fulfilled").length;
+      for (const outcome of outcomes) {
+        if (outcome.status === "rejected") {
+          const code = outcome.reason instanceof UsersError ? outcome.reason.code : String(outcome.reason);
+          assert.ok(code === "last_owner" || code === "user_changed", `${name} (round ${round}): ${code}`);
+        }
+      }
+      if (calls.length === 2) {
+        assert.ok(fulfilled <= 1, `${name} (round ${round}): ${fulfilled} succeeded`);
+        // Two calls on two different Owners: a refused change leaves its target as it was, so two
+        // Owners remain when nobody won, else exactly one (a reported success is never undone).
+        assert.equal(activeOwners, fulfilled === 0 ? 2 : 1, `${name} (round ${round})`);
+      }
+      if (calls.length === 4) {
+        // Every reported success still holds: B demoted by calls 0 and 3, A deactivated by 1 and 2.
+        const [a, b] = await Promise.all([AdminUser.findById(owner.id).lean(), AdminUser.findById(ownerB.id).lean()]);
+        const holds = [b?.role === "admin", a?.active === false, a?.active === false, b?.role === "admin"];
+        outcomes.forEach((outcome, index) => {
+          if (outcome.status === "fulfilled") assert.ok(holds[index], `${name} (round ${round}): success ${index} was undone`);
+        });
+      }
+      tally.rounds += 1;
+      if (fulfilled === 0) tally.allRefused += 1;
+      else tally.someWon += 1;
+    }
+  }
+  console.log(`# M10 replica races: ${JSON.stringify(tally)}`);
+  await restore();
 });

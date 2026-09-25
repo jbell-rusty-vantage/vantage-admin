@@ -51,6 +51,8 @@ export function createMemoryUsersStore(seed: AdminUserRecord[] = []): AdminUsers
       const index = rows.findIndex((row) => row.id === id);
       if (index === -1) return null;
       const current = rows[index]!;
+      const expect = change.expect ?? {};
+      if (Object.entries(expect).some(([key, value]) => current[key as keyof AdminUserRecord] !== value)) return null;
       const next: AdminUserRecord = {
         ...current,
         ...change.set,

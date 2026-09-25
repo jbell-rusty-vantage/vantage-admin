@@ -34,6 +34,8 @@ export type AdminUserChange = {
   set: Partial<Pick<AdminUserRecord, "email" | "role" | "agent_id" | "active" | "password_hash" | "password_changed_at">>;
   incrementTokenVersion: boolean;
   now: Date;
+  /** Update only while the stored user still has these values (else the update returns null). */
+  expect?: Partial<Pick<AdminUserRecord, "role" | "active">>;
 };
 
 export interface AdminUsersStore {
@@ -44,7 +46,7 @@ export interface AdminUsersStore {
   countActiveOwners(): Promise<number>;
   /** Throws `UsersError("email_taken" | "agent_taken")` on a unique-index conflict. */
   insert(user: NewAdminUser): Promise<AdminUserRecord>;
-  /** Returns null when the user no longer exists. Same conflict errors as insert. */
+  /** Returns null when the user no longer exists (or no longer matches `change.expect`). Same conflict errors as insert. */
   update(id: string, change: AdminUserChange): Promise<AdminUserRecord | null>;
 }
 
@@ -115,9 +117,11 @@ export const USERS_ERROR_STATUS = {
   agent_taken: 409,
   last_owner: 409,
   user_inactive: 409,
+  user_changed: 409,
   agent_inactive: 422,
   invite_invalid: 400,
   agent_check_unavailable: 503,
+  not_configured: 503,
 } as const;
 
 export type UsersErrorCode = keyof typeof USERS_ERROR_STATUS;
