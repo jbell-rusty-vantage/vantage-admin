@@ -1101,3 +1101,15 @@
 .si-gallery__tlentry { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 4px 0; border-top: 1px solid var(--si-line); }
 .si-gallery__tlentry .si-timeline__rows { padding: 0; }
 .si-gallery__tlmeta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--si-ink-3); }
+/* UI-1: COVER (Coverage capture health, UI-1 §6; the rewritten Guide) */
+.si-caphealth { gap: 10px; }
+.si-caphealth__status { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 600; color: var(--si-ink); }
+.si-caphealth__icon { flex: none; color: var(--si-ink-3); }
+.si-caphealth.is-broken .si-caphealth__status, .si-caphealth.is-broken .si-caphealth__icon { color: var(--si-red); }
+.si-caphealth__reasons { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.si-caphealth__explain { display: block; font-size: 13px; }
+.si-caphealth__group { display: flex; flex-direction: column; gap: 4px; }
+.si-caphealth__line { margin: 0; overflow-wrap: anywhere; }
+.si-guide__list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.si-guide__list--ordered { list-style: decimal; }
+.si-guide section { scroll-margin-top: var(--si-sticky-top, 0px); }

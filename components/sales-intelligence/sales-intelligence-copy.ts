@@ -1325,6 +1325,118 @@ export const copy = {
         } as Record<string, string>,
       },
     },
+    /**
+     * UI1-COVER (COPY-UI1 §11): the Coverage view's capture health block. The time keys are prefixes for `TimeText`,
+     * so every time keeps its exact ET `title` / `aria-label`. Singular forms and the keys marked draft wait for the gate.
+     */
+    coverage: {
+      title: "Capture health",
+      status: {
+        ok: "Call capture is healthy.",
+        attention: "Call capture needs attention.",
+        broken: "Call capture is broken. Calls may be missing until it's repaired.",
+      } as Record<string, string | undefined>,
+      statusOther: (status: string) => `Call capture status: ${status}.`, // draft: a status value the copy doesn't know
+      reason: {
+        webhook_down: () => "The RingCentral webhook isn't delivering.",
+        webhook_degraded: () => "The RingCentral webhook has been silent for 30 staffed minutes while calls were logged.",
+        quarantine: (n: number) => (n === 1 ? "1 Call Log record is quarantined." : `${n.toLocaleString("en-US")} Call Log records are quarantined.`),
+        quarantine_over_24h: () => "A Call Log record has been quarantined for more than 24 hours.",
+        pending_finalization: (n: number) =>
+          n === 1 ? "1 call started more than 10 minutes ago hasn't ended." : `${n.toLocaleString("en-US")} calls started more than 10 minutes ago haven't ended.`,
+      } as Record<string, ((n: number) => string) | undefined>,
+      reasonsLabel: "Reasons", // draft: the reason list's accessible name
+      pendingExplain: "Calls in progress for more than 10 minutes. A long live call counts here until it ends.",
+      knownThrough: "History known through",
+      knownUnknown: "History coverage unknown",
+      callLogTitle: "Call Log", // draft: sub-heading
+      syncMode: (mode: string) => `Call Log sync: ${mode}`,
+      syncModeWord: { off: "off", shadow: "shadow", on: "on" } as Record<string, string | undefined>,
+      quarantine: (n: number) => `Quarantined: ${n.toLocaleString("en-US")}`,
+      quarantineOldest: "oldest",
+      lastSweep: (n: number) => (n === 1 ? "Last sweep recovered 1 call" : `Last sweep recovered ${n.toLocaleString("en-US")} calls`),
+      neverSwept: "Never swept",
+      webhookTitle: "Webhook", // draft: sub-heading
+      webhook: {
+        state: { healthy: "Webhook healthy", degraded: "Webhook degraded", down: "Webhook down", off: "Webhook off" } as Record<string, string | undefined>,
+        stateOther: (state: string) => `Webhook ${state}`, // draft
+        subscription: (suffix: string) => `subscription …${suffix}`,
+        lastReceipt: "last receipt",
+        noReceipt: "no receipt yet", // draft: `last_receipt_at: null`
+        receipts1h: (n: number) => (n === 1 ? "1 receipt in the last hour" : `${n.toLocaleString("en-US")} receipts in the last hour`),
+        renewalError: (error: string) => `last renewal error: ${error}`,
+        subscriptionMissing: "The renewal job can't recognise its own subscription, so it reports it missing. Capture itself is working.",
+      },
+      callsTitle: "Calls now", // draft: sub-heading
+      inProgress: (n: number) => (n === 1 ? "1 call in progress" : `${n.toLocaleString("en-US")} calls in progress`),
+      pendingFinalization: (n: number) => `${n.toLocaleString("en-US")} pending finalization`,
+    },
+    /**
+     * UI1-COVER (COPY-UI1 §12): the rewritten Guide, the one place for explanations (final spec §14). The Numbers and
+     * messaging sentences are COPY-UI1's; the rest are drafts for the design gate.
+     */
+    guide: {
+      title: "Guide",
+      navLabel: "Guide topics",
+      topics: {
+        views: "The views",
+        bands: "Bands",
+        presets: "The preset bar and the Lead toggle",
+        card: "Reading a card",
+        live: "On the call and Owner calling",
+        numbers: "Where Numbers is",
+        messaging: "Messaging a rep",
+        coverage: "Coverage and capture health",
+        statuses: "Outreach states",
+        review: "Review causes",
+        call: "Starting and ending a call",
+        provenance: "How a Lead gets attached",
+        attachments: "Attachment decisions",
+        analysis: "What the model can and cannot do",
+        summary: "Running Summary (previous version)", // draft: the legacy page still shows it until the U4 deletion
+      },
+      viewsIntro: "Sales Intelligence shows the customer work that still needs a next step, who owns it, and what the calls said. It isn't a second CRM and it never creates a Booking.",
+      views: [
+        { name: "Overview", body: "Where the day stands: what needs you now, how fast Leads are called, callbacks kept, the reps and Lead spend." },
+        { name: "Needs Attention", body: "Only the work that needs a next step, grouped under band headers in Attention order. Each record appears once, under its most urgent band." },
+        { name: "All Outreach", body: "Every active Outreach, newest Lead first, each card tagged with its band. Band is a filter here, not a grouping." },
+        { name: "Closed", body: "Work that ended: Booked, Booked in Granot, Cancelled, Bad Lead, Duplicate, CRM dead or closed by you. Records older than 90 days open from Closed history." },
+        { name: "RingCentral Accounts", body: "The stored RingCentral directory and which extension belongs to which rep." },
+        { name: "Coverage", body: "Whether call capture is healthy, how far history is known, and the clocks the bands use." },
+      ],
+      bandsIntro: "A band is the strongest reason a record needs a next step. Band 1 is the most urgent.",
+      presetsBody: "The preset bar is the only Granot Priority control. It applies to every Outreach view, the Overview included.",
+      presets: [
+        { name: "All", body: "Every Granot Priority." },
+        { name: "New", body: "Priority 0, and records with no Priority set." },
+        { name: "Quoted", body: "Priority 1." },
+        { name: "Other", body: "Priorities 3, 4, 7, 8 and 9." },
+        { name: "Custom", body: "Shows when you pick codes yourself in the Granot Priority list beside the presets." },
+      ],
+      leadToggle: "The Lead toggle (All · Has a Lead · No Lead) sits to the right. A record with no Lead has no Granot Priority, so choosing No Lead turns the presets off. Your choice stays in the address and for your next visit.",
+      cardIntro: "Every card has the same seven lines in the same order. A line with nothing to say prints what's missing instead of disappearing.",
+      cardLines: [
+        "Who: the customer, Job number and source, with the state and any chips (on the call, Don't call, Needs review, Details disagree, Newer call since assessment).",
+        "The move: pickup → delivery and the move date.",
+        "Three times: Lead received, last conversation, last call.",
+        "Counts: calls, conversations and recordings analyzed.",
+        "Scores: Transaction intent and Move likelihood, each out of 100 with its level. They are never combined.",
+        "Next step: what should happen next and when it's due.",
+        "Who and why: who owns the work, the main reason it's here, and how long it has been in its band.",
+      ],
+      live: [
+        { name: "On the call · {rep} · {time}", body: "RingCentral reports a rep on a live call with this customer right now. The chip goes when the call ends." },
+        { name: "Owner calling", body: "You pressed Start the call on this record. It doesn't dial; it tells anyone looking that the record is being worked." },
+      ],
+      numbersBody: "Numbers still opens the previous version of this desk. Use \"Open Number\" on any card or the Numbers view there.",
+      messagingBody: "Messages go to the rep's RingCentral and never to the customer. There's no preview: what you type is what's sent.",
+      coverageIntro: "Capture health says whether calls are reaching Sales Intelligence as they happen.",
+      coverageStates: [
+        { name: "Healthy", body: "Calls are arriving normally." },
+        { name: "Needs attention", body: "Something is late or held back, such as a quarantined Call Log record or a call that hasn't ended. Coverage lists the reasons." },
+        { name: "Broken", body: "Calls may be missing until capture is repaired. Treat counts and bands with care until then." },
+      ],
+    },
   },
 } as const;
 

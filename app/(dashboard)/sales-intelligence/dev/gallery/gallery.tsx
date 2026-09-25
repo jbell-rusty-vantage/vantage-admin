@@ -8,6 +8,7 @@ import { BadgesSection, PillsSection } from "./sections/badges";
 import { CardSection } from "./sections/card";
 import { ChatSection } from "./sections/chat";
 import { ChipsSection } from "./sections/chips";
+import { CoverageSection } from "./sections/coverage";
 import { IconsSection } from "./sections/icons";
 import { LiveSection } from "./sections/live";
 import { LoadingSection } from "./sections/loading-errors";
@@ -41,7 +42,7 @@ export const GALLERY_SECTIONS: { id: SectionId; render: () => ReactNode }[] = [
   { id: "chat", render: () => <ChatSection /> },
   { id: "overview", render: () => <Placeholder id="overview" stage="UI1-OVERVIEW" /> },
   { id: "closed", render: () => <Placeholder id="closed" stage="UI1-CLOSED" /> },
-  { id: "coverage", render: () => <Placeholder id="coverage" stage="UI1-COVER" /> },
+  { id: "coverage", render: () => <CoverageSection /> },
 ];
 
 /** UI1-GALLERY (UI-0 §7.4): every UI-1 primitive in every state, from fixtures, for the design gate. Dev only. */

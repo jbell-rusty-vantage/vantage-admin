@@ -10,6 +10,7 @@ import { Button } from "./atoms/button";
 import { Failure } from "./chrome";
 import { SettingsForm } from "./settings-form";
 import { TooltipCard } from "./atoms/tooltip-card";
+import { CaptureHealthRegion } from "./capture-health";
 
 function capabilityLabel(state: string | undefined) {
   if (state === "ok") return copy.coverage.ok;
@@ -77,6 +78,8 @@ export function CoverageView() {
   return (
     <div className="si-view si-coverageview">
       <p className="si-viewintro">{copy.coverage.intro}</p>
+      {/* UI1-COVER: capture health first (UI-1 §6). Everything below is the kept Coverage view, unchanged. */}
+      <CaptureHealthRegion />
       <h2 className="si-coverageview__layer">{copy.coverage.ownerLayer}</h2>
       {coverage.error && <Failure error={coverage.error} retry={() => void coverage.refetch()} />}
       {coverage.isPending && <p role="status">Loading {copy.page.views.coverage}…</p>}

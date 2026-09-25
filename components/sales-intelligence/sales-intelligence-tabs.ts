@@ -8,22 +8,28 @@ export type SiViewKey = (typeof SI_VIEW_KEYS)[number];
 export const SI_PANEL_KEYS = ["activity", "summary", "analysis", "assessment", "matches", "work"] as const;
 export type SiPanelKey = (typeof SI_PANEL_KEYS)[number];
 
+// UI1-COVER: the rewritten Guide's sections, in page order (UI-1 §6, COPY-UI1 §12).
 export const GUIDE_TOPIC_KEYS = [
-  "workspace",
   "views",
   "bands",
+  "presets",
+  "card",
+  "live",
+  "numbers",
+  "messaging",
+  "coverage",
   "statuses",
   "review",
-  "numbers",
-  "attachments",
-  "coverage",
-  "analysis",
-  "summary",
   "call",
   "provenance",
-  "messaging",
+  "attachments",
+  "analysis",
+  "summary",
 ] as const;
-export type GuideTopic = (typeof GUIDE_TOPIC_KEYS)[number];
+export type GuideSection = (typeof GUIDE_TOPIC_KEYS)[number];
+/** Topics the old Guide had that the new one folds into a section; kept so old links and legacy tooltips still land. */
+export const GUIDE_TOPIC_ALIASES = { workspace: "views" } as const satisfies Record<string, GuideSection>;
+export type GuideTopic = GuideSection | keyof typeof GUIDE_TOPIC_ALIASES;
 
 export const SI_VIEW_TABS = SI_VIEW_KEYS.map((key) => ({
   key,
@@ -38,7 +44,7 @@ export const SI_PANEL_TABS = SI_PANEL_KEYS.map((key) => ({
 
 export const GUIDE_TOPICS = GUIDE_TOPIC_KEYS.map((key) => ({
   key,
-  label: copy.guide.topics[key],
+  label: copy.ui1.guide.topics[key],
 }));
 
 export function parseSiView(value: string | null): SiViewKey {
@@ -49,10 +55,13 @@ export function parseSiPanel(value: string | null): SiPanelKey {
   return SI_PANEL_KEYS.includes(value as SiPanelKey) ? (value as SiPanelKey) : "activity";
 }
 
-export function parseGuideTopic(value: string | null): GuideTopic {
-  return GUIDE_TOPIC_KEYS.includes(value as GuideTopic) ? (value as GuideTopic) : "workspace";
+/** The section `?topic=` opens: a section key, a retired topic's section, else the first section. */
+export function parseGuideTopic(value: string | null): GuideSection {
+  if (GUIDE_TOPIC_KEYS.includes(value as GuideSection)) return value as GuideSection;
+  if (value && Object.hasOwn(GUIDE_TOPIC_ALIASES, value)) return GUIDE_TOPIC_ALIASES[value as keyof typeof GUIDE_TOPIC_ALIASES];
+  return "views";
 }
 
 export function guideHref(topic: GuideTopic) {
-  return `/sales-intelligence?view=guide&topic=${topic}`;
+  return `/sales-intelligence?view=guide&topic=${parseGuideTopic(topic)}`;
 }
