@@ -1532,7 +1532,7 @@ span.si-evidence__none { display: inline-flex; align-items: center; min-height: 
 
 /* UI-1: FIX-UI1 (V-UI1 m3 44 px targets without moving the text; m7 the related-record line) */
 .si-card__idlink { padding-block: 14px; } /* inline: the padding widens the hit box to 44 px, the line box doesn't move */
-.si-card__tip .si-tip__anchor { padding-block: 12px; margin-block: -12px; }
+.si-card__tip .si-tip__anchor { padding-block: 13px; margin-block: -13px; min-height: var(--si-hit); box-sizing: border-box; display: inline-flex; align-items: center; }
 .si-card__tip .si-tip__anchor:focus-visible { outline-offset: -10px; }
 .si-related { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; min-width: 0; }
 .si-related > strong { margin-right: 4px; }
