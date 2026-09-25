@@ -25,7 +25,7 @@ test("every section anchor is present, in order, and the sub-nav links to each",
     last = at;
     assert.ok(html.includes(`href="#${id}"`), `sub-nav link to #${id}`);
   }
-  const ids = ["tokens", "badges", "pills", "chips", "icons", "time", "loading", "live", "navigation", "card", "record-header", "metrics", "presets", "rail", "timeline", "analysis", "chat", "overview", "closed", "coverage"];
+  const ids = ["tokens", "badges", "pills", "chips", "icons", "time", "loading", "live", "navigation", "card", "record-header", "metrics", "presets", "rail", "timeline", "analysis", "analysis-findings", "chat", "overview", "closed", "coverage"];
   assert.deepEqual(GALLERY_SECTIONS.map((s) => s.id), ids);
   for (const stage of [] as string[]) {
     assert.ok(html.includes(`Lands with ${stage}`), `placeholder for ${stage}`);

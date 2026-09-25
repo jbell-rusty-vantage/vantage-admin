@@ -4,6 +4,7 @@ import { Smartphone } from "lucide-react";
 import { Fragment, useState, type ReactNode } from "react";
 import { SubNav } from "@/components/sales-intelligence/primitives";
 import { copy } from "@/components/sales-intelligence/sales-intelligence-copy";
+import { AnalysisFindingsSection } from "./sections/analysis-findings";
 import { BadgesSection, PillsSection } from "./sections/badges";
 import { CardSection } from "./sections/card";
 import { ChatSection } from "./sections/chat";
@@ -44,6 +45,7 @@ export const GALLERY_SECTIONS: { id: SectionId; render: () => ReactNode }[] = [
   { id: "rail", render: () => <RailSection /> },
   { id: "timeline", render: () => <TimelineSection /> },
   { id: "analysis", render: () => <Placeholder id="analysis" stage="UI1-TOP / UI1-MOVE / UI1-FIND" /> },
+  { id: "analysis-findings", render: () => <AnalysisFindingsSection /> },
   { id: "chat", render: () => <ChatSection /> },
   { id: "overview", render: () => <OverviewSection /> },
   { id: "closed", render: () => <ClosedSection /> },

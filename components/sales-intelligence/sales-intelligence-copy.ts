@@ -766,6 +766,7 @@ export const copy = {
         rail: "Rail",
         timeline: "Timeline rows",
         analysis: "Analysis kit",
+        "analysis-findings": "Findings and conversations",
         chat: "Chat kit",
         overview: "Overview blocks",
         closed: "Closed outcome lines",
@@ -1743,6 +1744,124 @@ export const copy = {
         states: { is_the_lead: "is_the_lead", is_the_lead_no_number: "is_the_lead, no Number", needs_a_lead: "needs_a_lead", ambiguous: "ambiguous", attached_by_you: "attached_by_you" } as Record<string, string>,
         skeleton: "Route skeleton",
         notFound: "Not found page state",
+      },
+    },
+    /**
+     * UI1-FIND + UI1-CONV: the analysis kit's Findings, inline evidence, Conversations and transcript (final spec §11.5–11.7,
+     * §14; COPY-UI1 §8 `findings.reason.*`, `conversations.*`). Server words (`category_label`, `source_word`,
+     * `action_status_word`, `value_line`, `work_result_detail`, `relation_word`, `assessment_word`, `*_label`) are shown as sent.
+     * Keys marked "proposal" are not in the specs yet.
+     */
+    analysis: {
+      findings: {
+        title: "Findings",
+        category: (label: string, n: number) => `${label} (${n})`,
+        workResult: (text: string) => `Work result: ${text}`,
+        appliedDetail: (detail: string) => `Applied → ${detail}`,
+        blockedDetail: (reason: string) => `Blocked: ${reason}`,
+        result: {
+          applied: "Applied",
+          blocked: "Blocked",
+          needs_review: "Needs review",
+          not_applicable: "Not applicable",
+          superseded: "Replaced by a later finding",
+          retracted: "Retracted by you",
+        } as Record<string, string>,
+        /** Proposal: the link after `Replaced by a later finding`. */
+        openLater: "Open the later finding",
+        uncertain: "Uncertain",
+        confirm: "Confirm",
+        correct: "Correct",
+        retract: "Retract",
+        more: "More",
+        lookAgain: "Look again",
+        none: "This analysis recorded no findings.",
+        reason: {
+          no_number: "No Number is attached, so there are no conversations to analyze.",
+          retention_pending: "The findings are being rebuilt after retention removed older evidence.",
+        } as Record<string, string>,
+        /** Proposal: `data.truncated`. */
+        truncated: "Only the newest findings are listed. Older ones are in Full output.",
+        /** Proposals: the `include_superseded` toggle. */
+        showReplaced: "Show replaced findings",
+        hideReplaced: "Hide replaced findings",
+        changes: {
+          title: (n: number) => `Changes since the last analysis (${n})`,
+          unchanged: (n: number) => `Unchanged or unclear (${n})`,
+          /** Proposal: the link to the review item a `Contradicted` or `Done` row opened. */
+          openReview: "Open review item",
+        },
+        instructions: "Your changes and what the model made of them",
+        /** Proposal: the history disclosure (final spec §11.5 names it; the run's history is not read here yet). */
+        reviewHistory: "Review history",
+        /** Proposal: the `More` button's accessible name. */
+        moreFor: (claim: string) => `More actions for: ${claim}`,
+      },
+      evidence: {
+        view: (n: number) => `View evidence (${n})`,
+        /** Proposal: the toggle's name while open. */
+        hide: (n: number) => `Hide evidence (${n})`,
+        none: "No evidence cited",
+        shouldCite: "This score should cite evidence and does not.",
+        openInTranscript: "Open in transcript",
+        purged: (t: string) => `Original removed under retention on ${t}; the citation is kept.`,
+        /** Proposal: a citation that is neither retained nor purged. */
+        unavailable: "This evidence is not available right now.",
+        summaryFrom: "From the call summary",
+        summaryFromOn: (date: string) => `From the call summary, ${date}`,
+        saidOn: "Said on the call",
+        saidOnDate: (date: string) => `Said on the call, ${date}`,
+        asOf: "as of",
+        /** Fallback when the server sends no `record_label` (final spec §11.6; mirrors the server's labels). */
+        record: {
+          lead: "Lead", booking: "Booking", cancellation: "Cancellation", followup: "Follow-up", outreach: "Outreach", lead_message: "Lead Message",
+          interaction: "Call", job_timeline: "Number activity", attachment: "Attachment", story_event: "Story event", granot_state: "Granot state",
+          prior_summary: "Earlier summary", prior_finding: "Earlier finding", prior_assessment: "Earlier assessment", owner_instruction: "Owner correction",
+        } as Record<string, string>,
+        recordUnknown: "Vantage record",
+      },
+      conversations: {
+        title: "Conversations",
+        none: "No conversation has been recorded on this Number yet.",
+        noNumber: "No Number is attached, so there are no conversations.",
+        recording: {
+          available: "Recording: available",
+          not_recorded: "Recording: not recorded",
+          audio_removed: "Recording: audio removed under retention; transcript kept",
+        } as Record<string, string>,
+        recordingOther: (label: string) => `Recording: ${label}`,
+        rep: { proposed: "Rep not confirmed", unknown: "Rep unknown", reviewed: "Rep unknown" } as Record<string, string>,
+        inProgress: "In progress",
+        provisional: "Details may still change",
+        audioRemoved: "Audio removed under retention; the transcript is kept.",
+        audioFailed: "Couldn't load the audio. The transcript is still available.",
+        /** Proposal: the player's accessible name. */
+        audioLabel: (header: string) => `Recording of the call: ${header}`,
+        transcript: "Transcript",
+        other: (n: number) => `Other calls (${n})`,
+        /** Proposal: an other call with no result (not in progress). */
+        resultUnknown: "Result unknown",
+        loadMore: "Load more conversations",
+        loadMoreFailed: "Couldn't load more. What's shown is still current.",
+        /** Proposal: a summary that came from a pre-canonical (legacy) analysis. */
+        legacySummary: "Summary from an earlier analysis version",
+        /** Proposals: seconds / minutes duration words. */
+        seconds: (s: number) => `${s}s`,
+        minutes: (m: number, s: number) => (s ? `${m}m ${s}s` : `${m}m`),
+      },
+      transcript: {
+        loadMore: "Load more",
+        loadMoreFailed: "Couldn't load more. What's shown is still current.",
+        empty: "The transcript has no segments.",
+        missing: {
+          before: (n: number) => (n === 1 ? "1 earlier segment is not shown." : `${n} earlier segments are not shown.`),
+          after: (n: number) => `Segments after ${n} are not loaded yet.`,
+          transcript_unavailable: "The transcript is not available.",
+          retention_pending: "The transcript is being rebuilt after retention removed older evidence.",
+        },
+        unavailable: "The transcript is not available.",
+        /** Proposal: a segment's start offset, `{m}:{ss}` into the call. */
+        offsetLabel: (offset: string, exact: string) => `${offset} into the call, ${exact}`,
       },
     },
   },
