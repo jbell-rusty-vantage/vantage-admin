@@ -60,18 +60,32 @@ export function useSalesIntelligencePulse():SalesIntelligencePulse {
  return useSyncExternalStore(subscribeSalesIntelligencePulse, readSalesIntelligencePulse, readSalesIntelligencePulse);
 }
 
-export function useSalesIntelligenceLive() {
+/** UI1-LIVE (UI-0 §2.5): the header reads `Offline · Refresh` after this long without the stream. */
+export const SALES_INTELLIGENCE_OFFLINE_MS = 30000;
+/** UI1-LIVE (UI-0 §2.5): while the stream is down, active reads poll this often. */
+export const SALES_INTELLIGENCE_FALLBACK_POLL_MS = 60000;
+/**
+ * UI1-LIVE, additive. With no options the hook behaves exactly as before (`_legacy/`): a full resync every 30 s
+ * while the tab is visible, live or not. The new header passes `{ fallbackMs: 60000, fallbackWhileLive: false }`:
+ * the timed resync then runs only while the stream is not open (the 60 s fallback poll).
+ */
+export type SalesIntelligenceLiveOptions = { fallbackMs?:number; fallbackWhileLive?:boolean };
+
+export function useSalesIntelligenceLive(options:SalesIntelligenceLiveOptions = {}) {
   const client = useQueryClient();
   const [status,setStatus] = useState<SalesIntelligenceLiveStatus>("connecting");
+  const fallbackMs = options.fallbackMs ?? 30000;
+  const fallbackWhileLive = options.fallbackWhileLive ?? true;
   useEffect(() => {
+    let connected = false;
     let timer:ReturnType<typeof setTimeout>|undefined;
     const queued = new Map<string, readonly string[]>();
     const flush = () => { timer=undefined; const keys=[...queued.values()]; queued.clear(); for (const queryKey of keys) void client.invalidateQueries({queryKey}); };
     // A frameless refresh (open, visibility, online, fallback) stays a full resync.
     const refresh = (frame:SalesIntelligenceFrame = {}) => { for (const key of salesIntelligenceInvalidationKeys(frame)) queued.set(key.join('\u0000'), key); if (!timer) timer = setTimeout(flush, 300); };
     const live = new EventSource('/api/sales-intelligence-live?scope=production');
-    live.onopen = () => { setStatus("live"); refresh(); };
-    live.onerror = () => setStatus("reconnecting");
+    live.onopen = () => { connected = true; setStatus("live"); refresh(); };
+    live.onerror = () => { connected = false; setStatus("reconnecting"); };
     live.addEventListener('invalidation',(event) => {
       let frame:SalesIntelligenceFrame = {};
       try { frame = JSON.parse((event as MessageEvent<string>).data) as SalesIntelligenceFrame; } catch { frame = {}; }
@@ -82,8 +96,8 @@ export function useSalesIntelligenceLive() {
     const online = () => refresh();
     document.addEventListener('visibilitychange',restore);
     window.addEventListener('online',online);
-    const fallback = setInterval(restore,30000);
+    const fallback = setInterval(() => { if (fallbackWhileLive || !connected) restore(); },fallbackMs);
     return () => { live.close(); clearTimeout(timer); clearInterval(fallback); document.removeEventListener('visibilitychange',restore); window.removeEventListener('online',online); };
-  },[client]);
+  },[client,fallbackMs,fallbackWhileLive]);
   return status;
 }

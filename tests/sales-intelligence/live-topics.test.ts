@@ -63,6 +63,22 @@ test("the UI-1 reads refresh on the topics UI1-DATA mapped", () => {
   for (const [segment, topics] of Object.entries(expected)) assert.deepEqual(reachingTopics(segment).sort(), topics, segment);
 });
 
+test("UI1-LIVE: the header and composer reads (nudges, overview, coverage) are reached by their topics", () => {
+  const expected: Record<string, string[]> = {
+    nudges: ["nudge"],
+    "nudge-destinations": ["rep"],
+    reps: ["rep"],
+    overview: ["attention", "outreach"],
+    coverage: ["analysis", "number"],
+  };
+  for (const [segment, topics] of Object.entries(expected)) assert.deepEqual(reachingTopics(segment).sort(), topics, segment);
+  // A nudge frame refreshes the Work tab's history and the detail read that carries `nudges.items`.
+  const nudge = salesIntelligenceInvalidationKeys({ version: 2, reason: "change", topics: ["nudge"] });
+  for (const key of [siKeys.nudges("o1"), siKeys.outreach("o1")]) {
+    assert.ok(nudge.some((prefix) => prefix.every((part, index) => key[index] === part)), `nudge reaches ${String(key[1])}`);
+  }
+});
+
 test("a change frame's invalidation prefix matches the built keys (prefix match, not equality)", () => {
   const frame = { version: 2, reason: "change", topics: ["analysis"] };
   const prefixes = salesIntelligenceInvalidationKeys(frame);

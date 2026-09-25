@@ -1141,6 +1141,95 @@ export const copy = {
         },
       },
     },
+    /**
+     * UI1-LIVE (COPY-UI1 §10, §5 `updatedAvailable`). The indicator's own words (`Live · Updated {t}`,
+     * `Reconnecting…`, `Offline · Refresh`, the tooltip lines) are `copy.ui1.prim.live`, not repeated here.
+     */
+    live: {
+      updatedList: "Updated list available",
+      show: "Show",
+      showLabel: "Show the updated list",
+    },
+    /** UI1-CHAT (COPY-UI1 §9). Keys marked "draft" have no COPY-UI1 row yet and wait for the design gate. */
+    chat: {
+      title: (rep: string) => `Message ${rep}`,
+      titleNoRep: "Message rep", // draft: the panel title before a recipient is known
+      firstLine: "Goes to the rep's RingCentral, never to the customer.",
+      recipient: (rep: string) => `To ${rep}`,
+      noRecipient: "No recipient chosen", // draft
+      sendToSomeoneElse: "Send to someone else",
+      pickerPlaceholder: "Search the RingCentral directory",
+      pickerLabel: "RingCentral directory", // draft: the listbox's accessible name
+      pickerEmpty: "No one in the directory matches.", // draft
+      pickerClose: "Back", // draft: closes the picker, keeps the current recipient
+      noReviewedMatch: "No reviewed Agent match",
+      unnamedExtension: (ext: string) => `Extension ${ext}`, // draft: a directory user with no name
+      extension: (ext: string) => `Ext. ${ext}`, // draft: the picker row's detail
+      current: "Current recipient", // draft: marks the chosen row in the picker
+      counter: (n: number) => `${n.toLocaleString("en-US")} / 1,000`,
+      counterLabel: (n: number) => `${n.toLocaleString("en-US")} of 1,000 characters`, // draft (screen reader)
+      composerLabel: "Message to the rep", // draft: the textarea's label
+      send: "Send",
+      shortcut: "Ctrl+Enter to send",
+      noRep: "No rep to message",
+      blankNote: "Write a note first.", // = COPY-UI1 §8 work.blankNote
+      sending: "Sending…",
+      sent: (t: string) => `Sent ${t}`,
+      fallback: "Sent by extension message instead",
+      failed: (reason: string) => `Failed · ${reason}`,
+      retry: "Retry",
+      unknown: "Unknown delivery",
+      checkStatus: "Check status",
+      checking: "Checking…", // draft
+      day: { today: "Today", yesterday: "Yesterday" },
+      unread: "New",
+      history: "Messages to the rep", // draft: the history region's heading
+      noMessages: "No messages sent to the rep yet.", // = COPY-UI1 §8 work.noMessages
+      loadOlder: "Load older messages", // draft
+      loadOlderFailed: "Couldn't load more. What's shown is still current.",
+      close: "Close",
+      you: "You", // draft: the Owner bubble's accessible author
+      errors: {
+        NUDGE_BODY_INVALID: "The message can't include a full customer phone number.",
+        RATE_LIMITED: (n: number, limit: number) => `${n} of ${limit} messages left this hour. Try again later.`,
+        RATE_LIMITED_FALLBACK: "Hourly message limit reached. Try again later.",
+        NUDGE_NOT_ACTIONABLE: "This Outreach is closed, so there's no one to nudge.",
+        NUDGE_DESTINATION_EVIDENCE_INCOMPLETE: "This rep's RingCentral identity hasn't been reviewed yet.",
+        NUDGE_DESTINATION_IS_CUSTOMER: "That destination is the customer's number, so it was refused.",
+        NUDGE_CONFIGURATION_UNAVAILABLE: "Messaging isn't configured on this server.",
+        IDENTITY_BLOCKED: "The rep's identity is blocked from messaging.",
+        CONTACT_RESTRICTED: "Contact with this number is restricted.",
+        FEATURE_DISABLED: "Messaging is switched off in this deployment.",
+        REVISION_CONFLICT: "The record changed while you were writing. Your text is kept; send again.",
+        default: (code: string) => `Couldn't send: ${code}`,
+      },
+      /** Dev-only gallery labels for the Chat kit section. Bubble bodies are synthetic: no fixture carries a nudge. */
+      gallery: {
+        note: "No contract fixture carries a sent nudge (every nudges.items is empty), so the bubbles use synthetic records in the nudge shape.",
+        bubbles: "Bubbles and delivery states",
+        owner: "Owner",
+        rep: "Rep (UI-4 look)",
+        longText: "Long text, line breaks, a link shown as text",
+        dividers: "Thread with day dividers (Today, Yesterday, weekday)",
+        unread: "Unread divider (UI-4)",
+        composer: "Composer",
+        composerEmpty: "Empty",
+        composerTyped: "Typed",
+        composerSending: "Sending",
+        composerFailed: "Failed send: the text stays in the bubble with Retry",
+        composerBlank: "Blank attempt",
+        composerNoRep: "No rep to message",
+        picker: "Recipient picker",
+        panel: "Message rep panel (inline variant)",
+        pill: "Updated list pill",
+        skeleton: "ThreadSkeleton",
+        phone: "At 390 px",
+        sampleBody: "Can you call Sam Lopez back before 5? She asked about the Oct 15 move.",
+        sampleLong: "Two things for the Lopez move:\n1. She wants the binding estimate resent.\n2. Pickup is now the side door.\n\nNotes are at https://example.com/notes/lopez (not a live link).",
+        sampleRep: "On it, calling her now.",
+        sampleTyped: "Please call back today",
+      },
+    },
   },
 } as const;
 

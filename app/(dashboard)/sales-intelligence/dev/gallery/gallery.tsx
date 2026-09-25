@@ -6,6 +6,7 @@ import { SubNav } from "@/components/sales-intelligence/primitives";
 import { copy } from "@/components/sales-intelligence/sales-intelligence-copy";
 import { BadgesSection, PillsSection } from "./sections/badges";
 import { CardSection } from "./sections/card";
+import { ChatSection } from "./sections/chat";
 import { ChipsSection } from "./sections/chips";
 import { IconsSection } from "./sections/icons";
 import { LiveSection } from "./sections/live";
@@ -36,7 +37,7 @@ export const GALLERY_SECTIONS: { id: SectionId; render: () => ReactNode }[] = [
   { id: "rail", render: () => <RailSection /> },
   { id: "timeline", render: () => <Placeholder id="timeline" stage="UI1-TL" /> },
   { id: "analysis", render: () => <Placeholder id="analysis" stage="UI1-TOP / UI1-MOVE / UI1-FIND" /> },
-  { id: "chat", render: () => <Placeholder id="chat" stage="UI1-CHAT" /> },
+  { id: "chat", render: () => <ChatSection /> },
   { id: "overview", render: () => <Placeholder id="overview" stage="UI1-OVERVIEW" /> },
   { id: "closed", render: () => <Placeholder id="closed" stage="UI1-CLOSED" /> },
   { id: "coverage", render: () => <Placeholder id="coverage" stage="UI1-COVER" /> },
