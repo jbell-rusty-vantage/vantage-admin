@@ -51,7 +51,7 @@ export function CardShell({
   );
 }
 
-function CardShellSkeleton({ actions = true }: { actions?: boolean }) {
+export function CardShellSkeleton({ actions = true }: { actions?: boolean }) {
   return (
     <article className="si-cardshell is-skeleton" aria-hidden>
       <div className="si-cardshell__body">

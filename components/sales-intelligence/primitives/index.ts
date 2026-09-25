@@ -1,4 +1,4 @@
-export { CardShell, CARD_LINES } from "./card-shell";
+export { CardShell, CardShellSkeleton, CARD_LINES } from "./card-shell";
 export { BandBadge, BAND_COLORS, contrastRatio, type BandNumber } from "./band-badge";
 export { StatePill } from "./state-pill";
 export { Chip, type ChipTone } from "./chip";
