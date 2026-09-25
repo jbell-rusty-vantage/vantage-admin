@@ -125,11 +125,18 @@ export function TooltipCard({
       if (event.target instanceof Node && cardRef.current?.contains(event.target)) return;
       close();
     };
+    // UI2-PHONE (UI-2 §7): a tap outside the anchor and the card closes it (a tap on the anchor toggles it).
+    const onPointer = (event: PointerEvent) => {
+      if (event.target instanceof Node && (wrapRef.current?.contains(event.target) || cardRef.current?.contains(event.target))) return;
+      close();
+    };
     window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPointer, true);
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", close);
     return () => {
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPointer, true);
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", close);
     };
@@ -162,6 +169,8 @@ export function TooltipCard({
         aria-describedby={open ? id : undefined}
         aria-expanded={open}
         onKeyDown={onAnchorKey}
+        // UI2-PHONE: every tip also opens on tap (iOS Safari doesn't focus a tabbable span on tap); a second tap closes it.
+        onClick={() => (open ? setOpen(false) : showNow())}
       >
         {label}
       </span>

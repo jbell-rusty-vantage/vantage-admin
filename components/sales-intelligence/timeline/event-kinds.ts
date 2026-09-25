@@ -155,8 +155,10 @@ export const EVENT_KINDS: Readonly<Record<string, KindEntry>> = {
   reanalysis_requested: entry(RefreshCw, "analysis", "s11-tl", { pending: S11 }),
   analysis_reviewed: entry(ClipboardCheck, "analysis", "s11-tl", { pending: S11 }),
 
+  // S12-REPACT (CF12): a rep moved its own follow-up; the server writes the rep's name and note into the title and description.
+  followup_redated: entry(CalendarClock, "work", "fixture", { detail: reasonDetail }),
+
   // UI-0 §7.3 kinds a later spec adds (no reader yet).
-  followup_redated: entry(CalendarClock, "work", "later", { pending: "S12-REPACT" }),
   rep_replied: entry(MessageSquareReply, "messages", "later", { pending: "UI-4" }),
   thread_resolved: entry(MessageSquareCheck, "messages", "later", { pending: "UI-4" }),
 };

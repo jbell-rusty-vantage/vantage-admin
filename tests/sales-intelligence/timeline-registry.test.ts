@@ -48,9 +48,10 @@ fixtureTest("every kind in the timeline fixtures has a registry entry (A35)", ()
   }
   assert.deepEqual([...missing], [], "kinds with no registry entry");
   console.log(`timeline fixtures: ${loaded.length} pages, ${kinds.size} kinds; skipped ${skipped.length}: ${skipped.filter((s) => !s.endsWith("(flag-off v1)")).join(", ")}`);
-  // TL-AUDIT §5a: the 23 kinds the fixtures show.
-  assert.equal(kinds.size, 23, [...kinds.keys()].sort().join(","));
-  for (const kind of kinds.keys()) assert.equal(EVENT_KINDS[kind]!.source, "fixture", `${kind} is a fixture kind`);
+  // TL-AUDIT §5a: the 23 kinds the fixtures show, plus CF12's `followup_redated` (S12-REPACT) and `nudge_sent` (S12-REPNUDGE: the
+  // first capture of a sent nudge; its entry stays a "server" kind from the TL audit).
+  assert.equal(kinds.size, 25, [...kinds.keys()].sort().join(","));
+  for (const kind of kinds.keys()) if (kind !== "nudge_sent") assert.equal(EVENT_KINDS[kind]!.source, "fixture", `${kind} is a fixture kind`);
 });
 
 fixtureTest("the registry's group matches the server's group on every fixture item, and no fixture kind is pending", () => {
@@ -82,11 +83,14 @@ test("the registry covers the UI-0 §7.3 map, the 11 unfixtured server kinds and
     assert.equal(EVENT_KINDS[kind]?.source, "s11-tl", kind);
     assert.equal(EVENT_KINDS[kind]?.pending, "S11-TL", kind);
   }
-  for (const kind of ["followup_redated", "rep_replied", "thread_resolved"]) assert.ok(EVENT_KINDS[kind]?.pending, kind);
+  for (const kind of ["rep_replied", "thread_resolved"]) assert.ok(EVENT_KINDS[kind]?.pending, kind);
+  // S12-REPACT shipped `followup_redated`: a live kind now (fixture `S12/owner-outreach-timeline-kind__followup-redated.json`).
+  assert.equal(EVENT_KINDS.followup_redated?.pending, undefined);
+  assert.equal(EVENT_KINDS.followup_redated?.group, "work");
   assert.equal(Object.keys(EVENT_KINDS).length, 23 + 11 + 10 + 3);
   // Pending kinds are never sent (the server answers 400 to an unknown kind).
   const all = kindsForGroups([...TIMELINE_GROUPS]);
-  for (const kind of [...s11, "followup_redated", "rep_replied", "thread_resolved"]) assert.ok(!all.includes(kind), kind);
+  for (const kind of [...s11, "rep_replied", "thread_resolved"]) assert.ok(!all.includes(kind), kind);
   assert.deepEqual(kindsForGroups(["calls"]), ["call", "conversation_recorded"]);
   assert.deepEqual(kindsForGroups([]), []);
 });

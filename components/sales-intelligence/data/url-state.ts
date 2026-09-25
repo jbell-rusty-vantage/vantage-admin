@@ -116,7 +116,8 @@ export function parseDeskUrl(params: URLSearchParams, role: UrlRole = "owner"): 
     closed_from: text(params.get("closed_from")), closed_to: text(params.get("closed_to")),
     freshness: params.get("freshness") === "fresh" ? "fresh" : null,
     q: text(params.get("q")), period: text(params.get("period")), from: text(params.get("from")), to: text(params.get("to")),
-    lead: text(params.get("lead")), lead_model: text(params.get("lead_model")), outreach: text(params.get("outreach")),
+    // UI2-SHELL: an old Lead-only link resolves through the Owner-only `outreach/by-lead`, so a rep's desk ignores it.
+    lead: rep ? null : text(params.get("lead")), lead_model: rep ? null : text(params.get("lead_model")), outreach: text(params.get("outreach")),
   };
 }
 
