@@ -1342,6 +1342,7 @@
   .si-recordheader__side { margin-left: 0; }
   .si-recordcmds .si-actions__primary > * { flex: 1 1 100%; }
   .si-recordcmds .si-actions__primary .si-btn { width: 100%; justify-content: center; }
+}
 /* UI-1: FIND + CONV (analysis kit: Findings, inline evidence, Conversations, transcript, player; final spec §11.5–11.7) */
 .si-findings, .si-convs { display: flex; flex-direction: column; gap: 16px; min-width: 0; position: relative; }
 .si-findings__group { display: flex; flex-direction: column; gap: 8px; }
@@ -1420,6 +1421,7 @@
   .si-transcript__who { flex-direction: row; gap: 8px; }
   .si-conv { padding: 12px; }
   .si-finding__actions .si-btn { flex: 1 1 auto; }
+}
 /* UI-1: TOP + MOVE (the analysis kit frame, Situation, Scores, next step, Move details, Advanced; final spec §11.1–11.4, UI-0 §7.4) */
 .si-analysis { display: flex; flex-direction: column; gap: 24px; max-width: 880px; min-width: 0; }
 .si-analysis__section { display: flex; flex-direction: column; gap: 12px; min-width: 0; scroll-margin-top: calc(var(--si-sticky-top, 0px) + 52px); }
