@@ -35,7 +35,7 @@ import { findContractsDir, FIXTURES_UNAVAILABLE, fixtureTest, requireContracts }
 // The fixtures sit next to vantage-admin (or SI_CONTRACTS_DIR); without them every test here skips (see ./contracts-dir).
 const CONTRACTS = findContractsDir() ?? "";
 if (!CONTRACTS) console.log(`contract fixtures: skipped (${FIXTURES_UNAVAILABLE})`);
-const FOLDERS = ["S1", "S2", "S3", "S4", "S5c", "S6", "S7", "S8", "S9", "AC"] as const;
+const FOLDERS = ["S1", "S2", "S3", "S4", "S5c", "S6", "S7", "S8", "S9", "AC", "S11"] as const;
 const MIN_PARSED = 560;
 
 // Admin-users routes (S8, UI-2's Users page): a small local schema, since the admin has none under lib/api.
