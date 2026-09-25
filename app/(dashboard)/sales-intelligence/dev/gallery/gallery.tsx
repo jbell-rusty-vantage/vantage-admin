@@ -16,6 +16,7 @@ import { PresetBarSection } from "./sections/preset-bar";
 import { RailSection } from "./sections/rail";
 import { FrameContext, Placeholder } from "./sections/section";
 import { TimeSection } from "./sections/time";
+import { TimelineSection } from "./sections/timeline";
 import { TokensSection } from "./sections/tokens";
 
 type SectionId = keyof typeof copy.ui1.gallery.sections;
@@ -35,7 +36,7 @@ export const GALLERY_SECTIONS: { id: SectionId; render: () => ReactNode }[] = [
   { id: "metrics", render: () => <Placeholder id="metrics" stage="UI1-DESK" /> },
   { id: "presets", render: () => <PresetBarSection /> },
   { id: "rail", render: () => <RailSection /> },
-  { id: "timeline", render: () => <Placeholder id="timeline" stage="UI1-TL" /> },
+  { id: "timeline", render: () => <TimelineSection /> },
   { id: "analysis", render: () => <Placeholder id="analysis" stage="UI1-TOP / UI1-MOVE / UI1-FIND" /> },
   { id: "chat", render: () => <ChatSection /> },
   { id: "overview", render: () => <Placeholder id="overview" stage="UI1-OVERVIEW" /> },

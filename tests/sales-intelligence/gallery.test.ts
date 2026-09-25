@@ -27,7 +27,7 @@ test("every section anchor is present, in order, and the sub-nav links to each",
   }
   const ids = ["tokens", "badges", "pills", "chips", "icons", "time", "loading", "live", "navigation", "card", "metrics", "presets", "rail", "timeline", "analysis", "chat", "overview", "closed", "coverage"];
   assert.deepEqual(GALLERY_SECTIONS.map((s) => s.id), ids);
-  for (const stage of ["UI1-DESK", "UI1-TL", "UI1-OVERVIEW", "UI1-CLOSED", "UI1-COVER"]) {
+  for (const stage of ["UI1-DESK", "UI1-OVERVIEW", "UI1-CLOSED", "UI1-COVER"]) {
     assert.ok(html.includes(`Lands with ${stage}`), `placeholder for ${stage}`);
   }
 });
@@ -143,7 +143,7 @@ test("gate: production hides the gallery unless SI_GALLERY=1", () => {
 
 test("the gallery imports nothing from _legacy or the quarantined files", () => {
   const dir = path.join(process.cwd(), "app/(dashboard)/sales-intelligence/dev/gallery");
-  const files = ["page.tsx", "loading.tsx", "gallery.tsx", "gate.ts", "fixtures.ts", "icon-check.ts", ...["section", "tokens", "badges", "chips", "icons", "time", "loading-errors", "live", "navigation", "preset-bar", "rail"].map((f) => `sections/${f}.tsx`)];
+  const files = ["page.tsx", "loading.tsx", "gallery.tsx", "gate.ts", "fixtures.ts", "icon-check.ts", ...["section", "tokens", "badges", "chips", "icons", "time", "loading-errors", "live", "navigation", "preset-bar", "rail", "timeline"].map((f) => `sections/${f}.tsx`)];
   const quarantined = /from ["'][^"']*(_legacy|\/(workspace|attention|filters|number-browser|number-timeline|detail-panel|now-strip|analysis-panel|assessment-section|evidence-chain|stored-call-analyses|list-skeletons|message-rep-dialog|running-summary-panel))["']/;
   for (const file of files) assert.doesNotMatch(readFileSync(path.join(dir, file), "utf8"), quarantined, file);
 });
