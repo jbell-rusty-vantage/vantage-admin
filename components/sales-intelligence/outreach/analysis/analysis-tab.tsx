@@ -6,23 +6,28 @@
  * Region (Suspense + error boundary, a shaped skeleton after 150 ms, `Try again` resets only its reads). A rep sees
  * every readable section; Full output and Advanced are the Owner's (`role`).
  *
- * Findings and Conversations are UI1-FIND / UI1-CONV's: they come in as render props (`renderFindings`,
- * `renderConversations`) and the inline evidence block as `renderEvidence`, so this file imports none of their files.
- * Until they are passed, the section prints its title and a short placeholder.
+ * UI1-ANALYSIS-WIRE: Findings and Conversations are UI1-FIND / UI1-CONV's sections, mounted here by default
+ * (`renderFindings` / `renderConversations` still override them). Every `View evidence` in the kit is FIND's toggle
+ * (`cite.tsx` → `EvidenceToggle`). `idPrefix` keeps ids unique when a page renders the kit twice, and a deep link's
+ * hash (`#scores`, `#full-output`, `#findings`, `#conversations`) is landed once the tab has rendered.
  */
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { outputChoices } from "@/lib/api/salesIntelligenceAssessment";
 import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
 import { siKeys } from "../../data/query-keys";
 import { useAssessment } from "../../data/use-assessment";
 import { useOutreach } from "../../data/use-outreach";
 import { useRunPresentation } from "../../data/use-run";
+import { outreachHref } from "../../card";
 import { FullOutputSection } from "../../full-output";
 import { copy } from "../../sales-intelligence-copy";
 import { Disclosure, Region, SkeletonLines, SubNav } from "../../primitives";
+import { useLandOnHash } from "../land-on-hash";
 import { AdvancedSection, AdvancedSkeleton } from "./advanced";
-import { EvidenceRendererProvider, type EvidenceRenderer } from "./cite";
+import { ConversationsSection, ConversationsSkeleton } from "./conversations";
+import { FindingsSection, FindingsSkeleton } from "./findings";
+import { KitIdProvider, useKitId } from "./kit-id";
 import { MoveDetailsSection, MoveDetailsSkeleton } from "./move-details";
 import { NextStepSection, NextStepSkeleton } from "./next-step";
 import { ScoresSection, ScoresSkeleton } from "./scores";
@@ -50,9 +55,10 @@ const sectionsFor = (role: AnalysisRole) => ANALYSIS_SECTIONS.filter((section) =
 const titleOf = (id: SectionId) => ANALYSIS_SECTIONS.find((section) => section.id === id)!.label;
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  const kid = useKitId();
   return (
-    <section id={id} className="si-analysis__section" aria-labelledby={`${id}-title`} data-section={id}>
-      <h2 id={`${id}-title`} className="si-heading si-heading--2">{title}</h2>
+    <section id={kid(id)} className="si-analysis__section" aria-labelledby={kid(`${id}-title`)} data-section={id}>
+      <h2 id={kid(`${id}-title`)} className="si-heading si-heading--2">{title}</h2>
       {children}
     </section>
   );
@@ -63,13 +69,22 @@ function SlotBody({ outreachId, role, render }: { outreachId: string; role: Anal
   return <>{render({ outreachId, runId: outreach.newest_run_id ?? null, numberId: outreach.primary_number?.id ?? null, asOf, role })}</>;
 }
 
-function SlotPending({ id }: { id: string }) {
-  return (
-    <div className="si-analysis__pending" data-slot-pending={id}>
-      <p className="si-text--subtle si-text--sm">{f.slotPending}</p>
-    </div>
-  );
+/** The Work tab's review item a finding relation points at (`review-items.tsx` renders `id="review-item-{id}"`). */
+export const reviewItemHref = (outreachId: string, reviewItemId: string) => `${outreachHref(outreachId)}?tab=work#review-item-${encodeURIComponent(reviewItemId)}`;
+
+/** The default Findings slot: FIND's section; the Owner gets `Look again` (UX27) and the review-item links. */
+export const defaultFindings: AnalysisSlot = ({ outreachId, runId, role }) => (
+  <FindingsSection outreachId={outreachId} newestRunId={runId} showLookAgain={role === "owner"} reviewHref={role === "owner" ? (id) => reviewItemHref(outreachId, id) : undefined} />
+);
+function ConversationsSlot({ numberId }: { numberId: string | null }) {
+  const client = useQueryClient();
+  const retry = () => {
+    if (numberId) void client.resetQueries({ queryKey: siKeys.conversations(numberId) });
+  };
+  return <ConversationsSection numberId={numberId} onRetry={retry} />;
 }
+/** The default Conversations slot: CONV's section on the record's Number (`null` → the no-Number sentence). */
+export const defaultConversations: AnalysisSlot = ({ numberId }) => <ConversationsSlot numberId={numberId} />;
 
 /** Full output (§11.8, kept): assessment versions, then the run's outputs; `run` (an old deep link) picks that run. */
 function FullOutputRun({ runId, versions }: { runId: string; versions: Parameters<typeof outputChoices>[0]["versions"] }) {
@@ -98,13 +113,26 @@ export type AnalysisTabProps = {
   run?: string | null;
   /** Situation repeats the card's lines 1–4 and 6–7 (§11.1). A page whose header already shows them may pass `false`. */
   cardLines?: boolean;
+  /** Prefix for every element id in the kit (a second copy on one page, e.g. the gallery's 390 px frame). */
+  idPrefix?: string;
+  /** Overrides for the Findings / Conversations bodies (default: FIND's and CONV's sections). */
   renderFindings?: AnalysisSlot;
   renderConversations?: AnalysisSlot;
-  renderEvidence?: EvidenceRenderer;
 };
 
 /** The Analysis tab. Mount it in the Outreach page's `analysis` slot: `<AnalysisTab outreachId={id} role="owner" run={run} />`. */
-export function AnalysisTab({ outreachId, role, run = null, cardLines = true, renderFindings, renderConversations, renderEvidence }: AnalysisTabProps) {
+export function AnalysisTab({ idPrefix = "", ...props }: AnalysisTabProps) {
+  return (
+    <KitIdProvider value={idPrefix}>
+      <AnalysisTabBody {...props} />
+    </KitIdProvider>
+  );
+}
+
+function AnalysisTabBody({ outreachId, role, run = null, cardLines = true, renderFindings = defaultFindings, renderConversations = defaultConversations }: Omit<AnalysisTabProps, "idPrefix">) {
+  const kid = useKitId();
+  const root = useRef<HTMLDivElement>(null);
+  useLandOnHash(root);
   const client = useQueryClient();
   const owner = role === "owner";
   const reset = (...keys: QueryKey[]) => () => {
@@ -114,60 +142,54 @@ export function AnalysisTab({ outreachId, role, run = null, cardLines = true, re
   const outreachKey = siKeys.outreach(outreachId);
   const assessmentKey = siKeys.assessment(outreachId);
   const runKeys = [[...all, "analysis-presentation"], [...all, "analysis-run"]] as QueryKey[];
-  const slot = (id: "findings" | "conversations", render: AnalysisSlot | undefined, keys: QueryKey[]) => (
+  const slot = (id: "findings" | "conversations", render: AnalysisSlot, skeleton: ReactNode, keys: QueryKey[]) => (
     <Section id={id} title={titleOf(id)}>
-      {render ? (
-        <Region name={`analysis-${id}`} skeleton={<SkeletonLines lines={5} />} onRetry={reset(outreachKey, ...keys)}>
-          <SlotBody outreachId={outreachId} role={role} render={render} />
-        </Region>
-      ) : (
-        <SlotPending id={id} />
-      )}
+      <Region name={`analysis-${id}`} skeleton={skeleton} onRetry={reset(outreachKey, ...keys)}>
+        <SlotBody outreachId={outreachId} role={role} render={render} />
+      </Region>
     </Section>
   );
   return (
-    <div className="si-analysis" data-role={role}>
-      <SubNav items={sectionsFor(role).map(({ id, label }) => ({ id, label }))} label={f.subNavLabel} className="si-analysis__subnav" />
-      <EvidenceRendererProvider value={renderEvidence ?? null}>
-        <Section id="situation" title={titleOf("situation")}>
-          <Region name="analysis-situation" skeleton={<SituationSkeleton />} onRetry={reset(outreachKey, ...runKeys)}>
-            <SituationSection outreachId={outreachId} cardLines={cardLines} />
+    <div ref={root} className="si-analysis" data-role={role}>
+      <SubNav items={sectionsFor(role).map(({ id, label }) => ({ id: kid(id), label }))} label={f.subNavLabel} className="si-analysis__subnav" />
+      <Section id="situation" title={titleOf("situation")}>
+        <Region name="analysis-situation" skeleton={<SituationSkeleton />} onRetry={reset(outreachKey, ...runKeys)}>
+          <SituationSection outreachId={outreachId} cardLines={cardLines} />
+        </Region>
+      </Section>
+      <Section id="scores" title={titleOf("scores")}>
+        <Region name="analysis-scores" skeleton={<ScoresSkeleton />} onRetry={reset(assessmentKey, outreachKey)}>
+          <ScoresSection outreachId={outreachId} />
+        </Region>
+      </Section>
+      <section id={kid("next-step")} className="si-analysis__section si-analysis__section--strip" aria-label={f.nextStep} data-section="next-step">
+        <Region name="analysis-next-step" skeleton={<NextStepSkeleton />} onRetry={reset(outreachKey, assessmentKey, ...runKeys)}>
+          <NextStepSection outreachId={outreachId} owner={owner} />
+        </Region>
+      </section>
+      <Section id="move-details" title={titleOf("move-details")}>
+        <Region name="analysis-move" skeleton={<MoveDetailsSkeleton />} onRetry={reset(assessmentKey)}>
+          <MoveDetailsSection outreachId={outreachId} />
+        </Region>
+      </Section>
+      {slot("findings", renderFindings, <FindingsSkeleton />, [[...all, "findings"], ...runKeys])}
+      {slot("conversations", renderConversations, <ConversationsSkeleton />, [[...all, "conversations"], [...all, "transcript"]])}
+      {owner && (
+        <Section id="full-output" title={titleOf("full-output")}>
+          <Region name="analysis-full-output" skeleton={<SkeletonLines lines={4} />} onRetry={reset(outreachKey, assessmentKey, ...runKeys)}>
+            <FullOutputBody outreachId={outreachId} run={run} />
           </Region>
         </Section>
-        <Section id="scores" title={titleOf("scores")}>
-          <Region name="analysis-scores" skeleton={<ScoresSkeleton />} onRetry={reset(assessmentKey, outreachKey)}>
-            <ScoresSection outreachId={outreachId} />
-          </Region>
-        </Section>
-        <section id="next-step" className="si-analysis__section si-analysis__section--strip" aria-label={f.nextStep} data-section="next-step">
-          <Region name="analysis-next-step" skeleton={<NextStepSkeleton />} onRetry={reset(outreachKey, assessmentKey, ...runKeys)}>
-            <NextStepSection outreachId={outreachId} owner={owner} />
-          </Region>
-        </section>
-        <Section id="move-details" title={titleOf("move-details")}>
-          <Region name="analysis-move" skeleton={<MoveDetailsSkeleton />} onRetry={reset(assessmentKey)}>
-            <MoveDetailsSection outreachId={outreachId} />
-          </Region>
-        </Section>
-        {slot("findings", renderFindings, [[...all, "findings"], ...runKeys])}
-        {slot("conversations", renderConversations, [[...all, "conversations"], [...all, "transcript"]])}
-        {owner && (
-          <Section id="full-output" title={titleOf("full-output")}>
-            <Region name="analysis-full-output" skeleton={<SkeletonLines lines={4} />} onRetry={reset(outreachKey, assessmentKey, ...runKeys)}>
-              <FullOutputBody outreachId={outreachId} run={run} />
+      )}
+      {owner && (
+        <section id={kid("advanced")} className="si-analysis__section si-analysis__section--advanced" aria-label={copy.ui1.analysis.advanced.title} data-section="advanced">
+          <Disclosure id="analysis-advanced" title={copy.ui1.analysis.advanced.title}>
+            <Region name="analysis-advanced" skeleton={<AdvancedSkeleton />} onRetry={reset(outreachKey, ...runKeys)}>
+              <AdvancedSection outreachId={outreachId} />
             </Region>
-          </Section>
-        )}
-        {owner && (
-          <section id="advanced" className="si-analysis__section si-analysis__section--advanced" aria-label={copy.ui1.analysis.advanced.title} data-section="advanced">
-            <Disclosure id="analysis-advanced" title={copy.ui1.analysis.advanced.title}>
-              <Region name="analysis-advanced" skeleton={<AdvancedSkeleton />} onRetry={reset(outreachKey, ...runKeys)}>
-                <AdvancedSection outreachId={outreachId} />
-              </Region>
-            </Disclosure>
-          </section>
-        )}
-      </EvidenceRendererProvider>
+          </Disclosure>
+        </section>
+      )}
     </div>
   );
 }
@@ -178,8 +200,8 @@ export function AnalysisTabSkeleton({ role = "owner" }: { role?: AnalysisRole })
     situation: <SituationSkeleton />,
     scores: <ScoresSkeleton />,
     "move-details": <MoveDetailsSkeleton />,
-    findings: <SkeletonLines lines={5} />,
-    conversations: <SkeletonLines lines={5} />,
+    findings: <FindingsSkeleton />,
+    conversations: <ConversationsSkeleton />,
     "full-output": <SkeletonLines lines={4} />,
   };
   return (

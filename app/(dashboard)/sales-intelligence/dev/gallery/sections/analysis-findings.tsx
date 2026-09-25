@@ -9,6 +9,7 @@ import { EvidenceInline, EvidenceInlineSkeleton, EvidenceList, type EvidenceView
 import { Conversations, ConversationsSkeleton, OtherCalls } from "@/components/sales-intelligence/outreach/analysis/conversations";
 import { TranscriptSkeleton, TranscriptView } from "@/components/sales-intelligence/outreach/analysis/transcript";
 import { AudioPlayer } from "@/components/sales-intelligence/outreach/analysis/audio-player";
+import { KitIdProvider } from "@/components/sales-intelligence/outreach/analysis/kit-id";
 import { copy } from "@/components/sales-intelligence/sales-intelligence-copy";
 import { AF_FIXTURES as F } from "./analysis-findings-fixtures";
 import { GallerySection, Sample, Subhead } from "./section";
@@ -88,7 +89,9 @@ export function AnalysisFindingsSection() {
           <Findings findings={[]} reason={null} truncated={false} asOf={findingsAsOf} />
         </Sample>
         <Sample label="truncated: true (synthetic)" copyKey="copy.ui1.analysis.findings.truncated">
-          <Findings findings={findings.slice(0, 1)} reason={null} truncated asOf={findingsAsOf} />
+          <KitIdProvider value="af-truncated-">
+            <Findings findings={findings.slice(0, 1)} reason={null} truncated asOf={findingsAsOf} />
+          </KitIdProvider>
         </Sample>
       </div>
 
@@ -172,8 +175,11 @@ export function AnalysisFindingsSection() {
 
       <Subhead>390 px</Subhead>
       <div className="si-gallery__frame" data-frame="390" data-af-sample="phone">
-        <Findings findings={findings.slice(0, 3)} reason={null} truncated={false} asOf={findingsAsOf} onAction={noop} showLookAgain />
-        <Conversations items={cards.slice(1, 2)} otherCalls={others} asOf={F.conversations.asOf!} renderTranscript={transcriptFor} openTranscripts={[transcript.conversation_id]} />
+        {/* The second copy of these samples on the page: prefixed ids (UI1-ANALYSIS-WIRE). */}
+        <KitIdProvider value="af-390-">
+          <Findings findings={findings.slice(0, 3)} reason={null} truncated={false} asOf={findingsAsOf} onAction={noop} showLookAgain />
+          <Conversations items={cards.slice(1, 2)} otherCalls={others} asOf={F.conversations.asOf!} renderTranscript={transcriptFor} openTranscripts={[transcript.conversation_id]} />
+        </KitIdProvider>
       </div>
     </GallerySection>
   );

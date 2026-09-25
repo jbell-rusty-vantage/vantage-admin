@@ -1,80 +1,51 @@
 "use client";
 /**
- * UI1-TOP: `View evidence ({n})` for the analysis kit (final spec §11.6). The button toggles an inline block under the
- * cited item. What the block shows is UI1-FIND's `evidence-inline.tsx`: the frame passes it in as `renderEvidence`
- * (a context, so every section reaches it without prop drilling). Until then a small fallback lists the cited items'
- * server labels and text, read from the same evidence routes.
+ * UI1-TOP + UI1-ANALYSIS-WIRE: `View evidence ({n})` for the sections whose citations are refs into another read
+ * (Situation, Scores, the next-step strip, Move details; final spec §11.6). It is UI1-FIND's `EvidenceToggle`: the
+ * same button and the same inline block as a finding's evidence. The first open reads the cited evidence (the
+ * assessment version's `GET assessments/:id/evidence`, or the run's presentation) in its own region and prints each
+ * ref in its §11.6 shape through `EvidenceList`; a ref with no served item prints the unavailable sentence.
  */
-import { createContext, useContext, useId, useState, type ReactNode } from "react";
-import type { EvidenceItem, EvidenceRef } from "@/lib/api/salesIntelligenceAssessment";
-import { evidenceAvailabilityText, evidenceKindText } from "@/lib/api/salesIntelligenceAssessment";
+import type { EvidenceRef } from "@/lib/api/salesIntelligenceAssessment";
 import { useAssessmentEvidence } from "../../data/use-assessment";
 import { useRunPresentation } from "../../data/use-run";
-import { Button } from "../../atoms/button";
-import { assessmentCopy } from "../../evidence-chain-copy";
-import { copy } from "../../sales-intelligence-copy";
-import { Region, SkeletonLines } from "../../primitives";
+import { Region } from "../../primitives";
+import { EvidenceInlineSkeleton, EvidenceList, EvidenceToggle, resolveEvidenceRefs, type EvidenceView } from "./evidence-inline";
 
 /** What a citation points at: an assessment version's evidence, or a run presentation's evidence. `ids` are the refs' ids. */
 export type EvidenceTarget =
   | { source: "assessment"; artifactId: string; ids: string[]; label: string }
   | { source: "run"; runId: string; ids: string[]; label: string };
-export type EvidenceRenderer = (target: EvidenceTarget) => ReactNode;
-
-const EvidenceRendererContext = createContext<EvidenceRenderer | null>(null);
-export const EvidenceRendererProvider = EvidenceRendererContext.Provider;
 
 export const refIds = (refs: readonly Pick<EvidenceRef, "id">[]) => [...new Set(refs.map((ref) => ref.id))];
 
-/**
- * `View evidence ({n})`, or `No evidence cited` when nothing is cited or the owner of the evidence is unknown
- * (`target: null`, for example the Lead-only table). `missing` prints the RD11 sentence instead of the plain empty.
- */
-export function ViewEvidence({ target, missingText }: { target: EvidenceTarget | null; missingText?: string }) {
-  const [open, setOpen] = useState(false);
-  const panelId = useId();
-  const render = useContext(EvidenceRendererContext);
-  if (!target || !target.ids.length) return <span className="si-text--subtle si-text--sm si-cite--none">{missingText ?? assessmentCopy.noEvidence}</span>;
-  const label = assessmentCopy.viewEvidence(target.ids.length);
-  return (
-    <span className="si-cite">
-      <Button variant="link" size="sm" className="si-link si-hit si-cite__btn" aria-expanded={open} aria-controls={panelId} aria-label={`${open ? copy.ui1.analysis.frame.hideEvidence : label}: ${target.label}`} onClick={() => setOpen((v) => !v)}>
-        {open ? copy.ui1.analysis.frame.hideEvidence : label}
-      </Button>
-      <span id={panelId} className="si-cite__panel" hidden={!open}>
-        {open && (render ? render(target) : <Region name="analysis-evidence" skeleton={<SkeletonLines lines={2} />}><FallbackEvidence target={target} /></Region>)}
-      </span>
-    </span>
-  );
-}
-
-function EvidenceList({ items, ids }: { items: readonly EvidenceItem[]; ids: string[] }) {
-  const wanted = new Set(ids);
-  const cited = items.filter((item) => wanted.has(item.id));
-  if (!cited.length) return <span className="si-text--subtle si-text--sm">{assessmentCopy.noEvidence}</span>;
-  return (
-    <ul className="si-cite__list">
-      {cited.map((item) => (
-        <li key={item.id} className="si-cite__item" data-evidence={item.id}>
-          <strong>{item.source_label ?? item.record_label ?? evidenceKindText(item.kind)}</strong>
-          {item.speaker_label && <span className="si-text--subtle"> · {item.speaker_label}</span>}
-          <span className="si-cite__text">
-            {item.quote ?? item.text ?? (item.availability !== "retained" && item.availability !== "ready" ? evidenceAvailabilityText(item.availability) : copy.ui1.analysis.frame.evidenceNoText)}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
+/** The cited items in ref order; an id the read doesn't serve becomes an unavailable line (never dropped silently). */
+const cited = (ids: readonly string[], items: readonly EvidenceView[]) => resolveEvidenceRefs(ids.map((id) => ({ id, kind: "unknown" })), items);
 
 function AssessmentEvidence({ artifactId, ids }: { artifactId: string; ids: string[] }) {
-  const { evidence } = useAssessmentEvidence(artifactId);
-  return <EvidenceList items={evidence.items} ids={ids} />;
+  const { evidence, data } = useAssessmentEvidence(artifactId);
+  return <EvidenceList items={cited(ids, evidence.items as EvidenceView[])} asOf={data.as_of ?? ""} />;
 }
 function RunEvidence({ runId, ids }: { runId: string; ids: string[] }) {
-  const { presentation } = useRunPresentation(runId);
-  return <EvidenceList items={presentation.evidence.items} ids={ids} />;
+  const { presentation, data } = useRunPresentation(runId);
+  return <EvidenceList items={cited(ids, presentation.evidence.items as EvidenceView[])} asOf={data.as_of ?? ""} />;
 }
-function FallbackEvidence({ target }: { target: EvidenceTarget }) {
-  return target.source === "assessment" ? <AssessmentEvidence artifactId={target.artifactId} ids={target.ids} /> : <RunEvidence runId={target.runId} ids={target.ids} />;
+
+/**
+ * `View evidence ({n})`, or `No evidence cited` when nothing is cited or the owner of the evidence is unknown
+ * (`target: null`, for example the Lead-only table). `shouldCite` (the server's `evidence_missing`) prints
+ * `This score should cite evidence and does not.` instead of the plain empty sentence.
+ */
+export function ViewEvidence({ target, shouldCite = false }: { target: EvidenceTarget | null; shouldCite?: boolean }) {
+  return (
+    <EvidenceToggle count={target?.ids.length ?? 0} shouldCite={shouldCite} context={target?.label} inline className="si-cite">
+      {() =>
+        target && (
+          <Region name="analysis-evidence" skeleton={<EvidenceInlineSkeleton />}>
+            {target.source === "assessment" ? <AssessmentEvidence artifactId={target.artifactId} ids={target.ids} /> : <RunEvidence runId={target.runId} ids={target.ids} />}
+          </Region>
+        )
+      }
+    </EvidenceToggle>
+  );
 }

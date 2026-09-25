@@ -14,23 +14,31 @@ import { AnalysisCommand, type AnalysisAction } from "../../analysis-command";
 import { Button } from "../../atoms/button";
 import { copy } from "../../sales-intelligence-copy";
 import { Region, RegionProgress, SkeletonLines, TimeText } from "../../primitives";
+import { useKitId } from "./kit-id";
 
 const t = copy.ui1.analysis.advanced;
 const SEP = " · ";
 
-function RunCommandBody({ runId, action, focus, onClose }: { runId: string; action: AnalysisAction; focus?: AnalysisFinding; onClose: () => void }) {
+const RERUN: readonly AnalysisAction[] = ["original_evidence", "current_context"];
+
+function RunCommandBody({ runId, action, findingId, onClose }: { runId: string; action: AnalysisAction; findingId?: string; onClose: () => void }) {
   const { run } = useRun(runId);
-  return <AnalysisCommand run={run} action={action} focus={focus} onClose={onClose} />;
+  const target: AnalysisFinding | undefined = findingId ? run.findings.find((item) => item.id === findingId) : undefined;
+  // A finding the run detail no longer lists has nothing to act on: no dialog.
+  if (findingId && !target) return null;
+  // A reanalysis is scoped to the finding (`focus`, UX27 `Look again`); a review command acts on it (`finding`).
+  return RERUN.includes(action) ? <AnalysisCommand run={run} action={action} focus={target} onClose={onClose} /> : <AnalysisCommand run={run} action={action} finding={target} onClose={onClose} />;
 }
 
 /**
- * Opens the kept command dialog for one run, reading the run detail first (`GET analysis-runs/:id`, Owner only).
- * Exported for `Apply` (next step) and `Look again` (UI1-FIND: `action="current_context"` with `focus`).
+ * The one path to the kept command dialog for a run: reads the run detail first (`GET analysis-runs/:id`, Owner only),
+ * then opens `AnalysisCommand`. Used by `Apply` (next step), the Findings review actions (`findingId` +
+ * `confirm_finding` / `correct_finding` / `retract_finding`) and `Look again` (`findingId` + `current_context`).
  */
-export function RunCommand({ runId, action, focus, onClose }: { runId: string; action: AnalysisAction; focus?: AnalysisFinding; onClose: () => void }) {
+export function RunCommand({ runId, action, findingId, onClose }: { runId: string; action: AnalysisAction; findingId?: string; onClose: () => void }) {
   return (
     <Region name="analysis-command" skeleton={<SkeletonLines lines={1} />}>
-      <RunCommandBody runId={runId} action={action} focus={focus} onClose={onClose} />
+      <RunCommandBody runId={runId} action={action} findingId={findingId} onClose={onClose} />
     </Region>
   );
 }
@@ -40,18 +48,20 @@ const modeWord = (mode: string) => t.mode[mode] ?? mode;
 
 /** Presentational Advanced body: the run detail in, `onCommand` out (the section opens the dialog). */
 export function Advanced({ run, asOf, onCommand }: { run: Analysis | null; asOf: string; onCommand?: (action: AnalysisAction) => void }) {
+  const kid = useKitId();
   if (!run) return <p className="si-text--subtle" data-empty="no-run">{copy.ui1.analysis.situation.none}</p>;
   const originalGone = !run.original_evidence_available;
+  const goneId = kid(`si-adv-gone-${run.id}`);
   return (
     <div className="si-advanced" data-run={run.id}>
       <p className="si-advanced__paid">{t.paid}</p>
       <div className="si-advanced__actions">
         <span className="si-advanced__action">
-          <Button variant="secondary" size="sm" className="si-hit" disabled={originalGone || !onCommand} aria-describedby={originalGone ? `si-adv-gone-${run.id}` : undefined}
+          <Button variant="secondary" size="sm" className="si-hit" disabled={originalGone || !onCommand} aria-describedby={originalGone ? goneId : undefined}
             onClick={() => onCommand?.("original_evidence")}>
             {t.reanalyzeOriginal}
           </Button>
-          {originalGone && <span id={`si-adv-gone-${run.id}`} className="si-text--sm si-text--subtle">{t.originalGone}</span>}
+          {originalGone && <span id={goneId} className="si-text--sm si-text--subtle">{t.originalGone}</span>}
         </span>
         <span className="si-advanced__action">
           <Button variant="secondary" size="sm" className="si-hit" disabled={!onCommand} onClick={() => onCommand?.("current_context")}>

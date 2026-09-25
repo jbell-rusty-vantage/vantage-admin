@@ -237,7 +237,7 @@ test("AnalysisTab (Owner): the sticky sub-nav in the fixed order, every region f
   assert.ok(t.includes("Records disputed on a call (1)"));
   assert.ok(t.includes("Suggested next step (not applied)"));
   assert.ok(html.includes('data-slot="findings" data-run="6ab448740705ca95222b4b5f" data-number="6ab448740705ca95222b4b0c"'), "slot context from the detail");
-  assert.ok(html.includes('data-slot-pending="conversations"'), "no renderConversations → placeholder");
+  assert.ok(html.includes('id="conversations"') && !html.includes("data-slot-pending"), "no renderConversations → CONV's section (UI1-ANALYSIS-WIRE), never a placeholder");
   assert.ok(t.includes("This starts a paid analysis."));
   assert.ok(html.includes('class="si-analysis"'));
 });

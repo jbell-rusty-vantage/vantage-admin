@@ -11,16 +11,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState, useTransition, type ReactNode } from "react";
 import type { CurrentFinding } from "@/lib/api/salesIntelligenceAnalysis";
 import type { SummaryFindingsSection } from "@/lib/api/salesIntelligenceAssessment";
-import { AnalysisCommand, type AnalysisAction } from "../../analysis-command";
+import type { AnalysisAction } from "../../analysis-command";
 import { Button } from "../../atoms/button";
 import { useFindings } from "../../data/use-findings";
-import { useRun, useRunPresentation } from "../../data/use-run";
+import { useRunPresentation } from "../../data/use-run";
 import { siKeys } from "../../data/query-keys";
 import { Chip, Disclosure, Region, RegionProgress, SkeletonLines } from "../../primitives";
 import { copy } from "../../sales-intelligence-copy";
 import { cx } from "../../lib/format";
 import { formatExact, formatExactFull } from "../../lib/time";
+import { RunCommand } from "./advanced";
 import { EvidenceInline, resolveEvidenceRefs, type EvidenceView } from "./evidence-inline";
+import { useKitId } from "./kit-id";
 
 const f = copy.ui1.analysis.findings;
 
@@ -107,10 +109,11 @@ export type FindingBlockProps = {
 };
 
 export function FindingBlock({ finding, asOf, onAction, showLookAgain = false, evidenceOpen = false, onPage = () => false }: FindingBlockProps) {
+  const kid = useKitId();
   const later = finding.work_result === "superseded" ? finding.superseded_by ?? finding.work_result_detail : null;
   const replacedBy = later && onPage(later) ? later : null;
   return (
-    <article id={findingAnchor(finding.id)} className={cx("si-finding", finding.review_state === "retracted" && "is-retracted", finding.superseded_by && "is-replaced")} data-finding={finding.id} data-kind={finding.kind} data-work-result={finding.work_result}>
+    <article id={kid(findingAnchor(finding.id))} className={cx("si-finding", finding.review_state === "retracted" && "is-retracted", finding.superseded_by && "is-replaced")} data-finding={finding.id} data-kind={finding.kind} data-work-result={finding.work_result}>
       <p className="si-finding__head">
         <span className="si-finding__claim">{finding.claim}</span>
         <span className="si-finding__source">
@@ -132,19 +135,20 @@ export function FindingBlock({ finding, asOf, onAction, showLookAgain = false, e
         {replacedBy ? (
           <>
             {" · "}
-            <a className="si-finding__link" href={`#${findingAnchor(replacedBy)}`}>
+            <a className="si-finding__link" href={`#${kid(findingAnchor(replacedBy))}`}>
               {f.openLater}
             </a>
           </>
         ) : null}
       </p>
-      <EvidenceInline items={finding.evidence as EvidenceView[]} asOf={asOf} defaultOpen={evidenceOpen} />
+      <EvidenceInline items={finding.evidence as EvidenceView[]} asOf={asOf} defaultOpen={evidenceOpen} context={finding.claim} />
       <ReviewActions finding={finding} onAction={onAction} showLookAgain={showLookAgain} />
     </article>
   );
 }
 
 function RelationRow({ relation, evidence, asOf, reviewHref, onPage }: { relation: PriorRelation; evidence: readonly EvidenceView[]; asOf: string; reviewHref?: (id: string) => string; onPage: (id: string) => boolean }) {
+  const kid = useKitId();
   const items = resolveEvidenceRefs(relation.evidence, evidence);
   return (
     <li className="si-change" data-relation={relation.relation} data-prior={relation.prior_finding_id}>
@@ -156,7 +160,7 @@ function RelationRow({ relation, evidence, asOf, reviewHref, onPage }: { relatio
           <>
             {" · "}
             {relation.by_finding_id && onPage(relation.by_finding_id) ? (
-              <a className="si-finding__link" href={`#${findingAnchor(relation.by_finding_id)}`}>
+              <a className="si-finding__link" href={`#${kid(findingAnchor(relation.by_finding_id))}`}>
                 {relation.by_claim}
               </a>
             ) : (
@@ -171,20 +175,22 @@ function RelationRow({ relation, evidence, asOf, reviewHref, onPage }: { relatio
           {f.changes.openReview}
         </a>
       ) : null}
-      <EvidenceInline items={items} asOf={asOf} />
+      <EvidenceInline items={items} asOf={asOf} context={relation.prior_claim} />
     </li>
   );
 }
 
 /** `Changes since the last analysis ({n})`: changed rows in view, `still_true` / `cannot_determine` in a disclosure. */
 export function ChangesSinceLast({ relations, evidence = [], asOf, reviewHref, onPage = () => false }: { relations: readonly PriorRelation[]; evidence?: readonly EvidenceView[]; asOf: string; reviewHref?: (id: string) => string; onPage?: (id: string) => boolean }) {
+  const kid = useKitId();
   if (relations.length === 0) return null;
+  const titleId = kid("si-changes-title");
   const changed = relations.filter((r) => r.group !== "unchanged");
   const unchanged = relations.filter((r) => r.group === "unchanged");
   const row = (relation: PriorRelation) => <RelationRow key={relation.prior_finding_id} relation={relation} evidence={evidence} asOf={asOf} reviewHref={reviewHref} onPage={onPage} />;
   return (
-    <section className="si-changes" aria-labelledby="si-changes-title">
-      <h4 id="si-changes-title" className="si-heading si-heading--4">{f.changes.title(relations.length)}</h4>
+    <section className="si-changes" aria-labelledby={titleId}>
+      <h4 id={titleId} className="si-heading si-heading--4">{f.changes.title(relations.length)}</h4>
       {changed.length > 0 && <ul className="si-changes__list">{changed.map(row)}</ul>}
       {unchanged.length > 0 && (
         <Disclosure id="si-changes-unchanged" title={f.changes.unchanged(unchanged.length)}>
@@ -238,6 +244,7 @@ export type FindingsProps = {
 
 /** Presentational Findings (UX15: props in, no role read). */
 export function Findings({ findings, reason, truncated, asOf, relations = [], relationEvidence = [], instructionAssessments = [], onAction, showLookAgain = false, reviewHref, replaced, openEvidence = [] }: FindingsProps) {
+  const kid = useKitId();
   const groups = groupFindings(findings);
   const ids = new Set(findings.map((finding) => finding.id));
   const onPage = (id: string) => ids.has(id);
@@ -248,8 +255,8 @@ export function Findings({ findings, reason, truncated, asOf, relations = [], re
         <p className="si-findings__empty" data-reason={reason ?? "none"}>{(reason && f.reason[reason]) || f.none}</p>
       ) : (
         groups.map((group) => (
-          <section key={group.category} className="si-findings__group" data-category={group.category} aria-labelledby={`si-findings-${group.category}`}>
-            <h4 id={`si-findings-${group.category}`} className="si-heading si-heading--4 si-findings__head">{f.category(group.label, group.items.length)}</h4>
+          <section key={group.category} className="si-findings__group" data-category={group.category} aria-labelledby={kid(`si-findings-${group.category}`)}>
+            <h4 id={kid(`si-findings-${group.category}`)} className="si-heading si-heading--4 si-findings__head">{f.category(group.label, group.items.length)}</h4>
             {group.items.map((finding) => (
               <FindingBlock key={finding.id} finding={finding} asOf={asOf} onAction={onAction} showLookAgain={showLookAgain} evidenceOpen={openEvidence.includes(finding.id)} onPage={onPage} />
             ))}
@@ -273,18 +280,6 @@ export function Findings({ findings, reason, truncated, asOf, relations = [], re
 type Command = { finding: CurrentFinding; action: FindingAction };
 
 const commandAction = (action: FindingAction): AnalysisAction => (action === "look_again" ? "current_context" : action);
-
-/** Loads the finding's run (Owner read) and opens the kept `AnalysisCommand` dialog on it. */
-function FindingCommandHost({ command, onClose }: { command: Command; onClose: () => void }) {
-  const { run } = useRun(command.finding.run_id);
-  const target = run.findings.find((item) => item.id === command.finding.id);
-  if (!target) return null;
-  return command.action === "look_again" ? (
-    <AnalysisCommand run={run} focus={target} action={commandAction(command.action)} onClose={onClose} />
-  ) : (
-    <AnalysisCommand run={run} finding={target} action={commandAction(command.action)} onClose={onClose} />
-  );
-}
 
 function FindingsLoaded({ outreachId, includeSuperseded, children }: { outreachId: string; includeSuperseded: boolean; children: (read: ReturnType<typeof useFindings>) => ReactNode }) {
   return <>{children(useFindings(outreachId, { includeSuperseded }))}</>;
@@ -329,11 +324,7 @@ export function FindingsSection({ outreachId, newestRunId, showLookAgain = false
           {(read) => (newestRunId ? <WithPresentation runId={newestRunId}>{(presentation) => render(read, presentation)}</WithPresentation> : render(read))}
         </FindingsLoaded>
       </Region>
-      {command && (
-        <Region name="finding-command" skeleton={null}>
-          <FindingCommandHost command={command} onClose={() => setCommand(null)} />
-        </Region>
-      )}
+      {command && <RunCommand runId={command.finding.run_id} action={commandAction(command.action)} findingId={command.finding.id} onClose={() => setCommand(null)} />}
     </>
   );
 }

@@ -54,7 +54,7 @@ function ScoreCard({ name, score, section }: { name: ScoreName; score: Score; se
       )}
       <ViewEvidence
         target={section.artifact_id ? { source: "assessment", artifactId: section.artifact_id, ids: refIds(score.evidence), label: title } : null}
-        missingText={score.evidence_missing ? t.evidenceMissing : undefined}
+        shouldCite={score.evidence_missing}
       />
     </article>
   );

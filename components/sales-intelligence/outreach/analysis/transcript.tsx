@@ -13,6 +13,7 @@ import { SkeletonLines } from "../../primitives";
 import { copy } from "../../sales-intelligence-copy";
 import { cx } from "../../lib/format";
 import { formatExactFull } from "../../lib/time";
+import { useKitPrefix } from "./kit-id";
 
 const tr = copy.ui1.analysis.transcript;
 
@@ -106,6 +107,7 @@ export type TranscriptViewProps = {
 };
 
 export function TranscriptView({ conversationId, segments, available, missingRanges, hasMore, loadingMore = false, moreFailed = false, onLoadMore, highlight = [] }: TranscriptViewProps) {
+  const prefix = useKitPrefix();
   const marked = new Set(highlight);
   const before = missingRanges.filter((r) => r.startsWith("segments_before"));
   const after = missingRanges.filter((r) => !r.startsWith("segments_before"));
@@ -126,7 +128,7 @@ export function TranscriptView({ conversationId, segments, available, missingRan
             const sid = String(segment.sid);
             const exact = segment.at ? formatExactFull(segment.at) : null;
             return (
-              <li key={sid} id={segmentAnchor(conversationId, sid)} className={cx("si-transcript__turn", marked.has(sid) && "is-highlighted")} data-sid={sid} data-speaker={segment.speaker}>
+              <li key={sid} id={prefix + segmentAnchor(conversationId, sid)} className={cx("si-transcript__turn", marked.has(sid) && "is-highlighted")} data-sid={sid} data-speaker={segment.speaker}>
                 <span className="si-transcript__who">
                   <span className="si-transcript__speaker">{segment.speaker_label}</span>
                   {segment.start_ms != null && (
@@ -162,6 +164,7 @@ export function TranscriptView({ conversationId, segments, available, missingRan
 /** Reads the transcript (suspense) and follows the `Open in transcript` target for this conversation. */
 export function Transcript({ conversationId }: { conversationId: string }) {
   const query = useTranscript(conversationId);
+  const prefix = useKitPrefix();
   const target = useTranscriptTarget();
   const mine = target && target.highlight && target.conversationId === conversationId ? target : null;
   const { segments, hasNextPage, isFetchingNextPage, fetchNextPage, isFetchNextPageError } = query;
@@ -175,12 +178,12 @@ export function Transcript({ conversationId }: { conversationId: string }) {
   // Scroll to the first cited segment, then let the highlight fade.
   useEffect(() => {
     if (!mine || !loaded) return;
-    const first = mine.sids.map((sid) => document.getElementById(segmentAnchor(conversationId, sid))).find(Boolean);
+    const first = mine.sids.map((sid) => document.getElementById(prefix + segmentAnchor(conversationId, sid))).find(Boolean);
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     first?.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
     const timer = window.setTimeout(() => clearTranscriptTarget(mine.seq), HIGHLIGHT_MS);
     return () => window.clearTimeout(timer);
-  }, [mine, loaded, conversationId]);
+  }, [mine, loaded, conversationId, prefix]);
 
   return (
     <TranscriptView

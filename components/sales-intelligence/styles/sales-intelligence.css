@@ -1518,3 +1518,12 @@
   .si-movetable tbody td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 600; color: var(--si-ink-3); }
   .si-analysis .si-fields__row, .si-analysis .si-out__row { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* UI-1: ANALYSIS-WIRE (one `View evidence` toggle across the kit; the `?event=` timeline row; final spec §11.6, §10) */
+.si-evidence--inline { display: inline-flex; vertical-align: top; max-width: 100%; }
+.si-evidence--inline > .si-evidence__panel { display: block; width: 100%; }
+.si-evidence--inline > .si-evidence__panel[hidden] { display: none; }
+span.si-evidence__none { display: inline-flex; align-items: center; min-height: 32px; }
+.si-timeline__row { scroll-margin-top: calc(var(--si-sticky-top, 0px) + 72px); transition: background-color 0.6s ease; border-radius: var(--si-r); }
+.si-timeline__row.is-targeted { background: var(--si-blue-tint); box-shadow: inset 3px 0 0 var(--si-blue); }
+@media (prefers-reduced-motion: reduce) { .si-timeline__row { transition: none; } }

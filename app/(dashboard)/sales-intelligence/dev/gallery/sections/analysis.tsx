@@ -1,14 +1,18 @@
 "use client";
 
-import { outreachReadSchema } from "@/lib/api/salesIntelligence";
-import { outreachAssessmentReadSchema, runPresentationReadSchema } from "@/lib/api/salesIntelligenceAssessment";
-import { analysisSchema } from "@/lib/api/salesIntelligenceAnalysis";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
+import { conversationsSchema, outreachReadSchema } from "@/lib/api/salesIntelligence";
+import { evidenceReadSchema, outreachAssessmentReadSchema, runPresentationReadSchema } from "@/lib/api/salesIntelligenceAssessment";
+import { analysisSchema, currentFindingsSchema } from "@/lib/api/salesIntelligenceAnalysis";
+import { siKeys } from "@/components/sales-intelligence/data/query-keys";
 import {
-  Advanced, AnalysisTabSkeleton, MoveDetails, MoveDetailsSkeleton, NextStep, NextStepSkeleton, Scores, ScoresSkeleton, Situation, SituationSkeleton,
+  Advanced, AnalysisTab, AnalysisTabSkeleton, MoveDetails, MoveDetailsSkeleton, NextStep, NextStepSkeleton, Scores, ScoresSkeleton, Situation, SituationSkeleton,
 } from "@/components/sales-intelligence/outreach/analysis";
 import { Disclosure } from "@/components/sales-intelligence/primitives";
 import { copy } from "@/components/sales-intelligence/sales-intelligence-copy";
 import { ANALYSIS_FIXTURES } from "./analysis-fixtures";
+import { ANALYSIS_TAB_FIXTURES as TAB } from "./analysis-tab-fixtures";
 import { GallerySection, Sample, Subhead } from "./section";
 
 // UI1-TOP / UI1-MOVE: the analysis kit's top half and Move details, every state from the S3 fixtures. Labels are the
@@ -31,6 +35,44 @@ export const SCORE_SAMPLES = [
   { id: "not_applicable", key: "assessNotApplicable", priorityLabel: "CRM bad/unusable" },
   { id: "stale", key: "assessStale" },
 ] as const;
+
+/**
+ * UI1-ANALYSIS-WIRE: a gallery-only query cache primed with every read the joined tab makes for the s-findings record
+ * (detail, assessment, findings, the newest run's presentation and detail, the Number's conversations, the assessment
+ * evidence). Nothing goes stale, so the tab renders from the fixtures without a request; opening a transcript still reads.
+ */
+export function analysisTabClient(): { client: QueryClient; outreachId: string } {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity, refetchOnWindowFocus: false } } });
+  const detail = outreachReadSchema.parse(TAB.outreach.body);
+  const id = detail.data.outreach.id;
+  const runId = detail.data.outreach.newest_run_id!;
+  const numberId = detail.data.outreach.primary_number!.id;
+  const assessmentRead = outreachAssessmentReadSchema.parse(TAB.assessment.body);
+  client.setQueryData(siKeys.outreach(id), detail);
+  client.setQueryData(siKeys.assessment(id), assessmentRead);
+  client.setQueryData(siKeys.findings(id, false), currentFindingsSchema.parse(TAB.findings.body));
+  client.setQueryData(siKeys.analysisPresentation(runId), runPresentationReadSchema.parse(TAB.presentation.body));
+  client.setQueryData(siKeys.analysisRun(runId), analysisSchema.parse(TAB.run.body));
+  client.setQueryData(siKeys.conversations(numberId), { pages: [conversationsSchema.parse(TAB.conversations.body)], pageParams: [null] });
+  const artifactId = assessmentRead.data.current?.artifact_id;
+  if (artifactId) client.setQueryData(siKeys.assessmentEvidence(artifactId), evidenceReadSchema.parse(TAB.assessmentEvidence.body));
+  return { client, outreachId: id };
+}
+
+/** The joined Analysis tab (TOP + MOVE + FIND + CONV) from the fixtures, wide and in the 390 px frame (prefixed ids). */
+function JoinedTab() {
+  const [{ client, outreachId }] = useState(analysisTabClient);
+  return (
+    <QueryClientProvider client={client}>
+      <Sample label="AnalysisTab (Owner) · s-findings" copyKey={Object.values(TAB).map((entry) => entry.source).join(" · ")} wide>
+        <AnalysisTab outreachId={outreachId} role="owner" cardLines={false} idPrefix="gallery-tab-" />
+      </Sample>
+      <div className="si-gallery__frame" data-frame="390">
+        <AnalysisTab outreachId={outreachId} role="owner" cardLines={false} idPrefix="gallery-tab-390-" />
+      </div>
+    </QueryClientProvider>
+  );
+}
 
 export function AnalysisSection() {
   const findings = outreach("outreachFindings");
@@ -98,6 +140,11 @@ export function AnalysisSection() {
               <Advanced run={run("runRun3")} asOf={findings.as_of} onCommand={noop} />
             </Disclosure>
           </Sample>
+        </div>
+
+        <Subhead>{a.frame.sections.findings} · {a.frame.sections.conversations}</Subhead>
+        <div className="si-gallery__body" data-analysis-sample="joined-tab">
+          <JoinedTab />
         </div>
 
         <Subhead>{copy.ui1.prim.loading}</Subhead>

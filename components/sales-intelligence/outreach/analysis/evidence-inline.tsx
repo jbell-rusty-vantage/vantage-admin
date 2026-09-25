@@ -8,7 +8,7 @@
  * when the caller passes the server's `evidence_missing` (or a level above `unknown`) as `shouldCite`.
  */
 import { FileSearch } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { SkeletonLines } from "../../primitives";
 import { copy } from "../../sales-intelligence-copy";
 import { cx } from "../../lib/format";
@@ -211,26 +211,57 @@ export function EvidenceList({ items, asOf }: { items: readonly EvidenceView[]; 
   );
 }
 
+export type EvidenceToggleProps = {
+  /** How many citations the toggle names (`View evidence ({n})`). 0 prints the empty sentence instead. */
+  count: number;
+  /** The panel body, rendered only while open (so a lazy read starts on the first open). */
+  children: () => ReactNode;
+  shouldCite?: boolean;
+  defaultOpen?: boolean;
+  /** What is cited (a claim, a score): appended to the toggle's accessible name. */
+  context?: string;
+  /** Inside a line or a table cell: `span` wrappers instead of `div` / `p`. */
+  inline?: boolean;
+  /** Keep the (hidden) body rendered while closed: served items, no read to defer. */
+  eager?: boolean;
+  className?: string;
+};
+
 /**
- * `View evidence ({n})` + the inline block. `shouldCite` is the server's signal that this claim needed a citation
- * (`evidence_missing`, or a score level above `unknown`); it only changes the empty sentence.
+ * The one `View evidence ({n})` toggle of the analysis kit: Findings pass their served items (`EvidenceInline`), the
+ * other sections pass a lazy read of the cited evidence (`ViewEvidence` in `cite.tsx`). Both open the same block.
  */
-export function EvidenceInline({ items, asOf, shouldCite = false, defaultOpen = false, className }: { items: readonly EvidenceView[]; asOf: string; shouldCite?: boolean; defaultOpen?: boolean; className?: string }) {
+export function EvidenceToggle({ count, children, shouldCite = false, defaultOpen = false, context, inline = false, eager = false, className }: EvidenceToggleProps) {
   const panelId = useId();
   const [open, setOpen] = useState(defaultOpen);
-  if (items.length === 0) {
-    return <p className={cx("si-evidence__none", className)} data-evidence-none={shouldCite ? "should-cite" : "none"}>{shouldCite ? e.shouldCite : e.none}</p>;
+  const Wrap = inline ? "span" : "div";
+  if (count === 0) {
+    const None = inline ? "span" : "p";
+    return <None className={cx("si-evidence__none", className)} data-evidence-none={shouldCite ? "should-cite" : "none"}>{shouldCite ? e.shouldCite : e.none}</None>;
   }
+  const word = open ? e.hide(count) : e.view(count);
   return (
-    <div className={cx("si-evidence", open && "is-open", className)}>
-      <button type="button" className="si-evidence__toggle si-hit" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(!open)}>
+    <Wrap className={cx("si-evidence", inline && "si-evidence--inline", open && "is-open", className)}>
+      <button type="button" className="si-evidence__toggle si-hit" aria-expanded={open} aria-controls={panelId} aria-label={context ? `${word}: ${context}` : undefined} onClick={() => setOpen(!open)}>
         <FileSearch size={14} aria-hidden />
-        <span>{open ? e.hide(items.length) : e.view(items.length)}</span>
+        <span>{word}</span>
       </button>
-      <div id={panelId} className="si-evidence__panel" hidden={!open}>
-        <EvidenceList items={items} asOf={asOf} />
-      </div>
-    </div>
+      <Wrap id={panelId} className="si-evidence__panel" hidden={!open}>
+        {open || eager ? children() : null}
+      </Wrap>
+    </Wrap>
+  );
+}
+
+/**
+ * `View evidence ({n})` + the inline block for items already served. `shouldCite` is the server's signal that this
+ * claim needed a citation (`evidence_missing`, or a score level above `unknown`); it only changes the empty sentence.
+ */
+export function EvidenceInline({ items, asOf, shouldCite = false, defaultOpen = false, context, inline, className }: { items: readonly EvidenceView[]; asOf: string; shouldCite?: boolean; defaultOpen?: boolean; context?: string; inline?: boolean; className?: string }) {
+  return (
+    <EvidenceToggle count={items.length} shouldCite={shouldCite} defaultOpen={defaultOpen} context={context} inline={inline} eager className={className}>
+      {() => <EvidenceList items={items} asOf={asOf} />}
+    </EvidenceToggle>
   );
 }
 

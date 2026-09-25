@@ -4,8 +4,9 @@
  * to the desk (honouring `si_return`), the live indicator with `Refresh` (`HeaderLive`, UI1-LIVE). Then the record
  * header in its own region, and the tabs `Analysis · Timeline · Work` (`?tab=`, default Analysis) as route links.
  *
- * Slots: `analysis` (the analysis kit, later stages; until then the six section titles over skeleton lines, with the
- * anchors `#situation` … `#full-output` so old deep links land) and `timeline` (default `<Timeline scope="outreach"/>`).
+ * Slots: `analysis` (default: the analysis kit, `<AnalysisTab role="owner" cardLines={false}/>` in its own region, with
+ * `AnalysisTabSkeleton` while it loads; its anchors `#situation` … `#full-output` are where old deep links land) and
+ * `timeline` (default `<Timeline scope="outreach"/>`).
  * Page states (final spec §11.9): a 404 on the detail read replaces the page body with `This Outreach doesn't exist or
  * was removed.`; any other failure stays inside the failing region.
  */
@@ -16,9 +17,10 @@ import type { ReactNode } from "react";
 import { HeaderLive } from "../data/live";
 import { siKeys } from "../data/query-keys";
 import { readOutreach } from "../data/use-outreach";
-import { RouteTabs, type RouteTab } from "../primitives";
+import { Region, RouteTabs, type RouteTab } from "../primitives";
 import { copy } from "../sales-intelligence-copy";
 import { Timeline } from "../timeline";
+import { AnalysisTab, AnalysisTabSkeleton } from "./analysis";
 import { OUTREACH_TABS, backHref, outreachRouteHref, parseOutreachTab, validReturn, type OutreachTab } from "./deep-links";
 import { AnalysisSectionsSkeleton, OutreachNotFound, isNotFoundError } from "./page-states";
 import { RecordHeader } from "./record-header";
@@ -34,7 +36,7 @@ export type OutreachPageProps = {
   run?: string | null;
   /** `?si_return=`: where the back link goes. Only a `/sales-intelligence…` path counts. */
   siReturn?: string | null;
-  /** The analysis kit (UI1-TOP / MOVE / FIND / CONV). Until it lands, the section titles over skeleton lines. */
+  /** Overrides the analysis tab (default: the analysis kit, UI1-TOP / MOVE / FIND / CONV, wired by UI1-ANALYSIS-WIRE). */
   analysis?: ReactNode;
   /** Defaults to the outreach-scope Timeline (UI1-TL). */
   timeline?: ReactNode;
@@ -103,7 +105,13 @@ export function OutreachPage({ id, tab, run, siReturn, analysis, timeline }: Out
   let content: ReactNode;
   if (active === "timeline") content = timeline ?? <Timeline scope="outreach" id={id} />;
   else if (active === "work") content = <WorkTab id={id} returnTo={returnTo} />;
-  else content = analysis ?? <AnalysisPlaceholder run={run} />;
+  else
+    content = analysis ?? (
+      <Region name="outreach-analysis" skeleton={<AnalysisTabSkeleton />}>
+        {/* The record header already shows the card's lines 1–4 and 7, so Situation doesn't repeat them. */}
+        <AnalysisTab outreachId={id} role="owner" run={run ?? null} cardLines={false} />
+      </Region>
+    );
   return (
     <OutreachPageFrame
       back={back}

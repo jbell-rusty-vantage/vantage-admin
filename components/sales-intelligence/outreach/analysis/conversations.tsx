@@ -15,6 +15,7 @@ import { copy } from "../../sales-intelligence-copy";
 import { cx } from "../../lib/format";
 import { formatDuration, formatExactFull } from "../../lib/time";
 import { AudioPlayer, type AudioState } from "./audio-player";
+import { useKitPrefix } from "./kit-id";
 import { Transcript, TranscriptSkeleton, currentTargetSeq, scrollToSegments, useTranscriptTarget } from "./transcript";
 
 export { scrollToSegments };
@@ -100,12 +101,13 @@ export type ConversationCardProps = {
 
 export function ConversationCardView({ card, transcriptOpen = false, renderTranscript = defaultTranscript, audioState }: ConversationCardProps) {
   const panelId = useId();
+  const prefix = useKitPrefix();
   const target = useTranscriptTarget();
   const targeted = target && target.conversationId === card.conversation_id ? target : null;
   // A manual toggle wins until a newer `Open in transcript` target for this card arrives.
   const [manual, setManual] = useState<{ open: boolean; seq: number } | null>(null);
   const open = targeted && (!manual || targeted.seq > manual.seq) ? true : manual ? manual.open : transcriptOpen;
-  const cardId = `si-conversation-${card.conversation_id}`;
+  const cardId = `${prefix}si-conversation-${card.conversation_id}`;
 
   useEffect(() => {
     if (!targeted?.highlight) return;

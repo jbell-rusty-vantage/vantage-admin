@@ -9,7 +9,7 @@
  * Times use the response's `as_of` (UI-0 §2.1); the browser clock is never read.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import type { TimelineEvent } from "@/lib/api/salesIntelligence";
 import { Button } from "../atoms/button";
 import { siKeys } from "../data/query-keys";
@@ -101,8 +101,53 @@ export function TimelineSkeleton({ rows = 5 }: { rows?: number }) {
   );
 }
 
+/** How long a `?event=` row keeps its highlight (ms), and how many older pages are read looking for it. */
+export const EVENT_HIGHLIGHT_MS = 4000;
+export const EVENT_MAX_PAGES = 5;
+
+/** `?event={id}` (Situation's `Show in timeline`), read from the address bar after mount. */
+export function targetEventId(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("event");
+}
+
+/**
+ * UI1-ANALYSIS-WIRE: `?tab=timeline&event={id}` scrolls to the row whose `data-event-id` matches and highlights it for
+ * a few seconds (`is-targeted`, the blue tint). A routine row's `Processing details` disclosure is opened first; a row
+ * not on the loaded pages makes it read older pages, up to `EVENT_MAX_PAGES`. It runs once per event id.
+ */
+function useTargetEvent(scope: TimelineScope, query: { items: readonly TimelineEvent[]; hasNextPage: boolean; isFetchingNextPage: boolean; isFetchNextPageError: boolean; fetchNextPage: () => unknown }) {
+  const { items, hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = query;
+  const landed = useRef<string | null>(null);
+  const pagesRead = useRef(0);
+  useEffect(() => {
+    const eventId = targetEventId();
+    if (!eventId || landed.current === eventId) return;
+    const root = document.querySelector<HTMLElement>(`.si-timeline[data-scope="${scope}"]`);
+    const row = root ? [...root.querySelectorAll<HTMLElement>("[data-event-id]")].find((el) => el.dataset.eventId === eventId) : undefined;
+    if (!row) {
+      if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError && pagesRead.current < EVENT_MAX_PAGES) {
+        pagesRead.current += 1;
+        void fetchNextPage();
+      }
+      return;
+    }
+    landed.current = eventId;
+    const closed = row.closest<HTMLElement>(".si-disclosure:not(.is-open)");
+    closed?.querySelector<HTMLButtonElement>(".si-disclosure__summary")?.click();
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    // Not tied to the effect's cleanup: a later refetch (or StrictMode's second run) must not cut the landing short.
+    window.requestAnimationFrame(() => {
+      row.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+      row.classList.add("is-targeted");
+      window.setTimeout(() => row.classList.remove("is-targeted"), EVENT_HIGHLIGHT_MS);
+    });
+  }, [scope, items, hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage]);
+}
+
 function TimelineData({ scope, id, kinds, pending, filters }: { scope: TimelineScope; id: string; kinds: string[]; pending: boolean; filters: ReactNode }) {
   const query = useTimeline({ scope, id, kinds });
+  useTargetEvent(scope, query);
   return (
     <TimelineView
       scope={scope}
