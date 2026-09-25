@@ -35,7 +35,7 @@ import { findContractsDir, FIXTURES_UNAVAILABLE, fixtureTest, requireContracts }
 // The fixtures sit next to vantage-admin (or SI_CONTRACTS_DIR); without them every test here skips (see ./contracts-dir).
 const CONTRACTS = findContractsDir() ?? "";
 if (!CONTRACTS) console.log(`contract fixtures: skipped (${FIXTURES_UNAVAILABLE})`);
-const FOLDERS = ["S1", "S2", "S3", "S4", "S5c", "S6", "S7", "S8", "S9", "AC", "S11"] as const;
+const FOLDERS = ["S1", "S2", "S3", "S4", "S5c", "S6", "S7", "S8", "S9", "AC", "S11", "S12"] as const;
 const MIN_PARSED = 560;
 
 // Admin-users routes (S8, UI-2's Users page): a small local schema, since the admin has none under lib/api.
@@ -81,6 +81,13 @@ const REGISTRY: Record<string, Entry> = {
   "closed-history": read(closedHistorySchema), "owner-closed-history": read(closedHistorySchema), "rep-closed-history": read(closedHistorySchema),
   overview: read(overviewSchema), "owner-overview": read(overviewSchema), "rep-overview": read(overviewSchema),
   "rep-command": read(commandResultSchema),
+  // CF12 (UI-2 S12-REPREADS, S12-REPACT, S12-REPNUDGE): the same reads as rep (Dana, Marcus) and Owner.
+  "owner-run-presentation": read(runPresentationReadSchema), "rep-run-presentation": read(runPresentationReadSchema),
+  "owner-assessment-evidence": read(evidenceReadSchema), "rep-assessment-evidence": read(evidenceReadSchema),
+  "owner-outreach-nudges": read(outreachReadSchema), "rep-outreach-nudges": read(outreachReadSchema), "rep-marcus-outreach-nudges": read(outreachReadSchema),
+  "owner-outreach-timeline-after-rep-commands": read(timelineV2Schema), "rep-outreach-timeline-after-rep-commands": read(timelineV2Schema),
+  "owner-outreach-timeline-kind": read(timelineV2Schema),
+  "owner-outreach-timeline-nudges": read(timelineV2Schema), "rep-outreach-timeline-nudges": read(timelineV2Schema), "rep-marcus-outreach-timeline-nudges": read(timelineV2Schema),
 };
 
 type Skip = { reason: string; match: (rel: string, name: string) => boolean };
