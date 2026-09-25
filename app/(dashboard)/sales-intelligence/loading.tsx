@@ -1,5 +1,5 @@
-import { SalesIntelligenceRouteSkeleton } from "@/components/sales-intelligence/_legacy/list-skeletons";
+import { DeskRouteSkeleton } from "@/components/sales-intelligence/desk";
 
 export default function Loading() {
-  return <SalesIntelligenceRouteSkeleton />;
+  return <DeskRouteSkeleton />;
 }
