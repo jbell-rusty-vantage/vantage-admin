@@ -1,7 +1,7 @@
 "use client";
 /**
  * UI1-DESK (UI-1 §3.1, final spec §6, UX5): five tiles from `data.metrics`, computed at publish, with
- * `As of {metrics.as_of}`. Needs Attention and All Outreach only. Each tile is a button that applies its filter
+ * `As of {metrics.as_of}`. Needs Attention and All Outreach only; every tile opens All Outreach or Closed (UX-C1). Each tile is a button that applies its filter
  * through the URL state and scrolls to the list. `metrics` absent (a snapshot without it) → every tile `—` with
  * `Not available in this snapshot` (in the tile's title and as visible text, never hover-only).
  *
@@ -31,8 +31,8 @@ export function metricTiles(metrics: DeskMetrics | null | undefined, asOf: strin
   return [
     { id: "leads7d", label: m.leads7d, value: metrics?.leads_received_7d ?? null, secondary: null,
       patch: { view: "all_outreach", received_from: since, received_to: null } },
-    { id: "notCalled", label: m.notCalled, value: metrics?.not_called_yet ?? null, secondary: null, patch: { band: ["2"] } },
-    { id: "overdue", label: m.overdue, value: metrics?.callbacks_overdue ?? null, secondary: null, patch: { band: ["1"] } },
+    { id: "notCalled", label: m.notCalled, value: metrics?.not_called_yet ?? null, secondary: null, patch: { view: "all_outreach", band: ["2"] } },
+    { id: "overdue", label: m.overdue, value: metrics?.callbacks_overdue ?? null, secondary: null, patch: { view: "all_outreach", band: ["1"] } },
     { id: "awaiting", label: m.awaiting, value: metrics?.awaiting_assessment ?? null, secondary: null, patch: { newer_call: true } },
     { id: "booked7d", label: m.booked7d, value: metrics?.booked_7d ?? null, secondary: median != null ? m.median(median) : null,
       patch: { view: "closed", priority: [], outcome: ["booked"], closed_from: closedSince, closed_to: null } },

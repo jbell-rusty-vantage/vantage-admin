@@ -25,7 +25,8 @@ test("the Guide renders every section heading, in order, each with its anchor an
 });
 
 test("the COPY-UI1 §12 content: the four views, the seven bands, presets and Lead toggle, seven card lines, live vs Owner calling, Numbers, messaging", () => {
-  for (const name of ["Overview", "Needs Attention", "All Outreach", "Closed"]) assert.ok(html.includes(`<strong>${name}.</strong>`), name);
+  for (const name of ["Overview", "All Outreach", "Closed"]) assert.ok(html.includes(`<strong>${name}.</strong>`), name);
+  assert.ok(!html.includes("<strong>Needs Attention.</strong>"), "UX-C1: no Needs Attention view in the Guide");
   for (const band of [1, 2, 3, 4, 5, 6, 7] as const) assert.ok(html.includes(`${band} · ${BANDS[band]}.</strong> ${copy.bandSoWhat[band]}`), `band ${band}`);
   for (const preset of ["All", "New", "Quoted", "Other", "Custom"]) assert.ok(html.includes(`<strong>${preset}.</strong>`), preset);
   assert.ok(html.includes(g.leadToggle));

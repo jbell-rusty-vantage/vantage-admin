@@ -15,6 +15,11 @@ import type { AttentionParams, ClosedHistoryParams, DeskView, OverviewParams } f
 
 export const PAGE_VIEWS = ["overview", "attention", "all_outreach", "closed", "reps", "coverage", "guide"] as const;
 export type PageView = (typeof PAGE_VIEWS)[number];
+/**
+ * UX-C1: the Owner's view bar. One Outreach list (All Outreach); the Needs Attention tab is gone, with no replacement
+ * filter. `attention` stays a PageView / DeskView: UI-2 builds the rep's `My work` on `view=attention`.
+ */
+export const OWNER_TABS = ["overview", "all_outreach", "closed", "reps", "coverage", "guide"] as const satisfies readonly PageView[];
 /** UI-1 §1.1: the page opens on Overview when `view` is absent. An unknown view reads as Overview too. */
 export const DEFAULT_VIEW: PageView = "overview";
 
@@ -46,7 +51,7 @@ export type DeskUrlState = {
   period: string | null;
   from: string | null;
   to: string | null;
-  /** Old deep links, read-only here: they open Needs Attention with that record's side dialog. */
+  /** Old deep links, read-only here: they open All Outreach (UX-C1) with that record's side dialog. */
   lead: string | null;
   lead_model: string | null;
   outreach: string | null;
@@ -69,8 +74,16 @@ const num = (value: string | null): number | null => {
 };
 const text = (value: string | null): string | null => (value && value.trim() ? value : null);
 
+/**
+ * UX-C1: an old `view=attention` link (bookmark, Overview tile, trap-4 `lead=`/`outreach=` deep link) opens All Outreach
+ * with the same filters and side dialog. The desk is the Owner's page today; UI-2 gives reps `My work` on
+ * `view=attention`, so this mapping must become Owner-only then.
+ */
+const OWNER_VIEW_ALIASES: Readonly<Record<string, PageView>> = { attention: "all_outreach" };
+
 export function parseDeskUrl(params: URLSearchParams): DeskUrlState {
-  const view = params.get("view");
+  const raw = params.get("view");
+  const view = raw && OWNER_VIEW_ALIASES[raw] ? OWNER_VIEW_ALIASES[raw] : raw;
   const direction = params.get("direction");
   const attachment = params.get("attachment");
   return {
@@ -166,7 +179,7 @@ export function closedHistoryParamsFromDesk(state: DeskUrlState): ClosedHistoryP
   return { outcome: state.outcome, priority: state.priority, agent_id: state.agent_id, closed_from: state.closed_from, q: state.q };
 }
 
-/** Trap 4: `?view=attention&lead=&lead_model=` (and `outreach=`) opens Needs Attention with that record's side dialog. */
+/** Trap 4: `?view=attention&lead=&lead_model=` (and `outreach=`) opens All Outreach (UX-C1) with that record's side dialog. */
 export function deepLinkTarget(state: DeskUrlState): { kind: "outreach"; id: string } | { kind: "lead"; model: string; id: string } | null {
   if (state.outreach) return { kind: "outreach", id: state.outreach };
   if (state.lead && state.lead_model) return { kind: "lead", model: state.lead_model, id: state.lead };

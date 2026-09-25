@@ -37,23 +37,41 @@ function listHtml(rel: string, over: Partial<Parameters<typeof OutreachListView>
   }));
 }
 
-test("A08: the view bar has seven link tabs in order, Overview first and default, no Numbers or Messages", () => {
+test("A08 / UX-C1: the view bar has six link tabs in order, Overview first and default, no Needs Attention, Numbers or Messages", () => {
   const tabs = viewTabs("");
-  assert.deepEqual(tabs.map((t) => t.label), ["Overview", "Needs Attention", "All Outreach", "Closed", "RingCentral Accounts", "Coverage", "Guide"]);
+  assert.deepEqual(tabs.map((t) => t.label), ["Overview", "All Outreach", "Closed", "RingCentral Accounts", "Coverage", "Guide"]);
   assert.equal(tabs[0]!.href, "/sales-intelligence");
-  assert.equal(tabs[1]!.href, "/sales-intelligence?view=attention");
+  assert.equal(tabs[1]!.href, "/sales-intelligence?view=all_outreach");
   const markup = html(createElement(ViewTabs, { active: "overview", query: "" }));
-  assert.ok(!/Numbers|Messages/.test(markup), "no Numbers or Messages tab");
+  assert.ok(!/Numbers|Messages|Needs Attention/.test(markup), "no Needs Attention, Numbers or Messages tab");
   assert.match(markup, /aria-current="page" href="\/sales-intelligence">/);
   assert.equal(parseDeskUrl(new URLSearchParams("")).view, "overview");
   assert.equal(parseDeskUrl(new URLSearchParams("view=bogus")).view, "overview");
   // A view link keeps the preset and filters, drops the dialog and the cursor.
-  const kept = new URLSearchParams(viewTabs("view=attention&priority=1&band=2&outreach=o1&cursor=abc")[2]!.href.split("?")[1]);
+  const kept = new URLSearchParams(viewTabs("view=closed&priority=1&band=2&outreach=o1&cursor=abc")[1]!.href.split("?")[1]);
   assert.equal(kept.get("view"), "all_outreach");
   assert.deepEqual(kept.getAll("priority"), ["1"]);
   assert.deepEqual(kept.getAll("band"), ["2"]);
   assert.equal(kept.get("outreach"), null);
   assert.equal(kept.get("cursor"), null);
+});
+
+test("UX-C1: old view=attention links open All Outreach with the same filters and side dialog; the data layer keeps view=attention", () => {
+  const cases: [string, Partial<Record<"band" | "needs_review" | "lead" | "lead_model" | "outreach", unknown>>][] = [
+    ["view=attention", {}],
+    ["view=attention&band=2", { band: ["2"] }],
+    ["view=attention&needs_review=true", { needs_review: true }],
+    ["view=attention&lead=L1&lead_model=FormLead", { lead: "L1", lead_model: "FormLead" }],
+    ["view=attention&outreach=o1", { outreach: "o1" }],
+  ];
+  for (const [query, expected] of cases) {
+    const state = parseDeskUrl(new URLSearchParams(query));
+    assert.equal(state.view, "all_outreach", query);
+    for (const [key, value] of Object.entries(expected)) assert.deepEqual(state[key as keyof typeof state], value, `${query} ${key}`);
+  }
+  assert.equal(deskRouteDecision({ view: "attention", outreach: "o1" }).kind, "desk", "the outreach deep link still opens the side dialog on the desk");
+  // UI-2's rep `My work` still reads `view=attention` from the data layer.
+  assert.equal(attentionParamsFromDesk(parseDeskUrl(new URLSearchParams("band=2")), "attention").view, "attention");
 });
 
 fixtureTest("A09: Needs Attention in Attention order is grouped under band headers; no band header without rows", () => {
@@ -145,8 +163,8 @@ fixtureTest("A10: five metric tiles from data.metrics with As of; each applies i
   const by = Object.fromEntries(tiles.map((t) => [t.id, t.patch]));
   assert.deepEqual(by.leads7d, { view: "all_outreach", received_from: windowFrom(page.as_of, RECEIVED_WINDOWS["7d"]), received_to: null });
   assert.equal(by.leads7d!.received_from, "2026-09-17T22:58:37.661Z");
-  assert.deepEqual(by.notCalled, { band: ["2"] });
-  assert.deepEqual(by.overdue, { band: ["1"] });
+  assert.deepEqual(by.notCalled, { view: "all_outreach", band: ["2"] });
+  assert.deepEqual(by.overdue, { view: "all_outreach", band: ["1"] });
   assert.deepEqual(by.awaiting, { newer_call: true });
   assert.deepEqual(by.booked7d, { view: "closed", priority: [], outcome: ["booked"], closed_from: windowFrom(page.as_of, CLOSED_WINDOWS["7d"]), closed_to: null });
   // The tile's filter shows as a chip (A10): Band 2 after `Not called yet`.

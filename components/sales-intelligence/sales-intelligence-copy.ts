@@ -1464,8 +1464,7 @@ export const copy = {
       viewsIntro: "Sales Intelligence shows the customer work that still needs a next step, who owns it, and what the calls said. It isn't a second CRM and it never creates a Booking.",
       views: [
         { name: "Overview", body: "Where the day stands: what needs you now, how fast Leads are called, callbacks kept, the reps and Lead spend." },
-        { name: "Needs Attention", body: "Only the work that needs a next step, grouped under band headers in Attention order. Each record appears once, under its most urgent band." },
-        { name: "All Outreach", body: "Every active Outreach, newest Lead first, each card tagged with its band. Band is a filter here, not a grouping." },
+        { name: "All Outreach", body: "Every active Outreach, newest Lead first, each card tagged with its band. Sort by Attention order to group the cards under band headers, most urgent first; a record that needs review stays here even after it closes." },
         { name: "Closed", body: "Work that ended: Booked, Booked in Granot, Cancelled, Bad Lead, Duplicate, CRM dead or closed by you. Records older than 90 days open from Closed history." },
         { name: "RingCentral Accounts", body: "The stored RingCentral directory and which extension belongs to which rep." },
         { name: "Coverage", body: "Whether call capture is healthy, how far history is known, and the clocks the bands use." },

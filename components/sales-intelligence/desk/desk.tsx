@@ -4,7 +4,8 @@
  * checks the Owner, redirects old panel links (`legacyDeepLinkRedirect`) and mounts `<Desk userId={admin.id}/>`.
  *
  * Frame: the page header (title, search, live indicator + Refresh) and the view bar, then the view's body.
- * Above Needs Attention, All Outreach and Closed, in order: the preset bar, the metrics strip (Needs Attention and
+ * UX-C1: the bar has no Needs Attention tab and `view=attention` reads as All Outreach; the `attention` desk view stays
+ * for UI-2's rep `My work`. Above Needs Attention, All Outreach and Closed, in order: the preset bar, the metrics strip (Needs Attention and
  * All Outreach only), the active filter chips + `Clear filters`, then the list (the stale banner is the list's
  * first line). The Overview mounts its own header with the preset bar (UI1-OVERVIEW), so the desk doesn't repeat it.
  * Desktop: rail left (sticky), list right. Below 768 px: the `Filters (n)` sheet button and full-width cards.
@@ -22,7 +23,7 @@ import { useNewestAsOf } from "../data/live";
 import { currentSalesIntelligenceHref } from "../lib/official-record";
 import { rememberDeskHref } from "../outreach/deep-links";
 import { siKeys } from "../data/query-keys";
-import { attentionParamsFromDesk, closedHistoryParamsFromDesk, isDeskView, type DeskUrlPatch, type DeskUrlState, type PageView } from "../data/url-state";
+import { OWNER_TABS, attentionParamsFromDesk, closedHistoryParamsFromDesk, isDeskView, type DeskUrlPatch, type DeskUrlState, type PageView } from "../data/url-state";
 import type { AttentionParams, DeskView } from "../data/requests";
 import { useAttentionList } from "../data/use-attention";
 import { useDeskUrlState } from "../data/use-url-state";
@@ -262,7 +263,7 @@ export function DeskRouteSkeleton() {
           <h1 className="si-desk__title">{copy.page.title}</h1>
         </div>
         <nav className="si-tabs si-routetabs si-desk__views" aria-label={d.viewsLabel}>
-          {Object.values(d.views).map((label) => <span key={label} className="si-tab si-routetab">{label}</span>)}
+          {OWNER_TABS.map((view) => <span key={view} className="si-tab si-routetab">{d.views[view]}</span>)}
         </nav>
       </header>
       <div className="si-desk__content">

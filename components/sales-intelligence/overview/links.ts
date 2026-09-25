@@ -31,16 +31,16 @@ export function overviewLinks(ctx: OverviewLinkContext) {
   const preset = { priority: [...ctx.priority], attachment: ctx.attachment };
   const scoped = { ...preset, agent_id: ctx.agentId ? [ctx.agentId] : [] };
   return {
-    /** Band tile → Needs Attention filtered to that band. */
-    band: (band: number) => siHref({ view: "attention", band: [String(band)], ...scoped }),
-    /** Needs review → Needs Attention with `needs_review=true`. */
-    needsReview: () => siHref({ view: "attention", needs_review: true, ...scoped }),
+    /** Band tile → All Outreach filtered to that band (UX-C1: the Owner has no Needs Attention tab). */
+    band: (band: number) => siHref({ view: "all_outreach", band: [String(band)], ...scoped }),
+    /** Needs review → All Outreach with `needs_review=true`. */
+    needsReview: () => siHref({ view: "all_outreach", needs_review: true, ...scoped }),
     /** Unassigned → All Outreach with `unassigned=true` (no rep: those records have none). */
     unassigned: () => siHref({ view: "all_outreach", unassigned: true, ...preset }),
     /** Live calls → All Outreach sorted by Last call (its default direction, newest first). */
     liveCalls: () => siHref({ view: "all_outreach", sort: "last_call", ...scoped }),
     /** `{n} overdue now` → Band 1 (Callbacks overdue). */
-    overdueNow: () => siHref({ view: "attention", band: ["1"], ...scoped }),
+    overdueNow: () => siHref({ view: "all_outreach", band: ["1"], ...scoped }),
     /** The capture health line → Coverage. */
     coverage: () => siHref({ view: "coverage" }),
     /** A rep's name → All Outreach filtered to that rep. */

@@ -12,7 +12,7 @@ export function officialRecordHref(
 }
 
 export function salesIntelligenceLeadHref(model: "FormLead" | "CallLead", id: string) {
-  return `/sales-intelligence?view=attention&lead=${encodeURIComponent(id)}&lead_model=${model}`;
+  return `/sales-intelligence?view=all_outreach&lead=${encodeURIComponent(id)}&lead_model=${model}`;
 }
 
 export function salesIntelligenceReturnHref(search: string | URLSearchParams | null | undefined) {

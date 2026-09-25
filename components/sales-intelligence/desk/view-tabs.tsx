@@ -2,10 +2,11 @@
  * UI1-DESK (UI-1 §1.1, UX3): the view bar. Link-based (`RouteTabs`), `?view=`, no counts. Overview is the default
  * and is written as no `view` at all. A view link keeps the shared selection (Priority preset, Lead toggle, rail
  * filters, search) and drops the side dialog and the list cursor. No Numbers or Messages tab until UI-3 / UI-4.
+ * UX-C1: the Owner's bar has no Needs Attention tab (`OWNER_TABS`); All Outreach is the one Outreach list.
  */
 import { RouteTabs, type RouteTab } from "../primitives";
 import { copy } from "../sales-intelligence-copy";
-import { PAGE_VIEWS, deskUrlUpdate, type PageView } from "../data/url-state";
+import { OWNER_TABS, deskUrlUpdate, type PageView } from "../data/url-state";
 
 export const DESK_PATH = "/sales-intelligence";
 
@@ -20,7 +21,7 @@ export function viewHref(query: string | URLSearchParams, view: PageView): strin
 }
 
 export function viewTabs(query: string | URLSearchParams): RouteTab<PageView>[] {
-  return PAGE_VIEWS.map((view) => ({ key: view, label: copy.ui1.desk.views[view], href: viewHref(query, view) }));
+  return OWNER_TABS.map((view) => ({ key: view, label: copy.ui1.desk.views[view], href: viewHref(query, view) }));
 }
 
 export function ViewTabs({ active, query }: { active: PageView; query: string }) {

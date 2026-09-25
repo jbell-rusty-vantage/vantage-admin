@@ -71,13 +71,13 @@ fixtureTest("every S9 overview fixture parses and renders the four blocks in ord
   }
 });
 
-fixtureTest("A16: each band tile shows now.bands[n] and links to Needs Attention band=n with the same preset", () => {
+fixtureTest("A16: each band tile shows now.bands[n] and links to All Outreach band=n with the same preset (UX-C1)", () => {
   for (const file of FILES) {
     const { data, html } = render(file);
     const priority = data.filters.priority ?? [];
     const agent = data.scope?.agent_id ? `&agent_id=${data.scope.agent_id}` : "";
     for (let band = 1; band <= 7; band += 1) {
-      const expected = `/sales-intelligence?view=attention&band=${band}${agent}${presetQuery(priority)}`;
+      const expected = `/sales-intelligence?view=all_outreach&band=${band}${agent}${presetQuery(priority)}`;
       assert.equal(hrefOf(html, `data-band="${band}"`), expected, `${file} band ${band} href`);
       assert.equal(tileCount(html, `data-band="${band}"`), String(data.now.bands[String(band)]), `${file} band ${band} count`);
     }
@@ -101,7 +101,7 @@ fixtureTest("A17: every number with a list behind it links to that filtered list
     const priority = data.filters.priority ?? [];
     const p = presetQuery(priority);
     const agent = data.scope?.agent_id ? `&agent_id=${data.scope.agent_id}` : "";
-    assert.equal(hrefOf(html, 'data-now="needs_review"'), `/sales-intelligence?view=attention${agent}${p}&needs_review=true&attachment=lead`, `${file} needs review`);
+    assert.equal(hrefOf(html, 'data-now="needs_review"'), `/sales-intelligence?view=all_outreach${agent}${p}&needs_review=true&attachment=lead`, `${file} needs review`);
     assert.equal(hrefOf(html, 'data-now="unassigned"'), `/sales-intelligence?view=all_outreach${p}&unassigned=true&attachment=lead`, `${file} unassigned`);
     assert.equal(hrefOf(html, 'data-now="live_calls"'), `/sales-intelligence?view=all_outreach&sort=last_call${agent}${p}&attachment=lead`, `${file} live calls`);
     assert.ok(html.includes('href="/sales-intelligence?view=coverage"'), `${file} capture → Coverage`);
@@ -118,7 +118,7 @@ fixtureTest("A17: every number with a list behind it links to that filtered list
     const overdue = data.desk.callbacks_kept.overdue_now;
     const overdueHref = hrefOf(html, 'data-desk="overdue_now"');
     const inner = html.slice(html.indexOf('data-desk="overdue_now"'), html.indexOf('data-desk="overdue_now"') + 400);
-    if (overdue > 0) assert.ok(inner.includes(`href="/sales-intelligence?view=attention&amp;band=1${agent.replace(/&/g, "&amp;")}${p.replace(/&/g, "&amp;")}`), `${file} overdue now → Band 1`);
+    if (overdue > 0) assert.ok(inner.includes(`href="/sales-intelligence?view=all_outreach&amp;band=1${agent.replace(/&/g, "&amp;")}${p.replace(/&/g, "&amp;")}`), `${file} overdue now → Band 1`);
     else assert.equal(overdueHref, null);
     const { from_day, to_day } = data.periods.activity;
     assert.ok(decode(html).includes("outcome=granot_booked"), `${file} Booked in Granot → Closed`);
