@@ -18,6 +18,7 @@ import { NavigationSection } from "./sections/navigation";
 import { OverviewSection } from "./sections/overview";
 import { PresetBarSection } from "./sections/preset-bar";
 import { RailSection } from "./sections/rail";
+import { RecordHeaderSection } from "./sections/record-header";
 import { FrameContext, Placeholder } from "./sections/section";
 import { TimeSection } from "./sections/time";
 import { TimelineSection } from "./sections/timeline";
@@ -37,6 +38,7 @@ export const GALLERY_SECTIONS: { id: SectionId; render: () => ReactNode }[] = [
   { id: "live", render: () => <LiveSection /> },
   { id: "navigation", render: () => <NavigationSection /> },
   { id: "card", render: () => <CardSection /> },
+  { id: "record-header", render: () => <RecordHeaderSection /> },
   { id: "metrics", render: () => <MetricsSection /> },
   { id: "presets", render: () => <PresetBarSection /> },
   { id: "rail", render: () => <RailSection /> },

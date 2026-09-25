@@ -14,7 +14,6 @@ const eslintConfig = defineConfig([
       "tests/legacy/**",
       // Temporary exceptions, each removed by the stage named.
       "components/sales-intelligence/full-output.tsx", // FieldRows from _legacy/assessment-section; removed by a later UI-1 stage (analysis page rebuild)
-      "components/sales-intelligence/outreach-detail.tsx", // MessageRepDialog from _legacy/message-rep-dialog; removed by UI1-CHAT
       "lib/api/salesIntelligenceOfficial.test.ts", // runningSummaryText from _legacy/running-summary-panel; removed by U-CUT
     ],
     rules: {

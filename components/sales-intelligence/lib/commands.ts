@@ -23,7 +23,8 @@ export function buildIntent(command:string,draft:Draft,record:Outreach,action:Fo
  else if(command==='mark_worked') {if(draft.note.trim())body.note=text(draft.note);}
  else if(command==='assign') {body.responsible_agent_id=draft.agent||null;if(draft.reason.trim())body.reason=text(draft.reason);}
  else if(command==='set_waiting') {body.until=easternInstant(draft.due);if(!body.until)throw new Error('A wait needs an end date.');body.reason=text(draft.reason);}
- else if(command==='add_note')body.text=text(draft.note);
+ // UI-1 §5.4: a blank note is refused here, before any request (the server answers a generic 400).
+ else if(command==='add_note') {if(!draft.note.trim())throw new Error(copy.ui1.outreach.work.blankNote);body.text=text(draft.note);}
  else if(command==='close') {body.reason=draft.closeReason;if(draft.note.trim())body.note=text(draft.note);}
  else if(command==='reopen')body.reason=text(draft.reason);
  // LP-01 §4: the override is scoped to the disposition revision the Owner was looking at.

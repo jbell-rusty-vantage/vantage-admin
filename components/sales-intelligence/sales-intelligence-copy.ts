@@ -760,6 +760,7 @@ export const copy = {
         live: "Live indicator",
         navigation: "Disclosure, sub-nav, route tabs",
         card: "Card",
+        "record-header": "Record header",
         metrics: "Metrics strip",
         presets: "Preset bar",
         rail: "Rail",
@@ -1636,6 +1637,113 @@ export const copy = {
         outcomesTitle: "Outcomes of these Leads",
       },
       dash: "—",
+    },
+    /**
+     * UI1-SHELL: the Outreach route (UI-1 §5, §5.1, §5.4; COPY-UI1 §8 header, commands, provenance, official and work
+     * keys). Keys marked "draft" are not in COPY-UI1 and need the design gate.
+     */
+    outreach: {
+      tabs: { analysis: "Analysis", timeline: "Timeline", work: "Work" },
+      /** draft: the tab bar's accessible name. */
+      tabsLabel: "Record sections",
+      /** draft: the page header's back link to the desk (honours `si_return`). */
+      back: "Back to Outreach Intelligence",
+      bandFor: (n: number, name: string, duration: string) => `Band ${n} · ${name} · for ${duration}`,
+      /** draft: the header's band line with no `band_since` (older server). */
+      bandOnly: (n: number, name: string) => `Band ${n} · ${name}`,
+      receiverAgent: (name: string) => `Receiver agent in Granot: ${name}`,
+      receiverTip: (t: string, source: string) => `Set ${t} from ${source}.`,
+      /** drafts: the tooltip when `set_at` or `source` is null (legacy Leads). */
+      receiverTipNoTime: (source: string) => `Set from ${source}.`,
+      receiverTipNoSource: (t: string) => `Set ${t}.`,
+      receiverTipTitle: "Receiver agent",
+      receiverSource: {
+        best_relocation_sheet: "the Best Relocation sheet",
+        extension_match: "the extension match",
+        granot_username_match: "the Granot username",
+        manual: "a manual edit",
+        ringcentral_answered: "the RingCentral answer",
+      } as Record<string, string>,
+      commands: {
+        primaryStart: "Start the call",
+        primaryEnd: "End the call",
+        markWorked: "Mark as worked",
+        addNextStep: "Add next step",
+        assign: "Assign",
+        more: "More actions",
+        wait: "Wait for customer",
+        note: "Add note",
+        close: "Close",
+        reopen: "Reopen",
+        override: "Override disposition",
+        /** draft: the command group's accessible name. */
+        label: "Commands",
+        messageRep: "Message rep",
+        /** draft: a disabled command whose blockers have no sentence. */
+        unavailable: "Not available on this record right now.",
+      },
+      provenance: {
+        isTheLead: "This is the Lead",
+        isTheLeadDetail: (kind: string, job: string) => `This work is the ${kind} Lead for Job ${job}.`,
+        /** draft: `is_the_lead` with no Job number on the Lead. */
+        isTheLeadNoJob: (kind: string) => `This work is the ${kind} Lead.`,
+        leadKind: { FormLead: "Form", CallLead: "Call" } as Record<string, string>,
+        noNumber: "No Contact Number is on file.",
+        needsLead: "No Lead attached",
+        attachLead: "Attach a Lead",
+        ambiguous: "Review",
+      },
+      official: {
+        leadCost: (amount: string) => `Lead cost $${amount}`,
+        leadCostLegacy: "(legacy price)",
+        leadCostUnpriced: "(unpriced)",
+      },
+      work: {
+        messagesTitle: "Messages to the rep",
+        noMessages: "No messages sent to the rep yet.",
+        blankNote: "Write a note first.",
+        /** drafts from here to the end of `work`. */
+        followupsTitle: "Follow-ups",
+        noFollowups: "No next step set",
+        moreFollowups: "Older follow-ups aren't shown here.",
+        superseded: "Replaced by a specific plan",
+        correctionsTitle: "Your corrections",
+        noCorrections: "You haven't corrected anything on this record.",
+        instructionField: {
+          assertion: "Finding",
+          assignment: "Assignment",
+          closure: "Closure",
+          description: "Note",
+          status: "Status",
+        } as Record<string, string>,
+        instructionLine: (field: string, state: string) => `${field} · ${state}`,
+        restrictionsNoNumber: "No Contact Number is on file, so there are no contact restrictions.",
+        attachmentsReadOnly: "Change attachments in the previous version.",
+      },
+      /** Final spec §11.9 / brief: a 404 on the detail read is a page state, not a region error. */
+      notFound: "This Outreach doesn't exist or was removed.",
+      /** Final spec §11 section titles (the analysis kit renders them; the route skeleton shows them while loading). */
+      sections: {
+        situation: "Situation",
+        scores: "Scores",
+        moveDetails: "Move details",
+        findings: "Findings",
+        conversations: "Conversations",
+        fullOutput: "Full output",
+      },
+      /** draft: the Analysis tab until UI1-TOP / MOVE / FIND / CONV land. */
+      analysisPending: "The analysis sections are still being built.",
+      /** draft: an old Lead-only deep link while its Outreach is looked up. */
+      resolvingLead: "Opening this Lead's Outreach…",
+      /** Gallery-only labels (dev). */
+      gallery: {
+        header: "Record header · T3 Owner Kept (receiver agent ≠ assigned rep)",
+        live: "Record header · live call",
+        provenanceTitle: "Lead provenance block",
+        states: { is_the_lead: "is_the_lead", is_the_lead_no_number: "is_the_lead, no Number", needs_a_lead: "needs_a_lead", ambiguous: "ambiguous", attached_by_you: "attached_by_you" } as Record<string, string>,
+        skeleton: "Route skeleton",
+        notFound: "Not found page state",
+      },
     },
   },
 } as const;

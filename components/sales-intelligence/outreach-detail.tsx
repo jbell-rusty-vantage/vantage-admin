@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Outreach } from '@/lib/api/salesIntelligence';
 import { officialRecordHref } from './lib/official-record';
 import { FollowupCard } from './followup-card';
@@ -11,7 +12,8 @@ import { LeadProgressSection } from './lead-progress';
 import { Badge } from './atoms/badge';
 import { Button } from './atoms/button';
 import { CommandDialog } from './command-dialog';
-import { MessageRepDialog } from './_legacy/message-rep-dialog';
+import { MessageRepPanel } from './composer';
+import { siKeys } from './data/query-keys';
 import { commandLabels } from './lib/commands';
 import { callBlockerSentence, offeredActions, splitCommands } from './lib/owner-now';
 import { copy } from "./sales-intelligence-copy";
@@ -19,10 +21,41 @@ import { contactTypeLabel, formatDateTime,label } from './lib/format';
 
 type Availability = Outreach['allowed_actions'][number];
 
-export function OutreachDetail({record,accountId}:{record:Outreach;accountId?:string|null}) {
- const [editing,setEditing]=useState<{command:string;actionId?:string}|null>(null);
- const [messaging,setMessaging]=useState(false);
+/**
+ * UI1-SHELL (UI-1 §5.4): the follow-ups part of the Work tab. Open follow-ups first, each with the commands its own
+ * `allowed_actions[]` offers (every one opens the kept `command-dialog.tsx`), then completed, cancelled and superseded
+ * ones under a disclosure. With `asOf` each card formats its times against the response's `as_of`.
+ */
+export function FollowupsSection({record,asOf}:{record:Outreach;asOf?:string}) {
+ const [editing,setEditing]=useState<{command:string;actionId:string}|null>(null);
+ const w=copy.ui1.outreach.work;
  const selected=record.followups.find(action=>action.id===editing?.actionId);
+ const open=record.followups.filter(f=>f.status==='open'),done=record.followups.filter(f=>f.status!=='open');
+ return <section className="si-local-stack" aria-label={w.followupsTitle}>
+ <h3 className="si-heading si-heading--3">{w.followupsTitle}</h3>
+ {open.map(f=><div className="si-local-stack" key={f.id}><FollowupCard followup={f} overallOwner={record.assignment.agent} asOf={asOf}/>
+  <div className="si-local-filters">{f.allowed_actions.filter(action=>commandLabels[action.action]).map(action=><Button key={action.action} disabled={!action.enabled} title={action.enabled?undefined:callBlockerSentence(action.action,record,action.blocker_codes,copy.call.blockers,copy.call.blockerCodes)||undefined} onClick={()=>setEditing({command:action.action,actionId:f.id})}>{commandLabels[action.action]}</Button>)}</div></div>)}
+ {!open.length&&<p className="si-time is-null">{w.noFollowups}</p>}
+ {!!done.length&&<details><summary>{copy.panel.completedFollowups} ({done.length})</summary><div className="si-local-stack">{done.map(f=><FollowupCard key={f.id} followup={f} overallOwner={record.assignment.agent} asOf={asOf}/>)}</div></details>}
+ {record.followups_cursor&&<p className="si-text--sm si-text--subtle">{w.moreFollowups}</p>}
+ {editing&&<CommandDialog key={`${editing.command}:${editing.actionId}`} command={editing.command} record={record} action={selected} onClose={()=>setEditing(null)}/>}
+ </section>;
+}
+
+/** The response `as_of` of the cached detail read, for the legacy page's Message rep panel (never the browser clock). */
+function useCachedAsOf(id:string):string|null {
+ const client=useQueryClient();
+ const direct=client.getQueryData<{as_of?:string}>(siKeys.outreach(id));
+ if(direct?.as_of)return direct.as_of;
+ const byLead=client.getQueriesData<{as_of?:string;data?:{outreach?:{id?:string}}}>({queryKey:siKeys.outreachByLead('','').slice(0,2)});
+ return byLead.find(([,data])=>data?.data?.outreach?.id===id)?.[1]?.as_of??null;
+}
+
+/** Legacy page (`_legacy/workspace.tsx`) Work panel. `Message rep` opens the new composer panel (UI1-CHAT). */
+export function OutreachDetail({record}:{record:Outreach;accountId?:string|null}) {
+ const [editing,setEditing]=useState<{command:string}|null>(null);
+ const [messaging,setMessaging]=useState(false);
+ const asOf=useCachedAsOf(record.id);
  const link=record.subject.kind==='lead'?officialRecordHref(record.subject.model,record.subject.id):null;
  const deck=splitCommands(offeredActions(record.allowed_actions),commandLabels);
  const command=(item:Availability,variant:'primary'|'secondary'|'ghost'='secondary')=>
@@ -44,13 +77,11 @@ export function OutreachDetail({record,accountId}:{record:Outreach;accountId?:st
  {record.derived.call_blockers.length>0&&<p>Calling blocked: {record.derived.call_blockers.map(label).join(', ')}</p>}
  <div className="si-actions"><span className="si-ownership__label">{copy.now.decide}</span>
  <div className="si-actions__primary">{deck.call&&command(deck.call,'primary')}{deck.secondary.map(item=>command(item))}
- <Button variant="ghost" disabled={record.state==='closed'} onClick={()=>setMessaging(true)}>{copy.messageRep.title}</Button></div>
+ <Button variant="ghost" disabled={record.state==='closed'||!asOf} onClick={()=>setMessaging(true)}>{copy.messageRep.title}</Button></div>
  {!!deck.more.length&&<details className="si-now__more"><summary>{copy.now.moreActions}</summary><div className="si-actions__secondary">{deck.more.map(item=>command(item,'ghost'))}</div></details>}
  </div>
- <h3>{copy.panel.followups}</h3>{record.followups.filter(f=>f.status==='open').map(f=><div className="si-local-stack" key={f.id}><FollowupCard followup={f} overallOwner={record.assignment.agent}/><div className="si-local-filters">{f.allowed_actions.filter(action=>commandLabels[action.action]).map(action=><Button key={action.action} disabled={!action.enabled} onClick={()=>setEditing({command:action.action,actionId:f.id})}>{commandLabels[action.action]}</Button>)}</div></div>)}
- {!record.followups.some(f=>f.status==='open')&&<p>{copy.empty.followupsNone}</p>}
- <details><summary>{copy.panel.completedFollowups}</summary>{record.followups.filter(f=>f.status!=='open').map(f=><FollowupCard key={f.id} followup={f} overallOwner={record.assignment.agent}/>)}</details>
- {editing&&<CommandDialog key={`${editing.command}:${editing.actionId??record.id}`} command={editing.command} record={record} action={selected} onClose={()=>setEditing(null)}/>}
- {messaging&&<MessageRepDialog record={record} accountId={accountId??null} onClose={()=>setMessaging(false)}/>}
+ <FollowupsSection record={record}/>
+ {editing&&<CommandDialog key={`${editing.command}:${record.id}`} command={editing.command} record={record} onClose={()=>setEditing(null)}/>}
+ {messaging&&asOf&&<MessageRepPanel outreach={record} asOf={asOf} mode="panel" onClose={()=>setMessaging(false)}/>}
  </section>;
 }

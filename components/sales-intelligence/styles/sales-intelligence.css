@@ -1308,3 +1308,38 @@
 .si-ovspend__sources ul { margin: 4px 0 0; padding-left: 18px; font-size: 14px; color: var(--si-ink); }
 .si-ovspend__outcomes p { margin: 2px 0 0; font-size: 14px; color: var(--si-ink); }
 @media (prefers-reduced-motion: reduce) { .si-ovreps__chevron { transition: none; } }
+
+/* UI-1: SHELL (the Outreach route: page bar, record header / Now strip, command group, tabs, Work tab; UI-1 §5, UX26) */
+.si-outreach { display: flex; flex-direction: column; gap: 16px; padding: 16px; max-width: 1200px; margin: 0 auto; min-width: 0; }
+.si-outreach__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.si-outreach__back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 600; color: var(--si-blue); text-decoration: none; }
+.si-outreach__back:hover { text-decoration: underline; }
+.si-outreach__body { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.si-outreach__analysis { display: flex; flex-direction: column; gap: 20px; max-width: 880px; }
+.si-outreach__section { display: flex; flex-direction: column; gap: 8px; scroll-margin-top: calc(var(--si-sticky-top) + 56px); }
+.si-outreach__notfound { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 24px 16px; border: 1px solid var(--si-line); border-radius: var(--si-r); background: var(--si-surface); }
+.si-recordheader { position: relative; top: auto; border: 1px solid var(--si-line); border-radius: var(--si-r); }
+.si-recordheader.is-live { box-shadow: inset 3px 0 0 var(--si-live); }
+.si-recordheader__l1 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.si-recordheader__title { font-size: 20px; overflow-wrap: anywhere; }
+.si-recordheader__side { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
+.si-recordheader__line { font-size: 14px; overflow-wrap: anywhere; }
+.si-recordheader__band { color: var(--si-ink-3); }
+.si-recordheader__skeltitle .si-skeleton--line { height: 20px; }
+.si-recordheader .si-leadprogress--detail { margin-top: 6px; }
+.si-recordcmds .si-actions__primary { align-items: center; }
+.si-recordcmds__msg { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.si-recordcmds__more { padding-top: 6px; gap: 6px; margin-left: 0; }
+.si-recordcmds__more[hidden] { display: none; }
+.si-provenance__linkout { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.si-work { display: flex; flex-direction: column; gap: 20px; }
+.si-work__list { display: flex; flex-direction: column; gap: 8px; }
+.si-work__item { padding: 8px 12px; border: 1px solid var(--si-line); border-radius: var(--si-r); background: var(--si-surface); }
+.si-work__messages { display: flex; flex-direction: column; gap: 8px; }
+@media (max-width: 480px) {
+  .si-outreach { padding: 12px 16px; }
+  .si-now.si-recordheader { grid-template-columns: minmax(0, 1fr); }
+  .si-recordheader__side { margin-left: 0; }
+  .si-recordcmds .si-actions__primary > * { flex: 1 1 100%; }
+  .si-recordcmds .si-actions__primary .si-btn { width: 100%; justify-content: center; }
+}

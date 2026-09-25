@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Outreach } from "@/lib/api/salesIntelligence";
 import { copy } from "./sales-intelligence-copy";
 import { officialRecordHref } from "./lib/official-record";
+import { legacyNumberHref } from "./lib/legacy-links";
 import { TooltipCard } from "./atoms/tooltip-card";
 
 export function RelatedRecordChips({
@@ -43,7 +44,7 @@ export function RelatedRecordChips({
       {leads.length
         ? leads.map((lead) => chip(copy.related.lead, officialRecordHref(lead.model, lead.id, returnTo), `${lead.model}:${lead.id}`))
         : chip(copy.related.lead, null)}
-      {chip(copy.related.number, numberId ? `/sales-intelligence?view=numbers&number=${encodeURIComponent(numberId)}` : null)}
+      {chip(copy.related.number, numberId ? legacyNumberHref(numberId) : null)}
       {bookings.length
         ? bookings.map((item) => chip(copy.related.booking, officialRecordHref("BookedLead", item.id, returnTo), `BookedLead:${item.id}`))
         : chip(copy.related.booking, null)}

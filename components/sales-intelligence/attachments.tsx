@@ -37,11 +37,17 @@ export function Attachments({
   lead,
   onNumber,
   returnTo,
+  readOnly = false,
+  numberHref,
 }: {
   numberId?: string;
   lead?: { model: string; id: string };
   onNumber?: (id: string) => void;
   returnTo?: string;
+  /** UI1-SHELL Work tab (UI-1 §5.4): the evidence and history only, no attachment commands. */
+  readOnly?: boolean;
+  /** A link to the connected Number (the legacy Numbers view until UI-3, `legacyNumberHref`). */
+  numberHref?: (numberId: string) => string;
 }) {
   const [editing, setEditing] = useState<{
     id: string;
@@ -125,6 +131,11 @@ export function Attachments({
               Open connected Number Activity
             </Button>
           )}
+          {numberHref && !onNumber && (
+            <Link href={numberHref(edge.contact_number_id)}>
+              Open connected Number Activity
+            </Link>
+          )}
           <details>
             <summary>Evidence and decision history</summary>
             {edge.evidence.map((e, index) => (
@@ -140,7 +151,7 @@ export function Attachments({
               </p>
             ))}
           </details>
-          <div className="si-local-filters">
+          {!readOnly && <div className="si-local-filters">
             {edge.allowed_actions?.map((action) => {
               const title = titles[action.action] ?? label(action.action);
               const explain = explains[action.action];
@@ -166,7 +177,7 @@ export function Attachments({
                 </TooltipCard>
               );
             })}
-          </div>
+          </div>}
         </article>
       ))}
       {list.hasNextPage && (
@@ -177,7 +188,7 @@ export function Attachments({
           More attachments
         </Button>
       )}
-      {editing && selected && (
+      {!readOnly && editing && selected && (
         <EvidenceCommand
           key={`${editing.id}:${editing.command}`}
           title={titles[editing.command]}

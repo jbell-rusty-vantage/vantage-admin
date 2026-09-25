@@ -120,6 +120,22 @@ export function provenanceStateOf(record: Subject): ProvenanceState {
   return "needs_a_lead";
 }
 
+/** S11-PROV adds `is_the_lead` (the Outreach subject is itself the Form or Call Lead). */
+export type ServerProvenanceState = ProvenanceState | "is_the_lead";
+const SERVER_PROVENANCE: readonly ServerProvenanceState[] = [
+  "is_the_lead", "attached_by_you", "attached_automatically", "attached_from_evidence", "needs_a_lead", "ambiguous",
+];
+
+/**
+ * UI1-SHELL (ADMIN-REBUILD "adapt"): `derived.provenance_state` exactly as the server sent it, with no browser
+ * derivation. `null` when the read carries no value or one this build doesn't know; the caller prints the
+ * specific "not recorded" wording. `provenanceStateOf` above keeps its fallback for `_legacy/` only.
+ */
+export function serverProvenanceState(record: Subject): ServerProvenanceState | null {
+  const derived = branch(branch(record, "derived"), "provenance_state");
+  return typeof derived === "string" && (SERVER_PROVENANCE as readonly string[]).includes(derived) ? derived as ServerProvenanceState : null;
+}
+
 export function leadNameOf(record: Subject): string | null {
   const attachment = leadAttachmentOf(record);
   const name = attachment?.lead_display?.name ?? record?.lead_display?.name ?? null;
