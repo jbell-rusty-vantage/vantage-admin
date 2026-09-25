@@ -27,7 +27,7 @@ test("every section anchor is present, in order, and the sub-nav links to each",
   }
   const ids = ["tokens", "badges", "pills", "chips", "icons", "time", "loading", "live", "navigation", "card", "metrics", "presets", "rail", "timeline", "analysis", "chat", "overview", "closed", "coverage"];
   assert.deepEqual(GALLERY_SECTIONS.map((s) => s.id), ids);
-  for (const stage of ["UI1-DESK", "UI1-PRESET", "UI1-RAIL", "UI1-TL", "UI1-CHAT", "UI1-OVERVIEW", "UI1-CLOSED", "UI1-COVER"]) {
+  for (const stage of ["UI1-DESK", "UI1-TL", "UI1-CHAT", "UI1-OVERVIEW", "UI1-CLOSED", "UI1-COVER"]) {
     assert.ok(html.includes(`Lands with ${stage}`), `placeholder for ${stage}`);
   }
 });
@@ -120,6 +120,19 @@ test("the 390 px frame toggle wraps every section body", () => {
   assert.equal(framed, GALLERY_SECTIONS.length);
 });
 
+test("preset bar and rail sections: every preset state, No Lead, both rails with chips, the 390 px sheet trigger", () => {
+  const text = decode(html);
+  assert.ok(!html.includes('data-placeholder="UI1-PRESET"') && !html.includes('data-placeholder="UI1-RAIL"'));
+  for (const id of ["all", "new", "quoted", "other", "custom", "has-lead", "no-lead", "flag-off", "skeleton", "phone"]) assert.ok(html.includes(`data-preset-sample="${id}"`), `preset ${id}`);
+  for (const preset of ["all", "new", "quoted", "other", "custom", "no_lead"]) assert.ok(html.includes(`data-preset="${preset}"`), `bar state ${preset}`);
+  assert.ok(text.includes("A record with no Lead has no Granot Priority, so the presets don't apply."));
+  for (const id of ["outreach", "closed", "closed-window", "skeleton", "phone"]) assert.ok(html.includes(`data-rail-sample="${id}"`), `rail ${id}`);
+  for (const label of ["Band 1 · Promised callbacks overdue", "Needs review", "Rep: Dana Reyes", "Transaction intent at least 50", "Lead received last 7d", "Move date within 30d", "Booked in Granot", "Unassigned", "Closed Sep 1 – Sep 20", "Closed last 30d"]) {
+    assert.ok(text.includes(label), label);
+  }
+  assert.match(text, /lucide-sliders-horizontal[^]*?Filters \(9\)/);
+});
+
 test("gate: production hides the gallery unless SI_GALLERY=1", () => {
   assert.equal(galleryEnabled({ NODE_ENV: "development" }), true);
   assert.equal(galleryEnabled({ NODE_ENV: "test" }), true);
@@ -130,7 +143,7 @@ test("gate: production hides the gallery unless SI_GALLERY=1", () => {
 
 test("the gallery imports nothing from _legacy or the quarantined files", () => {
   const dir = path.join(process.cwd(), "app/(dashboard)/sales-intelligence/dev/gallery");
-  const files = ["page.tsx", "loading.tsx", "gallery.tsx", "gate.ts", "fixtures.ts", "icon-check.ts", ...["section", "tokens", "badges", "chips", "icons", "time", "loading-errors", "live", "navigation"].map((f) => `sections/${f}.tsx`)];
+  const files = ["page.tsx", "loading.tsx", "gallery.tsx", "gate.ts", "fixtures.ts", "icon-check.ts", ...["section", "tokens", "badges", "chips", "icons", "time", "loading-errors", "live", "navigation", "preset-bar", "rail"].map((f) => `sections/${f}.tsx`)];
   const quarantined = /from ["'][^"']*(_legacy|\/(workspace|attention|filters|number-browser|number-timeline|detail-panel|now-strip|analysis-panel|assessment-section|evidence-chain|stored-call-analyses|list-skeletons|message-rep-dialog|running-summary-panel))["']/;
   for (const file of files) assert.doesNotMatch(readFileSync(path.join(dir, file), "utf8"), quarantined, file);
 });

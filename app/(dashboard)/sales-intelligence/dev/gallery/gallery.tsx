@@ -11,6 +11,8 @@ import { IconsSection } from "./sections/icons";
 import { LiveSection } from "./sections/live";
 import { LoadingSection } from "./sections/loading-errors";
 import { NavigationSection } from "./sections/navigation";
+import { PresetBarSection } from "./sections/preset-bar";
+import { RailSection } from "./sections/rail";
 import { FrameContext, Placeholder } from "./sections/section";
 import { TimeSection } from "./sections/time";
 import { TokensSection } from "./sections/tokens";
@@ -30,8 +32,8 @@ export const GALLERY_SECTIONS: { id: SectionId; render: () => ReactNode }[] = [
   { id: "navigation", render: () => <NavigationSection /> },
   { id: "card", render: () => <CardSection /> },
   { id: "metrics", render: () => <Placeholder id="metrics" stage="UI1-DESK" /> },
-  { id: "presets", render: () => <Placeholder id="presets" stage="UI1-PRESET" /> },
-  { id: "rail", render: () => <Placeholder id="rail" stage="UI1-RAIL" /> },
+  { id: "presets", render: () => <PresetBarSection /> },
+  { id: "rail", render: () => <RailSection /> },
   { id: "timeline", render: () => <Placeholder id="timeline" stage="UI1-TL" /> },
   { id: "analysis", render: () => <Placeholder id="analysis" stage="UI1-TOP / UI1-MOVE / UI1-FIND" /> },
   { id: "chat", render: () => <Placeholder id="chat" stage="UI1-CHAT" /> },
