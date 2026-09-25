@@ -25,7 +25,7 @@ test("every section anchor is present, in order, and the sub-nav links to each",
     last = at;
     assert.ok(html.includes(`href="#${id}"`), `sub-nav link to #${id}`);
   }
-  const ids = ["tokens", "badges", "pills", "chips", "icons", "time", "loading", "live", "navigation", "card", "record-header", "metrics", "presets", "rail", "timeline", "analysis", "analysis-findings", "chat", "overview", "closed", "coverage"];
+  const ids = ["rep-shell", "rep-card", "rep-followup", "rep-messages", "rep-overview", "rep-phone", "users", "accept-invite", "tokens", "badges", "pills", "chips", "icons", "time", "loading", "live", "navigation", "card", "record-header", "metrics", "presets", "rail", "timeline", "analysis", "analysis-findings", "chat", "overview", "closed", "coverage"];
   assert.deepEqual(GALLERY_SECTIONS.map((s) => s.id), ids);
   for (const stage of [] as string[]) {
     assert.ok(html.includes(`Lands with ${stage}`), `placeholder for ${stage}`);
@@ -156,7 +156,7 @@ test("gate: production hides the gallery unless SI_GALLERY=1", () => {
 
 test("the gallery imports nothing from _legacy or the quarantined files", () => {
   const dir = path.join(process.cwd(), "app/(dashboard)/sales-intelligence/dev/gallery");
-  const files = ["page.tsx", "loading.tsx", "gallery.tsx", "gate.ts", "fixtures.ts", "icon-check.ts", ...["section", "tokens", "badges", "chips", "icons", "time", "loading-errors", "live", "navigation", "preset-bar", "rail", "timeline", "metrics", "closed"].map((f) => `sections/${f}.tsx`)];
+  const files = ["page.tsx", "loading.tsx", "gallery.tsx", "gate.ts", "fixtures.ts", "icon-check.ts", ...["section", "tokens", "badges", "chips", "icons", "time", "loading-errors", "live", "navigation", "preset-bar", "rail", "timeline", "metrics", "closed", "rep-shell", "rep-card", "rep-followup", "rep-messages", "rep-overview", "rep-phone", "users", "accept-invite"].map((f) => `sections/${f}.tsx`)];
   const quarantined = /from ["'][^"']*(_legacy|\/(workspace|attention|filters|number-browser|number-timeline|detail-panel|now-strip|analysis-panel|assessment-section|evidence-chain|stored-call-analyses|list-skeletons|message-rep-dialog|running-summary-panel))["']/;
   for (const file of files) assert.doesNotMatch(readFileSync(path.join(dir, file), "utf8"), quarantined, file);
 });

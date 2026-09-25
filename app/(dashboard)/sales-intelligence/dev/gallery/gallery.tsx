@@ -25,11 +25,28 @@ import { FrameContext } from "./sections/section";
 import { TimeSection } from "./sections/time";
 import { TimelineSection } from "./sections/timeline";
 import { TokensSection } from "./sections/tokens";
+import { AcceptInviteSection } from "./sections/accept-invite";
+import { RepCardSection } from "./sections/rep-card";
+import { RepFollowupSection } from "./sections/rep-followup";
+import { RepMessagesSection } from "./sections/rep-messages";
+import { RepOverviewSection } from "./sections/rep-overview";
+import { RepPhoneSection } from "./sections/rep-phone";
+import { RepShellSection } from "./sections/rep-shell";
+import { UsersSection } from "./sections/users";
 
-type SectionId = keyof typeof copy.ui1.gallery.sections;
+type SectionId = keyof typeof copy.ui1.gallery.sections | keyof typeof copy.ui2.gallery.sections;
+const SECTION_TITLES: Record<SectionId, string> = { ...copy.ui1.gallery.sections, ...copy.ui2.gallery.sections };
 
-/** Section order and anchors. Later UI-1 stages replace their placeholder with a real section. */
+/** Section order and anchors. UI-2's rep and Users sections come first (the UI-2 design gate reviews them first). */
 export const GALLERY_SECTIONS: { id: SectionId; render: () => ReactNode }[] = [
+  { id: "rep-shell", render: () => <RepShellSection /> },
+  { id: "rep-card", render: () => <RepCardSection /> },
+  { id: "rep-followup", render: () => <RepFollowupSection /> },
+  { id: "rep-messages", render: () => <RepMessagesSection /> },
+  { id: "rep-overview", render: () => <RepOverviewSection /> },
+  { id: "rep-phone", render: () => <RepPhoneSection /> },
+  { id: "users", render: () => <UsersSection /> },
+  { id: "accept-invite", render: () => <AcceptInviteSection /> },
   { id: "tokens", render: () => <TokensSection /> },
   { id: "badges", render: () => <BadgesSection /> },
   { id: "pills", render: () => <PillsSection /> },
@@ -69,7 +86,7 @@ export function Gallery({ initialFramed = false }: { initialFramed?: boolean }) 
           {g.frameToggle}
         </button>
       </header>
-      <SubNav items={GALLERY_SECTIONS.map(({ id }) => ({ id, label: g.sections[id] }))} />
+      <SubNav items={GALLERY_SECTIONS.map(({ id }) => ({ id, label: SECTION_TITLES[id] }))} />
       <FrameContext.Provider value={framed}>
         {GALLERY_SECTIONS.map(({ id, render }) => (
           <Fragment key={id}>{render()}</Fragment>

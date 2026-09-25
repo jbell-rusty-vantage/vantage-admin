@@ -42,3 +42,12 @@ export function Placeholder({ id, stage }: { id: keyof typeof copy.ui1.gallery.s
     </GallerySection>
   );
 }
+
+/** UI-2: a placeholder for a UI-2 section until its stage replaces the section file's body. */
+export function Ui2Placeholder({ id, stage }: { id: keyof typeof copy.ui2.gallery.sections; stage: string }) {
+  return (
+    <GallerySection id={id} title={copy.ui2.gallery.sections[id]}>
+      <p className="si-gallery__placeholder" data-placeholder={stage}>{copy.ui1.gallery.placeholder(stage)}</p>
+    </GallerySection>
+  );
+}
