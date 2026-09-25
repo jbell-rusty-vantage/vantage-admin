@@ -5,7 +5,7 @@ import test from "node:test";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { attentionSchema, type AttentionRow } from "../../lib/api/salesIntelligence";
-import { OutreachCard, reasonPhrase, reasonSegment, type OutreachCardProps } from "../../components/sales-intelligence/card";
+import { OutreachCard, identityText, reasonPhrase, reasonSegment, type CardOutreach, type OutreachCardProps } from "../../components/sales-intelligence/card";
 import { formatDuration, formatExactFull, formatRelative } from "../../components/sales-intelligence/lib/time";
 import { legacyNumberHref } from "../../components/sales-intelligence/lib/legacy-links";
 import { findContractsDir, fixtureTest } from "./contracts-dir";
@@ -293,7 +293,7 @@ fixtureTest("layouts and lists: band tag only in flat, sort line, closed actions
   const withHandler = render(row, asOf, { onMessageRep: () => {}, onOpen: () => {} });
   assert.ok(/<button[^>]*data-action="message-rep"(?![^>]*disabled)[^>]*>/.test(withHandler));
   assert.ok(withHandler.includes('href="/sales-intelligence/outreach/'));
-  assert.ok(withHandler.includes('aria-label="Quick look: Priya Nair · Job '), "body opens the side dialog");
+  assert.ok(withHandler.includes('aria-label="Quick look: Priya Nair · '), "body opens the side dialog");
   const unassigned = rowBy("S1/attention__all-outreach.json", byName("Sam Carter"));
   const uhtml = render(unassigned.row, unassigned.asOf, { onMessageRep: () => {} });
   assert.ok(/data-action="message-rep"[^>]*disabled=""/.test(uhtml) && text(uhtml).includes("No rep to message"));
@@ -336,4 +336,27 @@ test("gallery Card section: every card sample, grouped vs flat, the skeleton, th
     assert.ok(t.includes(needle), `gallery shows ${needle}`);
   }
   assert.ok(!t.includes("%"), "no % in any card text (skeleton widths are styles)");
+});
+
+test("UX-C2: line 1 shows the formatted phone after the name; no number leaves no empty separator; Number-only unchanged", () => {
+  const lead = (primary_number: { id: string; e164: string } | null) =>
+    ({ subject: { kind: "lead" }, primary_number, lead_display: { name: "Priya Nair", job_no: "5562924", source_company: "Moving Pros" } }) as unknown as CardOutreach;
+  assert.equal(identityText(lead({ id: "n1", e164: "+14045551028" })), "Priya Nair · (404) 555-1028 · Job 5562924 · Moving Pros");
+  assert.equal(identityText(lead(null)), "Priya Nair · Job 5562924 · Moving Pros");
+  const numberOnly = { subject: { kind: "number" }, primary_number: { id: "n1", e164: "+14045551028" }, lead_display: null } as unknown as CardOutreach;
+  assert.equal(identityText(numberOnly), "(404) 555-1028 · No Lead attached");
+});
+
+fixtureTest("UX-C2: every fixture Lead card with a number shows it on line 1", () => {
+  const { rows, asOf } = page("S1/attention__all-outreach.json");
+  let seen = 0;
+  for (const row of rows) {
+    const o = row.outreach;
+    if (!o || o.subject.kind !== "lead" || !o.primary_number) continue;
+    const us = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(o.primary_number.e164);
+    const shown = us ? `(${us[1]}) ${us[2]}-${us[3]}` : o.primary_number.e164;
+    assert.ok(text(lines(render(row, asOf))[0]!).includes(shown), `${row.subject_key} line 1 has ${shown}`);
+    seen++;
+  }
+  assert.ok(seen > 0, "the fixture has Lead rows with a number");
 });

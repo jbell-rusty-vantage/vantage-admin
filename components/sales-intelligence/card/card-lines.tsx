@@ -62,14 +62,16 @@ export function CardTip({ title, label, lines, className }: { title: string; lab
 
 // ── Line 1 ────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** `{name} · Job {job_no} · {source_company}`; Number-only `{e164} · No Lead attached`; `Unknown name`. */
+/**
+ * `{name} · {phone} · Job {job_no} · {source_company}` (UX-C2: the formatted primary number, left out when there is
+ * none); Number-only `{phone} · No Lead attached`; `Unknown name`. The card, the preview dialog and the record header
+ * all read this line.
+ */
 export function identityText(o: CardOutreach): string {
-  if (isNumberOnly(o) || (!o.lead_display && o.primary_number)) {
-    const number = formatE164(o.primary_number?.e164);
-    return number ? `${number}${SEP}${c.noLead}` : c.noLead;
-  }
+  const number = formatE164(o.primary_number?.e164);
+  if (isNumberOnly(o) || (!o.lead_display && o.primary_number)) return number ? `${number}${SEP}${c.noLead}` : c.noLead;
   const d = o.lead_display;
-  return [d?.name || c.unknownName, d?.job_no ? c.job(d.job_no) : null, d?.source_company || null].filter(Boolean).join(SEP);
+  return [d?.name || c.unknownName, number || null, d?.job_no ? c.job(d.job_no) : null, d?.source_company || null].filter(Boolean).join(SEP);
 }
 
 export type CardChip = { id: string; tone: ChipTone; label: string; icon?: ReactNode; tip?: string };
