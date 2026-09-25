@@ -275,3 +275,24 @@ test("page states: the route skeleton (frame + header skeleton + six section tit
   const page = withClient(createElement(OutreachPageFrame, { back: "/sales-intelligence", header: null, tabs: outreachTabs("o1", null), active: "analysis", notFound: true }, createElement("p", null, "hidden body")));
   assert.ok(text(page).includes("This Outreach doesn't exist or was removed.") && !text(page).includes("hidden body") && !page.includes("Couldn't load this."));
 });
+
+test("FIX-UI1 m7/m3: related records are separated, the Number link has its `Previous version` note, links are 44 px", () => {
+  const o = detail("AC/outreach__ac-attempt-50-early.json").data.outreach;
+  const out = renderToStaticMarkup(createElement(RelatedRecordChips, { outreach: o, numberId: "n1", returnTo: "/sales-intelligence" }));
+  assert.ok(out.includes('class="si-related__sep" aria-hidden="true"> · </span>'));
+  const seps = out.split("si-related__sep").length - 1;
+  const chips = out.split('class="si-chiprow"').length - 1;
+  assert.equal(seps, chips - 1, "one separator between each pair of records");
+  const numberAt = out.indexOf("/numbers/") >= 0 ? out.indexOf("/numbers/") : out.indexOf("n1");
+  assert.ok(out.indexOf("Previous version", numberAt) > numberAt, "the note follows the legacy Number link");
+  assert.equal(out.split("Previous version").length - 1, 1);
+  assert.ok(out.includes('class="si-related__link"'));
+});
+
+test("FIX-UI1 m1: the kept Lead progress and Coverage blocks format times through lib/time (`ET`)", () => {
+  for (const file of ["components/sales-intelligence/lead-progress.tsx", "components/sales-intelligence/coverage-view.tsx"]) {
+    const src = fs.readFileSync(path.join(process.cwd(), file), "utf8");
+    assert.ok(!src.includes('from "./lib/format"'), `${file} no longer formats with lib/format (EDT/EST)`);
+    assert.ok(src.includes('from "./lib/time"'), `${file} uses lib/time`);
+  }
+});

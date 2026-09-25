@@ -117,7 +117,7 @@ test("detail shows basis, Lead update time in Eastern, no-call line, override an
   });
   const html = renderToStaticMarkup(createElement(LeadProgressSection, { record, onCommand: () => {} }));
   assert.match(html, /Work basis: Lead quoted/);
-  assert.match(html, /Lead update time Sep 22, 10:05 AM EDT from Granot/);
+  assert.match(html, /Lead update time Sep 22, 2026, 10:05 AM ET from Granot/ /* FIX-UI1 m1: `ET` via lib/time */);
   assert.match(html, /No call observed in available history/);
   assert.match(html, /Closed: Granot bad\/unusable/);
   assert.match(html, /Disposition overridden by owner-1/);

@@ -83,7 +83,7 @@ export function ChatSection() {
       <Subhead>{s.bubbles}</Subhead>
       <div className="si-gallery__body" data-chat="bubbles">
         <Sample label={s.owner} copyKey="copy.ui1.chat.sending" wide>
-          <MessageBubble side="owner" body={s.sampleBody} at={GALLERY_AS_OF} asOf={GALLERY_AS_OF} delivery={<DeliveryIndicator state="sending" />} />
+          <MessageBubble side="owner" body={s.sampleBody} at={null} asOf={GALLERY_AS_OF} delivery={<DeliveryIndicator state="sending" />} />
         </Sample>
         <Sample copyKey="copy.ui1.chat.sent(t)" wide>
           <MessageBubble side="owner" body={s.sampleBody} at="2026-09-23T21:30:00.000Z" asOf={GALLERY_AS_OF} delivery={<DeliveryIndicator state="sent" at="2026-09-23T21:30:04.000Z" />} />

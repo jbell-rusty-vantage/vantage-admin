@@ -22,7 +22,8 @@ export function MessageBubble({
 }: {
   side: BubbleSide;
   body: string;
-  at: string;
+  /** `null` until the server has stored the message (no time on a `Sending…` bubble, FIX-UI1 m9). */
+  at: string | null;
   asOf: string | null;
   /** Screen-reader author; the Owner's defaults to `You`. */
   author?: string;
@@ -35,7 +36,7 @@ export function MessageBubble({
       {who && <span className="si-sr">{who}: </span>}
       <p className="si-bubble__body">{body}</p>
       <div className="si-bubble__foot">
-        <TimeText t={at} asOf={asOf} mode="exact" className="si-bubble__time" />
+        {at !== null && <TimeText t={at} asOf={asOf} mode="exact" className="si-bubble__time" />}
         {delivery}
       </div>
     </div>

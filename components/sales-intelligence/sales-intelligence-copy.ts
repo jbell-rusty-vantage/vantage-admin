@@ -1960,6 +1960,10 @@ export const copy = {
         none: "No move details were stated in the retained conversations.",
       },
     },
+    /** FIX-UI1: the verifier's findings (m7 separators between the related-record links). */
+    fixUi1: {
+      sep: " · ",
+    },
   },
 } as const;
 

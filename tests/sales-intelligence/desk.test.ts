@@ -11,7 +11,8 @@ import { MetricsStripView, metricTiles } from "../../components/sales-intelligen
 import { ListControls, sortOptions, sortPatch } from "../../components/sales-intelligence/desk/list-controls";
 import { ActiveChips } from "../../components/sales-intelligence/desk/active-chips";
 import { PageHeaderView, isShortPhone, searchAction } from "../../components/sales-intelligence/desk/page-header";
-import { legacyDeepLinkRedirect } from "../../components/sales-intelligence/desk/legacy-deep-links";
+import { deskRouteDecision, legacyDeepLinkRedirect } from "../../components/sales-intelligence/desk/legacy-deep-links";
+import { leadTargetHref } from "../../components/sales-intelligence/outreach/lead-deep-link";
 import { NO_DEGRADE, applyDegrade, degradeNotices, nextDegrade } from "../../components/sales-intelligence/desk/degrade";
 import { attentionParamsFromDesk, deskUrlUpdate, parseDeskUrl } from "../../components/sales-intelligence/data/url-state";
 import { attentionQuery } from "../../components/sales-intelligence/data/requests";
@@ -275,4 +276,28 @@ test("trap 5: legacyDeepLinkRedirect", () => {
   assert.equal(legacyDeepLinkRedirect(new URLSearchParams("view=attention&lead=l1&lead_model=FormLead&panel=assessment")), null);
   assert.equal(legacyDeepLinkRedirect(new URLSearchParams("view=attention&outreach=o1")), null);
   assert.equal(legacyDeepLinkRedirect({}), null);
+});
+
+test("FIX-UI1 M1 (A20): the route's deep-link rule table", () => {
+  const p = (q: string) => new URLSearchParams(q);
+  // outreach= + panel= → server redirect (unchanged).
+  assert.deepEqual(deskRouteDecision(p("outreach=o1&panel=assessment")), { kind: "redirect", href: "/sales-intelligence/outreach/o1#scores" });
+  // Lead-only analysis links → the browser resolver, with the tab/run/anchor the route needs.
+  const assessment = deskRouteDecision(p("lead=l1&lead_model=FormLead&panel=assessment"));
+  assert.equal(assessment.kind, "resolve-lead");
+  if (assessment.kind !== "resolve-lead") return;
+  assert.deepEqual(assessment.target, { kind: "resolve-lead", model: "FormLead", leadId: "l1", tab: "analysis", run: null, anchor: "scores", siReturn: null });
+  assert.equal(leadTargetHref(assessment.target, "o9"), "/sales-intelligence/outreach/o9?tab=analysis#scores");
+  const analysis = deskRouteDecision(p("view=attention&lead=l2&lead_model=CallLead&panel=analysis&analysis_run=r3&si_return=%2Fsales-intelligence%3Fview%3Dclosed"));
+  assert.equal(analysis.kind, "resolve-lead");
+  if (analysis.kind !== "resolve-lead") return;
+  assert.equal(leadTargetHref(analysis.target, "o9"), "/sales-intelligence/outreach/o9?tab=analysis&run=r3&si_return=%2Fsales-intelligence%3Fview%3Dclosed#full-output");
+  const noRun = deskRouteDecision(p("lead=l2&lead_model=FormLead&panel=analysis"));
+  assert.ok(noRun.kind === "resolve-lead" && leadTargetHref(noRun.target, "o9") === "/sales-intelligence/outreach/o9?tab=analysis#full-output");
+  // No panel → the desk (the side dialog, trap 4); other panels, unknown models, no lead → the desk.
+  assert.deepEqual(deskRouteDecision(p("view=attention&lead=l1&lead_model=FormLead")), { kind: "desk" });
+  assert.deepEqual(deskRouteDecision(p("lead=l1&lead_model=FormLead&panel=work")), { kind: "desk" });
+  assert.deepEqual(deskRouteDecision(p("lead=l1&lead_model=Nope&panel=assessment")), { kind: "desk" });
+  assert.deepEqual(deskRouteDecision(p("view=attention&outreach=o1")), { kind: "desk" });
+  assert.deepEqual(deskRouteDecision({}), { kind: "desk" });
 });

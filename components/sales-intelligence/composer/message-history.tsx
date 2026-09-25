@@ -38,7 +38,8 @@ export function historyItems(nudges: readonly NudgeRecord[], local: readonly Loc
       id: n.id,
       side: "owner",
       body: n.body_as_sent,
-      at: n.created_at,
+      // FIX-UI1 (m9): the optimistic item (`pending:{key}`) has no server time yet; it shows none until the server answers.
+      at: n.id.startsWith("pending:") ? null : n.created_at,
       delivery: (
         <DeliveryIndicator
           state={state}
@@ -57,7 +58,7 @@ export function historyItems(nudges: readonly NudgeRecord[], local: readonly Loc
       id: `local:${m.key}`,
       side: "owner",
       body: m.text,
-      at: m.at,
+      at: null, // FIX-UI1 (m9): never stored, so no time (the page's `as_of` isn't when it was sent)
       delivery: (
         <DeliveryIndicator
           state={m.state}

@@ -21,6 +21,7 @@ import {
 import {
   MessageHistoryView,
   MessageRepPanelView,
+  RecipientPickerView,
   filterRows,
   historyItems,
   panelTitle,
@@ -258,6 +259,52 @@ test("the recipient picker lists the directory, marks users without a reviewed A
   assert.equal(rows[2]!.recipient?.rep_identity_link_id, null);
   assert.deepEqual(filterRows(rows, "marc").map((r) => r.name), ["Marcus Bell"]);
   assert.deepEqual(filterRows(rows, "ext. 140").map((r) => r.name), ["Front desk"]);
+});
+
+test("FIX-UI1 M2 (A43): the picker lists every reviewed rep, even when the directory leaves their extension out", () => {
+  // The seed's shape: three identity links (two reviewed, one proposed); the directory holds only an unlinked extension.
+  const seedLike = { ...CHAT_REPS,
+    items: [...CHAT_REPS.items, { ...CHAT_REPS.items[0]!, id: "3", agent_id: "agent-3", agent_name: "Tina Cho", rc_extension_id: "103", rc_extension_number: "103", rc_extension_name: null, status: "proposed" },
+      { ...CHAT_REPS.items[0]!, id: "4", agent_id: "agent-4", agent_name: "Old Rep", rc_extension_id: "109", rc_extension_number: "109", effective_to: "2026-09-10T00:00:00.000Z" }],
+    directory: { ...CHAT_REPS.directory, users: [{ extension_id: "105", extension_name: "Mike Reyes", status: "unmatched", candidates: [], extension_number: "105", rc_account_id: "acct-1" }] } };
+  const rows = pickerRows(seedLike);
+  assert.deepEqual(rows.map((r) => [r.name, r.detail, r.reviewed]), [
+    ["Dana Reyes", "Dana R. · Ext. 101", true], ["Marcus Bell", "Marcus B. · Ext. 102", true], ["Mike Reyes", "Ext. 105", false],
+  ], "proposed and ended links are not reviewed reps");
+  assert.deepEqual(rows[1]!.recipient, { rc_account_id: "acct-1", rc_extension_id: "102", rep_identity_link_id: "2", expected_rep_revision: 2, name: "Marcus Bell", agent_id: "agent-2" });
+  assert.deepEqual(rows[2]!.recipient, { rc_account_id: "acct-1", rc_extension_id: "105", rep_identity_link_id: null, expected_rep_revision: null, name: "Mike Reyes", agent_id: null });
+  // Picking Marcus sends to his link.
+  const o = detail("AC/outreach__ac-attempt-50-early.json").data.outreach;
+  const nudge = nudgeSendBody({ outreach: o, recipient: rows[1]!.recipient!, text: "Call back" });
+  assert.equal((nudge.nudge as Record<string, unknown>).rc_extension_id, "102");
+  assert.equal((nudge.nudge as Record<string, unknown>).rep_identity_link_id, "2");
+  assert.equal((nudge.nudge as Record<string, unknown>).rc_account_id, "acct-1");
+  assert.equal(nudge.expected_rep_revision, 2);
+  const out = html(createElement(RecipientPickerView, { rows, current: rows[0]!.recipient, onPick: noop, onClose: noop, autoFocus: false }));
+  assert.ok(out.includes(">Marcus Bell<") && out.includes("Marcus B. · Ext. 102"));
+  assert.equal(out.split("No reviewed Agent match").length - 1, 1, "only the unlinked directory user is marked");
+});
+
+test("FIX-UI1 M3/m6/m9: the picker's focus return target, and no time on an unsent bubble", () => {
+  const recipient = pickerRows(CHAT_REPS)[0]!.recipient;
+  const view = (picking: boolean) => html(createElement(MessageRepPanelView, {
+    mode: "panel", recipient, resolved: true, picking, picker: picking ? createElement("div", { "data-picker": "" }) : null, history: null, composer: null, onSomeoneElse: noop, onClose: noop,
+  }));
+  // While picking, the control is replaced by the picker; once the picker closes the control is back and is where
+  // the panel's effect puts the focus (`data-focus-return`), and the panel (`tabIndex=-1`) catches the next Escape.
+  assert.ok(!view(true).includes("Send to someone else") && view(true).includes("data-picker"));
+  assert.ok(view(false).includes('data-focus-return="picker">Send to someone else</button>'));
+  assert.ok(view(false).includes('tabindex="-1"'));
+  // m9: an optimistic `pending:` item and local attempts carry no time; stored nudges keep theirs.
+  const pending: NudgeRecord = { ...CHAT_NUDGES[0]!, id: "pending:k9", body_as_sent: "just sent", created_at: "2026-09-23T10:00:00.000Z" };
+  const local: LocalMessage[] = [{ key: "k8", text: "refused", body: {}, state: "failed", code: "RATE_LIMITED", reason: "x", at: AS_OF }];
+  const items = historyItems([CHAT_NUDGES[4]!, pending], local);
+  assert.deepEqual(items.map((i) => i.at), [CHAT_NUDGES[4]!.created_at, null, null]);
+  const groups = groupByDay(items);
+  assert.equal(groups.length, 1, "unsent items join the newest day, no divider of their own");
+  assert.deepEqual(groups[0]!.items.map((i) => i.body).slice(-2), ["just sent", "refused"]);
+  const bubble = html(createElement(MessageBubble, { side: "owner", body: "b", at: null, asOf: AS_OF, delivery: createElement(DeliveryIndicator, { state: "sending" }) }));
+  assert.ok(!bubble.includes("<time") && bubble.includes("Sending…"));
 });
 
 test("the gallery Chat kit section shows every state and a 390 px frame", () => {

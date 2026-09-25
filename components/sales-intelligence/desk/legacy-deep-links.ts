@@ -9,6 +9,9 @@
  *   other value → the route's default tab (Analysis).
  * - `si_return=` rides along, so the route's back link still returns where the Owner came from.
  */
+import { deepLinkTarget, type DeepLinkTarget } from "../outreach/deep-links";
+
+export type LeadDeepLinkTarget = Extract<DeepLinkTarget, { kind: "resolve-lead" }>;
 export type SearchParamsInput = URLSearchParams | Record<string, string | string[] | undefined>;
 
 function first(params: SearchParamsInput, key: string): string | null {
@@ -33,4 +36,20 @@ export function legacyDeepLinkRedirect(searchParams: SearchParamsInput): string 
   const hash = panel === "assessment" ? "#scores" : panel === "analysis" ? "#full-output" : "";
   const text = query.toString();
   return `/sales-intelligence/outreach/${encodeURIComponent(outreach)}${text ? `?${text}` : ""}${hash}`;
+}
+
+/**
+ * FIX-UI1 (M1, UI1-A20): the route's whole decision. `outreach=&panel=` → a server redirect (above); a Lead-only
+ * analysis link (`lead=&lead_model=&panel=assessment|analysis[&analysis_run=]`, no `outreach=`) → the browser
+ * `LeadDeepLink`, which resolves through `outreach/by-lead` (the `resolve-lead` row of `outreach/deep-links.ts`);
+ * everything else (`view=attention&lead=&lead_model=` without `panel` included) → the desk.
+ */
+export type DeskRouteDecision = { kind: "redirect"; href: string } | { kind: "resolve-lead"; target: LeadDeepLinkTarget } | { kind: "desk" };
+
+export function deskRouteDecision(searchParams: SearchParamsInput): DeskRouteDecision {
+  const href = legacyDeepLinkRedirect(searchParams);
+  if (href) return { kind: "redirect", href };
+  const target = deepLinkTarget(searchParams);
+  if (target?.kind === "resolve-lead") return { kind: "resolve-lead", target };
+  return { kind: "desk" };
 }

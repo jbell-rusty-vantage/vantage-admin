@@ -138,7 +138,23 @@ test("A17: every number with a list behind it links to that filtered list, carry
   const links = overviewLinks({ priority: ["0", "not_set"], attachment: null });
   assert.equal(links.closed("crm_bad_dead", { from_day: "2026-09-18", to_day: "2026-09-24" }),
     "/sales-intelligence?view=closed&priority=0&priority=not_set&outcome=crm_dead&outcome=crm_bad_unusable&closed_from=2026-09-18&closed_to=2026-09-24");
-  assert.equal(links.closed("moved_to_quoted", { from_day: "a", to_day: "b" }), null, "Moved to Quoted has no list");
+  // FIX-UI1 (m5): Moved to Quoted, Flow In and the rep table's Open/Overdue cells link to their lists.
+  const period = { from_day: "2026-09-18", to_day: "2026-09-24" };
+  const q = (href: string | null) => new URL(href!, "http://x").searchParams;
+  const quoted = q(links.closed("moved_to_quoted", period));
+  assert.equal(quoted.get("view"), "all_outreach");
+  assert.deepEqual(quoted.getAll("priority"), ["1"]);
+  assert.equal(quoted.get("received_from"), "2026-09-18");
+  assert.equal(quoted.get("received_to"), "2026-09-24");
+  const flowIn = q(links.flowIn(period));
+  assert.equal(flowIn.get("view"), "all_outreach");
+  assert.deepEqual(flowIn.getAll("priority"), ["0", "not_set"]);
+  assert.equal(flowIn.get("received_from"), "2026-09-18");
+  assert.equal(flowIn.get("received_to"), "2026-09-24");
+  const overdue = q(links.repOverdue("a1"));
+  assert.equal(overdue.get("view"), "all_outreach");
+  assert.deepEqual(overdue.getAll("agent_id"), ["a1"]);
+  assert.deepEqual(overdue.getAll("band"), ["1"]);
 });
 
 test("A18: the split default label with the two default periods; choosing a period sets both", () => {

@@ -225,7 +225,7 @@ function RecordHeaderLive({ id, returnTo }: { id: string; returnTo: string }) {
         messageRepDisabledReason={availability.disabledReason}
       />
       {command && <CommandDialog key={`${command}:${outreach.id}`} command={command} record={outreach} onClose={() => setCommand(null)} />}
-      {messaging && <MessageRepPanel outreach={outreach} asOf={asOf} mode="panel" onClose={() => setMessaging(false)} />}
+      {messaging && <MessageRepPanel key={outreach.id} outreach={outreach} asOf={asOf} mode="panel" onClose={() => setMessaging(false)} />}
     </>
   );
 }

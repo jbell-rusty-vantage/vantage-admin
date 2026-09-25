@@ -119,10 +119,33 @@ function defaultCard(view: DeskView, sort: string, asOf: string): RenderCard {
   };
 }
 
+/** Scrolls the list heading to the top (instant under reduced motion) and focuses it (`tabIndex={-1}`). */
+export function focusListHeading(heading: HTMLElement | null = typeof document === "undefined" ? null : document.getElementById(LIST_HEADING_ID)) {
+  if (!heading) return;
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  heading.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  heading.focus({ preventScroll: true });
+}
+
+/**
+ * FIX-UI1 (A10/m4): a metric tile that changes view asks for the focus before the new view's list exists; the
+ * request is served when that view's heading mounts (its ref), after layout, so focus never drops to `<body>` and
+ * the heading scrolls into view at 390 px too.
+ */
+let listFocusRequested = false;
+export function requestListHeadingFocus() {
+  listFocusRequested = true;
+}
+function onHeadingMount(heading: HTMLHeadingElement | null) {
+  if (!heading || !listFocusRequested) return;
+  listFocusRequested = false;
+  requestAnimationFrame(() => focusListHeading(heading));
+}
+
 export function ListHeading({ view, count }: { view: DeskView; count: string | null }) {
   return (
     <div className="si-desk__listhead">
-      <h2 id={LIST_HEADING_ID} className="si-desk__listheading" tabIndex={-1}>{d.listHeading[view]}</h2>
+      <h2 ref={onHeadingMount} id={LIST_HEADING_ID} className="si-desk__listheading" tabIndex={-1}>{d.listHeading[view]}</h2>
       {count && <span className="si-desk__count" data-results>{count}</span>}
     </div>
   );
@@ -286,7 +309,7 @@ export function OutreachList({ view, params, state, update, pending, returnTo, r
         )}
       />
       <DialogHost state={state} rows={rows} update={update} renderTimeline={renderTimeline} />
-      {messaging?.outreach && <MessageRepPanel outreach={messaging.outreach} asOf={asOf} mode="panel" onClose={() => setMessaging(null)} />}
+      {messaging?.outreach && <MessageRepPanel key={messaging.outreach.id} outreach={messaging.outreach} asOf={asOf} mode="panel" onClose={() => setMessaging(null)} />}
     </>
   );
 }

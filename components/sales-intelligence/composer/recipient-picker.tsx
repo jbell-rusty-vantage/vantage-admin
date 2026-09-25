@@ -1,7 +1,7 @@
 "use client";
 /**
- * UI1-CHAT (UX28): `Send to someone else`: a searchable list over the RingCentral directory (`GET /reps`,
- * `useReps()`). A user without a reviewed, still-effective identity link is marked `No reviewed Agent match`
+ * UI1-CHAT (UX28): `Send to someone else`: a searchable list of the reviewed reps and the RingCentral directory
+ * (`GET /reps`, `useReps()`). A user without a reviewed, still-effective identity link is marked `No reviewed Agent match`
  * (the server decides whether it accepts the destination). 44 px rows; Escape closes the picker only.
  */
 import { Check, Search } from "lucide-react";
@@ -16,23 +16,36 @@ type RepsData = ReturnType<typeof repsSchema.parse>["data"];
 
 export type PickerRow = { id: string; name: string; detail: string | null; reviewed: boolean; recipient: NudgeRecipient | null };
 
-/** Pure: one row per directory user, named by the reviewed Agent when there is one. */
+/**
+ * Pure: every reviewed, still-effective rep (`GET reps` `items[]`, named by the Agent with their extension), then every
+ * directory user those rows don't already cover (named by the attached Agent or the extension, and marked
+ * `No reviewed Agent match`). FIX-UI1 (M2): the directory alone can leave linked extensions out.
+ */
 export function pickerRows(data: RepsData): PickerRow[] {
   const c = copy.ui1.chat;
   const accounts = data.directory.accounts ?? [];
-  return data.directory.users.map((user) => {
-    const link = data.items.find((item) => item.rc_extension_id === user.extension_id && item.status === "reviewed" && !item.effective_to
-      && (!user.rc_account_id || item.rc_account_id === user.rc_account_id));
-    const account = user.rc_account_id ?? link?.rc_account_id ?? (accounts.length === 1 ? accounts[0]!.rc_account_id : null);
-    const name = link?.agent_name ?? user.attached_agent?.name ?? user.extension_name ?? c.unnamedExtension(user.extension_number ?? user.extension_id);
-    const detail = [user.extension_name && user.extension_name !== name ? user.extension_name : null, user.extension_number ? c.extension(user.extension_number) : null]
-      .filter(Boolean).join(" · ") || null;
+  const detailOf = (extensionName: string | null | undefined, number: string | null | undefined, name: string) =>
+    [extensionName && extensionName !== name ? extensionName : null, number ? c.extension(number) : null].filter(Boolean).join(" · ") || null;
+  const reviewed = data.items.filter((item) => item.status === "reviewed" && !item.effective_to);
+  const repRows: PickerRow[] = reviewed.map((link) => ({
+    id: `${link.rc_account_id}:${link.rc_extension_id}`,
+    name: link.agent_name,
+    detail: detailOf(link.rc_extension_name, link.rc_extension_number, link.agent_name),
+    reviewed: true,
+    recipient: { rc_account_id: link.rc_account_id, rc_extension_id: link.rc_extension_id, rep_identity_link_id: link.id, expected_rep_revision: link.revision,
+      name: link.agent_name, agent_id: link.agent_id },
+  }));
+  const covered = (user: RepsData["directory"]["users"][number]) =>
+    reviewed.some((item) => item.rc_extension_id === user.extension_id && (!user.rc_account_id || item.rc_account_id === user.rc_account_id));
+  const userRows: PickerRow[] = data.directory.users.filter((user) => !covered(user)).map((user) => {
+    const account = user.rc_account_id ?? (accounts.length === 1 ? accounts[0]!.rc_account_id : null);
+    const name = user.attached_agent?.name ?? user.extension_name ?? c.unnamedExtension(user.extension_number ?? user.extension_id);
     const recipient: NudgeRecipient | null = account
-      ? { rc_account_id: account, rc_extension_id: user.extension_id, rep_identity_link_id: link?.id ?? null, expected_rep_revision: link?.revision ?? null,
-          name, agent_id: link?.agent_id ?? null }
+      ? { rc_account_id: account, rc_extension_id: user.extension_id, rep_identity_link_id: null, expected_rep_revision: null, name, agent_id: null }
       : null;
-    return { id: `${account ?? "?"}:${user.extension_id}`, name, detail, reviewed: !!link, recipient };
+    return { id: `${account ?? "?"}:${user.extension_id}`, name, detail: detailOf(user.extension_name, user.extension_number, name), reviewed: false, recipient };
   });
+  return [...repRows, ...userRows];
 }
 
 /** Pure: case-insensitive match on the name and the detail line. */

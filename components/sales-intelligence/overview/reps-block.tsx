@@ -108,8 +108,13 @@ function repRow(rep: OverviewRep, links: OverviewLinks | null): Row {
     href: links ? links.rep(rep.agent.id) : null,
     note: i.recovered_calls > 0 ? <span className="si-ovreps__note" data-recovered={i.recovered_calls}>{t.recovered(count(i.recovered_calls))}</span> : null,
     cells: {
-      open: <span title={bands}>{count(rep.open_assignments.open)}</span>,
-      overdue: <span className={cx(rep.open_assignments.overdue > 0 && "si-text--amber")} data-overdue={rep.open_assignments.overdue}>{count(rep.open_assignments.overdue)}</span>,
+      // FIX-UI1 (m5): Open → All Outreach for the rep; Overdue → the same in Band 1.
+      open: links
+        ? <Link href={links.rep(rep.agent.id)} className="si-ovlink" title={bands} data-rep-cell="open">{count(rep.open_assignments.open)}</Link>
+        : <span title={bands}>{count(rep.open_assignments.open)}</span>,
+      overdue: links && rep.open_assignments.overdue > 0
+        ? <Link href={links.repOverdue(rep.agent.id)} className="si-ovlink si-text--amber" data-overdue={rep.open_assignments.overdue} data-rep-cell="overdue">{count(rep.open_assignments.overdue)}</Link>
+        : <span className={cx(rep.open_assignments.overdue > 0 && "si-text--amber")} data-overdue={rep.open_assignments.overdue}>{count(rep.open_assignments.overdue)}</span>,
       attempts: count(i.outbound_attempts),
       conversations: count(i.human_conversations),
       talk: t.talkMinutes(minutes(i.talk_minutes)),

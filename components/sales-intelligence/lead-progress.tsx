@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { AttachedLeadProgress, LeadProgress, Outreach } from "@/lib/api/salesIntelligence";
 import { copy } from "./sales-intelligence-copy";
-import { formatDateTime } from "./lib/format";
+import { formatExactFull as formatDateTime } from "./lib/time"; // FIX-UI1 m1: `ET`, never `EDT`/`EST` (UI-0 §2.1)
 import { officialRecordHref } from "./lib/official-record";
 import { attachedLeadView, bookedClosure, closureText, priorityText, progressExplanation, quotedText } from "./lib/lead-progress";
 import { callBlockerSentence, offeredActions } from "./lib/owner-now";

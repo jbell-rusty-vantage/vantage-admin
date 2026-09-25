@@ -5,7 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ownerCoverageSchema, readSalesIntelligence, settingsSchema, type OwnerCoverage } from "@/lib/api/salesIntelligence";
 import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
 import { copy } from "./sales-intelligence-copy";
-import { formatDateTime } from "./lib/format";
+import { formatExact, formatExactFull } from "./lib/time";
+import { useReportAsOf } from "./data/live";
 import { Button } from "./atoms/button";
 import { Failure } from "./chrome";
 import { SettingsForm } from "./settings-form";
@@ -49,14 +50,14 @@ function AdmissionCard({ admission }: { admission: NonNullable<OwnerCoverage["an
   );
 }
 
-function Stage({ name, stage }: { name: string; stage: OwnerCoverage["stages"]["recording"] }) {
+function Stage({ name, stage, at }: { name: string; stage: OwnerCoverage["stages"]["recording"]; at: (t: string) => string }) {
   return (
     <li>
       <strong>{name}</strong>
       {" · "}
       {stage.pending} pending · {stage.leased} leased · {stage.retry} retry · {stage.paused} paused · {stage.dead_letter} failed
       {" · "}
-      {stage.oldest_queued_at ? `${copy.coverage.oldestQueued} ${formatDateTime(stage.oldest_queued_at)}` : copy.coverage.noQueuedAge}
+      {stage.oldest_queued_at ? `${copy.coverage.oldestQueued} ${at(stage.oldest_queued_at)}` : copy.coverage.noQueuedAge}
     </li>
   );
 }
@@ -74,6 +75,10 @@ export function CoverageView() {
     retry: false,
   });
   const row = coverage.data?.data.coverage;
+  // FIX-UI1: the header indicator reads `Live · Updated {t}` from this read (m8); times print `ET` against its `as_of` (m1).
+  const asOf = coverage.data?.data.as_of;
+  useReportAsOf(asOf);
+  const at = (t: string) => (asOf ? formatExact(t, asOf) : formatExactFull(t));
   const policy = settings.data?.data.policy;
   return (
     <div className="si-view si-coverageview">
@@ -91,16 +96,16 @@ export function CoverageView() {
             </TooltipCard>
             <p>{copy.coverage.historySoWhat}</p>
             <p>
-              {row.known_through ? copy.coverage.knownThrough(formatDateTime(row.known_through)) : copy.coverage.unknown}
+              {row.known_through ? copy.coverage.knownThrough(at(row.known_through)) : copy.coverage.unknown}
               {" · "}
-              {copy.coverage.asOf(formatDateTime(coverage.data!.data.as_of))}
+              {copy.coverage.asOf(at(coverage.data!.data.as_of))}
             </p>
             <p>Call log {capabilityLabel(row.capabilities.call_log)} · Recording {capabilityLabel(row.capabilities.recording_content)} · Webhook {capabilityLabel(row.capabilities.webhook)}</p>
             <h4>{copy.coverage.gaps}</h4>
             {row.gaps.length ? (
               <ul>
                 {row.gaps.map((gap) => (
-                  <li key={`${gap.from}-${gap.to}`}>{formatDateTime(gap.from)} → {formatDateTime(gap.to)} · {gap.reason}</li>
+                  <li key={`${gap.from}-${gap.to}`}>{at(gap.from)} → {at(gap.to)} · {gap.reason}</li>
                 ))}
               </ul>
             ) : <p className="si-text--subtle">{copy.coverage.noGaps}</p>}
@@ -159,17 +164,17 @@ export function CoverageView() {
                 <h3>{copy.coverage.stages}</h3>
                 <p className="si-field__hint">{copy.coverage.pendingMeans} {copy.coverage.leasedMeans} {copy.coverage.deadLetterMeans}</p>
                 <ul>
-                  <Stage name={copy.stages.recording} stage={row.stages.recording} />
-                  <Stage name={copy.stages.transcription} stage={row.stages.transcription} />
-                  <Stage name={copy.stages.analysis} stage={row.stages.analysis} />
-                  <Stage name={copy.stages.application} stage={row.stages.application} />
+                  <Stage name={copy.stages.recording} stage={row.stages.recording} at={at} />
+                  <Stage name={copy.stages.transcription} stage={row.stages.transcription} at={at} />
+                  <Stage name={copy.stages.analysis} stage={row.stages.analysis} at={at} />
+                  <Stage name={copy.stages.application} stage={row.stages.application} at={at} />
                 </ul>
               </section>
               <section className="si-card">
                 <h3>{copy.coverage.mapping}</h3>
                 <p>Unmapped inbound numbers {row.mapping_hygiene.unmapped_inbound_numbers}</p>
                 <p>Directory users without a reviewed link {row.mapping_hygiene.unmapped_directory_users ?? copy.coverage.capabilityUnknown}</p>
-                <p>Directory last synced {row.mapping_hygiene.last_directory_sync_at ? formatDateTime(row.mapping_hygiene.last_directory_sync_at) : copy.coverage.capabilityUnknown}</p>
+                <p>Directory last synced {row.mapping_hygiene.last_directory_sync_at ? at(row.mapping_hygiene.last_directory_sync_at) : copy.coverage.capabilityUnknown}</p>
               </section>
               <section className="si-card">
                 <h3>{copy.coverage.flags}</h3>
@@ -187,9 +192,9 @@ export function CoverageView() {
                 <p className="si-field__hint">{copy.coverage.watermarkMeans}</p>
                 <p>{row.backfill.available ? `Owner planning available for up to ${row.backfill.days} days per range` : "Historical planning is disabled"}</p>
                 <p>Planned {row.backfill.planned ?? "unknown"} · Partial {row.backfill.partial ?? "unknown"} · Captured {row.backfill.complete ?? "unknown"} · Failed {row.backfill.failed ?? "unknown"}</p>
-                <p>Capture watermark {row.backfill.known_complete_through ? formatDateTime(row.backfill.known_complete_through) : "unknown"}</p>
+                <p>Capture watermark {row.backfill.known_complete_through ? at(row.backfill.known_complete_through) : "unknown"}</p>
                 {row.backfill.gaps.length > 0 && <ul>{row.backfill.gaps.map((gap) => (
-                  <li key={`${gap.from}-${gap.to}-${gap.reason}`}>{formatDateTime(gap.from)} → {formatDateTime(gap.to)} · {gap.reason}</li>
+                  <li key={`${gap.from}-${gap.to}-${gap.reason}`}>{at(gap.from)} → {at(gap.to)} · {gap.reason}</li>
                 ))}</ul>}
                 <p>{row.backfill.note}</p>
               </section>

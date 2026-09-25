@@ -47,11 +47,22 @@ export function overviewLinks(ctx: OverviewLinkContext) {
     rep: (agentId: string) => siHref({ view: "all_outreach", ...preset, agent_id: [agentId] }),
     /** The Unmapped rep row → RingCentral Accounts. */
     accounts: () => siHref({ view: "reps" }),
-    /** A Flow out segment → Closed with that outcome, closed within the activity period's ET days. */
+    /**
+     * A Flow out segment → Closed with that outcome, closed within the activity period's ET days. FIX-UI1 (m5):
+     * `Moved to Quoted` (not a closed outcome) → All Outreach at Granot Priority 1 received in the period.
+     */
     closed: (segment: string, period: { from_day: string; to_day: string }) => {
+      if (segment === "moved_to_quoted") {
+        return siHref({ view: "all_outreach", ...scoped, priority: ["1"], received_from: period.from_day, received_to: period.to_day });
+      }
       const outcome = FLOW_OUTCOMES[segment];
       return outcome ? siHref({ view: "closed", outcome, ...scoped, closed_from: period.from_day, closed_to: period.to_day }) : null;
     },
+    /** FIX-UI1 (m5): Flow `In` → All Outreach received within the activity period's ET days. */
+    flowIn: (period: { from_day: string; to_day: string }) =>
+      siHref({ view: "all_outreach", ...scoped, received_from: period.from_day, received_to: period.to_day }),
+    /** FIX-UI1 (m5): a rep's Overdue cell → All Outreach for that rep in Band 1 (Callbacks overdue). */
+    repOverdue: (agentId: string) => siHref({ view: "all_outreach", ...preset, agent_id: [agentId], band: ["1"] }),
   };
 }
 export type OverviewLinks = ReturnType<typeof overviewLinks>;

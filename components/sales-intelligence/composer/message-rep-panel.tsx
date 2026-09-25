@@ -47,7 +47,19 @@ export function MessageRepPanelView({ mode, recipient, resolved, picking, picker
   const c = copy.ui1.chat;
   const titleId = useId();
   const ref = useRef<HTMLElement>(null);
+  const someoneElse = useRef<HTMLButtonElement>(null);
+  const wasPicking = useRef(picking);
   const panel = mode === "panel";
+
+  // FIX-UI1 (M3): when the picker closes (Escape, `Close` or a pick) it unmounts with the focus inside it; focus goes
+  // back to `Send to someone else` (or the panel), never `<body>`, so the next Escape still reaches the panel.
+  useEffect(() => {
+    if (wasPicking.current && !picking) {
+      const target = someoneElse.current ?? (panel ? ref.current : null);
+      target?.focus();
+    }
+    wasPicking.current = picking;
+  }, [picking, panel]);
 
   useEffect(() => {
     if (!panel) return;
@@ -86,7 +98,7 @@ export function MessageRepPanelView({ mode, recipient, resolved, picking, picker
           {recipient?.name ? c.recipient(recipient.name) : resolved ? c.noRep : c.noRecipient}
         </span>
         {!picking && (
-          <button type="button" className="si-link si-hit" onClick={onSomeoneElse}>{c.sendToSomeoneElse}</button>
+          <button ref={someoneElse} type="button" className="si-link si-hit" onClick={onSomeoneElse} data-focus-return="picker">{c.sendToSomeoneElse}</button>
         )}
       </div>
       {picking && picker}
@@ -126,6 +138,12 @@ export function MessageRepPanel({ outreach, asOf, mode, onClose }: { outreach: M
   const showPicker = picking || (resolved && !recipient);
   const rep = useMessageRep({ outreach, asOf, recipient });
   const disabledReason = recipient ? null : resolved ? copy.ui1.chat.noRep : copy.ui1.chat.noRecipient;
+  // FIX-UI1 (m6): closing resets the choice, so the next open starts on the linked rep (the hosts also key the panel by record).
+  const close = onClose && (() => {
+    setChosen(null);
+    setPicking(false);
+    onClose();
+  });
 
   return (
     <MessageRepPanelView
@@ -134,7 +152,7 @@ export function MessageRepPanel({ outreach, asOf, mode, onClose }: { outreach: M
       resolved={resolved}
       picking={showPicker}
       onSomeoneElse={() => setPicking(true)}
-      onClose={onClose}
+      onClose={close}
       picker={
         <Region name="recipient-picker" skeleton={<SkeletonLines lines={4} />} onRetry={() => void client.resetQueries({ queryKey: siKeys.reps("limit=100") })}>
           <RecipientPicker

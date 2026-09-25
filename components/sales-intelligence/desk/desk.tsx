@@ -34,7 +34,7 @@ import { ClosedListRegion } from "./closed-list";
 import { NO_DEGRADE, applyDegrade, applyHistoryDegrade, degradeNotices, nextDegrade, useQueryError, type Degrade } from "./degrade";
 import { ListControls } from "./list-controls";
 import { MetricsStrip, type MetricTile } from "./metrics-strip";
-import { LIST_HEADING_ID, OutreachListRegion } from "./outreach-list";
+import { LIST_HEADING_ID, OutreachListRegion, focusListHeading, requestListHeadingFocus } from "./outreach-list";
 import { PageHeader } from "./page-header";
 import { ViewTabs } from "./view-tabs";
 import { copy } from "../sales-intelligence-copy";
@@ -111,14 +111,6 @@ function useLooseUpdate() {
   }, [params, pathname, router]);
 }
 
-function scrollToList() {
-  const heading = document.getElementById(LIST_HEADING_ID);
-  if (!heading) return;
-  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-  heading.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
-  heading.focus({ preventScroll: true });
-}
-
 function DeskList({ view, state, query, update, pending, userId, renderTimelinePreview }: {
   view: DeskView; state: DeskUrlState; query: string; update: (patch: DeskUrlPatch) => void; pending: boolean; userId?: string | null;
   renderTimelinePreview?: (outreachId: string) => ReactNode;
@@ -139,8 +131,11 @@ function DeskList({ view, state, query, update, pending, userId, renderTimelineP
   const reset = (key: readonly unknown[]) => () => void client.resetQueries({ queryKey: key });
   const railProps: RailProps = { view, state, update, asOf };
   const onTile = (tile: MetricTile) => {
+    // A view-changing tile remounts the list: the new heading takes the focus when it mounts (FIX-UI1 A10/m4).
+    const changesView = !!tile.patch.view && tile.patch.view !== view;
+    if (changesView) requestListHeadingFocus();
     update(tile.patch);
-    scrollToList();
+    if (!changesView) focusListHeading();
   };
   const busy = pending || preset.isPending;
   return (

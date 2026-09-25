@@ -58,7 +58,11 @@ function FlowBar({ flow, links, period }: { flow: Flow; links: OverviewLinks | n
   return (
     <div className="si-ovflow">
       <div className="si-ovflow__row" data-flow="in">
-        <span className="si-ovflow__label">{t.flowIn(count(flow.new_outreach))}</span>
+        <span className="si-ovflow__label">
+          {links && period
+            ? <Link href={links.flowIn(period)} className="si-ovlink" data-flow-link="in">{t.flowIn(count(flow.new_outreach))}</Link>
+            : t.flowIn(count(flow.new_outreach))}
+        </span>
         <div className="si-ovflow__track" aria-hidden>
           {flow.new_outreach > 0 && <span className="si-ovflow__seg si-ovflow__seg--in" style={{ width: width(flow.new_outreach) }} />}
         </div>

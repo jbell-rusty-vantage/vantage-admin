@@ -634,7 +634,7 @@
 .si-now--live { box-shadow: inset 3px 0 0 var(--si-green), 0 1px 0 var(--si-line); }
 .si-now__deck { grid-column: 1 / -1; gap: 6px; }
 .si-now__deck .si-actions__primary { align-items: center; gap: 8px; }
-.si-now__deck .si-btn--primary { min-height: 40px; padding: 0 18px; }
+.si-now__deck .si-btn--primary { min-height: var(--si-hit); padding: 0 18px; } /* FIX-UI1 m2: 44 px (was 40 px) */
 .si-now__more > summary { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; font-size: 13px; font-weight: 600; color: var(--si-blue); cursor: pointer; list-style: none; }
 .si-now__more > summary::-webkit-details-marker { display: none; }
 .si-now__more > summary::before { content: "▸"; font-size: 11px; }
@@ -1529,3 +1529,12 @@ span.si-evidence__none { display: inline-flex; align-items: center; min-height: 
 .si-timeline__row { scroll-margin-top: calc(var(--si-sticky-top, 0px) + 72px); transition: background-color 0.6s ease; border-radius: var(--si-r); }
 .si-timeline__row.is-targeted { background: var(--si-blue-tint); box-shadow: inset 3px 0 0 var(--si-blue); }
 @media (prefers-reduced-motion: reduce) { .si-timeline__row { transition: none; } }
+
+/* UI-1: FIX-UI1 (V-UI1 m3 44 px targets without moving the text; m7 the related-record line) */
+.si-card__idlink { padding-block: 14px; } /* inline: the padding widens the hit box to 44 px, the line box doesn't move */
+.si-card__tip .si-tip__anchor { padding-block: 12px; margin-block: -12px; }
+.si-card__tip .si-tip__anchor:focus-visible { outline-offset: -10px; }
+.si-related { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; min-width: 0; }
+.si-related > strong { margin-right: 4px; }
+.si-related__link { display: inline-flex; align-items: center; min-height: var(--si-hit); }
+.si-related__sep { color: var(--si-ink-3); }
