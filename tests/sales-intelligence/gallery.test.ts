@@ -27,7 +27,7 @@ test("every section anchor is present, in order, and the sub-nav links to each",
   }
   const ids = ["tokens", "badges", "pills", "chips", "icons", "time", "loading", "live", "navigation", "card", "metrics", "presets", "rail", "timeline", "analysis", "chat", "overview", "closed", "coverage"];
   assert.deepEqual(GALLERY_SECTIONS.map((s) => s.id), ids);
-  for (const stage of ["UI1-DESK", "UI1-OVERVIEW", "UI1-CLOSED"]) {
+  for (const stage of ["UI1-OVERVIEW"]) {
     assert.ok(html.includes(`Lands with ${stage}`), `placeholder for ${stage}`);
   }
 });
@@ -133,6 +133,19 @@ test("preset bar and rail sections: every preset state, No Lead, both rails with
   assert.match(text, /lucide-sliders-horizontal[^]*?Filters \(9\)/);
 });
 
+test("metrics and closed sections: five tiles, the — state, one outcome line per reason, the history row and ends", () => {
+  const text = decode(html);
+  assert.ok(!html.includes('data-placeholder="UI1-DESK"') && !html.includes('data-placeholder="UI1-CLOSED"'));
+  for (const id of ["s6", "s1", "absent", "skeleton", "phone"]) assert.ok(html.includes(`data-metrics-sample="${id}"`), `metrics ${id}`);
+  for (const tile of ["leads7d", "notCalled", "overdue", "awaiting", "booked7d"]) assert.ok(html.includes(`data-tile="${tile}"`), tile);
+  assert.ok(text.includes("median 5d") && text.includes("Not available in this snapshot"));
+  for (const reason of ["booked", "granot_booked", "cancelled", "bad_lead", "duplicate", "no_sync", "crm_dead", "crm_bad_unusable", "owner"]) {
+    assert.ok(html.includes(`data-outcome="${reason}"`), `outcome ${reason}`);
+  }
+  for (const line of ["Booked in Granot · No Vantage Booking yet", "now Granot Priority 1 (Quoted)", "Customer found a cheaper mover", "Granot Priority 8 (CRM dead opportunity)", "Open Booking",
+    "Older than 90 days", "Load closed history", "Closed Outreach is kept for 730 days", "That's every closed record we still have.", "Load more closed history"]) assert.ok(text.includes(line), line);
+});
+
 test("gate: production hides the gallery unless SI_GALLERY=1", () => {
   assert.equal(galleryEnabled({ NODE_ENV: "development" }), true);
   assert.equal(galleryEnabled({ NODE_ENV: "test" }), true);
@@ -143,7 +156,7 @@ test("gate: production hides the gallery unless SI_GALLERY=1", () => {
 
 test("the gallery imports nothing from _legacy or the quarantined files", () => {
   const dir = path.join(process.cwd(), "app/(dashboard)/sales-intelligence/dev/gallery");
-  const files = ["page.tsx", "loading.tsx", "gallery.tsx", "gate.ts", "fixtures.ts", "icon-check.ts", ...["section", "tokens", "badges", "chips", "icons", "time", "loading-errors", "live", "navigation", "preset-bar", "rail", "timeline"].map((f) => `sections/${f}.tsx`)];
+  const files = ["page.tsx", "loading.tsx", "gallery.tsx", "gate.ts", "fixtures.ts", "icon-check.ts", ...["section", "tokens", "badges", "chips", "icons", "time", "loading-errors", "live", "navigation", "preset-bar", "rail", "timeline", "metrics", "closed"].map((f) => `sections/${f}.tsx`)];
   const quarantined = /from ["'][^"']*(_legacy|\/(workspace|attention|filters|number-browser|number-timeline|detail-panel|now-strip|analysis-panel|assessment-section|evidence-chain|stored-call-analyses|list-skeletons|message-rep-dialog|running-summary-panel))["']/;
   for (const file of files) assert.doesNotMatch(readFileSync(path.join(dir, file), "utf8"), quarantined, file);
 });

@@ -9,9 +9,11 @@ import { CardSection } from "./sections/card";
 import { ChatSection } from "./sections/chat";
 import { ChipsSection } from "./sections/chips";
 import { CoverageSection } from "./sections/coverage";
+import { ClosedSection } from "./sections/closed";
 import { IconsSection } from "./sections/icons";
 import { LiveSection } from "./sections/live";
 import { LoadingSection } from "./sections/loading-errors";
+import { MetricsSection } from "./sections/metrics";
 import { NavigationSection } from "./sections/navigation";
 import { PresetBarSection } from "./sections/preset-bar";
 import { RailSection } from "./sections/rail";
@@ -34,14 +36,14 @@ export const GALLERY_SECTIONS: { id: SectionId; render: () => ReactNode }[] = [
   { id: "live", render: () => <LiveSection /> },
   { id: "navigation", render: () => <NavigationSection /> },
   { id: "card", render: () => <CardSection /> },
-  { id: "metrics", render: () => <Placeholder id="metrics" stage="UI1-DESK" /> },
+  { id: "metrics", render: () => <MetricsSection /> },
   { id: "presets", render: () => <PresetBarSection /> },
   { id: "rail", render: () => <RailSection /> },
   { id: "timeline", render: () => <TimelineSection /> },
   { id: "analysis", render: () => <Placeholder id="analysis" stage="UI1-TOP / UI1-MOVE / UI1-FIND" /> },
   { id: "chat", render: () => <ChatSection /> },
   { id: "overview", render: () => <Placeholder id="overview" stage="UI1-OVERVIEW" /> },
-  { id: "closed", render: () => <Placeholder id="closed" stage="UI1-CLOSED" /> },
+  { id: "closed", render: () => <ClosedSection /> },
   { id: "coverage", render: () => <CoverageSection /> },
 ];
 

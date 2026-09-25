@@ -1140,6 +1140,70 @@ export const copy = {
           until: (to: string) => `until ${to}`,
         },
       },
+      // UI1-DESK (COPY-UI1 §5). Sort labels, direction words and null labels are `copy.ui1.data.sorts` / `closedSorts`;
+      // `sortUnavailable` and `freshOnly` are `copy.ui1.data`; `updatedAvailable` / `show` are `copy.ui1.live`.
+      views: {
+        overview: "Overview",
+        attention: "Needs Attention",
+        all_outreach: "All Outreach",
+        closed: "Closed",
+        reps: "RingCentral Accounts",
+        coverage: "Coverage",
+        guide: "Guide",
+      },
+      search: {
+        placeholder: "Search name, Job number or phone",
+        label: "Search Outreach",
+        hint: "Enter at least 4 digits to search by phone",
+        results: (n: number, q: string) => `${n.toLocaleString("en-US")} ${n === 1 ? "result" : "results"} for "${q}"`,
+        closedHistoryNote: "Search covers the last 90 days",
+        unavailable: "Search isn’t available on this server yet.",
+      },
+      refresh: "Refresh",
+      /** `data.stale` (final spec §5.7, kept). Split around the exact time, which renders as a `<time>` element. */
+      stale: {
+        lead: "Showing the last successful list from",
+        tail: "Refresh is delayed; open a record to check its current status before acting.",
+      },
+      loadMore: "Load more",
+      loadMoreFailed: "Couldn't load more. What's shown is still current.",
+      clearFilters: "Clear filters",
+      empty: {
+        attention: "Nothing needs a next step in the history we can see.",
+        allOutreach: "No active Outreach matches these filters.",
+        closed: "No closed work in this range.",
+        search: (q: string) => `Nothing matches "${q}".`,
+      },
+      metrics: {
+        leads7d: "Leads received 7d",
+        notCalled: "Not called yet",
+        overdue: "Callbacks overdue",
+        awaiting: "Awaiting assessment",
+        booked7d: "Booked 7d",
+        median: (n: number) => `median ${n}d`,
+        /** `As of {t}`: the `{t}` is a `<time>` element after this word. */
+        asOf: "As of",
+        unavailable: "Not available in this snapshot",
+        none: "—",
+        // Proposals (not in COPY-UI1 §5): the strip's accessible name and each tile button's name.
+        label: "Last 7 days",
+        tileLabel: (name: string, value: string) => `${name}: ${value}. Show these records.`,
+      },
+      linkOut: {
+        previousVersion: "Previous version",
+        openNumber: "Open Number",
+      },
+      // Proposals (not in COPY-UI1 §5): the list toolbar and the result count without a search.
+      results: (n: number) => `${n.toLocaleString("en-US")} ${n === 1 ? "result" : "results"}`,
+      sortLabel: "Sort",
+      directionLabel: (word: string) => `Order: ${word}. Change the order`,
+      activeFilters: "Active filters",
+      viewsLabel: "Sales Intelligence views",
+      listHeading: {
+        attention: "Needs Attention",
+        all_outreach: "All Outreach",
+        closed: "Closed",
+      },
     },
     /**
      * UI1-LIVE (COPY-UI1 §10, §5 `updatedAvailable`). The indicator's own words (`Live · Updated {t}`,
@@ -1436,6 +1500,36 @@ export const copy = {
         { name: "Needs attention", body: "Something is late or held back, such as a quarantined Call Log record or a call that hasn't ended. Coverage lists the reasons." },
         { name: "Broken", body: "Calls may be missing until capture is repaired. Treat counts and bands with care until then." },
       ],
+    },
+    /**
+     * UI1-CLOSED (COPY-UI1 §6). The outcome line is built from these pieces so each date renders as a `<time>` element
+     * (title + aria-label with the exact ET time): `granotBooked` = `Closed {date} · Booked in Granot · No Vantage Booking yet`,
+     * `booked` = `Received {date} → Booked {date} ({n}d, {n} calls) · Open Booking`, `cancelled` = `Booked {date} → Cancelled {date} · {reason}`,
+     * `closedReason` = `Closed {date} · {reason word}`, `crm` = `Closed {date} · Granot Priority {code} ({label})`,
+     * `byYou` = `Closed by you {date} · {note}`. The outcome words (Bad Lead, Duplicate, No-Sync, …) are the rail's
+     * `copy.ui1.desk.rail.outcome` (COPY §6 `outcomeFilter.*`); the sort labels are `copy.ui1.data.closedSorts`.
+     */
+    closed: {
+      closed: "Closed",
+      received: "Received",
+      booked: "Booked",
+      cancelled: "Cancelled",
+      byYou: "Closed by you",
+      granotBookedTail: "Booked in Granot · No Vantage Booking yet",
+      nowPriority: (code: string, label: string) => `now Granot Priority ${code} (${label})`,
+      crm: (code: string, label: string) => `Granot Priority ${code} (${label})`,
+      days: (n: number) => `${n}d`,
+      calls: (n: number) => (n === 1 ? "1 call" : `${n.toLocaleString("en-US")} calls`),
+      openBooking: "Open Booking",
+      sep: " · ",
+      arrow: " → ",
+      historyRow: "Older than 90 days",
+      loadHistory: "Load closed history",
+      retention: (days: number) => `Closed Outreach is kept for ${days.toLocaleString("en-US")} days`,
+      historyEnd: "That's every closed record we still have.",
+      // Proposals (not in COPY-UI1 §6): the history section's heading and its Load-more label while the scan continues.
+      historyHeading: "Closed history",
+      loadMoreHistory: "Load more closed history",
     },
   },
 } as const;
