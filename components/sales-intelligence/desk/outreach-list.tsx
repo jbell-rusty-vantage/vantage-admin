@@ -12,6 +12,7 @@
  *   open it too (trap 4), resolved through the detail read when the record isn't on the loaded pages.
  */
 import { useQueryClient } from "@tanstack/react-query";
+import { useIsRep } from "../rep/viewer";
 import { useState, type ReactNode } from "react";
 import type { AttentionRow } from "@/lib/api/salesIntelligence";
 import { OutreachCard } from "../card";
@@ -143,9 +144,11 @@ function onHeadingMount(heading: HTMLHeadingElement | null) {
 }
 
 export function ListHeading({ view, count }: { view: DeskView; count: string | null }) {
+  // UI2-SHELL: a rep's list heading is its view name (My work, All my Outreach, Closed).
+  const rep = useIsRep();
   return (
     <div className="si-desk__listhead">
-      <h2 ref={onHeadingMount} id={LIST_HEADING_ID} className="si-desk__listheading" tabIndex={-1}>{d.listHeading[view]}</h2>
+      <h2 ref={onHeadingMount} id={LIST_HEADING_ID} className="si-desk__listheading" tabIndex={-1}>{rep ? copy.ui2.shell.views[view] : d.listHeading[view]}</h2>
       {count && <span className="si-desk__count" data-results>{count}</span>}
     </div>
   );

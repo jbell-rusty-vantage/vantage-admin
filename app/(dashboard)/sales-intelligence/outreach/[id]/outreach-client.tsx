@@ -6,9 +6,10 @@
  */
 import dynamic from "next/dynamic";
 import { OutreachRouteSkeleton } from "@/components/sales-intelligence/outreach";
+import type { Viewer } from "@/components/sales-intelligence/rep/viewer-session";
 
 const OutreachRoot = dynamic(() => import("./outreach-root").then((m) => m.OutreachRoot), { ssr: false, loading: () => <OutreachRouteSkeleton /> });
 
-export function OutreachClient(props: { id: string; tab?: string; run?: string; siReturn?: string }) {
+export function OutreachClient(props: { id: string; tab?: string; run?: string; siReturn?: string; viewer: Viewer }) {
   return <OutreachRoot {...props} />;
 }

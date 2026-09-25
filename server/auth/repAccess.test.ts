@@ -161,6 +161,9 @@ const REP_ALLOWED = [
   ["GET", `api/v1/admin/sales-intelligence/numbers/${ID}/conversations`],
   ["GET", `api/v1/admin/sales-intelligence/conversations/${ID}/transcript`],
   ["GET", `api/v1/admin/sales-intelligence/conversations/${ID}/media`],
+  // S12-REPREADS (UI-2 §9b).
+  ["GET", `api/v1/admin/sales-intelligence/analysis-runs/${ID}/presentation`],
+  ["GET", `api/v1/admin/sales-intelligence/assessments/${ID}/evidence`],
   ["POST", `api/v1/admin/sales-intelligence/followups/${ID}/complete`],
   ["POST", `api/v1/admin/sales-intelligence/followups/${ID}/snooze`],
   ["PATCH", `api/v1/admin/sales-intelligence/followups/${ID}`],
@@ -171,6 +174,8 @@ const REP_DENIED = [
   "api/v1/admin/sales-intelligence/live", "api/v1/admin/sales-intelligence/review-items", "api/v1/admin/sales-intelligence/analysis-runs",
   `api/v1/admin/sales-intelligence/outreach/${ID}/commands`, `api/v1/admin/sales-intelligence/outreach/by-lead/FormLead/${ID}`, "api/v1/admin/sales-intelligence/followups",
   `api/v1/admin/sales-intelligence/followups/${ID}/cancel`, `api/v1/admin/sales-intelligence/conversations/${ID}/findings`, `api/v1/admin/sales-intelligence/assessments/${ID}`,
+  `api/v1/admin/sales-intelligence/assessments/${ID}/output`, `api/v1/admin/sales-intelligence/analysis-runs/${ID}`, `api/v1/admin/sales-intelligence/analysis-runs/${ID}/output/${ID}`,
+  `api/v1/admin/sales-intelligence/analysis-runs/${ID}/evidence`,
   "api/v1/admin/sales-intelligence/overview/rebuild-day", `api/v1/admin/sales-intelligence/outreach/${ID}/timeline/extra`, "api/v1/admin/sales-intelligence/outreach/abc",
   "api/v1/internal/sales-intelligence/history/story", "api/v1/admin/catalog/agents",
 ];
@@ -199,8 +204,12 @@ test("the request-boundary role guard lets a rep through to its two pages only",
   assert.equal(applyRoleRouteGuard(requestWithRole("/sales-intelligence", "rep")), null);
   assert.equal(applyRoleRouteGuard(requestWithRole("/sales-intelligence?tab=overview", "rep")), null);
   assert.equal(applyRoleRouteGuard(requestWithRole(`/sales-intelligence/outreach/${ID}`, "rep")), null);
-  assert.equal(applyRoleRouteGuard(requestWithRole(`/sales-intelligence/numbers/${ID}`, "rep"))?.status, 403);
-  assert.equal(applyRoleRouteGuard(requestWithRole("/form-leads", "rep"))?.status, 403);
+  // UI2-SHELL: anything else redirects to the rep's home (was a plain 403).
+  for (const path of [`/sales-intelligence/numbers/${ID}`, "/form-leads", "/sales-intelligence/legacy", "/sales-intelligence/dev/gallery", "/operations-registry", "/"]) {
+    const response = applyRoleRouteGuard(requestWithRole(path, "rep"));
+    assert.equal(response?.status, 307, path);
+    assert.equal(new URL(response!.headers.get("location")!).pathname, "/sales-intelligence", path);
+  }
 });
 
 test("the live BFF forwards a rep with its signed Agent and still refuses Admin", async () => {

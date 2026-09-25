@@ -4,11 +4,12 @@
  * `router.replace(…, { scroll: false })` inside a transition, so a suspended region keeps showing its old
  * data while the new request loads; `isPending` drives the 2 px progress bar (UI-0 §2.4).
  * With a `userId`, a Priority / Lead-toggle change is remembered per user, and on mount a URL without either
- * gets the remembered choice (UI-1 §3.2).
+ * gets the remembered choice (UI-1 §3.2). UI2-SHELL: the viewer's role picks the default view and drops a rep's scope params.
  */
 import { useCallback, useEffect, useMemo, useRef, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { readStoredPreset, writeStoredPreset } from "./preset-storage";
+import { useViewer } from "../rep/viewer";
 import { deskUrlUpdate, parseDeskUrl, type DeskUrlPatch, type DeskUrlState } from "./url-state";
 
 export function useDeskUrlState({ userId }: { userId?: string | null } = {}) {
@@ -16,18 +17,19 @@ export function useDeskUrlState({ userId }: { userId?: string | null } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
+  const { role } = useViewer();
   const query = params.toString();
-  const state: DeskUrlState = useMemo(() => parseDeskUrl(new URLSearchParams(query)), [query]);
+  const state: DeskUrlState = useMemo(() => parseDeskUrl(new URLSearchParams(query), role), [query, role]);
 
   const update = useCallback((patch: DeskUrlPatch) => {
-    const next = deskUrlUpdate(query, patch).toString();
+    const next = deskUrlUpdate(query, patch, role).toString();
     if (userId && ("priority" in patch || "attachment" in patch)) {
-      const after = parseDeskUrl(new URLSearchParams(next));
+      const after = parseDeskUrl(new URLSearchParams(next), role);
       writeStoredPreset(userId, { priority: after.priority, attachment: after.attachment });
     }
     if (next === query) return;
     startTransition(() => router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false }));
-  }, [pathname, query, router, userId]);
+  }, [pathname, query, role, router, userId]);
 
   // Read once on mount: the remembered preset fills a URL that names neither Priority nor the Lead toggle.
   const restored = useRef(false);

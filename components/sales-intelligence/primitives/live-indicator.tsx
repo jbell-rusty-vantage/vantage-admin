@@ -21,7 +21,8 @@ export function liveIndicatorText(status: LiveStatus, updatedAt: string | null, 
 }
 
 /** The tooltip body (UX29): what "live" means, history coverage, the capture status sentence, a link to Coverage. */
-export function LiveIndicatorDetails({ health, asOf, coverageHref }: { health?: CaptureHealth | null; asOf: string | null; coverageHref: string }) {
+/** UI2-SHELL: `coverageHref = null` (a rep) drops the Coverage link; Coverage is Owner-only. */
+export function LiveIndicatorDetails({ health, asOf, coverageHref }: { health?: CaptureHealth | null; asOf: string | null; coverageHref: string | null }) {
   const l = copy.ui1.prim.live;
   const through = health?.knownCompleteThrough;
   return (
@@ -49,7 +50,7 @@ export function LiveIndicatorDetails({ health, asOf, coverageHref }: { health?: 
           l.healthUnknown
         )}
       </span>
-      <Link className="si-link si-liveind__coverage" href={coverageHref}>{l.openCoverage}</Link>
+      {coverageHref && <Link className="si-link si-liveind__coverage" href={coverageHref}>{l.openCoverage}</Link>}
     </span>
   );
 }
@@ -72,7 +73,7 @@ export function LiveIndicator({
   updatedAt: string | null;
   asOf: string | null;
   health?: CaptureHealth | null;
-  coverageHref: string;
+  coverageHref: string | null;
   onRefresh: () => void;
   className?: string;
 }) {

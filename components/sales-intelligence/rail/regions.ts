@@ -60,6 +60,12 @@ export function closedRegions(): RailRegion[] {
   ];
 }
 
+/** UI2-SHELL (UI-2 §3): a view's regions; a rep's rail has no Rep region (the scope is forced by the server). */
+export function railRegionsFor(view: RailView, rep = false): RailRegion[] {
+  const regions = view === "closed" ? closedRegions() : outreachRegions(view);
+  return rep ? regions.filter((r) => r.id !== "rep") : regions;
+}
+
 export const BAND_OPTIONS = [1, 2, 3, 4, 5, 6, 7] as const;
 export const STATUS_OPTIONS = ["unworked", "open", "waiting_on_customer", "identity_review"] as const;
 export const OUTCOME_OPTIONS = ["booked", "granot_booked", "cancelled", "bad_lead", "duplicate", "no_sync", "crm_dead", "crm_bad_unusable", "owner"] as const;

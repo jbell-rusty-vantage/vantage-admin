@@ -23,13 +23,15 @@ import { useNewestAsOf } from "../data/live";
 import { currentSalesIntelligenceHref } from "../lib/official-record";
 import { rememberDeskHref } from "../outreach/deep-links";
 import { siKeys } from "../data/query-keys";
-import { OWNER_TABS, attentionParamsFromDesk, closedHistoryParamsFromDesk, isDeskView, type DeskUrlPatch, type DeskUrlState, type PageView } from "../data/url-state";
+import { attentionParamsFromDesk, closedHistoryParamsFromDesk, isDeskView, tabsFor, type DeskUrlPatch, type DeskUrlState, type PageView, type UrlRole } from "../data/url-state";
+import { RepGuide } from "../rep/rep-guide";
+import { useIsRep } from "../rep/viewer";
 import type { AttentionParams, DeskView } from "../data/requests";
 import { useAttentionList } from "../data/use-attention";
 import { useDeskUrlState } from "../data/use-url-state";
 import { useReps } from "../data/use-reps";
 import { CardShellSkeleton, DelayedSkeleton, Region, SkeletonBlock, SkeletonLines } from "../primitives";
-import { FilterRail, FilterSheet, activeFilterChips, clearAll, closedRegions, outreachRegions, type RailRep } from "../rail";
+import { FilterRail, FilterSheet, activeFilterChips, clearAll, railRegionsFor, type RailRep } from "../rail";
 import { PresetBar, usePresetSelection } from "./preset-bar";
 import { ActiveChips } from "./active-chips";
 import { ClosedListRegion } from "./closed-list";
@@ -38,7 +40,7 @@ import { ListControls } from "./list-controls";
 import { MetricsStrip, type MetricTile } from "./metrics-strip";
 import { LIST_HEADING_ID, OutreachListRegion, focusListHeading, requestListHeadingFocus } from "./outreach-list";
 import { PageHeader } from "./page-header";
-import { ViewTabs } from "./view-tabs";
+import { ViewTabs, viewLabel } from "./view-tabs";
 import { copy } from "../sales-intelligence-copy";
 import "../styles/sales-intelligence.css";
 
@@ -77,18 +79,33 @@ function useRailReps(): RailRep[] {
 }
 
 type RailProps = { view: DeskView; state: DeskUrlState; update: (patch: DeskUrlPatch) => void; asOf: string | null };
-const regionsFor = (view: DeskView) => (view === "closed" ? closedRegions() : outreachRegions(view));
+const regionsFor = railRegionsFor;
+const NO_REPS: RailRep[] = [];
+
+/** The rail's rep list: the Owner's `GET /reps`. A rep never mounts the read (Owner-only; A04 "no 403"). */
+function OwnerRail({ children }: { children: (reps: RailRep[]) => ReactNode }) {
+  return <>{children(useRailReps())}</>;
+}
+function WithRailReps({ children }: { children: (reps: RailRep[]) => ReactNode }) {
+  return useIsRep() ? <>{children(NO_REPS)}</> : <OwnerRail>{children}</OwnerRail>;
+}
 
 function RailArea({ view, state, update, asOf }: RailProps) {
-  return <FilterRail regions={regionsFor(view)} value={state} onChange={update} reps={useRailReps()} asOf={asOf} />;
+  const rep = useIsRep();
+  return <WithRailReps>{(reps) => <FilterRail regions={regionsFor(view, rep)} value={state} onChange={update} reps={reps} asOf={asOf} />}</WithRailReps>;
 }
 function SheetArea({ view, state, update, asOf }: RailProps) {
-  return <FilterSheet regions={regionsFor(view)} value={state} onChange={update} reps={useRailReps()} asOf={asOf} />;
+  const rep = useIsRep();
+  return <WithRailReps>{(reps) => <FilterSheet regions={regionsFor(view, rep)} value={state} onChange={update} reps={reps} asOf={asOf} />}</WithRailReps>;
 }
 function ChipsArea({ view, state, update, asOf }: RailProps) {
-  const regions = regionsFor(view);
-  const chips = activeFilterChips(state, regions, useRailReps(), { onChange: update, asOf });
-  return <ActiveChips chips={chips} onClearAll={() => update(clearAll(regions))} />;
+  const rep = useIsRep();
+  const regions = regionsFor(view, rep);
+  return (
+    <WithRailReps>
+      {(reps) => <ActiveChips chips={activeFilterChips(state, regions, reps, { onChange: update, asOf })} onClearAll={() => update(clearAll(regions))} />}
+    </WithRailReps>
+  );
 }
 
 function PresetArea({ view, params, value, onChange }: { view: DeskView; params: AttentionParams; value: ReturnType<typeof usePresetSelection>["value"]; onChange: (next: ReturnType<typeof usePresetSelection>["value"]) => void }) {
@@ -197,7 +214,10 @@ function DeskList({ view, state, query, update, pending, userId, renderTimelineP
 function OtherView({ view, slot }: { view: Exclude<PageView, DeskView>; slot?: ReactNode }) {
   const update = useLooseUpdate();
   const params = useSearchParams();
+  const rep = useIsRep();
   if (slot !== undefined) return <Region className="si-desk__other" name={`view-${view}`} skeleton={<SkeletonLines lines={6} />}>{slot}</Region>;
+  // UI2-SHELL: a rep reaches only Overview (its slot) and Guide here; the Owner-only fallbacks never mount for a rep.
+  if (rep) return <Region className="si-desk__other" name={`view-${view}`} skeleton={<SkeletonLines lines={6} />}>{view === "guide" ? <RepGuide topic={params.get("topic")} /> : <SkeletonLines lines={6} />}</Region>;
   const body =
     view === "coverage" ? <CoverageView /> :
     view === "guide" ? <GuideView topic={params.get("topic")} /> :
@@ -234,13 +254,14 @@ export function Desk({ userId, overview, coverage, reps, guide, renderTimelinePr
     rememberDeskHref(currentSalesIntelligenceHref(kept));
   }, [query]);
   const view = state.view;
+  const role: UrlRole = useIsRep() ? "rep" : "owner";
   const onSearch = (q: string | null) => update(isDeskView(view) || q === null ? { q } : { view: "all_outreach", q });
   const slots: Record<Exclude<PageView, DeskView>, ReactNode | undefined> = { overview, coverage, reps, guide };
   return (
     <div className="si-root si-desk">
       <header className="si-desk__header">
         <PageHeader q={state.q} onSearch={onSearch} />
-        <ViewTabs active={view} query={query} />
+        <ViewTabs active={view} query={query} role={role} />
       </header>
       <div ref={contentRef} className="si-desk__content">
         {isDeskView(view) ? (
@@ -254,7 +275,7 @@ export function Desk({ userId, overview, coverage, reps, guide, renderTimelinePr
 }
 
 /** UI-0 §2.4 route level: the page frame (title, view bar) with skeleton regions; shown after 150 ms. */
-export function DeskRouteSkeleton() {
+export function DeskRouteSkeleton({ role = "owner" }: { role?: UrlRole } = {}) {
   const d = copy.ui1.desk;
   return (
     <div className="si-root si-desk is-skeleton">
@@ -262,8 +283,8 @@ export function DeskRouteSkeleton() {
         <div className="si-desk__titlebar">
           <h1 className="si-desk__title">{copy.page.title}</h1>
         </div>
-        <nav className="si-tabs si-routetabs si-desk__views" aria-label={d.viewsLabel}>
-          {OWNER_TABS.map((view) => <span key={view} className="si-tab si-routetab">{d.views[view]}</span>)}
+        <nav className="si-tabs si-routetabs si-desk__views" aria-label={role === "rep" ? copy.ui2.shell.viewsLabel : d.viewsLabel}>
+          {tabsFor(role).map((view) => <span key={view} className="si-tab si-routetab">{viewLabel(view, role)}</span>)}
         </nav>
       </header>
       <div className="si-desk__content">

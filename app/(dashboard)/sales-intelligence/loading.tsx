@@ -1,5 +1,6 @@
 import { DeskRouteSkeleton } from "@/components/sales-intelligence/desk";
+import { skeletonRole } from "./route-viewer";
 
-export default function Loading() {
-  return <DeskRouteSkeleton />;
+export default async function Loading() {
+  return <DeskRouteSkeleton role={await skeletonRole()} />;
 }

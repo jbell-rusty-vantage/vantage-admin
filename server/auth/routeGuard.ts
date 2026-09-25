@@ -37,6 +37,9 @@ export const DASHBOARD_PATH_PREFIXES = [
   "/ingestion",
 ] as const;
 
+/** UI2-SHELL: where the edge guard sends a rep who asks for any other page (UI-2 §1). */
+export const REP_HOME_PATH = "/sales-intelligence";
+
 /** Public set-password page for an invite link (page itself is Team 2's U8). */
 export const ACCEPT_INVITE_PAGE = "/accept-invite";
 
@@ -152,6 +155,11 @@ export function applyRoleRouteGuard(request: NextRequest): NextResponse | null {
   }
   if (role === "rep" && canAccessDashboardPath("rep", pathname)) {
     return null;
+  }
+  // UI2-SHELL (UI-2 §1): every other page redirects a rep to its Sales Intelligence home (My work). The set of paths a
+  // rep reaches is unchanged (`REP_DASHBOARD_PATHS`); only the refusal's form changes, from a plain 403 to a redirect.
+  if (role === "rep") {
+    return NextResponse.redirect(new URL(REP_HOME_PATH, request.url));
   }
   return new NextResponse("Forbidden.", { status: 403, headers: { "content-type": "text/plain" } });
 }

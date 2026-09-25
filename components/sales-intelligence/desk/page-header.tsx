@@ -10,6 +10,7 @@
 import { useState, type ReactNode } from "react";
 import { SearchField } from "../chrome";
 import { HeaderLive } from "../data/live";
+import { useIsRep } from "../rep/viewer";
 import { copy } from "../sales-intelligence-copy";
 
 const s = copy.ui1.desk.search;
@@ -72,5 +73,7 @@ export function PageHeader({ q, onSearch }: { q: string | null; onSearch: (q: st
     if (action.kind === "hint") return;
     onSearch(action.kind === "search" ? action.q : null);
   };
-  return <PageHeaderView value={value} onChange={onChange} onSubmit={onSubmit} live={<HeaderLive />} />;
+  const rep = useIsRep();
+  // UI2-SHELL: a rep's live indicator reads no capture health and links to no Coverage (both Owner-only; A03, A04).
+  return <PageHeaderView value={value} onChange={onChange} onSubmit={onSubmit} live={rep ? <HeaderLive healthEnabled={false} coverageHref={null} /> : <HeaderLive />} />;
 }

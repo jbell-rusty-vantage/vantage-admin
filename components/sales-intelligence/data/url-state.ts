@@ -22,6 +22,16 @@ export type PageView = (typeof PAGE_VIEWS)[number];
 export const OWNER_TABS = ["overview", "all_outreach", "closed", "reps", "coverage", "guide"] as const satisfies readonly PageView[];
 /** UI-1 §1.1: the page opens on Overview when `view` is absent. An unknown view reads as Overview too. */
 export const DEFAULT_VIEW: PageView = "overview";
+/**
+ * UI-2 §2 (UX11): the rep's view bar, in order. A rep lands on My work (`view=attention`, written as no `view`); Numbers,
+ * Messages, RingCentral Accounts and Coverage don't exist for a rep, so those views (and unknown ones) read as My work.
+ */
+export const REP_TABS = ["attention", "all_outreach", "closed", "overview", "guide"] as const satisfies readonly PageView[];
+export const REP_DEFAULT_VIEW: PageView = "attention";
+/** Who reads the URL: the Owner (default) or a rep (UI2-SHELL). The role comes from the session, never from the URL. */
+export type UrlRole = "owner" | "rep";
+export const defaultViewFor = (role: UrlRole): PageView => (role === "rep" ? REP_DEFAULT_VIEW : DEFAULT_VIEW);
+export const tabsFor = (role: UrlRole): readonly PageView[] => (role === "rep" ? REP_TABS : OWNER_TABS);
 
 export type DeskUrlState = {
   view: PageView;
@@ -76,23 +86,28 @@ const text = (value: string | null): string | null => (value && value.trim() ? v
 
 /**
  * UX-C1: an old `view=attention` link (bookmark, Overview tile, trap-4 `lead=`/`outreach=` deep link) opens All Outreach
- * with the same filters and side dialog. The desk is the Owner's page today; UI-2 gives reps `My work` on
- * `view=attention`, so this mapping must become Owner-only then.
+ * with the same filters and side dialog. **Owner only** (UI2-SHELL): for a rep, `view=attention` is My work.
  */
 const OWNER_VIEW_ALIASES: Readonly<Record<string, PageView>> = { attention: "all_outreach" };
 
-export function parseDeskUrl(params: URLSearchParams): DeskUrlState {
+/**
+ * Reads the desk URL. `role = "rep"` (UI2-SHELL, UI-2 §1): the rep's own views only (anything else is My work), no
+ * Owner alias, and the scope params `agent_id` / `unassigned` are dropped, so a rep page never sends them.
+ */
+export function parseDeskUrl(params: URLSearchParams, role: UrlRole = "owner"): DeskUrlState {
   const raw = params.get("view");
-  const view = raw && OWNER_VIEW_ALIASES[raw] ? OWNER_VIEW_ALIASES[raw] : raw;
+  const rep = role === "rep";
+  const view = !rep && raw && OWNER_VIEW_ALIASES[raw] ? OWNER_VIEW_ALIASES[raw] : raw;
   const direction = params.get("direction");
   const attachment = params.get("attachment");
+  const views: readonly string[] = rep ? REP_TABS : PAGE_VIEWS;
   return {
-    view: (PAGE_VIEWS as readonly string[]).includes(view ?? "") ? (view as PageView) : DEFAULT_VIEW,
+    view: views.includes(view ?? "") ? (view as PageView) : defaultViewFor(role),
     sort: text(params.get("sort")),
     direction: direction === "asc" || direction === "desc" ? direction : null,
-    band: readList(params, "band"), state: readList(params, "state"), agent_id: readList(params, "agent_id"),
+    band: readList(params, "band"), state: readList(params, "state"), agent_id: rep ? [] : readList(params, "agent_id"),
     priority: readList(params, "priority"), outcome: readList(params, "outcome"),
-    needs_review: params.get("needs_review") === "true", unassigned: params.get("unassigned") === "true",
+    needs_review: params.get("needs_review") === "true", unassigned: !rep && params.get("unassigned") === "true",
     has_recording: params.get("has_recording") === "true", has_assessment: params.get("has_assessment") === "true",
     newer_call: params.get("newer_call") === "true", move_date_passed: params.get("move_date_passed") === "true",
     attachment: attachment === "lead" || attachment === "none" ? attachment : null,
@@ -117,16 +132,21 @@ function write(params: URLSearchParams, key: string, value: unknown) {
  * - A new `sort` without a `direction` drops the direction, so the sort's default applies.
  * - A new `view` without a `sort` drops sort and direction (each view has its own default and sort list).
  */
-export function deskUrlUpdate(current: URLSearchParams | string, patch: DeskUrlPatch): URLSearchParams {
+export function deskUrlUpdate(current: URLSearchParams | string, patch: DeskUrlPatch, role: UrlRole = "owner"): URLSearchParams {
   const params = new URLSearchParams(current);
-  const before = parseDeskUrl(params);
+  const before = parseDeskUrl(params, role);
   const next: DeskUrlPatch = { ...patch };
+  if (role === "rep") {
+    // A rep never writes a scope (UI-2 §1); a stray one in the address is dropped with the next change.
+    delete next.agent_id; delete next.unassigned;
+    params.delete("agent_id"); params.delete("unassigned");
+  }
   if ("view" in patch && patch.view !== before.view && !("sort" in patch)) { next.sort = null; next.direction = null; }
   if ("sort" in patch && patch.sort !== before.sort && !("direction" in patch)) next.direction = null;
   let reset = false;
   for (const [key, value] of Object.entries(next)) {
     const was = params.getAll(key).join("\u0000");
-    write(params, key, key === "view" && value === DEFAULT_VIEW ? null : value);
+    write(params, key, key === "view" && value === defaultViewFor(role) ? null : value);
     if (RESETS_CURSOR.includes(key) && params.getAll(key).join("\u0000") !== was) reset = true;
   }
   if (reset) for (const key of CURSOR_KEYS) params.delete(key);
@@ -134,10 +154,14 @@ export function deskUrlUpdate(current: URLSearchParams | string, patch: DeskUrlP
 }
 
 /** The whole state as a query, owned keys only, in a fixed order (for links built from state). */
-export function serializeDeskUrl(state: Partial<DeskUrlState>): URLSearchParams {
+export function serializeDeskUrl(state: Partial<DeskUrlState>, role: UrlRole = "owner"): URLSearchParams {
   const params = new URLSearchParams();
   const order = ["view", "sort", "direction", ...LIST_KEYS, ...BOOL_KEYS, "attachment", ...NUM_KEYS, "freshness", ...TEXT_KEYS] as const;
-  for (const key of order) if (key in state) write(params, key, key === "view" && state.view === DEFAULT_VIEW ? null : state[key as keyof DeskUrlState]);
+  for (const key of order) {
+    if (!(key in state)) continue;
+    if (role === "rep" && (key === "agent_id" || key === "unassigned")) continue;
+    write(params, key, key === "view" && state.view === defaultViewFor(role) ? null : state[key as keyof DeskUrlState]);
+  }
   return params;
 }
 

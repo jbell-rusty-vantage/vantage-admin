@@ -90,6 +90,10 @@ const REP_PROXY_ROUTES: ReadonlyArray<{ method: VantageApiMethod; pattern: RegEx
   { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/${OBJECT_ID}/(?:timeline|assessment|findings)$`) },
   { method: "GET", pattern: new RegExp(`^${CSI_API}/numbers/${OBJECT_ID}/conversations$`) },
   { method: "GET", pattern: new RegExp(`^${CSI_API}/conversations/${OBJECT_ID}/(?:transcript|media)$`) },
+  // S12-REPREADS (UI-2 §9b, UX15): the analysis kit's presentation and assessment-evidence reads, for in-scope records only
+  // (the server answers 404 outside the rep's scope and empties `full_output[]`). Full output stays Owner-only.
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/analysis-runs/${OBJECT_ID}/presentation$`) },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/assessments/${OBJECT_ID}/evidence$`) },
   // E9: complete, snooze and re-date (`PATCH /followups/:id` with only `due_at`) their own follow-ups.
   { method: "POST", pattern: new RegExp(`^${CSI_API}/followups/${OBJECT_ID}/(?:complete|snooze)$`) },
   { method: "PATCH", pattern: new RegExp(`^${CSI_API}/followups/${OBJECT_ID}$`) },

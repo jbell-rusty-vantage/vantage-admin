@@ -85,11 +85,15 @@ function requestWithRole(pathname: string, role: "owner" | "admin" | "rep" | nul
   return new NextRequest(`http://localhost:3000${pathname}`, { headers });
 }
 
-test("the request-boundary role guard returns 403 for a rep on every dashboard page", () => {
+const toRepHome = (response: Response | null | undefined, path: string) => {
+  assert.equal(response?.status, 307, path);
+  assert.equal(new URL(response!.headers.get("location")!).pathname, "/sales-intelligence", path);
+};
+// UI2-SHELL (UI-2 §1): the refusal is a redirect to the rep's home, not a plain 403; the reachable set is unchanged.
+test("the request-boundary role guard redirects a rep to /sales-intelligence from every other dashboard page", () => {
   setTestEnv();
   for (const path of DASHBOARD_PATHS) {
-    const response = applyRoleRouteGuard(requestWithRole(path, "rep"));
-    assert.equal(response?.status, 403, path);
+    toRepHome(applyRoleRouteGuard(requestWithRole(path, "rep")), path);
   }
   for (const role of ["owner", "admin"] as const) {
     assert.equal(applyRoleRouteGuard(requestWithRole("/form-leads", role)), null, role);

@@ -84,7 +84,7 @@ test("PUBLIC_ASSET_PATHS is exactly the public/ folder plus /favicon.ico", () =>
   assert.deepEqual([...PUBLIC_ASSET_PATHS].sort(), [...onDisk, "/favicon.ico"].sort());
 });
 
-test("a verified rep is refused on page paths ending in an asset extension", () => {
+test("a verified rep is sent to /sales-intelligence from page paths ending in an asset extension", () => {
   const rep = tokenCookie("rep");
   for (const pathname of [
     "/customers/x.png",
@@ -96,7 +96,9 @@ test("a verified rep is refused on page paths ending in an asset extension", () 
     "/vantage/other.png",
     "/login.png",
   ]) {
-    assert.equal(guard(pathname, rep)?.status, 403, pathname);
+    const response = guard(pathname, rep);
+    assert.equal(response?.status, 307, pathname);
+    assert.equal(new URL(response!.headers.get("location")!).pathname, "/sales-intelligence", pathname);
   }
 });
 

@@ -12,6 +12,8 @@ import { ArrowLeft } from "lucide-react";
 import { copy } from "../sales-intelligence-copy";
 import { SkeletonBlock, SkeletonLines } from "../primitives";
 import { RecordHeaderSkeleton } from "./record-header";
+import { REP_HOME_HREF } from "../rep/links";
+import { useIsRep } from "../rep/viewer";
 
 const h = copy.ui1.outreach;
 
@@ -74,8 +76,25 @@ export function OutreachRouteSkeleton() {
   );
 }
 
-/** A 404 on the detail read: a page state with the back link, not a region error. */
+/**
+ * A 404 on the detail read: a page state with the back link, not a region error. UI2-SHELL (UI-2 §1, A02): for a rep the
+ * same page serves "outside your scope" and "missing" (the server answers 404 for both), with `Back to My work`.
+ */
 export function OutreachNotFound({ back }: { back: string }) {
+  const rep = useIsRep();
+  if (rep) {
+    const n = copy.ui2.shell.notAvailable;
+    return (
+      <div className="si-outreach__notfound" role="status" data-page-state="not-found" data-viewer="rep">
+        <p className="si-heading si-heading--2">{n.title}</p>
+        <p className="si-text--subtle">{n.body}</p>
+        <Link className="si-btn si-btn--secondary si-btn--md si-hit" href={REP_HOME_HREF}>
+          <ArrowLeft size={16} aria-hidden />
+          {n.back}
+        </Link>
+      </div>
+    );
+  }
   return (
     <div className="si-outreach__notfound" role="status" data-page-state="not-found">
       <p className="si-heading si-heading--2">{h.notFound}</p>

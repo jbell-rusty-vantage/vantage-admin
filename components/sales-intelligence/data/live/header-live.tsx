@@ -14,7 +14,8 @@ import { useNewestAsOf } from "./use-newest-as-of";
 
 export const COVERAGE_HREF = "/sales-intelligence?view=coverage";
 
-export function HeaderLive({ coverageHref = COVERAGE_HREF, healthEnabled = true, className }: { coverageHref?: string; healthEnabled?: boolean; className?: string }) {
+/** UI2-SHELL: a rep passes `healthEnabled={false}` and `coverageHref={null}` (both reads and the page are Owner-only). */
+export function HeaderLive({ coverageHref = COVERAGE_HREF, healthEnabled = true, className }: { coverageHref?: string | null; healthEnabled?: boolean; className?: string }) {
   const { status } = useLive();
   const health = useLiveHealth({ enabled: healthEnabled });
   const newest = useNewestAsOf();
