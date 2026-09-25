@@ -11,7 +11,7 @@ import { LeadProgressSection } from './lead-progress';
 import { Badge } from './atoms/badge';
 import { Button } from './atoms/button';
 import { CommandDialog } from './command-dialog';
-import { MessageRepDialog } from './message-rep-dialog';
+import { MessageRepDialog } from './_legacy/message-rep-dialog';
 import { commandLabels } from './lib/commands';
 import { callBlockerSentence, offeredActions, splitCommands } from './lib/owner-now';
 import { copy } from "./sales-intelligence-copy";

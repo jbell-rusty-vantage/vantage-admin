@@ -16,17 +16,18 @@ import {analysisRunsSchema,analysisSchema,findingAlert,readableFindings,readable
  type Analysis,type AnalysisFinding,type ReadableFinding} from '@/lib/api/salesIntelligenceAnalysis';
 import {outputChoices,readRunPresentation,scopeText,type SummaryFindingsSection} from '@/lib/api/salesIntelligenceAssessment';
 import {salesIntelligenceKeys} from '@/lib/query/salesIntelligence';
-import {Button} from './atoms/button';
-import {Badge,type Tone} from './atoms/badge';
-import {EmptyState} from './chrome';
-import {copy} from './sales-intelligence-copy';
-import {evidenceChainCopy as chain,assessmentCopy as ac} from './evidence-chain-copy';
-import {formatDateTime,label} from './lib/format';
-import {AnalysisCommand,type AnalysisAction} from './analysis-command';
+import {Button} from '../atoms/button';
+import {Badge,type Tone} from '../atoms/badge';
+import {EmptyState} from '../chrome';
+import {copy} from '../sales-intelligence-copy';
+import {evidenceChainCopy as chain,assessmentCopy as ac} from '../evidence-chain-copy';
+import {formatDateTime,label} from '../lib/format';
+import {AnalysisCommand,type AnalysisAction} from '../analysis-command';
 import {EvidenceChain,EvidenceViewer,type EvidenceFocus} from './evidence-chain';
-import {AssessmentSection,FieldRows,useAssessmentArtifact,useOutreachAssessment,type CiteTarget} from './assessment-section';
-import {FullOutputSection} from './full-output';
-import {TooltipCard} from './atoms/tooltip-card';
+import {AssessmentSection,FieldRows,type CiteTarget} from './assessment-section';
+import {useAssessmentArtifact,useOutreachAssessment} from '../data/use-assessment';
+import {FullOutputSection} from '../full-output';
+import {TooltipCard} from '../atoms/tooltip-card';
 
 export const ANALYSIS_SECTIONS=['assessment','summary','evidence','output'] as const;
 export type AnalysisSectionKey=(typeof ANALYSIS_SECTIONS)[number];

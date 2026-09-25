@@ -3,12 +3,12 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AssessmentSection } from "../components/sales-intelligence/assessment-section";
-import { FullOutputSection } from "../components/sales-intelligence/full-output";
-import { parseSiPanel, SI_PANEL_TABS } from "../components/sales-intelligence/sales-intelligence-tabs";
-import { salesIntelligenceKeys } from "../lib/query/salesIntelligence";
-import { fullOutputReadSchema, outputChoices, outreachAssessmentReadSchema, runPresentationSchema } from "../lib/api/salesIntelligenceAssessment";
-import { ASSESSMENT_DTO_FIXTURES as F } from "../lib/api/salesIntelligenceAssessment.fixtures";
+import { AssessmentSection } from "../../components/sales-intelligence/_legacy/assessment-section";
+import { FullOutputSection } from "../../components/sales-intelligence/full-output";
+import { parseSiPanel, SI_PANEL_TABS } from "../../components/sales-intelligence/sales-intelligence-tabs";
+import { salesIntelligenceKeys } from "../../lib/query/salesIntelligence";
+import { fullOutputReadSchema, outputChoices, outreachAssessmentReadSchema, runPresentationSchema } from "../../lib/api/salesIntelligenceAssessment";
+import { ASSESSMENT_DTO_FIXTURES as F } from "../../lib/api/salesIntelligenceAssessment.fixtures";
 
 const outreachId = F.outreachReady.subject.outreach_record_id;
 function render(seed: (client: QueryClient) => void, element: unknown, props: Record<string, unknown>) {

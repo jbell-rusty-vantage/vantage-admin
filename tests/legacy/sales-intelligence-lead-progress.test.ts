@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ATTENTION_SORTS, ATTENTION_SORT_DEFAULT_DIRECTION, NUMBER_SORTS, type AttentionRow as Row, type LeadProgress, type Outreach } from "../lib/api/salesIntelligence";
-import { attachedLeadView, bookedClosure, closureText, priorityText, progressExplanation, progressLine, quotedText } from "../components/sales-intelligence/lib/lead-progress";
+import { ATTENTION_SORTS, ATTENTION_SORT_DEFAULT_DIRECTION, NUMBER_SORTS, type AttentionRow as Row, type LeadProgress, type Outreach } from "../../lib/api/salesIntelligence";
+import { attachedLeadView, bookedClosure, closureText, priorityText, progressExplanation, progressLine, quotedText } from "../../components/sales-intelligence/lib/lead-progress";
 import {
   NUMBER_SORT_OPTIONS,
   OUTREACH_SORT_OPTIONS,
@@ -15,13 +15,13 @@ import {
   outreachSortFromParams,
   sortKeyText,
   sortOption,
-} from "../components/sales-intelligence/lib/sort";
-import { buildIntent, initialDraft } from "../components/sales-intelligence/lib/commands";
-import { callBlockerSentence, offeredActions } from "../components/sales-intelligence/lib/owner-now";
-import { copy } from "../components/sales-intelligence/sales-intelligence-copy";
-import { label } from "../components/sales-intelligence/lib/format";
-import { AttachedLeadLine, BookedNotice, LeadProgressLine, LeadProgressSection } from "../components/sales-intelligence/lead-progress";
-import { AttentionBands, AttentionFlatList } from "../components/sales-intelligence/attention";
+} from "../../components/sales-intelligence/lib/sort";
+import { buildIntent, initialDraft } from "../../components/sales-intelligence/lib/commands";
+import { callBlockerSentence, offeredActions } from "../../components/sales-intelligence/lib/owner-now";
+import { copy } from "../../components/sales-intelligence/sales-intelligence-copy";
+import { label } from "../../components/sales-intelligence/lib/format";
+import { AttachedLeadLine, BookedNotice, LeadProgressLine, LeadProgressSection } from "../../components/sales-intelligence/lead-progress";
+import { AttentionBands, AttentionFlatList } from "../../components/sales-intelligence/_legacy/attention";
 
 const progress = (over: Partial<LeadProgress> = {}): LeadProgress => ({
   lead_ref: { model: "FormLead", id: "L1" },

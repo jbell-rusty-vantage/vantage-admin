@@ -3,8 +3,8 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { RunningSummaryPanel } from "../components/sales-intelligence/running-summary-panel";
-import { salesIntelligenceKeys } from "../lib/query/salesIntelligence";
+import { RunningSummaryPanel } from "../../components/sales-intelligence/_legacy/running-summary-panel";
+import { salesIntelligenceKeys } from "../../lib/query/salesIntelligence";
 
 test("completed call output is visible while the separate Number summary is missing", () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });

@@ -1,17 +1,17 @@
 "use client";
 
 import type { AttentionRow as Row } from "@/lib/api/salesIntelligence";
-import { Badge } from "./atoms/badge";
-import { Button } from "./atoms/button";
-import { ReviewBadge } from "./chrome";
-import { OwnershipSplit } from "./ownership";
-import { CallStateBadge } from "./call-state";
-import { ProvenanceBadge } from "./lead-provenance";
-import { copy } from "./sales-intelligence-copy";
-import { bandLabel, contactTypeLabel, cx, formatDateTime, formatSuppliedAge, label } from "./lib/format";
-import { callStateOf, provenanceStateOf } from "./lib/owner-now";
-import { LeadProgressLine } from "./lead-progress";
-import { OUTREACH_SORT_OPTIONS, cardScores, sortKeyText, sortOption, type CardScores } from "./lib/sort";
+import { Badge } from "../atoms/badge";
+import { Button } from "../atoms/button";
+import { ReviewBadge } from "../chrome";
+import { OwnershipSplit } from "../ownership";
+import { CallStateBadge } from "../call-state";
+import { ProvenanceBadge } from "../lead-provenance";
+import { copy } from "../sales-intelligence-copy";
+import { bandLabel, contactTypeLabel, cx, formatDateTime, formatSuppliedAge, label } from "../lib/format";
+import { callStateOf, provenanceStateOf } from "../lib/owner-now";
+import { LeadProgressLine } from "../lead-progress";
+import { OUTREACH_SORT_OPTIONS, cardScores, sortKeyText, sortOption, type CardScores } from "../lib/sort";
 
 function identity(row: Row) {
   const record = row.outreach;

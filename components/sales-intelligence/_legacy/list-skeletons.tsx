@@ -1,5 +1,5 @@
-import { copy } from "./sales-intelligence-copy";
-import "./styles/sales-intelligence.css";
+import { copy } from "../sales-intelligence-copy";
+import "../styles/sales-intelligence.css";
 
 function Bone({ className }: { className?: string }) {
   return <span className={className ? `si-skeleton ${className}` : "si-skeleton"} />;

@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Button } from "./atoms/button";
-import { Tabs } from "./chrome";
-import { copy } from "./sales-intelligence-copy";
-import { SI_PANEL_TABS, type SiPanelKey } from "./sales-intelligence-tabs";
-import { assessmentCopy } from "./evidence-chain-copy";
+import { Button } from "../atoms/button";
+import { Tabs } from "../chrome";
+import { copy } from "../sales-intelligence-copy";
+import { SI_PANEL_TABS, type SiPanelKey } from "../sales-intelligence-tabs";
+import { assessmentCopy } from "../evidence-chain-copy";
 import "./styles/assessment.css";
 
 export function DetailPanel({

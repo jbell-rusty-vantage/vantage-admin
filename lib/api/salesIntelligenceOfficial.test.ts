@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { apiFiltersFromUrlState } from "../../components/operational/operational-url-state";
 import { officialRecordHref, salesIntelligenceReturnHref, currentSalesIntelligenceHref } from "../../components/sales-intelligence/lib/official-record";
-import { runningSummaryText } from "../../components/sales-intelligence/running-summary-panel";
+import { runningSummaryText } from "../../components/sales-intelligence/_legacy/running-summary-panel";
 import { guideHref, parseGuideTopic, parseSiPanel, parseSiView } from "../../components/sales-intelligence/sales-intelligence-tabs";
 import type { TableQueryParams } from "./types";
 

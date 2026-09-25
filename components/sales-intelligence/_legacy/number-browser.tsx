@@ -5,21 +5,21 @@ import { ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { numberSearchSchema, readSalesIntelligence, SalesIntelligenceError } from "@/lib/api/salesIntelligence";
 import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
-import { copy } from "./sales-intelligence-copy";
-import { cx, formatDateTime, leadMatchSummary } from "./lib/format";
-import { Button } from "./atoms/button";
+import { copy } from "../sales-intelligence-copy";
+import { cx, formatDateTime, leadMatchSummary } from "../lib/format";
+import { Button } from "../atoms/button";
 import { NumbersListSkeleton } from "./list-skeletons";
-import { PageControls } from "./page-controls";
-import { FilterSheet } from "./atoms/filter-sheet";
-import { ClassificationBadge, EligibilityBadge, EmptyState, Failure, FilterRail, FilterToolbar } from "./chrome";
+import { PageControls } from "../page-controls";
+import { FilterSheet } from "../atoms/filter-sheet";
+import { ClassificationBadge, EligibilityBadge, EmptyState, Failure, FilterRail, FilterToolbar } from "../chrome";
 import { numberChips, NumbersFilters } from "./filters";
-import { readFiltersOpen, readList, writeFiltersOpen, writeList } from "./lib/filter-state";
-import { LIST_PAGE_SIZE, numberNextPage, numberPageOffset, numberPreviousPage, pageWindow } from "./lib/paging";
-import { useSiLayout } from "./lib/layout";
-import { currentSalesIntelligenceHref } from "./lib/official-record";
-import { NUMBER_SORT_OPTIONS, applyNumberSort, isDefaultNumberSort, numberSortFromParams, sortOption } from "./lib/sort";
-import { SortControl } from "./sort-control";
-import { AttachedLeadLine } from "./lead-progress";
+import { readFiltersOpen, readList, writeFiltersOpen, writeList } from "../lib/filter-state";
+import { LIST_PAGE_SIZE, numberNextPage, numberPageOffset, numberPreviousPage, pageWindow } from "../lib/paging";
+import { useSiLayout } from "../lib/layout";
+import { currentSalesIntelligenceHref } from "../lib/official-record";
+import { NUMBER_SORT_OPTIONS, applyNumberSort, isDefaultNumberSort, numberSortFromParams, sortOption } from "../lib/sort";
+import { SortControl } from "../sort-control";
+import { AttachedLeadLine } from "../lead-progress";
 
 function NumberPages({
   params,

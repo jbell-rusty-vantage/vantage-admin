@@ -1,18 +1,18 @@
 "use client";
 
 import type { NumberRead, Outreach } from "@/lib/api/salesIntelligence";
-import { copy } from "./sales-intelligence-copy";
-import { bandLabel, cx, formatDateTime, label } from "./lib/format";
-import { ClassificationBadge, EligibilityBadge, JustUpdated } from "./chrome";
-import { OwnershipSplit } from "./ownership";
-import { RelatedRecordChips } from "./related-record-chips";
-import { CallStateBadge, CallStateLine } from "./call-state";
-import { LeadProvenance } from "./lead-provenance";
-import { LeadProgressLine } from "./lead-progress";
-import { Button } from "./atoms/button";
-import { TooltipCard } from "./atoms/tooltip-card";
-import { commandLabels } from "./lib/commands";
-import { callBlockerSentence, callBlockerText, callStateOf, offeredActions, splitCommands } from "./lib/owner-now";
+import { copy } from "../sales-intelligence-copy";
+import { bandLabel, cx, formatDateTime, label } from "../lib/format";
+import { ClassificationBadge, EligibilityBadge, JustUpdated } from "../chrome";
+import { OwnershipSplit } from "../ownership";
+import { RelatedRecordChips } from "../related-record-chips";
+import { CallStateBadge, CallStateLine } from "../call-state";
+import { LeadProvenance } from "../lead-provenance";
+import { LeadProgressLine } from "../lead-progress";
+import { Button } from "../atoms/button";
+import { TooltipCard } from "../atoms/tooltip-card";
+import { commandLabels } from "../lib/commands";
+import { callBlockerSentence, callBlockerText, callStateOf, offeredActions, splitCommands } from "../lib/owner-now";
 
 type Availability = Outreach["allowed_actions"][number];
 

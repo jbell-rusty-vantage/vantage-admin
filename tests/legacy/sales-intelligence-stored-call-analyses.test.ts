@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { StoredCallAnalysisView, storedOutputVersionText } from "../components/sales-intelligence/stored-call-analyses";
-import { ASSESSMENT_DTO_FIXTURES } from "../lib/api/salesIntelligenceAssessment.fixtures";
-import { runPresentationSchema } from "../lib/api/salesIntelligenceAssessment";
-import { analysisSchema } from "../lib/api/salesIntelligenceAnalysis";
+import { StoredCallAnalysisView, storedOutputVersionText } from "../../components/sales-intelligence/_legacy/stored-call-analyses";
+import { ASSESSMENT_DTO_FIXTURES } from "../../lib/api/salesIntelligenceAssessment.fixtures";
+import { runPresentationSchema } from "../../lib/api/salesIntelligenceAssessment";
+import { analysisSchema } from "../../lib/api/salesIntelligenceAnalysis";
 
 // Running Summary tab: every stored output version (legacy envelope runs, structured runs) renders through the
 // shared Summary & findings section; an older server without the presentation route falls back to the raw run.

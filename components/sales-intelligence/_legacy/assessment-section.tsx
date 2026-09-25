@@ -6,36 +6,25 @@
  * a model call, edits a Lead or derives a score.
  */
 import { useId, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { SalesIntelligenceError } from "@/lib/api/salesIntelligence";
 import {
   applicabilityText, availabilityText, confidenceText, coverageText, freshnessText, groupObservations, historicalScoreText, inputModeText,
-  itemStatusText, levelText, moveViewRows, observationStatusText, observationText, originalViewLabel, quantityText, readAssessment,
-  readOutreachAssessment, scoreText, sourceCoverageText, versionOption, type AssessmentSection as Section, type EvidenceRef, type MoveView,
+  itemStatusText, levelText, moveViewRows, observationStatusText, observationText, originalViewLabel, quantityText, scoreText, sourceCoverageText, versionOption, type AssessmentSection as Section, type EvidenceRef, type MoveView,
   type Score,
 } from "@/lib/api/salesIntelligenceAssessment";
-import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
-import { Badge, type Tone } from "./atoms/badge";
-import { Button } from "./atoms/button";
-import { EmptyState } from "./chrome";
-import { assessmentCopy as copy } from "./evidence-chain-copy";
-import { copy as siCopy } from "./sales-intelligence-copy";
-import { formatDateTime } from "./lib/format";
+import { useAssessmentArtifact, useOutreachAssessment } from "../data/use-assessment";
+import { Badge, type Tone } from "../atoms/badge";
+import { Button } from "../atoms/button";
+import { EmptyState } from "../chrome";
+import { assessmentCopy as copy } from "../evidence-chain-copy";
+import { copy as siCopy } from "../sales-intelligence-copy";
+import { formatDateTime } from "../lib/format";
 
 /** A citation the Owner followed. `key` identifies the button, so Back can return focus to it. */
 export type CiteTarget =
   | { source: "assessment"; artifactId: string; ids: string[]; label: string; key: string }
   | { source: "run"; runId: string; ids: string[]; label: string; key: string };
 
-export const assessmentQueryKey = (outreachId: string | null) => [...salesIntelligenceKeys.all, "assessment", outreachId] as const;
-export function useOutreachAssessment(outreachId: string | null) {
-  return useQuery({ queryKey: assessmentQueryKey(outreachId), enabled: !!outreachId, retry: false,
-    queryFn: ({ signal }) => readOutreachAssessment(outreachId!, signal) });
-}
-export function useAssessmentArtifact(artifactId: string | null) {
-  return useQuery({ queryKey: [...salesIntelligenceKeys.all, "assessment-artifact", artifactId], enabled: !!artifactId, retry: false,
-    queryFn: ({ signal }) => readAssessment(artifactId!, signal) });
-}
 const SCORED = new Set(["ready", "insufficient_evidence"]);
 const availabilityTone = (value: string): Tone =>
   value === "ready" ? "green" : value === "pending" ? "blue" : value === "not_assessed" || value === "not_applicable" ? "neutral" : "amber";

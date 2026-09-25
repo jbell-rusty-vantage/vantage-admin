@@ -15,9 +15,9 @@ import {
   type Outreach,
 } from "@/lib/api/salesIntelligence";
 import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
-import { copy } from "./sales-intelligence-copy";
-import { label } from "./lib/format";
-import { Button } from "./atoms/button";
+import { copy } from "../sales-intelligence-copy";
+import { label } from "../lib/format";
+import { Button } from "../atoms/button";
 
 function deliveryCopy(status: NudgeRecord["status"]) {
   if (status === "fallback_sent") return copy.messageRep.statusFallback;

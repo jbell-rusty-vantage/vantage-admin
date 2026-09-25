@@ -1,13 +1,13 @@
 "use client";
 
-import { copy, BANDS } from "./sales-intelligence-copy";
-import { bandLabel, classificationLabel, formatDateTime, label } from "./lib/format";
-import { Button } from "./atoms/button";
-import { CircleCheck } from "./atoms/circle-check";
-import { TooltipCard } from "./atoms/tooltip-card";
-import { Checkbox, Field, FilterChip } from "./chrome";
-import { easternInput, easternInstant } from "./lib/commands";
-import { toggleValue, type AttentionFilterValue } from "./lib/filter-state";
+import { copy, BANDS } from "../sales-intelligence-copy";
+import { bandLabel, classificationLabel, formatDateTime, label } from "../lib/format";
+import { Button } from "../atoms/button";
+import { CircleCheck } from "../atoms/circle-check";
+import { TooltipCard } from "../atoms/tooltip-card";
+import { Checkbox, Field, FilterChip } from "../chrome";
+import { easternInput, easternInstant } from "../lib/commands";
+import { toggleValue, type AttentionFilterValue } from "../lib/filter-state";
 
 export type { AttentionFilterValue };
 

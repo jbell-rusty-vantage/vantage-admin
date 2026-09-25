@@ -6,9 +6,9 @@ import { readSalesIntelligence, SalesIntelligenceError } from "@/lib/api/salesIn
 import { analysisRunsSchema, analysisSchema, type Analysis } from "@/lib/api/salesIntelligenceAnalysis";
 import { readRunPresentation, type SummaryFindingsSection } from "@/lib/api/salesIntelligenceAssessment";
 import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
-import { Button } from "./atoms/button";
-import { formatDateTime, label } from "./lib/format";
-import { assessmentCopy } from "./evidence-chain-copy";
+import { Button } from "../atoms/button";
+import { formatDateTime, label } from "../lib/format";
+import { assessmentCopy } from "../evidence-chain-copy";
 
 /**
  * Server words for the stored output version. Every retained run renders through the same

@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AttentionFlatList, AttentionRow } from "../components/sales-intelligence/attention";
-import { attentionSchema, type AttentionRow as Row } from "../lib/api/salesIntelligence";
+import { AttentionFlatList, AttentionRow } from "../../components/sales-intelligence/_legacy/attention";
+import { attentionSchema, type AttentionRow as Row } from "../../lib/api/salesIntelligence";
 
 // Move assessment §8.1/§8.2: the card score row and the flat score-sorted list, rendered.
 const coverage = { known_through: null, gaps: [], ai_paused: false };

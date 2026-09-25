@@ -8,25 +8,21 @@ import {useState,type ReactNode} from 'react';
 import Link from 'next/link';
 import {useQuery} from '@tanstack/react-query';
 import {readSalesIntelligence} from '@/lib/api/salesIntelligence';
-import {analysisEvidenceSchema,analysisEvidenceContentSchema,assertionEvidence,assertionFacts,citedSnapshotIds,effectKindLabel,effectVerdict,requestsForFinding,reviewVerdict,validationReadouts,validationVerdict,
+import {analysisEvidenceContentSchema,assertionEvidence,assertionFacts,citedSnapshotIds,effectKindLabel,effectVerdict,requestsForFinding,reviewVerdict,validationReadouts,validationVerdict,
  type Analysis,type AnalysisFinding,type ChainTone,type ChainVerdict} from '@/lib/api/salesIntelligenceAnalysis';
 import {salesIntelligenceKeys} from '@/lib/query/salesIntelligence';
-import {Badge,type Tone} from './atoms/badge';
-import {Button} from './atoms/button';
-import {copy} from './sales-intelligence-copy';
-import {evidenceChainCopy as chain,assessmentCopy as ac} from './evidence-chain-copy';
+import {useRunEvidence} from '../data/use-run';
+import {Badge,type Tone} from '../atoms/badge';
+import {Button} from '../atoms/button';
+import {copy} from '../sales-intelligence-copy';
+import {evidenceChainCopy as chain,assessmentCopy as ac} from '../evidence-chain-copy';
 import {evidenceAvailabilityText,evidenceKindText,evidenceTextLabel,focusEvidence,locatorText,readAssessmentEvidence,type EvidenceItem,type EvidenceSection} from '@/lib/api/salesIntelligenceAssessment';
-import {formatDateTime,label} from './lib/format';
+import {formatDateTime,label} from '../lib/format';
 import './styles/evidence-chain.css';
 
 const badgeTone=(tone:ChainTone):Tone=>tone==='amber'?'amber':tone==='red'?'red':tone==='green'?'green':tone==='blue'?'blue':'neutral';
 const pick=(map:Record<string,string|undefined>,key:string)=>map[key]??label(key);
 
-/** One evidence-snapshot page per run, shared by the per-assertion steps and the run-level list. */
-export function useRunEvidence(runId:string,cursor:string|null=null) {
- return useQuery({queryKey:[...salesIntelligenceKeys.all,'analysis-evidence',runId,cursor],
-  queryFn:({signal})=>readSalesIntelligence(`analysis-runs/${runId}/evidence${cursor?`?cursor=${cursor}`:''}`,analysisEvidenceSchema,signal),retry:false});
-}
 type Snapshot={id:string;tool:string|null;retrieved_at:string|null;unavailable:boolean};
 
 /** Retained content for one snapshot, paged exactly as the server pages it. */

@@ -1,7 +1,7 @@
-import { copy } from "./sales-intelligence-copy";
-import { evidenceChainCopy as chain } from "./evidence-chain-copy";
-import { formatDateTime } from "./lib/format";
-import { TooltipCard } from "./atoms/tooltip-card";
+import { copy } from "../sales-intelligence-copy";
+import { evidenceChainCopy as chain } from "../evidence-chain-copy";
+import { formatDateTime } from "../lib/format";
+import { TooltipCard } from "../atoms/tooltip-card";
 import { StoredCallAnalyses } from "./stored-call-analyses";
 
 export function runningSummaryText(analysis: { text: string; computed_at: string; run_id?: string } | null | undefined) {

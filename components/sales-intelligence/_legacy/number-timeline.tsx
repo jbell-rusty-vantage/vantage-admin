@@ -6,10 +6,10 @@ import { Paperclip, Phone, PhoneMissed, Sparkles, StickyNote } from "lucide-reac
 import { fetchCatalogItems } from "@/lib/api/catalog";
 import { readSalesIntelligence, timelineSchema } from "@/lib/api/salesIntelligence";
 import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
-import { Button } from "./atoms/button";
-import { copy } from "./sales-intelligence-copy";
-import { formatDateTime, formatDay, label } from "./lib/format";
-import { toggleValue } from "./lib/filter-state";
+import { Button } from "../atoms/button";
+import { copy } from "../sales-intelligence-copy";
+import { formatDateTime, formatDay, label } from "../lib/format";
+import { toggleValue } from "../lib/filter-state";
 
 const KIND_FILTERS = ["calls", "attachments", "work", "analysis"] as const;
 type KindFilter = (typeof KIND_FILTERS)[number];
