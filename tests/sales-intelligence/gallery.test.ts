@@ -27,7 +27,7 @@ test("every section anchor is present, in order, and the sub-nav links to each",
   }
   const ids = ["tokens", "badges", "pills", "chips", "icons", "time", "loading", "live", "navigation", "card", "metrics", "presets", "rail", "timeline", "analysis", "chat", "overview", "closed", "coverage"];
   assert.deepEqual(GALLERY_SECTIONS.map((s) => s.id), ids);
-  for (const stage of ["UI1-CARD", "UI1-DESK", "UI1-PRESET", "UI1-RAIL", "UI1-TL", "UI1-CHAT", "UI1-OVERVIEW", "UI1-CLOSED", "UI1-COVER"]) {
+  for (const stage of ["UI1-DESK", "UI1-PRESET", "UI1-RAIL", "UI1-TL", "UI1-CHAT", "UI1-OVERVIEW", "UI1-CLOSED", "UI1-COVER"]) {
     assert.ok(html.includes(`Lands with ${stage}`), `placeholder for ${stage}`);
   }
 });

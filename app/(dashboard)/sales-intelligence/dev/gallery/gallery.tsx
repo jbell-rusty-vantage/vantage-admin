@@ -5,6 +5,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { SubNav } from "@/components/sales-intelligence/primitives";
 import { copy } from "@/components/sales-intelligence/sales-intelligence-copy";
 import { BadgesSection, PillsSection } from "./sections/badges";
+import { CardSection } from "./sections/card";
 import { ChipsSection } from "./sections/chips";
 import { IconsSection } from "./sections/icons";
 import { LiveSection } from "./sections/live";
@@ -27,7 +28,7 @@ export const GALLERY_SECTIONS: { id: SectionId; render: () => ReactNode }[] = [
   { id: "loading", render: () => <LoadingSection /> },
   { id: "live", render: () => <LiveSection /> },
   { id: "navigation", render: () => <NavigationSection /> },
-  { id: "card", render: () => <Placeholder id="card" stage="UI1-CARD" /> },
+  { id: "card", render: () => <CardSection /> },
   { id: "metrics", render: () => <Placeholder id="metrics" stage="UI1-DESK" /> },
   { id: "presets", render: () => <Placeholder id="presets" stage="UI1-PRESET" /> },
   { id: "rail", render: () => <Placeholder id="rail" stage="UI1-RAIL" /> },

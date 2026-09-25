@@ -882,6 +882,167 @@ export const copy = {
       sortUnavailable: "Sorting unavailable on this server. Showing the default order.",
       freshOnly: "Fresh assessments only",
     },
+    /**
+     * UI1-CARD: the Outreach card and the side dialog (UI-1 §2, final spec §5, §4). COPY-UI1 §3 rows keep their key
+     * names (`assignedTo`, `origin.*`, `promisedBy`, `unassigned`, `bandFor`, `bandForAbout`, `leadProgressUncertain5`);
+     * the rest are final spec §5 / §14 wording, or drafts listed in evidence/UI1-CARD.md.
+     */
+    card: {
+      assignedTo: (name: string) => `Assigned to ${name}`,
+      origin: { crm_receiver: "(from Granot)", owner: "(by you)" } as Record<string, string>,
+      promisedBy: (name: string) => `Promised by ${name}`,
+      unassigned: "Unassigned",
+      bandFor: (n: number, duration: string) => `Band ${n} for ${duration}`,
+      bandForAbout: (n: number, duration: string) => `Band ${n} for about ${duration}`,
+      leadProgressUncertain5: "Granot Priority 5 (Booked in Granot) · No Vantage Booking yet",
+      // Line 1 (final §5.2)
+      job: (jobNo: string) => `Job ${jobNo}`,
+      unknownName: "Unknown name",
+      noLead: "No Lead attached",
+      numberReviewIdentity: "Contact Number waiting on your review",
+      // Line 2
+      pickupUnknown: "Pickup unknown",
+      deliveryUnknown: "Delivery unknown",
+      move: (date: string, count: string) => `Move ${date} (${count})`,
+      movePassed: (date: string) => `Move ${date} (passed)`,
+      moveDateMissing: "Move date not on file",
+      // Line 3
+      received: "Received",
+      receivedUnknown: "Received time unknown",
+      notALead: "Not a Lead",
+      lastConversation: "Last conversation",
+      noConversation: "No conversation observed",
+      lastCall: "Last call",
+      noCall: "No call observed",
+      // Line 4
+      calls: (n: number) => (n === 1 ? "1 call" : `${n.toLocaleString("en-US")} calls`),
+      conversations: (n: number) => (n === 1 ? "1 conversation" : `${n.toLocaleString("en-US")} conversations`),
+      recordingsAnalyzed: (n: number) => (n === 1 ? "1 recording analyzed" : `${n.toLocaleString("en-US")} recordings analyzed`),
+      recordingsPending: (n: number) => (n === 1 ? "1 recording not yet analyzed" : `${n.toLocaleString("en-US")} recordings not yet analyzed`),
+      noNumber: "No Number on file",
+      // Line 5 (final §5.4, §5.6)
+      transactionIntent: "Transaction intent",
+      moveLikelihood: "Move likelihood",
+      scoresTipTitle: "Scores",
+      scoresTip: "Ordinal evidence assessment out of 100. Not a percentage or a booking probability.",
+      staleReason: { move_date_passed: "Assessment stale: move date passed" } as Record<string, string>,
+      // Line 6 (final §5.5, UI-1 §2.2)
+      next: (description: string) => `Next: ${description}`,
+      due: "Due",
+      dueNeeded: "Due date needed",
+      suggested: (description: string) => `Suggested: ${description}`,
+      apply: "Apply",
+      applyLabel: (description: string) => `Apply the suggested next step: ${description}`,
+      noNextStep: "No next step set",
+      // Sort line (final §5.8)
+      sortLine: (label: string, value: string) => `${label}: ${value}`,
+      // Actions (final §5.2, §14)
+      open: "Open",
+      openAnalysis: "Open analysis",
+      messageRep: "Message rep",
+      noRep: "No rep to message",
+      previousVersion: "Previous version",
+      openQuickLook: (who: string) => `Quick look: ${who}`,
+      // Side dialog (final §4)
+      dialogTitle: "Quick look",
+      close: "Close",
+      openFullRecord: "Open full record",
+      recentActivity: "Recent activity",
+      nextStepTitle: "Next step",
+      scoreCardEmpty: "No score yet",
+      /** Dev-only gallery labels for the Card section (UI-0 §7.4). */
+      gallery: {
+        note: "Card states from contract fixture rows. Chip and reason words are COPY-UI1 §2–§4 drafts until the design gate.",
+        states: "States",
+        groupedVsFlat: "Grouped vs flat",
+        grouped: "Grouped (Attention order): band header, no tag",
+        flat: "Flat (any other sort): band tag on line 1",
+        skeleton: "Skeleton",
+        skeletonLabel: "OutreachCard.Skeleton (seven lines)",
+        dialog: "Side dialog content",
+        dialogLabel: "PreviewBody (timeline preview placeholder until UI1-TL)",
+        phone: "At 390 px",
+        samples: {
+          lead: "Lead row (Promised by, due in, band tag)",
+          "number-only": "Number-only subject (no route line)",
+          "number-review": "Number-review row (no Outreach)",
+          nulls: "Null wording (no Number, no call, Unknown score)",
+          live: "Live call (On the call)",
+          "live-both": "live_call and call_progress: only On the call",
+          "owner-calling": "Owner calling (synthetic: live_call removed)",
+          blocker: "Call blocker + uncertain Priority 5",
+          "blocker-restriction": "Don't call (synthetic: restriction added)",
+          "disagree-newer": "Details disagree + Newer call since assessment",
+          stale: "Stale assessment (tooltip sentence), move date passed",
+          retry: "Retry: Try again (1 of 2)",
+          default: "Default follow-up (overdue, amber)",
+          suggestion: "Suggested next step with Apply",
+          "crm-receiver": "Assigned (from Granot), Band for about",
+          promised: "Promised callback overdue with amount",
+          closed: "Closed record (actions reduce to Open; line 6 slot for UI1-CLOSED)",
+          "sort-line": "Flat, sorted by Last call (sort line)",
+          "sort-line-null": "Sort line with the null label",
+        } as Record<string, string>,
+      },
+    },
+    /** UI1-CARD: card line 1 chips (COPY-UI1 §4). Blocker keys are the server's `derived.call_blockers` values. */
+    chip: {
+      liveCall: (rep: string, duration: string) => `On the call · ${rep} · ${duration}`,
+      ownerCalling: "Owner calling",
+      needsReview: "Needs review",
+      detailsDisagree: "Details disagree",
+      newerCall: "Newer call since assessment",
+      newerCallTip: (t: string) => `The scores cover conversations through ${t}. A call happened after that.`,
+      blocker: {
+        restriction: "Don't call",
+        restrictionTip: "Open the record for the end date",
+        restrictionUntil: (date: string) => `Don't call until ${date}`,
+        restrictionNoEnd: "Don't call",
+        suppressed: "Suppressed",
+        identity: "Identity review",
+        disposition_review: "Disposition review",
+      },
+      /** Blocker values that never make a chip: `closed` (the state pill says so), `review_only` (the Needs review chip does). */
+      blockerNoChip: ["closed", "review_only"] as readonly string[],
+      default: "Default",
+      defaultTip: "Created by the system when the Lead was quoted.",
+      retry: (attempt: number) => `Try again (${attempt} of 2)`,
+      inProgress: "In progress",
+      provisional: "Details may still change",
+    },
+    /** UI1-CARD: line 7 "why" (COPY-UI1 §2). `o` = the overdue amount, `d` = the due countdown; both omitted when unknown. */
+    reason: {
+      phrases: {
+        "promised_by:rep": (o?: string) => `Rep's promised callback overdue${o ? ` ${o}` : ""}`,
+        "promised_by:customer": (o?: string) => `Customer-requested callback overdue${o ? ` ${o}` : ""}`,
+        "promised_by:owner": (o?: string) => `Your scheduled callback overdue${o ? ` ${o}` : ""}`,
+        promised_callback_overdue: (o?: string) => `Promised callback overdue${o ? ` ${o}` : ""}`,
+        promise_unreached: () => "Promised callback attempted, customer not reached",
+        no_call_yet: (o?: string) => (o ? `Not called yet, first call overdue ${o}` : "Not called yet"),
+        new_not_yet_due: (d?: string) => (d ? `Not called yet, first call due ${d}` : "Not called yet"),
+        no_callback_after_inbound: () => "Missed call, no callback yet",
+        called_before_form: () => "Called before the form arrived",
+        no_call_observed: () => "No call observed in available history",
+        rep_discretion: () => "Left to the rep's discretion (Granot Priority 3)",
+        unreached: () => "Attempts made, customer not reached",
+        going_cold: () => "Going cold, no activity",
+        no_next_step: () => "Being worked, no next step set",
+        missing_responsibility: () => "Nobody owns this work",
+      } as Record<string, (amount?: string) => string>,
+      followupDue: (d: string) => `Follow-up due ${d}`,
+      followupOverdue: (o: string) => `Follow-up overdue ${o}`,
+      followupBare: "Follow-up due",
+      /** Any key the table doesn't know: underscores (and `:`) as spaces, first letter capitalised. Never blank. */
+      fallback: (key: string) => {
+        const words = key.replace(/[_:]+/g, " ").trim();
+        return words ? words.charAt(0).toUpperCase() + words.slice(1) : "Reason unknown";
+      },
+      allTitle: "Why it's here",
+      calledBeforeFormDetail: (date: string) => `Called ${date}, before the form`,
+      /** No reason at all: the final spec's clause from `facts.next_action_state`. */
+      noReasonOverdue: (o: string) => `Callback overdue ${o}`,
+      noReasonDue: (d: string) => `Due in ${d}`,
+    },
   },
 } as const;
 
