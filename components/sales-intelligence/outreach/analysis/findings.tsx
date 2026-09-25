@@ -18,6 +18,7 @@ import { useRunPresentation } from "../../data/use-run";
 import { siKeys } from "../../data/query-keys";
 import { Chip, Disclosure, Region, RegionProgress, SkeletonLines } from "../../primitives";
 import { copy } from "../../sales-intelligence-copy";
+import { useIsRep } from "../../rep/viewer";
 import { cx } from "../../lib/format";
 import { formatExact, formatExactFull } from "../../lib/time";
 import { RunCommand } from "./advanced";
@@ -51,8 +52,9 @@ export function groupFindings(findings: readonly CurrentFinding[]): FindingGroup
 }
 
 /** `Applied → {detail}`, `Blocked: {reason}`, `Needs review`, …; an unknown enum value prints as sent. */
-export function workResultText(finding: Pick<CurrentFinding, "work_result" | "work_result_detail">): string {
+export function workResultText(finding: Pick<CurrentFinding, "work_result" | "work_result_detail">, rep = false): string {
   const { work_result: result, work_result_detail: detail } = finding;
+  if (rep && result === "retracted") return copy.ui2.scope.ownerWords.retractedBy;
   if (result === "applied" && detail) return f.appliedDetail(detail);
   if (result === "blocked" && detail) return f.blockedDetail(detail);
   return f.result[result] ?? result;
@@ -112,6 +114,7 @@ export type FindingBlockProps = {
 };
 
 export function FindingBlock({ finding, asOf, onAction, showLookAgain = false, evidenceOpen = false, onPage = () => false }: FindingBlockProps) {
+  const rep = useIsRep();
   const kid = useKitId();
   const later = finding.work_result === "superseded" ? finding.superseded_by ?? finding.work_result_detail : null;
   const replacedBy = later && onPage(later) ? later : null;
@@ -134,7 +137,7 @@ export function FindingBlock({ finding, asOf, onAction, showLookAgain = false, e
       </p>
       {finding.value_line && <p className="si-finding__value">{finding.value_line}</p>}
       <p className="si-finding__result" data-result={finding.work_result}>
-        {f.workResult(workResultText(finding))}
+        {f.workResult(workResultText(finding, rep))}
         {replacedBy ? (
           <>
             {" · "}
@@ -205,9 +208,10 @@ export function ChangesSinceLast({ relations, evidence = [], asOf, reviewHref, o
 }
 
 export function InstructionAssessments({ items }: { items: readonly InstructionAssessment[] }) {
+  const rep = useIsRep();
   if (items.length === 0) return null;
   return (
-    <Disclosure id="si-findings-instructions" title={f.instructions} className="si-findings__instructions">
+    <Disclosure id="si-findings-instructions" title={rep ? copy.ui2.scope.ownerWords.instructions : f.instructions} className="si-findings__instructions">
       <ul className="si-changes__list">
         {items.map((item) => (
           <li key={`${item.instruction_id}:${item.instruction_revision}`} className="si-change" data-assessment={item.assessment}>

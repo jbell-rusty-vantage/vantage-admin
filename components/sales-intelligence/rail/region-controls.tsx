@@ -6,6 +6,7 @@
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { BandBadge, type BandNumber } from "../primitives";
 import { copy } from "../sales-intelligence-copy";
+import { useIsRep } from "../rep/viewer";
 import { cx } from "../lib/format";
 import {
   BAND_OPTIONS, CLOSED_WINDOWS, MOVE_WITHIN, OUTCOME_OPTIONS, RECEIVED_WINDOWS, SCORE_STEPS, STATUS_OPTIONS,
@@ -207,11 +208,12 @@ function TimeRegion(props: RegionProps) {
 }
 
 function OutcomeRegion({ value, onChange }: RegionProps) {
+  const rep = useIsRep();
   return (
     <Group>
       {OUTCOME_OPTIONS.map((outcome) => (
         <Check key={outcome} data={`outcome:${outcome}`} checked={value.outcome.includes(outcome)} onChange={() => onChange({ outcome: toggle(value.outcome, outcome) })}>
-          {r.outcome[outcome]}
+          {rep && outcome === "owner" ? copy.ui2.scope.ownerWords.closedBy : r.outcome[outcome]}
         </Check>
       ))}
     </Group>

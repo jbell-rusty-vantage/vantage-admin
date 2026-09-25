@@ -41,7 +41,7 @@ export function activeFilterChips(
   value: RailValue,
   regions: readonly RailRegion[],
   reps: readonly RailRep[],
-  { onChange, asOf }: { onChange?: (patch: RailPatch) => void; asOf?: string | null } = {},
+  { onChange, asOf, rep = false }: { onChange?: (patch: RailPatch) => void; asOf?: string | null; rep?: boolean } = {},
 ): FilterChip[] {
   const chips: FilterChip[] = [];
   const add = (key: string, label: string, patch: RailPatch) => chips.push({ key, label, patch, remove: () => onChange?.(patch) });
@@ -81,7 +81,7 @@ export function activeFilterChips(
         if (value.move_date_passed) add("move_date_passed", r.chip.movePassed, { move_date_passed: false });
         break;
       case "outcome":
-        for (const outcome of value.outcome) add(`outcome:${outcome}`, r.outcome[outcome] ?? outcome.replaceAll("_", " "), { outcome: without(value.outcome, outcome) });
+        for (const outcome of value.outcome) add(`outcome:${outcome}`, rep && outcome === "owner" ? copy.ui2.scope.ownerWords.closedBy : r.outcome[outcome] ?? outcome.replaceAll("_", " "), { outcome: without(value.outcome, outcome) });
         break;
       case "closed_time":
         if (value.closed_from || value.closed_to) {

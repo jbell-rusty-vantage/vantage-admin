@@ -1992,6 +1992,13 @@ export const copy = {
     scope: {
       yours: "Yours",
       promisedByYou: "Promised by you",
+      /** UI2 integration: the Owner's "by you" words, read by a rep (the Owner did it, not the rep). */
+      ownerWords: {
+        setBy: "Set by the Owner",
+        closedBy: "Closed by the Owner",
+        retractedBy: "Retracted by the Owner",
+        instructions: "The Owner's changes and what the model made of them",
+      },
       open: "Open",
       openAnalysis: "Open analysis",
       noRailRep: "Your records only",

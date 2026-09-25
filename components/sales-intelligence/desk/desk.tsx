@@ -103,7 +103,7 @@ function ChipsArea({ view, state, update, asOf }: RailProps) {
   const regions = regionsFor(view, rep);
   return (
     <WithRailReps>
-      {(reps) => <ActiveChips chips={activeFilterChips(state, regions, reps, { onChange: update, asOf })} onClearAll={() => update(clearAll(regions))} />}
+      {(reps) => <ActiveChips chips={activeFilterChips(state, regions, reps, { onChange: update, asOf, rep })} onClearAll={() => update(clearAll(regions))} />}
     </WithRailReps>
   );
 }

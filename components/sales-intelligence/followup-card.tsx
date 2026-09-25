@@ -3,6 +3,7 @@ import { Badge } from "./atoms/badge";
 import { OwnershipSplit } from "./ownership";
 import { TimeText } from "./primitives";
 import { copy } from "./sales-intelligence-copy";
+import { useIsRep } from "./rep/viewer";
 import { cx, formatDateTime, label } from "./lib/format";
 
 /**
@@ -25,7 +26,9 @@ export function FollowupCard({ followup: f, overallOwner, asOf }: { followup: Fo
       {f.status === "open" && <>{" ("}<TimeText t={f.due_at} asOf={asOf} mode="countdown" overdue={f.overdue} />{")"}</>}
     </>
   ) : f.status === "open" ? copy.time.dueDateNeeded : copy.time.noDueRecorded;
-  const origin = (copy.followupOrigin as Record<string, string>)[f.origin] ?? label(f.origin);
+  const rep = useIsRep();
+  // UI2: an Owner-set follow-up reads `Set by the Owner` to a rep (the Owner's copy says `Set by you`).
+  const origin = rep && f.origin === "owner" ? copy.ui2.scope.ownerWords.setBy : (copy.followupOrigin as Record<string, string>)[f.origin] ?? label(f.origin);
   return (
     <article className={cx("si-followup-card", !f.due_at && "si-followup-card--undated", f.overdue && "si-followup-card--overdue")} data-followup-status={f.status}>
       <header className="si-followup-card__header">

@@ -17,8 +17,8 @@ import type { ReactNode } from "react";
 import type { ClosedOutcome } from "@/lib/api/salesIntelligence";
 import { Chip } from "../primitives";
 import { copy } from "../sales-intelligence-copy";
-import { officialRecordHref } from "../lib/official-record";
 import { useIsRep } from "../rep/viewer";
+import { officialRecordHref } from "../lib/official-record";
 import { etDateKey, formatDate, formatExactFull } from "../lib/time";
 
 const k = copy.ui1.closed;
@@ -37,7 +37,8 @@ export function durationText(outcome: Pick<ClosedOutcome, "time_to_close_ms" | "
 }
 
 /** The outcome word for a reason (the rail's labels, COPY §6 `outcomeFilter.*`). */
-export function outcomeWord(reason: string): string {
+export function outcomeWord(reason: string, rep = false): string {
+  if (rep && reason === "owner") return copy.ui2.scope.ownerWords.closedBy;
   return copy.ui1.desk.rail.outcome[reason] ?? reason.replaceAll("_", " ");
 }
 
@@ -122,7 +123,7 @@ export function OutcomeLine({ outcome, asOf, receivedAt, returnTo }: OutcomeLine
     case "owner":
       body = (
         <>
-          {k.byYou} <Day t={outcome.closed_at} asOf={asOf} />
+          {rep ? copy.ui2.scope.ownerWords.closedBy : k.byYou} <Day t={outcome.closed_at} asOf={asOf} />
           {tail}
           {outcome.note && <>{sep}{outcome.note}</>}
         </>

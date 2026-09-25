@@ -94,3 +94,15 @@ test("A03: the live indicator's tooltip drops the Coverage link when the page pa
   assert.doesNotMatch(html(createElement(LiveIndicatorDetails, { health: null, asOf: "2026-09-25T21:39:58.722Z", coverageHref: null })), /view=coverage/);
   assert.match(html(createElement(LiveIndicatorDetails, { health: null, asOf: "2026-09-25T21:39:58.722Z", coverageHref: "/sales-intelligence?view=coverage" })), /view=coverage/);
 });
+
+test("UI2: the Owner's `by you` words read as the Owner's to a rep", async () => {
+  const { outcomeWord } = await import("../../components/sales-intelligence/card/outcome-line");
+  const { workResultText } = await import("../../components/sales-intelligence/outreach/analysis/findings");
+  const { activeFilterChips, closedRegions } = await import("../../components/sales-intelligence/rail");
+  assert.equal(outcomeWord("owner"), "Closed by you");
+  assert.equal(outcomeWord("owner", true), "Closed by the Owner");
+  assert.equal(workResultText({ work_result: "retracted", work_result_detail: null } as never, true), "Retracted by the Owner");
+  assert.equal(workResultText({ work_result: "retracted", work_result_detail: null } as never), "Retracted by you");
+  const value = parseDeskUrl(new URLSearchParams("view=closed&outcome=owner"), "rep");
+  assert.equal(activeFilterChips(value, closedRegions(), [], { rep: true })[0]?.label, "Closed by the Owner");
+});

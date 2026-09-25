@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useId, type ReactNode } from "react";
 import type { Overview } from "@/lib/api/salesIntelligence";
 import { copy } from "../sales-intelligence-copy";
+import { useIsRep } from "../rep/viewer";
 import { formatDuration } from "../lib/time";
 import { cx } from "../lib/format";
 import { Disclosure, SkeletonBlock, SkeletonLines } from "../primitives";
@@ -52,6 +53,9 @@ function Metric({ title, children, data }: { title: string; children: ReactNode;
 }
 
 function FlowBar({ flow, links, period }: { flow: Flow; links: OverviewLinks | null; period: Overview["periods"]["activity"] | null }) {
+  const rep = useIsRep();
+  // UI2: `Closed by you` is the Owner's word; a rep reads `Closed by the Owner`.
+  const outLabel = (key: keyof typeof t.flowOut) => (rep && key === "owner_closed" ? copy.ui2.scope.ownerWords.closedBy : t.flowOut[key]);
   const outTotal = FLOW_OUT.reduce((sum, key) => sum + flow[key], 0);
   const scale = Math.max(flow.new_outreach, outTotal, 1);
   const width = (n: number) => `${(n / scale) * 100}%`;
@@ -71,14 +75,14 @@ function FlowBar({ flow, links, period }: { flow: Flow; links: OverviewLinks | n
         <span className="si-ovflow__label">{t.flowOutLabel}</span>
         <div className="si-ovflow__track" aria-hidden>
           {FLOW_OUT.map((key, i) => flow[key] > 0 && (
-            <span key={key} className={cx("si-ovflow__seg", `si-ovflow__seg--out${i + 1}`)} style={{ width: width(flow[key]) }} title={t.flowSegment(t.flowOut[key], count(flow[key]))} />
+            <span key={key} className={cx("si-ovflow__seg", `si-ovflow__seg--out${i + 1}`)} style={{ width: width(flow[key]) }} title={t.flowSegment(outLabel(key), count(flow[key]))} />
           ))}
         </div>
       </div>
       <ul className="si-ovflow__legend">
         {FLOW_OUT.map((key, i) => {
           const href = links && period ? links.closed(key, period) : null;
-          const text = t.flowSegment(t.flowOut[key], count(flow[key]));
+          const text = t.flowSegment(outLabel(key), count(flow[key]));
           return (
             <li key={key} data-flow-out={key}>
               <span className={cx("si-ovflow__swatch", `si-ovflow__seg--out${i + 1}`)} aria-hidden />
