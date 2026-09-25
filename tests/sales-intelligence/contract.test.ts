@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import test from "node:test";
 import { z } from "zod";
 import {
   attentionSchema,
@@ -25,6 +24,7 @@ import {
   outreachAssessmentReadSchema,
   runPresentationReadSchema,
 } from "../../lib/api/salesIntelligenceAssessment";
+import { findContractsDir, FIXTURES_UNAVAILABLE, fixtureTest, requireContracts } from "./contracts-dir";
 
 /*
  * UI-0 §3 contract parse test (UI1-DATA). Every JSON fixture captured from the local API is parsed with the
@@ -32,25 +32,9 @@ import {
  * schema. Read fixtures are the whole response body (`{ ok, as_of, coverage, data }`); status fixtures are
  * `{ status, body }` and parse `body` as a refusal (`ok: false`) or as the route's success body.
  */
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-/**
- * The fixtures live next to vantage-admin in the multi-repo folder: `../../../sales-intelligence-ui-ux-workspace/contracts`
- * from this file. A git worktree (e.g. under %TEMP%) has no such sibling, so the main checkout named in the
- * worktree's `.git` file is tried next. `SI_CONTRACTS_DIR` overrides both.
- */
-function contractsDir(): { dir: string; tried: string[] } {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((value): value is string => !!value);
-  try {
-    const gitFile = fs.readFileSync(path.join(repo, ".git"), "utf8");
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(gitFile)?.[1]?.trim();
-    // `<main checkout>/.git/worktrees/<name>` → `<main checkout>/../sales-intelligence-ui-ux-workspace/contracts`
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout has a .git folder, not a file */ }
-  // A candidate counts only when it holds the stage folders (a stray `contracts/` with just a manifest does not).
-  return { dir: tried.find((candidate) => fs.existsSync(path.join(candidate, "S1"))) ?? tried[0]!, tried };
-}
-const { dir: CONTRACTS, tried: CONTRACT_CANDIDATES } = contractsDir();
+// The fixtures sit next to vantage-admin (or SI_CONTRACTS_DIR); without them every test here skips (see ./contracts-dir).
+const CONTRACTS = findContractsDir() ?? "";
+if (!CONTRACTS) console.log(`contract fixtures: skipped (${FIXTURES_UNAVAILABLE})`);
 const FOLDERS = ["S1", "S2", "S3", "S4", "S5c", "S6", "S7", "S8", "S9", "AC"] as const;
 const MIN_PARSED = 560;
 
@@ -126,7 +110,7 @@ const isStatusFixture = (json: unknown): json is { status: number; body: { ok: b
 type Result = { parsed: number; skipped: { rel: string; reason: string }[]; failures: string[]; perFolder: Map<string, number>; values: Map<string, unknown> };
 
 function runContract(): Result {
-  assert.ok(fs.existsSync(CONTRACTS), `Fixture folder not found. Tried:\n  ${CONTRACT_CANDIDATES.join("\n  ")}\nThe contract test reads ${WORKSPACE_CONTRACTS} next to vantage-admin; set SI_CONTRACTS_DIR to point at it.`);
+  requireContracts();
   const result: Result = { parsed: 0, skipped: [], failures: [], perFolder: new Map(), values: new Map() };
   for (const folder of FOLDERS) {
     const root = path.join(CONTRACTS, folder);
@@ -169,7 +153,7 @@ function runContract(): Result {
 let cached: Result | undefined;
 const contract = () => (cached ??= runContract());
 
-test("every fixture in S1…S9, AC and S5c parses with the admin schema for its route", () => {
+fixtureTest("every fixture in S1…S9, AC and S5c parses with the admin schema for its route", () => {
   const { parsed, skipped, failures, perFolder } = contract();
   const lines = FOLDERS.map((folder) => `  ${folder}: ${perFolder.get(folder) ?? 0} parsed`);
   const skipLines = skipped.map((entry) => `  skipped: ${entry.rel} (${entry.reason})`);
@@ -187,7 +171,7 @@ function value<T extends z.ZodType>(rel: string, schema: T): z.infer<T> {
   return schema.parse(found) as z.infer<T>;
 }
 
-test("desk fields survive parsing (facts, live call, band since, metrics, priority counts, filter and sort keys)", () => {
+fixtureTest("desk fields survive parsing (facts, live call, band since, metrics, priority counts, filter and sort keys)", () => {
   const all = value("S5c/attention__all-outreach.json", attentionSchema).data;
   assert.equal(typeof all.metrics?.leads_received_7d, "number");
   assert.equal(typeof all.priority_counts?.not_set?.active, "number");
@@ -205,7 +189,7 @@ test("desk fields survive parsing (facts, live call, band since, metrics, priori
   assert.equal(typeof promise.outreach?.next_action?.attention_due_at, "string");
 });
 
-test("closed partition keeps outcome and the closed sort keys; Closed history keeps retention", () => {
+fixtureTest("closed partition keeps outcome and the closed sort keys; Closed history keeps retention", () => {
   const closed = value("S6/attention-closed__closed-outcome-granot-booked.json", attentionSchema).data;
   assert.equal(closed.items[0]?.outcome?.reason, "granot_booked");
   assert.ok(closed.items[0]?.sort_keys && "time_to_close" in closed.items[0].sort_keys);
@@ -214,7 +198,7 @@ test("closed partition keeps outcome and the closed sort keys; Closed history ke
   assert.ok(history.items.every((item) => item.outcome));
 });
 
-test("detail read keeps the Now strip, Situation and Work fields", () => {
+fixtureTest("detail read keeps the Now strip, Situation and Work fields", () => {
   const detail = value("S1/outreach__s-audio-purged.json", outreachReadSchema).data;
   assert.ok(detail.outreach.latest_summary?.overview);
   assert.ok("newest_run_id" in detail.outreach && "official" in detail.outreach && "followups_cursor" in detail.outreach);
@@ -224,7 +208,7 @@ test("detail read keeps the Now strip, Situation and Work fields", () => {
   assert.ok(value("S5c/outreach__t3-live-call.json", outreachReadSchema).data.outreach.live_call?.started_at);
 });
 
-test("timeline v2, conversations, transcript, findings, presentation and assessment keep their UI fields", () => {
+fixtureTest("timeline v2, conversations, transcript, findings, presentation and assessment keep their UI fields", () => {
   const timeline = value("S5c/number-timeline__t3-live-call-kinds-call.json", timelineV2Schema).data;
   assert.ok(timeline.items.some((item) => item.call?.in_progress === true));
   assert.ok(timeline.items.every((item) => typeof item.title === "string" && typeof item.group === "string"));
@@ -245,7 +229,7 @@ test("timeline v2, conversations, transcript, findings, presentation and assessm
   assert.ok((value("S3/outreach-assessment__s-assessment-pending.json", outreachAssessmentReadSchema).data.lead_move_table?.rows.length ?? 0) > 0);
 });
 
-test("Overview and coverage capture health keep their blocks", () => {
+fixtureTest("Overview and coverage capture health keep their blocks", () => {
   const overview = value("S9/overview__custom.json", overviewSchema).data;
   for (const key of ["now", "desk", "reps", "spend", "periods", "filters"]) assert.ok(key in overview, key);
   assert.equal(typeof value("S9/overview__owner-one-rep-scope.json", overviewSchema).data.team_medians?.reps, "number");

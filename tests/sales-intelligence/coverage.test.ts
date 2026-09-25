@@ -12,23 +12,12 @@ import { siKeys } from "../../components/sales-intelligence/data/query-keys";
 import { formatExactFull } from "../../components/sales-intelligence/lib/time";
 import { copy } from "../../components/sales-intelligence/sales-intelligence-copy";
 import { CoverageSection, COVERAGE_ATTENTION, COVERAGE_BROKEN, COVERAGE_OK } from "../../app/(dashboard)/sales-intelligence/dev/gallery/sections/coverage";
+import { findContractsDir, fixtureTest } from "./contracts-dir";
 
 // UI1-COVER (UI-1 §6, A31): the capture health block from the S5c coverage fixtures, and the kept Coverage view
 // unchanged when the server sends no `capture_health`. Static markup, no DOM (ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 const read = (rel: string) => ownerCoverageSchema.parse(JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8")));
 const decode = (s: string) => s.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
 const c = copy.ui1.coverage;
@@ -44,7 +33,7 @@ function renderHealth(health: CaptureHealthDto, asOf: string) {
   return decode(renderToStaticMarkup(createElement(CaptureHealth, { health, asOf })));
 }
 
-test("A31: every capture_health fixture renders its headline, each reason as a sentence, and the pending explanation", () => {
+fixtureTest("A31: every capture_health fixture renders its headline, each reason as a sentence, and the pending explanation", () => {
   for (const { file, status } of FIXTURES) {
     const read_ = read(file);
     const health = read_.data.coverage.capture_health;
@@ -80,7 +69,7 @@ test("A31: every capture_health fixture renders its headline, each reason as a s
   }
 });
 
-test("reason wording: quarantine and pending_finalization carry the server's counts; an unknown key never renders blank", () => {
+fixtureTest("reason wording: quarantine and pending_finalization carry the server's counts; an unknown key never renders blank", () => {
   const broken = read("S5c/coverage__capture-health-broken__synthetic.json").data.coverage.capture_health!;
   const html = renderHealth(broken, broken.as_of);
   assert.ok(html.includes("The RingCentral webhook isn't delivering."));
@@ -124,7 +113,7 @@ function renderCoverage(body: ReturnType<typeof read>) {
   return renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(CoverageView)));
 }
 
-test("Coverage view: capture health sits at the top; without capture_health (a pre-S5c server) the rest renders unchanged", () => {
+fixtureTest("Coverage view: capture health sits at the top; without capture_health (a pre-S5c server) the rest renders unchanged", () => {
   const withHealth = read("S5c/flag-off/coverage__seed.json");
   const health = withHealth.data.coverage.capture_health!;
   const rest = { ...withHealth.data.coverage };
@@ -142,7 +131,7 @@ test("Coverage view: capture health sits at the top; without capture_health (a p
   for (const kept of [copy.coverage.ownerLayer, copy.coverage.history, copy.coverage.budget]) assert.ok(decode(htmlWithout).includes(kept), kept);
 });
 
-test("skeleton and gallery section: shaped skeleton, every status sample, nothing from _legacy", () => {
+fixtureTest("skeleton and gallery section: shaped skeleton, every status sample, nothing from _legacy", () => {
   const skeleton = renderToStaticMarkup(createElement(CaptureHealth.Skeleton));
   assert.ok(skeleton.includes("si-caphealth is-skeleton") && (skeleton.match(/si-skeleton--line/g) ?? []).length >= 8);
   const gallery = decode(renderToStaticMarkup(createElement(CoverageSection)));

@@ -15,23 +15,12 @@ import { AudioPlayer, audioStateForStatus } from "../../components/sales-intelli
 import { conversationMediaSrc } from "../../components/sales-intelligence/data/use-conversations";
 import { copy } from "../../components/sales-intelligence/sales-intelligence-copy";
 import { formatExactFull } from "../../components/sales-intelligence/lib/time";
+import { findContractsDir, fixtureTest, ifFixtures } from "./contracts-dir";
 
 // UI1-CONV: Conversations, transcript and the player rendered from the S4 / S6 contract fixtures (final spec §11.7,
 // UI-1 §5.2, UI1-A25 target, UI1-A29 render side). No DOM (ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 const raw = (rel: string) => JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8"));
 const conversations = (rel: string): ConversationsPage => conversationsSchema.parse(raw(rel));
 const transcript = (rel: string): TranscriptPage => transcriptSchema.parse(raw(rel));
@@ -48,9 +37,9 @@ function card(html: string, id: string): string {
   return html.slice(at, html.indexOf("</article>", at));
 }
 
-const S4_FINDINGS = conversations("S4/number-conversations__s-findings.json");
+const S4_FINDINGS = ifFixtures(() => conversations("S4/number-conversations__s-findings.json"));
 
-test("one card per conversation, newest first, with the header line, recording line and server summary labels", () => {
+fixtureTest("one card per conversation, newest first, with the header line, recording line and server summary labels", () => {
   const html = render(S4_FINDINGS);
   let last = -1;
   for (const item of S4_FINDINGS.data.items) {
@@ -74,7 +63,7 @@ test("one card per conversation, newest first, with the header line, recording l
   assert.equal(durationText(null), null);
 });
 
-test("the player: the Owner media route as src, only for retained media; retention and error sentences (A29 render side)", () => {
+fixtureTest("the player: the Owner media route as src, only for retained media; retention and error sentences (A29 render side)", () => {
   const html = render(S4_FINDINGS);
   const withMedia = S4_FINDINGS.data.items.filter((i) => i.media_available);
   assert.equal((html.match(/<audio /g) ?? []).length, withMedia.length);
@@ -97,7 +86,7 @@ test("the player: the Owner media route as src, only for retained media; retenti
   assert.ok(failed.includes('role="alert"'));
 });
 
-test("Other calls ({n}): compact rows with the result; rep status words when no reviewed name", () => {
+fixtureTest("Other calls ({n}): compact rows with the result; rep status words when no reviewed name", () => {
   const t = text(render(S4_FINDINGS));
   assert.ok(t.includes(`Other calls (${S4_FINDINGS.data.other_calls.length})`));
   for (const call of S4_FINDINGS.data.other_calls) assert.ok(t.includes(`${call.started_at_label}`) && t.includes(call.result!));
@@ -107,7 +96,7 @@ test("Other calls ({n}): compact rows with the result; rep status words when no 
   assert.ok(render(sixty).includes(c.loadMore), "next_cursor → Load more");
 });
 
-test("in-progress and provisional calls: `In progress` with no result or duration; `Details may still change`", () => {
+fixtureTest("in-progress and provisional calls: `In progress` with no result or duration; `Details may still change`", () => {
   const live = conversations("S6/number-conversations__t3-live-call.json");
   const html = renderToStaticMarkup(createElement(OtherCalls, { calls: live.data.other_calls }));
   const inProgress = live.data.other_calls.find((o) => o.in_progress)!;
@@ -128,13 +117,13 @@ test("in-progress and provisional calls: `In progress` with no result or duratio
   assert.ok(!text(running).includes(durationText(base.duration_seconds)!));
 });
 
-test("legacy summary source prints its note; no conversations prints the empty line", () => {
+fixtureTest("legacy summary source prints its note; no conversations prints the empty line", () => {
   const legacy = conversations("S4/number-conversations__s-legacy.json");
   assert.ok(text(render(legacy)).includes(c.legacySummary));
   assert.ok(text(render({ ...legacy, data: { ...legacy.data, items: [], other_calls: [] } })).includes(c.none));
 });
 
-test("transcript: speaker turns with sid anchors, offsets, missing-range markers and Load more", () => {
+fixtureTest("transcript: speaker turns with sid anchors, offsets, missing-range markers and Load more", () => {
   const partial = transcript("S4/conversation-transcript__s-findings-c1-offset-2.json");
   const d = partial.data;
   const html = renderToStaticMarkup(createElement(TranscriptView, { conversationId: d.conversation_id, segments: d.segments, available: d.available, missingRanges: d.completeness.missing_ranges, hasMore: d.next_offset != null }));
@@ -156,7 +145,7 @@ test("transcript: speaker turns with sid anchors, offsets, missing-range markers
   assert.ok(text(off).includes(copy.ui1.analysis.transcript.missing.retention_pending));
 });
 
-test("Open in transcript target: scrollToSegments sets the target; the transcript highlights every cited sid (A25)", () => {
+fixtureTest("Open in transcript target: scrollToSegments sets the target; the transcript highlights every cited sid (A25)", () => {
   const full = transcript("S4/conversation-transcript__s-findings-c2.json").data;
   const target = scrollToSegments(full.conversation_id, [3, 6]);
   assert.deepEqual(target.sids, ["3", "6"]);

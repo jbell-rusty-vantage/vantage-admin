@@ -18,22 +18,11 @@ import { attentionParamsFromDesk, deskUrlUpdate, parseDeskUrl } from "../../comp
 import { attentionQuery } from "../../components/sales-intelligence/data/requests";
 import { RECEIVED_WINDOWS, CLOSED_WINDOWS, activeFilterChips, outreachRegions, windowFrom } from "../../components/sales-intelligence/rail";
 import { BANDS } from "../../components/sales-intelligence/sales-intelligence-copy";
+import { findContractsDir, fixtureTest } from "./contracts-dir";
 
 // UI1-DESK: the desk rendered from the contract fixtures (UI1-A08–A11, A38 degrade). No DOM (ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 const load = (rel: string) => attentionSchema.parse(JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8")));
 const decode = (s: string) => s.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 const text = (html: string) => decode(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ");
@@ -67,7 +56,7 @@ test("A08: the view bar has seven link tabs in order, Overview first and default
   assert.equal(kept.get("cursor"), null);
 });
 
-test("A09: Needs Attention in Attention order is grouped under band headers; no band header without rows", () => {
+fixtureTest("A09: Needs Attention in Attention order is grouped under band headers; no band header without rows", () => {
   const page = load("S1/attention__default.json");
   const markup = listHtml("S1/attention__default.json");
   assert.match(markup, /data-layout="grouped"/);
@@ -89,7 +78,7 @@ test("A09: Needs Attention in Attention order is grouped under band headers; no 
   assert.ok(markup.includes(`${page.data.total_items} results`));
 });
 
-test("A09: All Outreach under Lead received is flat with band tags and no sort line", () => {
+fixtureTest("A09: All Outreach under Lead received is flat with band tags and no sort line", () => {
   const markup = listHtml("S1/attention__all-outreach.json", { sort: "lead_received" });
   assert.match(markup, /data-layout="flat"/);
   assert.ok(!markup.includes("si-bandhead"), "no band headers");
@@ -97,7 +86,7 @@ test("A09: All Outreach under Lead received is flat with band tags and no sort l
   assert.ok(!markup.includes("data-sortline"));
 });
 
-test("A09: any other sort is flat with the sort line (value or the null label)", () => {
+fixtureTest("A09: any other sort is flat with the sort line (value or the null label)", () => {
   const page = load("S2/attention__sort-last-call.json");
   const markup = listHtml("S2/attention__sort-last-call.json");
   assert.match(markup, /data-layout="flat"/);
@@ -137,7 +126,7 @@ test("A09: both lists offer the nine sorts; Closed three; direction words; score
   assert.equal(sortPatch("attention", "attention").sort, null);
 });
 
-test("A10: five metric tiles from data.metrics with As of; each applies its filter", () => {
+fixtureTest("A10: five metric tiles from data.metrics with As of; each applies its filter", () => {
   const page = load("S6/attention__all-outreach.json");
   const markup = html(createElement(MetricsStripView, { metrics: page.data.metrics!, asOf: page.as_of, onApply: () => {} }));
   const m = page.data.metrics!;
@@ -170,7 +159,7 @@ test("A10: five metric tiles from data.metrics with As of; each applies its filt
   assert.ok(!html(createElement(MetricsStripView, { metrics: s1.data.metrics!, asOf: s1.as_of })).includes("median"));
 });
 
-test("A10: metrics absent (flag-off snapshot) → every tile — with Not available in this snapshot", () => {
+fixtureTest("A10: metrics absent (flag-off snapshot) → every tile — with Not available in this snapshot", () => {
   for (const rel of ["S2/flag-off/attention__default.json", "S2/flag-off/attention__all-outreach.json"]) {
     const page = load(rel);
     assert.equal(page.data.metrics, undefined, rel);
@@ -182,7 +171,7 @@ test("A10: metrics absent (flag-off snapshot) → every tile — with Not availa
   }
 });
 
-test("the stale banner shows when data.stale, with the exact time as a <time> element", () => {
+fixtureTest("the stale banner shows when data.stale, with the exact time as a <time> element", () => {
   const page = load("S1/attention__all-outreach.json");
   assert.ok(!listHtml("S1/attention__all-outreach.json").includes("data-stale"));
   const markup = listHtml("S1/attention__all-outreach.json", { stale: true });
@@ -190,7 +179,7 @@ test("the stale banner shows when data.stale, with the exact time as a <time> el
   assert.ok(markup.includes(`<time dateTime="${page.as_of}" title="Sep 23, 2026, 5:46 PM ET" aria-label="Sep 23, 2026, 5:46 PM ET"`));
 });
 
-test("A11: keyset paging: Load more on a cursor; any control change clears the cursor; the empty sentences", () => {
+fixtureTest("A11: keyset paging: Load more on a cursor; any control change clears the cursor; the empty sentences", () => {
   const withCursor = listHtml("S2/attention__page-1.json");
   assert.ok(withCursor.includes(">Load more<"));
   assert.ok(!listHtml("S1/attention__default.json").includes(">Load more<"));
@@ -207,7 +196,7 @@ test("A11: keyset paging: Load more on a cursor; any control change clears the c
   assert.ok(empty("all_outreach", "zz").includes('0 results for "zz"'));
 });
 
-test("A38: search — the hint rule, the submit rule, q sent on the three lists", () => {
+fixtureTest("A38: search — the hint rule, the submit rule, q sent on the three lists", () => {
   for (const short of ["1", "12", "028", " 404 ", "(40", "+1"]) assert.equal(isShortPhone(short), true, short);
   for (const long of ["1028", "404-555", "lopez", "a1", "", "5590028"]) assert.equal(isShortPhone(long), false, long);
   assert.deepEqual(searchAction("028"), { kind: "hint" });

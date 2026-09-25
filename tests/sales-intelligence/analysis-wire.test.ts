@@ -17,24 +17,13 @@ import { targetEventId } from "../../components/sales-intelligence/timeline/time
 import { hashTarget } from "../../components/sales-intelligence/outreach/land-on-hash";
 import { AnalysisSection } from "../../app/(dashboard)/sales-intelligence/dev/gallery/sections/analysis";
 import { AnalysisFindingsSection } from "../../app/(dashboard)/sales-intelligence/dev/gallery/sections/analysis-findings";
+import { findContractsDir, fixtureTest, ifFixtures } from "./contracts-dir";
 
 // UI1-ANALYSIS-WIRE: the joined Analysis tab (TOP + MOVE + FIND + CONV) rendered whole from a primed query cache, the
 // Outreach page mounting it, one `View evidence` path, unique ids when the kit renders twice, and the deep-link targets.
 // No DOM (ADMIN-REBUILD trap 7): the scroll / highlight behaviour itself is for the browser pass.
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 const read = (rel: string) => JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8"));
 
 const decode = (s: string) => s.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
@@ -42,10 +31,10 @@ const text = (html: string) => decode(html.replace(/<[^>]+>/g, "")).replace(/ /g
 const ids = (html: string) => [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]!);
 const duplicates = (list: string[]) => [...new Set(list.filter((id, i) => list.indexOf(id) !== i))];
 
-const detail = outreachReadSchema.parse(read("S1/outreach__s-findings.json"));
-const OUTREACH_ID = detail.data.outreach.id;
-const RUN_ID = detail.data.outreach.newest_run_id!;
-const NUMBER_ID = detail.data.outreach.primary_number!.id;
+const detail = ifFixtures(() => outreachReadSchema.parse(read("S1/outreach__s-findings.json")));
+const OUTREACH_ID = ifFixtures(() => detail.data.outreach.id);
+const RUN_ID = ifFixtures(() => detail.data.outreach.newest_run_id!);
+const NUMBER_ID = ifFixtures(() => detail.data.outreach.primary_number!.id);
 
 /** Every read the joined tab makes for the s-findings record. */
 function primed(): QueryClient {
@@ -64,7 +53,7 @@ const tab = (props: Partial<Parameters<typeof AnalysisTab>[0]> = {}) => render(c
 
 const SIX = ["situation", "scores", "move-details", "findings", "conversations", "full-output"];
 
-test("AnalysisTab (Owner): the six anchors, real Findings and Conversations, and View evidence, all from the cache", () => {
+fixtureTest("AnalysisTab (Owner): the six anchors, real Findings and Conversations, and View evidence, all from the cache", () => {
   const html = tab();
   const nav = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
   assert.deepEqual([...nav.matchAll(/href="#([a-z-]+)"/g)].map((m) => m[1]), SIX, "sub-nav anchors");
@@ -91,7 +80,7 @@ test("AnalysisTab (Owner): the six anchors, real Findings and Conversations, and
   assert.deepEqual(duplicates(ids(html)), [], "ids are unique");
 });
 
-test("AnalysisTab (rep): no Look again, no review-item links, no Full output; Findings and Conversations still render", () => {
+fixtureTest("AnalysisTab (rep): no Look again, no review-item links, no Full output; Findings and Conversations still render", () => {
   const html = tab({ role: "rep" });
   assert.ok(!html.includes('data-action="look_again"'));
   assert.ok(!html.includes("#review-item-"));
@@ -99,7 +88,7 @@ test("AnalysisTab (rep): no Look again, no review-item links, no Full output; Fi
   assert.ok(html.includes("data-finding=") && html.includes('<article id="si-conversation-'));
 });
 
-test("idPrefix: two copies of the kit on one page share no id, and each sub-nav points at its own copy", () => {
+fixtureTest("idPrefix: two copies of the kit on one page share no id, and each sub-nav points at its own copy", () => {
   const client = primed();
   const html = render(
     createElement("div", null,
@@ -123,7 +112,7 @@ test("ViewEvidence: a count toggle with its context, or the empty / should-cite 
   assert.ok(text(render(createElement(ViewEvidence, { target: null, shouldCite: true }), client)).includes("This score should cite evidence and does not."));
 });
 
-test("OutreachPage mounts the joined Analysis tab (not the placeholder) with the header's lines left out of Situation", () => {
+fixtureTest("OutreachPage mounts the joined Analysis tab (not the placeholder) with the header's lines left out of Situation", () => {
   const html = render(createElement(OutreachPage, { id: OUTREACH_ID, tab: "analysis", run: null }));
   assert.ok(html.includes('class="si-analysis"') && html.includes('data-region="outreach-analysis"'));
   assert.ok(!text(html).includes("The analysis sections are still being built."));

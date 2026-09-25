@@ -24,23 +24,12 @@ import {
   type ListShape,
 } from "../../components/sales-intelligence/data/live";
 import { siKeys } from "../../components/sales-intelligence/data/query-keys";
+import { findContractsDir, fixtureTest } from "./contracts-dir";
 
 // UI1-LIVE: the header indicator's inputs, the list rule and the fallback constants (UI-0 §2.5). No DOM (trap 7):
 // the SSE reconnect and the 30 s timer need the browser pass.
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 const fixture = (rel: string) => JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8"));
 const decode = (s: string) => s.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
 
@@ -56,7 +45,7 @@ test("listChanged: same snapshot never changes the order; a new snapshot changes
   assert.equal(listChanged(shape(null, ["a"]), shape(null, ["b"])), true, "no snapshot id, different list");
 });
 
-test("attentionListShape reads snapshot_id, total_items and the subject_key sequence from a fixture page", () => {
+fixtureTest("attentionListShape reads snapshot_id, total_items and the subject_key sequence from a fixture page", () => {
   const page = attentionSchema.parse(fixture("S5c/attention__default.json"));
   const s = attentionListShape({ pages: [page] });
   assert.equal(s.snapshotId, page.data.snapshot_id);
@@ -79,7 +68,7 @@ test("liveStatusOf: offline only after the down timer, never while live", () => 
   assert.equal(SALES_INTELLIGENCE_FALLBACK_POLL_MS, 60_000);
 });
 
-test("capture health: the Overview's cached status wins, coverage supplies known_complete_through, unknown words are null", () => {
+fixtureTest("capture health: the Overview's cached status wins, coverage supplies known_complete_through, unknown words are null", () => {
   const coverage = ownerCoverageSchema.parse(fixture("S5c/coverage__seed.json")).data.coverage.capture_health!;
   assert.deepEqual(liveHealthOf(null, coverage), { status: "attention", knownCompleteThrough: coverage.known_complete_through });
   assert.deepEqual(liveHealthOf("broken", coverage), { status: "broken", knownCompleteThrough: coverage.known_complete_through });

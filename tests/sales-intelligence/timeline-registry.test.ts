@@ -9,23 +9,12 @@ import { timelineV2Schema, timelineEventSchema, type TimelineEvent } from "../..
 import {
   EVENT_KINDS, GENERIC_KIND, EventRow, eventGroup, eventIcon, hasKindEntry, kindEntry, kindsForGroups, TIMELINE_GROUPS,
 } from "../../components/sales-intelligence/timeline";
+import { findContractsDir, fixtureTest } from "./contracts-dir";
 
 // UI1-TL (UI1-A35): every timeline kind in the contract fixtures has a registry entry; an unknown kind renders
 // through the generic fallback without throwing. No DOM (ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 
 function walk(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]));
@@ -36,7 +25,7 @@ const TIMELINE_FILE = /[\\/][^\\/]*(outreach|number)-timeline[^\\/]*\.json$/;
 type Loaded = { file: string; asOf: string; items: TimelineEvent[] };
 const loaded: Loaded[] = [];
 const skipped: string[] = [];
-for (const file of walk(CONTRACTS).filter((f) => TIMELINE_FILE.test(f))) {
+for (const file of (CONTRACTS ? walk(CONTRACTS) : []).filter((f) => TIMELINE_FILE.test(f))) {
   const rel = path.relative(CONTRACTS, file);
   // flag-off/ holds TIMELINE_V2-off (v1) pages: story kinds (`interaction`, `followup`, …), never rendered by this timeline.
   if (/(^|[\\/])flag-off[\\/]/.test(rel)) { skipped.push(`${rel} (flag-off v1)`); continue; }
@@ -47,7 +36,7 @@ for (const file of walk(CONTRACTS).filter((f) => TIMELINE_FILE.test(f))) {
   loaded.push({ file: rel, asOf: parsed.as_of, items: parsed.data.items });
 }
 
-test("every kind in the timeline fixtures has a registry entry (A35)", () => {
+fixtureTest("every kind in the timeline fixtures has a registry entry (A35)", () => {
   assert.ok(loaded.length >= 90, `only ${loaded.length} timeline captures found`);
   const kinds = new Map<string, number>();
   const missing = new Set<string>();
@@ -64,7 +53,7 @@ test("every kind in the timeline fixtures has a registry entry (A35)", () => {
   for (const kind of kinds.keys()) assert.equal(EVENT_KINDS[kind]!.source, "fixture", `${kind} is a fixture kind`);
 });
 
-test("the registry's group matches the server's group on every fixture item, and no fixture kind is pending", () => {
+fixtureTest("the registry's group matches the server's group on every fixture item, and no fixture kind is pending", () => {
   for (const { items, file } of loaded) {
     for (const item of items) {
       assert.equal(kindEntry(item.kind).group, item.group, `${item.kind} in ${file}`);
@@ -73,7 +62,7 @@ test("the registry's group matches the server's group on every fixture item, and
   }
 });
 
-test("every fixture item renders through its entry, with the server's title and description", () => {
+fixtureTest("every fixture item renders through its entry, with the server's title and description", () => {
   let rendered = 0;
   for (const { items, asOf } of loaded) {
     for (const item of items) {

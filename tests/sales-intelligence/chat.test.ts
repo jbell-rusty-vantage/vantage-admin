@@ -32,22 +32,11 @@ import {
 import { defaultRecipient, nudgePurpose, nudgeSendBody } from "../../components/sales-intelligence/data/use-nudges";
 import { formatExactFull } from "../../components/sales-intelligence/lib/time";
 import { CHAT_NUDGES, CHAT_REPS, ChatSection } from "../../app/(dashboard)/sales-intelligence/dev/gallery/sections/chat";
+import { findContractsDir, fixtureTest } from "./contracts-dir";
 
 // UI1-CHAT: the chat kit and the Message rep composer as static markup (no DOM, ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 const detail = (rel: string) => outreachReadSchema.parse(JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8")));
 const html = (el: Parameters<typeof renderToStaticMarkup>[0]) =>
   renderToStaticMarkup(el).replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
@@ -163,7 +152,7 @@ const reps = (agentId: string, agentName: string) => repsSchema.parse({
   },
 }).data;
 
-test("the panel's first line, default recipient and title (fixture record, reviewed link)", () => {
+fixtureTest("the panel's first line, default recipient and title (fixture record, reviewed link)", () => {
   const read = detail("AC/outreach__ac-attempt-50-early.json");
   const o = read.data.outreach;
   const recipient = defaultRecipient(reps(o.assignment.agent!.id, o.assignment.agent!.name), o);
@@ -192,7 +181,7 @@ test("the panel's first line, default recipient and title (fixture record, revie
   assert.ok(!inline.includes('role="dialog"') && inline.includes('data-mode="inline"') && inline.includes("Goes to the rep's RingCentral"));
 });
 
-test("purpose: call_suggestion with an open follow-up or a suggestion, otherwise review_context", () => {
+fixtureTest("purpose: call_suggestion with an open follow-up or a suggestion, otherwise review_context", () => {
   const withNext = detail("AC/outreach__ac-attempt-50-early.json").data.outreach;
   const bare = detail("AC/outreach__ac-attempts-same-rep.json").data.outreach;
   assert.ok(withNext.next_action);
@@ -202,7 +191,7 @@ test("purpose: call_suggestion with an open follow-up or a suggestion, otherwise
   assert.equal(nudgePurpose({ next_action: null, suggested_next_step: {} as never }), "call_suggestion");
 });
 
-test("the send body carries the legacy dialog's field set, with team_messaging and pager fallback", () => {
+fixtureTest("the send body carries the legacy dialog's field set, with team_messaging and pager fallback", () => {
   const o = detail("AC/outreach__ac-attempt-50-early.json").data.outreach;
   const recipient = defaultRecipient(reps(o.assignment.agent!.id, o.assignment.agent!.name), o)!;
   const payload = nudgeSendBody({ outreach: o, recipient, text: "  Call her back  " });
@@ -261,7 +250,7 @@ test("the recipient picker lists the directory, marks users without a reviewed A
   assert.deepEqual(filterRows(rows, "ext. 140").map((r) => r.name), ["Front desk"]);
 });
 
-test("FIX-UI1 M2 (A43): the picker lists every reviewed rep, even when the directory leaves their extension out", () => {
+fixtureTest("FIX-UI1 M2 (A43): the picker lists every reviewed rep, even when the directory leaves their extension out", () => {
   // The seed's shape: three identity links (two reviewed, one proposed); the directory holds only an unlinked extension.
   const seedLike = { ...CHAT_REPS,
     items: [...CHAT_REPS.items, { ...CHAT_REPS.items[0]!, id: "3", agent_id: "agent-3", agent_name: "Tina Cho", rc_extension_id: "103", rc_extension_number: "103", rc_extension_name: null, status: "proposed" },

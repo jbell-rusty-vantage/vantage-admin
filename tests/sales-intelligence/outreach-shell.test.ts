@@ -14,22 +14,11 @@ import {
   activeCallRestriction, backHref, deepLinkTarget, groupCommands, headerChips, headerRow, isNotFoundError, leadTargetHref, outreachRouteHref,
   outreachTabs, parseOutreachTab, showReceiverAgent,
 } from "../../components/sales-intelligence/outreach";
+import { findContractsDir, fixtureTest } from "./contracts-dir";
 
 // UI1-SHELL: the Outreach route (UI-1 §5), rendered from the contract fixtures. No DOM (ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 const raw = (rel: string) => JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8"));
 const detail = (rel: string) => outreachReadSchema.parse(raw(rel));
 const decode = (s: string) => s.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&gt;/g, ">").replace(/&lt;/g, "<");
@@ -47,7 +36,7 @@ function headerOf(o: Outreach, asOf: string, extra: Partial<Parameters<typeof Re
 const withClient = (el: ReactElement) => renderToStaticMarkup(createElement(QueryClientProvider, { client: new QueryClient() }, el));
 const outreachFiles = (dir: string) => fs.readdirSync(path.join(CONTRACTS, dir)).filter((f) => /^outreach__.*\.json$/.test(f)).map((f) => `${dir}/${f}`);
 
-test("every S1, S5c, S6, AC and S11 detail fixture renders the record header: lines 1–4 and 7, band line, provenance, links, commands; no %", () => {
+fixtureTest("every S1, S5c, S6, AC and S11 detail fixture renders the record header: lines 1–4 and 7, band line, provenance, links, commands; no %", () => {
   const files = ["S1", "S5c", "S6", "AC", "S11"].flatMap(outreachFiles);
   assert.ok(files.length > 50, `fixtures found: ${files.length}`);
   for (const rel of files) {
@@ -62,7 +51,7 @@ test("every S1, S5c, S6, AC and S11 detail fixture renders the record header: li
   }
 });
 
-test("A41: one primary call button, at most two secondaries in preference order, the rest under More actions, disabled reasons", () => {
+fixtureTest("A41: one primary call button, at most two secondaries in preference order, the rest under More actions, disabled reasons", () => {
   const o = detail("S1/outreach__s-assessment-pending.json").data.outreach;
   const groups = groupCommands(o.allowed_actions);
   assert.equal(groups.primary?.action, "start_call");
@@ -82,7 +71,7 @@ test("A41: one primary call button, at most two secondaries in preference order,
   assert.ok(html.includes("data-more") && html.includes("hidden"), "More actions starts closed");
 });
 
-test("A41: End the call is the primary while a call is running (live fixture); a blocked Start keeps its reason", () => {
+fixtureTest("A41: End the call is the primary while a call is running (live fixture); a blocked Start keeps its reason", () => {
   const live = detail("S5c/outreach__t3-live-call.json").data.outreach;
   assert.equal(groupCommands(live.allowed_actions).primary?.action, "end_call");
   const t = text(renderToStaticMarkup(createElement(RecordCommands, { record: live, onCommand: noop, messageRepDisabledReason: null, onMessageRep: noop })));
@@ -95,14 +84,14 @@ test("A41: End the call is the primary while a call is running (live fixture); a
   assert.ok(text(html).includes("A disposition review is open on this Lead."), "DISPOSITION_REVIEW sentence");
 });
 
-test("Override disposition is hidden when its only blocker is FEATURE_DISABLED, shown disabled otherwise", () => {
+fixtureTest("Override disposition is hidden when its only blocker is FEATURE_DISABLED, shown disabled otherwise", () => {
   const o = detail("S1/outreach__s-assessment-pending.json").data.outreach;
   const off = o.allowed_actions.map((a) => a.action === "override_disposition" ? { ...a, enabled: false, blocker_codes: ["FEATURE_DISABLED"] } : a);
   assert.ok(!groupCommands(off).more.some((a) => a.action === "override_disposition"));
   assert.ok(groupCommands(o.allowed_actions).more.some((a) => a.action === "override_disposition" && !a.enabled));
 });
 
-test("Message rep: disabled with `No rep to message`, enabled when a rep is linked", () => {
+fixtureTest("Message rep: disabled with `No rep to message`, enabled when a rep is linked", () => {
   const o = detail("S1/outreach__s-assessment-pending.json").data.outreach;
   const off = renderToStaticMarkup(createElement(RecordCommands, { record: o, onCommand: noop, onMessageRep: noop, messageRepDisabledReason: "No rep to message" }));
   assert.ok(/data-command="message_rep"[^>]*disabled/.test(off) || /disabled[^>]*data-command="message_rep"/.test(off));
@@ -111,7 +100,7 @@ test("Message rep: disabled with `No rep to message`, enabled when a rep is link
   assert.ok(!/data-command="message_rep"[^>]*disabled=""/.test(on) && !/disabled=""[^>]*data-command="message_rep"/.test(on), "enabled");
 });
 
-test("A21 / E26: the receiver agent shows beside an Owner assignment and when it differs; never when it is the assigned rep", () => {
+fixtureTest("A21 / E26: the receiver agent shows beside an Owner assignment and when it differs; never when it is the assigned rep", () => {
   const kept = detail("S6/outreach__t3-owner-kept.json");
   assert.equal(showReceiverAgent(kept.data.outreach), true);
   const t = text(header("S6/outreach__t3-owner-kept.json"));
@@ -128,7 +117,7 @@ test("A21 / E26: the receiver agent shows beside an Owner assignment and when it
   assert.ok(!text(header("S1/outreach__s-assessment-pending.json")).includes("Receiver agent"), "no receiver_agent → nothing");
 });
 
-test("the header's band line, live chip and due state come from the server fields", () => {
+fixtureTest("the header's band line, live chip and due state come from the server fields", () => {
   const kept = text(header("S6/outreach__t3-owner-kept.json"));
   assert.ok(/Band 2 · No call yet after form submission · for about \d/.test(kept), "estimated band start reads about");
   const live = text(header("S5c/outreach__t3-live-call.json"));
@@ -141,7 +130,7 @@ test("the header's band line, live chip and due state come from the server field
   assert.ok(/Due \w{3} \d+, \d+:\d{2} [AP]M ET \(in /.test(text(due)), "due: exact + countdown");
 });
 
-test("A37: Lead provenance — is_the_lead (S11 fixtures and a synthetic row with no Number), needs_a_lead, ambiguous, attached", () => {
+fixtureTest("A37: Lead provenance — is_the_lead (S11 fixtures and a synthetic row with no Number), needs_a_lead, ambiguous, attached", () => {
   const noNumber = text(header("S11/outreach__prov-form-no-number.json"));
   assert.ok(noNumber.includes("This is the Lead") && noNumber.includes("This work is the Form Lead for Job 5590019.") && noNumber.includes("No Contact Number is on file."));
   assert.ok(!noNumber.includes("No Lead attached"), "never No Lead attached for a Lead subject");
@@ -165,7 +154,7 @@ test("A37: Lead provenance — is_the_lead (S11 fixtures and a synthetic row wit
   assert.ok(text(headerOf(none, base.as_of)).includes("How this Lead was attached is not recorded yet."));
 });
 
-test("A41: official-record links carry si_return and Open in new tab; the Number goes to legacy; `None` when absent", () => {
+fixtureTest("A41: official-record links carry si_return and Open in new tab; the Number goes to legacy; `None` when absent", () => {
   const o = detail("S6/outreach__t3-owner-kept.json").data.outreach;
   const html = renderToStaticMarkup(createElement(RelatedRecordChips, { outreach: o, numberId: o.primary_number!.id, returnTo: RETURN }));
   assert.ok(html.includes(`si_return=${encodeURIComponent(RETURN)}`), "si_return on the Lead link");
@@ -174,7 +163,7 @@ test("A41: official-record links carry si_return and Open in new tab; the Number
   assert.ok(text(html).includes("Booking: None") && text(html).includes("Cancellation: None"));
 });
 
-test("A39: the header's call blocker reads `Don't call until {date}` from the active call restriction, `Don't call` with no end", () => {
+fixtureTest("A39: the header's call blocker reads `Don't call until {date}` from the active call restriction, `Don't call` with no end", () => {
   const d = detail("S1/outreach__s-assessment-pending.json");
   const o = { ...d.data.outreach, derived: { ...d.data.outreach.derived, call_blockers: ["restriction"] } };
   const row = headerRow(o);
@@ -194,7 +183,7 @@ test("A39: the header's call blocker reads `Don't call until {date}` from the ac
   assert.ok(text(headerOf(o, d.as_of, { restriction: until, restrictionKnown: true })).includes("Don't call until Oct 2, 12:00 PM ET"));
 });
 
-test("Work tab follow-ups: retry, superseded wording, due via as_of, each follow-up's own commands", () => {
+fixtureTest("Work tab follow-ups: retry, superseded wording, due via as_of, each follow-up's own commands", () => {
   const sup = detail("AC/outreach__ac-default-superseded.json");
   const html = renderToStaticMarkup(createElement(FollowupsSection, { record: sup.data.outreach, asOf: sup.as_of }));
   const t = text(html);
@@ -210,7 +199,7 @@ test("Work tab follow-ups: retry, superseded wording, due via as_of, each follow
   assert.ok(text(renderToStaticMarkup(createElement(FollowupsSection, { record: none.data.outreach, asOf: none.as_of }))).includes("No next step set"));
 });
 
-test("Work tab corrections (owner_instructions) and the blank-note refusal", () => {
+fixtureTest("Work tab corrections (owner_instructions) and the blank-note refusal", () => {
   const d = detail("S1/outreach__s-closed-owner.json");
   const items = d.data.owner_instructions ?? [];
   assert.ok(items.length > 0);
@@ -257,7 +246,7 @@ test("A20: the redirect rule table", () => {
   assert.equal(outreachRouteHref("o1"), "/sales-intelligence/outreach/o1");
 });
 
-test("page states: the route skeleton (frame + header skeleton + six section titles), the 404 page state", () => {
+fixtureTest("page states: the route skeleton (frame + header skeleton + six section titles), the 404 page state", () => {
   const sk = renderToStaticMarkup(createElement(OutreachRouteSkeleton));
   const t = text(sk);
   assert.deepEqual(ANALYSIS_SECTIONS.map((s) => s.title), ["Situation", "Scores", "Move details", "Findings", "Conversations", "Full output"]);
@@ -276,7 +265,7 @@ test("page states: the route skeleton (frame + header skeleton + six section tit
   assert.ok(text(page).includes("This Outreach doesn't exist or was removed.") && !text(page).includes("hidden body") && !page.includes("Couldn't load this."));
 });
 
-test("FIX-UI1 m7/m3: related records are separated, the Number link has its `Previous version` note, links are 44 px", () => {
+fixtureTest("FIX-UI1 m7/m3: related records are separated, the Number link has its `Previous version` note, links are 44 px", () => {
   const o = detail("AC/outreach__ac-attempt-50-early.json").data.outreach;
   const out = renderToStaticMarkup(createElement(RelatedRecordChips, { outreach: o, numberId: "n1", returnTo: "/sales-intelligence" }));
   assert.ok(out.includes('class="si-related__sep" aria-hidden="true"> · </span>'));

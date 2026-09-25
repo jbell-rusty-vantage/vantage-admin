@@ -14,23 +14,12 @@ import {
 } from "../../components/sales-intelligence/outreach/analysis";
 import { formatExactFull } from "../../components/sales-intelligence/lib/time";
 import { AnalysisSection, SCORE_SAMPLES } from "../../app/(dashboard)/sales-intelligence/dev/gallery/sections/analysis";
+import { findContractsDir, fixtureTest } from "./contracts-dir";
 
 // UI1-TOP: the analysis frame, Situation, Scores, the next-step strip and Advanced, rendered from the contract
 // fixtures (UI1-A22, A42 render side). No DOM (ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 const read = (rel: string) => JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8"));
 const outreachRead = (rel: string) => outreachReadSchema.parse(read(rel));
 const assessmentRead = (rel: string) => outreachAssessmentReadSchema.parse(read(rel));
@@ -43,7 +32,7 @@ const render = (el: ReactElement) => renderToStaticMarkup(el);
 
 // ── Situation (§11.1, UI-1 §5.2) ─────────────────────────────────────────────────────────────────────────────
 
-test("Situation: the card lines, the latest-analysis label and overview, the official line with Granot Priority", () => {
+fixtureTest("Situation: the card lines, the latest-analysis label and overview, the official line with Granot Priority", () => {
   const { data, as_of } = outreachRead("S1/outreach__s-findings.json");
   const html = render(createElement(Situation, { outreach: data.outreach, asOf: as_of }));
   const t = text(html);
@@ -56,7 +45,7 @@ test("Situation: the card lines, the latest-analysis label and overview, the off
   assert.ok(!t.includes("%"));
 });
 
-test("Situation: one conversation reads `From the conversation on {date}`; no analysis at all prints the sentence", () => {
+fixtureTest("Situation: one conversation reads `From the conversation on {date}`; no analysis at all prints the sentence", () => {
   const purged = outreachRead("S1/outreach__s-audio-purged.json");
   assert.ok(text(render(createElement(Situation, { outreach: purged.data.outreach, asOf: purged.as_of, cardLines: false }))).includes("From the conversation on Sep 12"));
   const none = outreachRead("S1/outreach__s-number-only.json");
@@ -66,7 +55,7 @@ test("Situation: one conversation reads `From the conversation on {date}`; no an
   assert.ok(!text(html).includes("Lead cost"), "lead_cost: null → nothing");
 });
 
-test("Situation: Lead cost with its basis (A22); a Booked record links Open Booking", () => {
+fixtureTest("Situation: Lead cost with its basis (A22); a Booked record links Open Booking", () => {
   const cases: [string, string][] = [
     ["S6/outreach__t3-spend-rate.json", "Lead cost $40"],
     ["S6/outreach__t3-spend-legacy.json", "Lead cost $35 (legacy price)"],
@@ -85,7 +74,7 @@ test("Situation: Lead cost with its basis (A22); a Booked record links Open Book
   assert.ok(decode(html).includes("href=\"/bookings?record=6ab448710705ca95222b49e4&"), "Open Booking points at the official Booking");
 });
 
-test("Situation: `Records disputed on a call ({n})` with View evidence and Show in timeline", () => {
+fixtureTest("Situation: `Records disputed on a call ({n})` with View evidence and Show in timeline", () => {
   const { data, as_of } = outreachRead("S1/outreach__s-findings.json");
   const pres = presentationRead("S3/run-presentation__s-findings-run3.json");
   const items = pres.data.summary_findings.story_discrepancies;
@@ -101,7 +90,7 @@ test("Situation: `Records disputed on a call ({n})` with View evidence and Show 
 
 // ── Scores (§11.2) ───────────────────────────────────────────────────────────────────────────────────────────
 
-test("Scores: two cards, `{n} / 100 · {Level}`, confidence, conditions, evidence, the freshness sentence and the note once", () => {
+fixtureTest("Scores: two cards, `{n} / 100 · {Level}`, confidence, conditions, evidence, the freshness sentence and the note once", () => {
   const { data, as_of } = assessmentRead("S3/outreach-assessment__s-conflict-move.json");
   const html = render(createElement(Scores, { assessment: data, asOf: as_of! }));
   const t = text(html);
@@ -119,7 +108,7 @@ test("Scores: two cards, `{n} / 100 · {Level}`, confidence, conditions, evidenc
   assert.ok(!t.includes("%"));
 });
 
-test("Scores: stale, lead_only, not_applicable (scores still show) and the availability explanations", () => {
+fixtureTest("Scores: stale, lead_only, not_applicable (scores still show) and the availability explanations", () => {
   const stale = assessmentRead("S3/outreach-assessment__s-conflict-other.json");
   const staleText = text(render(createElement(Scores, { assessment: stale.data, asOf: stale.as_of! })));
   assert.ok(staleText.includes("Stale: the move date has passed."));
@@ -145,7 +134,7 @@ test("Scores: stale, lead_only, not_applicable (scores still show) and the avail
 
 // ── Next step (§11.3) ────────────────────────────────────────────────────────────────────────────────────────
 
-test("Next step: three columns — recorded, the applied suggestion, and `From the calls`", () => {
+fixtureTest("Next step: three columns — recorded, the applied suggestion, and `From the calls`", () => {
   const { data, as_of } = outreachRead("S1/outreach__s-findings.json");
   const assessment = assessmentRead("S3/outreach-assessment__s-findings.json").data;
   const suggestion = presentationRead("S3/run-presentation__s-findings-run3.json").data.summary_findings.suggested_next_step;
@@ -162,7 +151,7 @@ test("Next step: three columns — recorded, the applied suggestion, and `From t
   assert.ok(t.includes("Worked, no next step agreed"));
 });
 
-test("Next step: `Apply` for an open suggestion only with onApply; `No suggestion`; `No next step set`; `Not assessed`", () => {
+fixtureTest("Next step: `Apply` for an open suggestion only with onApply; `No suggestion`; `No next step set`; `Not assessed`", () => {
   const open = presentationRead("S3/run-presentation__s-suggestion-open-run2.json");
   const asOf = open.as_of!;
   const suggestion = open.data.summary_findings.suggested_next_step;
@@ -175,7 +164,7 @@ test("Next step: `Apply` for an open suggestion only with onApply; `No suggestio
   assert.ok(text(html).includes("Not assessed"));
 });
 
-test("From the calls: promised callbacks, next steps, `→ follow-up created`, and `Not applied ({n})` with the server reasons", () => {
+fixtureTest("From the calls: promised callbacks, next steps, `→ follow-up created`, and `Not applied ({n})` with the server reasons", () => {
   const assessment = assessmentRead("S3/outreach-assessment__s-engagement.json").data;
   const html = render(createElement(FromTheCalls, { engagement: assessment.current!.engagement, artifactId: assessment.current!.artifact_id }));
   const t = text(html);
@@ -192,7 +181,7 @@ test("From the calls: promised callbacks, next steps, `→ follow-up created`, a
 
 // ── Advanced (UX27, A42 render side) ─────────────────────────────────────────────────────────────────────────
 
-test("Advanced: the paid sentence, Re-analyze (original disabled with its reason), Earlier requests, Confirm analysis", () => {
+fixtureTest("Advanced: the paid sentence, Re-analyze (original disabled with its reason), Earlier requests, Confirm analysis", () => {
   const run = runRead("S3/analysis-run__s-findings-run3.json").data;
   const html = render(createElement(Advanced, { run, asOf: "2026-09-23T21:46:55.728Z", onCommand: () => {} }));
   const t = text(html);
@@ -225,7 +214,7 @@ const tab = (props: Parameters<typeof AnalysisTab>[0]) => {
   return render(createElement(QueryClientProvider, { client }, createElement(AnalysisTab, props)));
 };
 
-test("AnalysisTab (Owner): the sticky sub-nav in the fixed order, every region filled from the cache, Advanced last", () => {
+fixtureTest("AnalysisTab (Owner): the sticky sub-nav in the fixed order, every region filled from the cache, Advanced last", () => {
   const { outreachId } = seeded();
   const html = tab({ outreachId, role: "owner", renderFindings: (ctx) => createElement("p", { "data-slot": "findings", "data-run": ctx.runId, "data-number": ctx.numberId }) });
   const nav = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
@@ -242,7 +231,7 @@ test("AnalysisTab (Owner): the sticky sub-nav in the fixed order, every region f
   assert.ok(html.includes('class="si-analysis"'));
 });
 
-test("AnalysisTab (rep): no Full output, no Advanced, no Apply; the readable sections stay", () => {
+fixtureTest("AnalysisTab (rep): no Full output, no Advanced, no Apply; the readable sections stay", () => {
   const { outreachId } = seeded();
   const html = tab({ outreachId, role: "rep" });
   assert.ok(!html.includes('href="#full-output"') && !html.includes('id="full-output"'));

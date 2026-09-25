@@ -1,27 +1,15 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { outreachAssessmentReadSchema } from "../../lib/api/salesIntelligenceAssessment";
 import { MoveDetails, markerText } from "../../components/sales-intelligence/outreach/analysis";
+import { findContractsDir, fixtureTest } from "./contracts-dir";
 
 // UI1-MOVE: Move details from the contract fixtures (final spec §11.4, §11.9; UI1-A23). No DOM (ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 const assessment = (name: string) =>
   outreachAssessmentReadSchema.parse(JSON.parse(fs.readFileSync(path.join(CONTRACTS, "S3", `outreach-assessment__${name}.json`), "utf8"))).data;
 
@@ -36,7 +24,7 @@ const row = (html: string, key: string) => {
 };
 const ORDER = ["pickup", "delivery", "move_date", "size", "services", "access", "money", "inventory"];
 
-test("the table: three columns, the origin word in the Original header, rows in the fixed order", () => {
+fixtureTest("the table: three columns, the origin word in the Original header, rows in the fixed order", () => {
   const html = render("s-conflict-move");
   const head = text(html.slice(html.indexOf("<thead>"), html.indexOf("</thead>")));
   assert.ok(head.includes("Customer said") && head.includes("Lead on file") && head.includes("Original submissionOriginal form submission"), head);
@@ -45,7 +33,7 @@ test("the table: three columns, the origin word in the Original header, rows in 
   assert.ok(text(row(html, "inventory")).includes("Inventory summary5 items · coverage partial"));
 });
 
-test("cells: short lists, markers, `Not mentioned` / `Not on file`, money with its basis", () => {
+fixtureTest("cells: short lists, markers, `Not mentioned` / `Not on file`, money with its basis", () => {
   const html = render("s-conflict-move");
   assert.ok(text(row(html, "pickup")).includes("4521 Palmetto Grove Boulevard, Apartment 12B, Tampa, FL 33606Tampa, FL 33601Tampa, FL 33606"));
   assert.ok(text(row(html, "delivery")).includes("Raleigh, NC (changed)"));
@@ -60,7 +48,7 @@ test("cells: short lists, markers, `Not mentioned` / `Not on file`, money with i
   assert.equal(markerText(null), null);
 });
 
-test("a conflict: amber marks on the disagreeing cells and `Details disagree: {explanation}` with View evidence under the row (A23)", () => {
+fixtureTest("a conflict: amber marks on the disagreeing cells and `Details disagree: {explanation}` with View evidence under the row (A23)", () => {
   const html = render("s-conflict-move");
   const delivery = row(html, "delivery");
   assert.ok(delivery.includes("has-conflict"));
@@ -78,7 +66,7 @@ test("a conflict: amber marks on the disagreeing cells and `Details disagree: {e
   assert.equal(amber, 2 * 3, "one mark per disagreeing cell plus the icon and word on each line (2 conflicts)");
 });
 
-test("inventory: the `Inventory ({n})` disclosure with the existing columns, Limitations and the coverage sentence", () => {
+fixtureTest("inventory: the `Inventory ({n})` disclosure with the existing columns, Limitations and the coverage sentence", () => {
   const html = render("s-conflict-move");
   const t = text(html);
   assert.ok(t.includes("Inventory (5)"));
@@ -90,7 +78,7 @@ test("inventory: the `Inventory ({n})` disclosure with the existing columns, Lim
   assert.ok(t.includes("Conflicts (0)No conflicts were recorded."));
 });
 
-test("score conflicts: `Conflicts ({n})` lists conflicts that affect a score; an inventory-row conflict still marks the row", () => {
+fixtureTest("score conflicts: `Conflicts ({n})` lists conflicts that affect a score; an inventory-row conflict still marks the row", () => {
   const html = render("s-conflict-other");
   const t = text(html);
   assert.ok(t.includes("Conflicts (1)"));
@@ -101,7 +89,7 @@ test("score conflicts: `Conflicts ({n})` lists conflicts that affect a score; an
   assert.ok(!t.includes("Original form submission"), "null origin → plain header");
 });
 
-test("no assessment: the sentence and the Lead-only table with the Lead on file column filled (§11.9)", () => {
+fixtureTest("no assessment: the sentence and the Lead-only table with the Lead on file column filled (§11.9)", () => {
   const html = render("s-assessment-pending");
   const t = text(html);
   assert.ok(html.includes('data-move="lead-only"'));
@@ -114,7 +102,7 @@ test("no assessment: the sentence and the Lead-only table with the Lead on file 
   assert.ok(!none.includes("<table"), "no Lead → no table");
 });
 
-test("an assessment with no inventory prints `No inventory items were mentioned.`", () => {
+fixtureTest("an assessment with no inventory prints `No inventory items were mentioned.`", () => {
   const t = text(render("s-lead-only"));
   assert.ok(t.includes("No inventory items were mentioned."));
   assert.ok(t.includes("From 0 of 0 conversations"));

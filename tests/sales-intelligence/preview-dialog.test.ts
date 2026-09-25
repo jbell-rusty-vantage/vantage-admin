@@ -8,22 +8,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { attentionSchema, outreachReadSchema, type AttentionRow } from "../../lib/api/salesIntelligence";
 import { PreviewBody, PreviewDialog } from "../../components/sales-intelligence/preview-dialog";
 import { siKeys } from "../../components/sales-intelligence/data/query-keys";
+import { findContractsDir, fixtureTest } from "./contracts-dir";
 
 // UI1-CARD: the side dialog (final spec §4, UI-1 §2.4), rendered from the detail fixtures. No DOM.
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 const read = (rel: string) => JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8"));
 const decode = (s: string) => s.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
 const text = (html: string) => decode(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ");
@@ -35,7 +24,7 @@ function listRowFor(detail: ReturnType<typeof outreachReadSchema.parse>): Attent
   return found ?? { subject_key: "fixture", subject: detail.data.outreach.subject, outreach: detail.data.outreach, derived: detail.data.outreach.derived, filter_keys: undefined } as unknown as AttentionRow;
 }
 
-test("the dialog body shows the header block, both score cards, the next step, the timeline slot and Open full record", () => {
+fixtureTest("the dialog body shows the header block, both score cards, the next step, the timeline slot and Open full record", () => {
   const detail = outreachReadSchema.parse(read("S1/outreach__s-followup-due.json"));
   const o = detail.data.outreach;
   const row = { ...listRowFor(detail), outreach: o, derived: o.derived };
@@ -52,7 +41,7 @@ test("the dialog body shows the header block, both score cards, the next step, t
   assert.ok(html.includes(`href="/sales-intelligence/outreach/${o.id}"`) && t.includes("Open full record"));
 });
 
-test("without a timeline preview the slot shows a skeleton placeholder; scores read words, never zero", () => {
+fixtureTest("without a timeline preview the slot shows a skeleton placeholder; scores read words, never zero", () => {
   const detail = outreachReadSchema.parse(read("S1/outreach__s-number-only.json"));
   const o = detail.data.outreach;
   const row = { ...listRowFor(detail), outreach: o, derived: o.derived };
@@ -61,7 +50,7 @@ test("without a timeline preview the slot shows a skeleton placeholder; scores r
   assert.ok(/si-preview__scorevalue is-word">(Not assessed|Unknown|Pending|Not applicable|Unavailable)</.test(html));
 });
 
-test("PreviewDialog reads the record live through useOutreach and labels itself", () => {
+fixtureTest("PreviewDialog reads the record live through useOutreach and labels itself", () => {
   const detail = outreachReadSchema.parse(read("S1/outreach__s-suggestion-open.json"));
   const o = detail.data.outreach;
   const row = listRowFor(detail);
@@ -85,7 +74,7 @@ test("PreviewDialog reads the record live through useOutreach and labels itself"
   assert.ok(text(liveHtml).includes("On the call · "));
 });
 
-test("a Number-review row (no Outreach) opens no dialog", () => {
+fixtureTest("a Number-review row (no Outreach) opens no dialog", () => {
   const page = attentionSchema.parse(read("S1/attention__all-outreach.json"));
   const review = page.data.items.find((row) => row.outreach === null)!;
   const client = new QueryClient();

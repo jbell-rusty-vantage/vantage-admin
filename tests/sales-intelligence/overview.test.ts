@@ -11,27 +11,16 @@ import {
 } from "../../components/sales-intelligence/overview";
 import { copy } from "../../components/sales-intelligence/sales-intelligence-copy";
 import { formatExactFull } from "../../components/sales-intelligence/lib/time";
+import { findContractsDir, fixtureTest, ifFixtures } from "./contracts-dir";
 
 // UI1-OVERVIEW: the Overview rendered from every S9 overview fixture (UI1-A16–A19), the flag-off empties, and the
 // period picker's split default. No DOM (ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 const readJson = (rel: string) => JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8"));
 const load = (rel: string): Overview => overviewSchema.parse(readJson(rel)).data;
 
-const FILES = fs.readdirSync(path.join(CONTRACTS, "S9")).filter((f) => /^overview__.+\.json$/.test(f)).sort();
+const FILES = ifFixtures(() => fs.readdirSync(path.join(CONTRACTS, "S9")).filter((f) => /^overview__.+\.json$/.test(f)).sort());
 const decode = (s: string) => s.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 const text = (html: string) => decode(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ");
 const o = copy.ui1.overview;
@@ -68,7 +57,7 @@ function tileCount(html: string, attr: string): string | null {
 }
 const presetQuery = (priority: readonly string[]) => priority.map((p) => `&priority=${encodeURIComponent(p)}`).join("");
 
-test("every S9 overview fixture parses and renders the four blocks in order", () => {
+fixtureTest("every S9 overview fixture parses and renders the four blocks in order", () => {
   assert.ok(FILES.length >= 9, `found ${FILES.join(", ")}`);
   for (const file of FILES) {
     const { html, plain } = render(file);
@@ -82,7 +71,7 @@ test("every S9 overview fixture parses and renders the four blocks in order", ()
   }
 });
 
-test("A16: each band tile shows now.bands[n] and links to Needs Attention band=n with the same preset", () => {
+fixtureTest("A16: each band tile shows now.bands[n] and links to Needs Attention band=n with the same preset", () => {
   for (const file of FILES) {
     const { data, html } = render(file);
     const priority = data.filters.priority ?? [];
@@ -106,7 +95,7 @@ test("A16: each band tile shows now.bands[n] and links to Needs Attention band=n
   for (let band = 1; band <= 7; band += 1) assert.equal(overview.now.bands[String(band)], rows[band] ?? 0, `band ${band}: list ${rows[band] ?? 0}`);
 });
 
-test("A17: every number with a list behind it links to that filtered list, carrying the preset", () => {
+fixtureTest("A17: every number with a list behind it links to that filtered list, carrying the preset", () => {
   for (const file of FILES) {
     const { data, html } = render(file, "lead");
     const priority = data.filters.priority ?? [];
@@ -157,7 +146,7 @@ test("A17: every number with a list behind it links to that filtered list, carry
   assert.deepEqual(overdue.getAll("band"), ["1"]);
 });
 
-test("A18: the split default label with the two default periods; choosing a period sets both", () => {
+fixtureTest("A18: the split default label with the two default periods; choosing a period sets both", () => {
   const split = render("overview__default.json");
   assert.equal(split.data.periods.activity.key, "today");
   assert.equal(split.data.periods.spend.key, "last_7_days");
@@ -177,7 +166,7 @@ test("A18: the split default label with the two default periods; choosing a peri
   for (const key of ["today", "yesterday", "last_7_days", "this_week", "last_30_days", "this_month", "custom"]) assert.ok(split.html.includes(`<option value="${key}">`), `option ${key}`);
 });
 
-test("A19: null metrics print —, the unpriced warning shows above 0, and the Updated time is exact", () => {
+fixtureTest("A19: null metrics print —, the unpriced warning shows above 0, and the Updated time is exact", () => {
   const dash = o.dash;
   const today = render("overview__today.json");
   assert.equal(speedLine(today.data.desk.speed_to_lead), dash, "speed to lead median null");
@@ -212,7 +201,7 @@ test("A19: null metrics print —, the unpriced warning shows above 0, and the U
   assert.ok(custom.html.includes(`title="${exact}"`) && custom.html.includes(`aria-label="${o.updated} ${exact}"`), "Updated {as_of} carries the exact ET time");
 });
 
-test("rates print as whole percentages with their counts; no score-like value prints %", () => {
+fixtureTest("rates print as whole percentages with their counts; no score-like value prints %", () => {
   for (const file of FILES) {
     const { html, plain } = render(file);
     const percents = plain.match(/\d+%/g) ?? [];
@@ -227,7 +216,7 @@ test("rates print as whole percentages with their counts; no score-like value pr
   assert.ok(text(html).includes("102 · 103"), "Unmapped rep lists its extensions");
 });
 
-test("the reps table sorts with aria-sort and 44 px header buttons; rows expand to by_source", () => {
+fixtureTest("the reps table sorts with aria-sort and 44 px header buttons; rows expand to by_source", () => {
   const data = load("S9/overview__custom.json");
   const byTalk = sortReps(data.reps, { column: "talk", direction: "desc" }).map((r) => r.interactions.talk_minutes);
   assert.deepEqual(byTalk, [...byTalk].sort((a, b) => b - a));
@@ -244,7 +233,7 @@ test("the reps table sorts with aria-sort and 44 px header buttons; rows expand 
   assert.ok(html.includes('class="si-ovreps__cards"') && (html.match(/data-card="rep"/g) ?? []).length === data.reps.length, "390 px: one stacked card per rep");
 });
 
-test("flag off: FEATURE_DISABLED renders the empties (— everywhere, no links, no reps)", () => {
+fixtureTest("flag off: FEATURE_DISABLED renders the empties (— everywhere, no links, no reps)", () => {
   const raw = readJson("S9/flag-off/overview__feature-off.json");
   const error = new SalesIntelligenceError(raw.body.code, raw.status, raw.body.request_id);
   assert.equal(isFeatureOff(error), true);

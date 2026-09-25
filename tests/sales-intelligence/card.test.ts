@@ -8,22 +8,11 @@ import { attentionSchema, type AttentionRow } from "../../lib/api/salesIntellige
 import { OutreachCard, reasonPhrase, reasonSegment, type OutreachCardProps } from "../../components/sales-intelligence/card";
 import { formatDuration, formatExactFull, formatRelative } from "../../components/sales-intelligence/lib/time";
 import { legacyNumberHref } from "../../components/sales-intelligence/lib/legacy-links";
+import { findContractsDir, fixtureTest } from "./contracts-dir";
 
 // UI1-CARD: the card rendered from the contract fixtures (UI1-A01–A07). No DOM (ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 
 type Page = { asOf: string; rows: AttentionRow[] };
 const pages = new Map<string, Page>();
@@ -63,7 +52,7 @@ function walk(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]));
 }
 
-test("every row in every attention fixture renders seven lines without throwing, in every layout and view", () => {
+fixtureTest("every row in every attention fixture renders seven lines without throwing, in every layout and view", () => {
   const files = walk(CONTRACTS).filter((f) => /[\\/]attention(-closed)?__[^\\/]+\.json$/.test(f));
   assert.ok(files.length >= 60, `found ${files.length} attention fixtures`);
   let rendered = 0;
@@ -88,7 +77,7 @@ test("every row in every attention fixture renders seven lines without throwing,
   assert.ok(rendered > 1000);
 });
 
-test("A01: a Number-only subject prints its specific nulls and no route line", () => {
+fixtureTest("A01: a Number-only subject prints its specific nulls and no route line", () => {
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", bySubject("number:6ab448710705ca95222b49be"));
   const html = render(row, asOf);
   const l = lines(html).map(text);
@@ -104,7 +93,7 @@ test("A01: a Number-only subject prints its specific nulls and no route line", (
   assert.ok(l[6]!.startsWith("Unassigned · Nobody owns this work"), l[6]);
 });
 
-test("A01 (nulls): no Number, no conversation, no call, unknown score", () => {
+fixtureTest("A01 (nulls): no Number, no conversation, no call, unknown score", () => {
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", byName("Maria Klein"));
   const l = lines(render(row, asOf)).map(text);
   assert.equal(l[3], "No Number on file");
@@ -112,7 +101,7 @@ test("A01 (nulls): no Number, no conversation, no call, unknown score", () => {
   assert.ok(l[4]!.includes("Transaction intent Unknown"), l[4]);
 });
 
-test("A02: `Received 4d ago` carries the exact ET time in title and aria-label, from as_of", () => {
+fixtureTest("A02: `Received 4d ago` carries the exact ET time in title and aria-label, from as_of", () => {
   const { row, asOf } = rowBy("S5c/attention__all-outreach.json", byName("Alicia Reyes"));
   const t = row.outreach!.trigger_at!;
   assert.equal(formatRelative(t, asOf), "4d ago");
@@ -124,7 +113,7 @@ test("A02: `Received 4d ago` carries the exact ET time in title and aria-label, 
   assert.ok(text(lines(html)[2]!).startsWith("Received 4d ago · Last conversation "));
 });
 
-test("A03: Details disagree and Newer call since assessment appear exactly when the server booleans are true", () => {
+fixtureTest("A03: Details disagree and Newer call since assessment appear exactly when the server booleans are true", () => {
   let both = 0;
   for (const rel of ["S1/attention__all-outreach.json", "S5c/attention__all-outreach.json", "AC/attention__all-outreach.json", "S6/attention__all-outreach.json", "S2/attention__all-outreach.json"]) {
     const { rows, asOf } = page(rel);
@@ -144,7 +133,7 @@ test("A03: Details disagree and Newer call since assessment appear exactly when 
   assert.ok(text(html).includes("The scores cover conversations through "), "newer-call tooltip text");
 });
 
-test("A04: no `%` in any card", () => {
+fixtureTest("A04: no `%` in any card", () => {
   for (const rel of ["S1/attention__all-outreach.json", "S5c/attention__all-outreach.json", "AC/attention__all-outreach.json", "S6/attention__all-outreach.json", "S2/attention__sort-transaction-intent.json", "S2/attention__sort-move-likelihood.json"]) {
     const { rows, asOf } = page(rel);
     for (const row of rows) assert.ok(!render(row, asOf, { layout: "flat" }).includes("%"), `${rel} ${row.subject_key}`);
@@ -155,7 +144,7 @@ test("A04: no `%` in any card", () => {
   assert.ok(l5.includes("Ordinal evidence assessment out of 100. Not a percentage or a booking probability."));
 });
 
-test("A04 (stale): the stale reason is a tooltip sentence on the score line, never a chip", () => {
+fixtureTest("A04 (stale): the stale reason is a tooltip sentence on the score line, never a chip", () => {
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", byName("Hannah Duarte"));
   const l = lines(render(row, asOf));
   assert.ok(text(l[4]!).includes("Assessment stale: move date passed"));
@@ -163,7 +152,7 @@ test("A04 (stale): the stale reason is a tooltip sentence on the score line, nev
   assert.ok(text(l[1]!).includes("(passed)"), "route line reads the server's move_date_passed");
 });
 
-test("A05: an uncertain Priority 5 reads `Granot Priority 5 (Booked in Granot) · No Vantage Booking yet` on line 7", () => {
+fixtureTest("A05: an uncertain Priority 5 reads `Granot Priority 5 (Booked in Granot) · No Vantage Booking yet` on line 7", () => {
   const { row, asOf } = rowBy("S6/attention__all-outreach.json", byName("T3 P5 Uncertain"));
   const html = render(row, asOf);
   const l = lines(html).map(text);
@@ -174,7 +163,7 @@ test("A05: an uncertain Priority 5 reads `Granot Priority 5 (Booked in Granot) �
   assert.ok(!l[0]!.includes("Review first") && !l[0]!.includes("Review only"));
 });
 
-test("A06: live chip precedence (live_call over call_progress; Owner calling alone)", () => {
+fixtureTest("A06: live chip precedence (live_call over call_progress; Owner calling alone)", () => {
   const live = rowBy("S5c/attention__all-outreach.json", byName("T3 Pending Finalization"));
   const lc = live.row.outreach!.live_call!;
   const minutes = formatDuration(Date.parse(live.asOf) - Date.parse(lc.started_at));
@@ -197,7 +186,7 @@ test("A06: live chip precedence (live_call over call_progress; Owner calling alo
   assert.ok(ownerL1.includes("Owner calling") && !ownerL1.includes("On the call"), ownerL1);
 });
 
-test("A07: line 7 origin word, primary reason with its amount, `about`, and every reason in the tooltip", () => {
+fixtureTest("A07: line 7 origin word, primary reason with its amount, `about`, and every reason in the tooltip", () => {
   const crm = rowBy("S6/attention__all-outreach.json", byName("T3 Granot Rep Change"));
   const crmL7 = text(lines(render(crm.row, crm.asOf))[6]!);
   assert.ok(crmL7.startsWith("Assigned to Marcus Bell (from Granot) · Not called yet, first call overdue "), crmL7);
@@ -228,7 +217,7 @@ test("A07: line 7 origin word, primary reason with its amount, `about`, and ever
   assert.ok(/Band 1 for \d/.test(text(lines(render(exact.row, exact.asOf))[6]!)), "estimated false reads without about");
 });
 
-test("reason phrases: every fixture key has its own phrase, followups_due follows the server state, unknown keys fall back", () => {
+fixtureTest("reason phrases: every fixture key has its own phrase, followups_due follows the server state, unknown keys fall back", () => {
   const known = ["promised_by:rep", "promised_by:customer", "promised_by:owner", "promised_callback_overdue", "promise_unreached", "followups_due", "no_call_yet", "new_not_yet_due",
     "no_callback_after_inbound", "called_before_form", "no_call_observed", "rep_discretion", "unreached", "going_cold", "no_next_step", "missing_responsibility"];
   const seen = new Set<string>();
@@ -256,7 +245,7 @@ test("reason phrases: every fixture key has its own phrase, followups_due follow
   assert.match(reasonSegment(noReason, due.asOf)!.text, /^Due in \d/);
 });
 
-test("line 6: retry, Default chip, Apply, due clause and the closed override", () => {
+fixtureTest("line 6: retry, Default chip, Apply, due clause and the closed override", () => {
   const retry = rowBy("AC/attention__all-outreach.json", byName("Keisha Nair"));
   const rl6 = text(lines(render(retry.row, retry.asOf))[5]!);
   assert.ok(rl6.startsWith(`Next: ${retry.row.outreach!.next_action!.description} · Try again (1 of 2) · Due `), rl6);
@@ -284,7 +273,7 @@ test("line 6: retry, Default chip, Apply, due clause and the closed override", (
   assert.ok(lines(override)[5]!.includes('data-override="1"'));
 });
 
-test("layouts and lists: band tag only in flat, sort line, closed actions, Message rep rule, Number-review row", () => {
+fixtureTest("layouts and lists: band tag only in flat, sort line, closed actions, Message rep rule, Number-review row", () => {
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", byName("Priya Nair"));
   const grouped = render(row, asOf, { layout: "grouped" });
   const flat = render(row, asOf, { layout: "flat" });

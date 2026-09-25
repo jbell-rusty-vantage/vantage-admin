@@ -11,22 +11,11 @@ import {
 import { presetOf, presetPriority } from "../../components/sales-intelligence/data/preset-storage";
 import { attentionParamsFromDesk, deskUrlUpdate, parseDeskUrl } from "../../components/sales-intelligence/data/url-state";
 import { attentionQuery } from "../../components/sales-intelligence/data/requests";
+import { findContractsDir, fixtureTest } from "./contracts-dir";
 
 // UI1-PRESET: the preset bar from the S5c / S7 `priority_counts` (UI1-A12). No DOM (ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 function load(rel: string) {
   return attentionSchema.parse(JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8")));
 }
@@ -68,7 +57,7 @@ test("pressing New sends priority=0&priority=not_set (repeated, never priority[]
   assert.deepEqual(priorityToggle("not_set", edited), next);
 });
 
-test("the pressed segment follows the selection, and a custom selection shows Custom", () => {
+fixtureTest("the pressed segment follows the selection, and a custom selection shows Custom", () => {
   const counts = load("S5c/attention__all-outreach.json").data.priority_counts;
   const newHtml = render(counts, "all_outreach", { priority: ["not_set", "0"], attachment: null });
   assert.match(newHtml, /aria-pressed="true" data-preset-btn="new"/);
@@ -86,7 +75,7 @@ test("the pressed segment follows the selection, and a custom selection shows Cu
   assert.ok(all.includes("Granot Priority · All"));
 });
 
-test("S5c all-outreach: every key but no_lead is listed in order with its active count and COPY-UI1 §5 label", () => {
+fixtureTest("S5c all-outreach: every key but no_lead is listed in order with its active count and COPY-UI1 §5 label", () => {
   const page = load("S5c/attention__all-outreach.json");
   const counts = page.data.priority_counts;
   assert.ok(counts);
@@ -104,7 +93,7 @@ test("S5c all-outreach: every key but no_lead is listed in order with its active
   assert.match(html, /data-lead-btn="none">No Lead<span class="si-seg__count" aria-label="2 records">2</);
 });
 
-test("S7: the count column follows the view (attention / active / closed; Overview reads active)", () => {
+fixtureTest("S7: the count column follows the view (attention / active / closed; Overview reads active)", () => {
   const cases: [string, PresetView][] = [
     ["S7/attention__attention-preset-new.json", "attention"],
     ["S7/attention__all-outreach-preset-new.json", "all_outreach"],
@@ -135,7 +124,7 @@ test("S7: the count column follows the view (attention / active / closed; Overvi
   assert.equal(priorityLabel("no_lead"), "No Lead");
 });
 
-test("a selected key the counts don't have is still listed, so it can be unchecked", () => {
+fixtureTest("a selected key the counts don't have is still listed, so it can be unchecked", () => {
   const counts = load("S5c/attention__all-outreach.json").data.priority_counts;
   const html = render(counts, "all_outreach", { priority: ["3", "4", "7", "8", "9"], attachment: null });
   assert.match(html, /aria-pressed="true" data-preset-btn="other"/);
@@ -143,7 +132,7 @@ test("a selected key the counts don't have is still listed, so it can be uncheck
   assert.ok(row.includes('checked=""') && row.includes(">9 Unknown meaning<") && !row.includes("si-prioritymenu__count"));
 });
 
-test("No Lead disables the presets and the multi-select and says why; choosing it clears Priority", () => {
+fixtureTest("No Lead disables the presets and the multi-select and says why; choosing it clears Priority", () => {
   const counts = load("S7/attention__all-outreach-no-lead.json").data.priority_counts;
   const html = render(counts, "all_outreach", { priority: [], attachment: "none" });
   const note = "A record with no Lead has no Granot Priority, so the presets don't apply.";

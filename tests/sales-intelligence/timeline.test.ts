@@ -11,23 +11,12 @@ import {
   EventRow, Timeline, TimelineFilters, TimelinePreview, TimelinePreviewList, TimelineSkeleton, TimelineView, groupByDay, kindsForGroups, observedNote, previewItems, toggleGroup,
 } from "../../components/sales-intelligence/timeline";
 import { formatExactFull } from "../../components/sales-intelligence/lib/time";
+import { findContractsDir, fixtureTest, ifFixtures } from "./contracts-dir";
 
 // UI1-TL: the timeline rendered from the contract fixtures (UI1-A26–A28, the day grouping, the truncated note, the
 // preview). No DOM (ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 
 function load(rel: string): TimelinePage {
   const raw = JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8"));
@@ -52,16 +41,16 @@ function rowIn(html: string, id: string): string {
   return html.slice(html.lastIndexOf("<li", at), end);
 }
 
-const capture = load("S5c/number-timeline__t3-capture-states-kinds-call.json");
-const live = load("S5c/outreach-timeline__t3-live-call.json");
-const repChange = load("S6/outreach-timeline__t3-granot-rep-change.json");
-const bandCall = load("S9/outreach-timeline__t3-band-call.json");
-const multiLead = load("S4/number-timeline__s-multi-lead-a.json");
-const superseded = load("AC/outreach-timeline__ac-default-superseded.json");
-const pending = load("S4/number-timeline__s-assessment-pending.json");
-const granotOpen = load("S4/outreach-timeline__s-granot-open.json");
+const capture = ifFixtures(() => load("S5c/number-timeline__t3-capture-states-kinds-call.json"));
+const live = ifFixtures(() => load("S5c/outreach-timeline__t3-live-call.json"));
+const repChange = ifFixtures(() => load("S6/outreach-timeline__t3-granot-rep-change.json"));
+const bandCall = ifFixtures(() => load("S9/outreach-timeline__t3-band-call.json"));
+const multiLead = ifFixtures(() => load("S4/number-timeline__s-multi-lead-a.json"));
+const superseded = ifFixtures(() => load("AC/outreach-timeline__ac-default-superseded.json"));
+const pending = ifFixtures(() => load("S4/number-timeline__s-assessment-pending.json"));
+const granotOpen = ifFixtures(() => load("S4/outreach-timeline__s-granot-open.json"));
 
-test("A26: `Recorded {t}` only when recorded_late; `Recovered {date}` replaces it for a recovered call", () => {
+fixtureTest("A26: `Recorded {t}` only when recorded_late; `Recovered {date}` replaces it for a recovered call", () => {
   const late = row(capture, (i) => i.call?.observed_reason === "late_capture");
   assert.equal(late.item.recorded_late, true);
   assert.deepEqual(observedNote(late.item), { kind: "recorded", at: late.item.observed_at });
@@ -86,7 +75,7 @@ test("A26: `Recorded {t}` only when recorded_late; `Recovered {date}` replaces i
   assert.ok(attached.item.recorded_late && text(attached.html).includes("Recorded Sep 24"));
 });
 
-test("A27: a Granot Priority change shows happened_at (Granot's capture time), not the applied time", () => {
+fixtureTest("A27: a Granot Priority change shows happened_at (Granot's capture time), not the applied time", () => {
   const { item, html } = row(granotOpen, (i) => i.kind === "granot_priority_changed" && i.title === "Granot Priority 1 (Quoted)");
   assert.notEqual(item.happened_at, item.observed_at);
   assert.ok(html.includes(`<time dateTime="${item.happened_at}"`), "the row time is happened_at");
@@ -95,7 +84,7 @@ test("A27: a Granot Priority change shows happened_at (Granot's capture time), n
   assert.ok(text(html).includes("Marcus B."), "the actor");
 });
 
-test("A28: an in-progress call shows `In progress` (live style) and no result or duration", () => {
+fixtureTest("A28: an in-progress call shows `In progress` (live style) and no result or duration", () => {
   const { item, html } = row(live, (i) => i.call?.in_progress === true);
   assert.equal(item.call?.result, null);
   assert.equal(item.call?.duration_seconds, null);
@@ -109,7 +98,7 @@ test("A28: an in-progress call shows `In progress` (live style) and no result or
   }
 });
 
-test("A28: routine band_changed sits under Processing details; a call-caused one is a visible row with its detail", () => {
+fixtureTest("A28: routine band_changed sits under Processing details; a call-caused one is a visible row with its detail", () => {
   const html = view(bandCall);
   const routine = bandCall.data.items.find((i) => i.kind === "band_changed" && i.routine)!;
   const visible = bandCall.data.items.find((i) => i.kind === "band_changed" && !i.routine)!;
@@ -133,7 +122,7 @@ test("A28: routine band_changed sits under Processing details; a call-caused one
   }
 });
 
-test("day grouping follows ET days against as_of (Today / Yesterday / weekday), newest first", () => {
+fixtureTest("day grouping follows ET days against as_of (Today / Yesterday / weekday), newest first", () => {
   const days = groupByDay(live.data.items, live.as_of);
   assert.deepEqual(days.map((d) => d.header), ["Today", "Tue Sep 22"]);
   // 01:45 UTC on Sep 23 is 9:45 PM ET on Sep 22: Yesterday against an as_of of Sep 23 5:47 PM ET.
@@ -146,7 +135,7 @@ test("day grouping follows ET days against as_of (Today / Yesterday / weekday), 
   assert.deepEqual(order, live.data.items.map((i) => i.id));
 });
 
-test("Job {n} · prefix only where the server sets job_no (multi-Lead Number)", () => {
+fixtureTest("Job {n} · prefix only where the server sets job_no (multi-Lead Number)", () => {
   const html = view(multiLead);
   for (const item of multiLead.data.items) {
     const r = text(rowIn(html, item.id));
@@ -156,7 +145,7 @@ test("Job {n} · prefix only where the server sets job_no (multi-Lead Number)", 
   assert.ok(multiLead.data.items.some((i) => i.job_no) && multiLead.data.items.some((i) => !i.job_no));
 });
 
-test("a superseded default and the actions render from the server", () => {
+fixtureTest("a superseded default and the actions render from the server", () => {
   const { html } = row(superseded, (i) => i.kind === "followup_superseded");
   assert.ok(text(html).includes("Follow-up replaced by a later one") && html.includes("lucide-replace"));
   assert.ok(text(html).includes("Sales Intelligence"), "actor kind word when the name is null");
@@ -171,7 +160,7 @@ test("a superseded default and the actions render from the server", () => {
   assert.ok(rec.html.includes("lucide-mic") && rec.html.includes("lucide-user-round") && rec.html.includes("si-badge--neutral"));
 });
 
-test("the truncated note, the empty sentence, Load older activity and its failure", () => {
+fixtureTest("the truncated note, the empty sentence, Load older activity and its failure", () => {
   assert.ok(!view(pending).includes("Some older activity"));
   const truncated = view(pending, { truncatedSources: ["granot_changes"] });
   assert.ok(text(truncated).includes("Some older activity isn't shown here."));
@@ -196,7 +185,7 @@ test("filters: chips toggle groups and map to the registered kinds", () => {
   assert.ok(kindsForGroups(["messages"]).includes("lead_message_sent") && kindsForGroups(["messages"]).includes("nudge_sent"));
 });
 
-test("the dialog preview: the five newest non-routine events and Open full timeline", () => {
+fixtureTest("the dialog preview: the five newest non-routine events and Open full timeline", () => {
   const items = superseded.data.items;
   const shown = previewItems(items);
   assert.equal(shown.length, 5);
@@ -214,7 +203,7 @@ test("the skeleton has a day header and rows with icon circles", () => {
   assert.equal((html.match(/si-timeline__icon si-skeleton/g) ?? []).length, 5);
 });
 
-test("Timeline and TimelinePreview read through useTimeline (cache primed from a fixture)", () => {
+fixtureTest("Timeline and TimelinePreview read through useTimeline (cache primed from a fixture)", () => {
   const id = superseded.data.outreach_id!;
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } });
   client.setQueryData(siKeys.timeline("outreach", id, []), { pages: [superseded], pageParams: [null] });

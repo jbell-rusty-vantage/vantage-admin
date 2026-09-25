@@ -14,23 +14,12 @@ import {
 } from "../../components/sales-intelligence/outreach/analysis/evidence-inline";
 import { copy } from "../../components/sales-intelligence/sales-intelligence-copy";
 import { formatExact, formatExactFull } from "../../components/sales-intelligence/lib/time";
+import { findContractsDir, fixtureTest, ifFixtures } from "./contracts-dir";
 
 // UI1-FIND: Findings and inline evidence rendered from the S3 contract fixtures (final spec §11.5–11.6, UI1-A24–A25).
 // No DOM (ADMIN-REBUILD trap 7).
 
-const WORKSPACE_CONTRACTS = "sales-intelligence-ui-ux-workspace/contracts";
-function contractsDir(): string {
-  const repo = path.resolve(__dirname, "../..");
-  const tried = [process.env.SI_CONTRACTS_DIR, path.resolve(repo, "..", WORKSPACE_CONTRACTS)].filter((v): v is string => !!v);
-  try {
-    const gitdir = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(path.join(repo, ".git"), "utf8"))?.[1]?.trim();
-    if (gitdir) tried.push(path.resolve(gitdir, "..", "..", "..", "..", WORKSPACE_CONTRACTS));
-  } catch { /* a normal checkout */ }
-  const dir = tried.find((candidate) => fs.existsSync(path.join(candidate, "S1")));
-  assert.ok(dir, `contracts not found; tried ${tried.join(", ")}`);
-  return dir;
-}
-const CONTRACTS = contractsDir();
+const CONTRACTS = findContractsDir() ?? "";
 const raw = (rel: string) => JSON.parse(fs.readFileSync(path.join(CONTRACTS, rel), "utf8"));
 const findingsOf = (rel: string) => currentFindingsSchema.parse(raw(rel));
 const decode = (s: string) => s.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
@@ -48,10 +37,10 @@ function block(html: string, id: string): string {
   return html.slice(at, end);
 }
 
-const S_FINDINGS = findingsOf("S3/outreach-findings__s-findings.json");
-const S_SUPERSEDED = findingsOf("S3/outreach-findings__s-findings-include-superseded.json");
+const S_FINDINGS = ifFixtures(() => findingsOf("S3/outreach-findings__s-findings.json"));
+const S_SUPERSEDED = ifFixtures(() => findingsOf("S3/outreach-findings__s-findings-include-superseded.json"));
 
-test("categories render in the fixed order with a count on each header (A24)", () => {
+fixtureTest("categories render in the fixed order with a count on each header (A24)", () => {
   const html = renderFindings(S_FINDINGS);
   const groups = groupFindings(S_FINDINGS.data.items);
   assert.deepEqual(groups.map((g) => g.category), ["commitments", "money", "objections", "restrictions", "move_facts", "call_type"]);
@@ -68,7 +57,7 @@ test("categories render in the fixed order with a count on each header (A24)", (
   assert.equal(CATEGORY_ORDER.length, 8);
 });
 
-test("each finding shows the server words: source, action status, value line, work result from the enum (A24)", () => {
+fixtureTest("each finding shows the server words: source, action status, value line, work result from the enum (A24)", () => {
   const html = renderFindings(S_FINDINGS);
   for (const finding of S_FINDINGS.data.items) {
     const t = text(block(html, finding.id));
@@ -90,7 +79,7 @@ test("each finding shows the server words: source, action status, value line, wo
   assert.ok(!html.includes("si-badge--amber"), "no amber in Findings");
 });
 
-test("Uncertain chip only where clarity is uncertain", () => {
+fixtureTest("Uncertain chip only where clarity is uncertain", () => {
   const html = renderFindings(S_FINDINGS);
   const uncertain = S_FINDINGS.data.items.filter((f) => f.clarity === "uncertain");
   assert.equal(uncertain.length, 1);
@@ -98,7 +87,7 @@ test("Uncertain chip only where clarity is uncertain", () => {
   assert.ok(text(block(html, uncertain[0]!.id)).includes(a.findings.uncertain));
 });
 
-test("review actions: Confirm / Correct in view, Retract under More, none on a retracted finding; Look again only when passed", () => {
+fixtureTest("review actions: Confirm / Correct in view, Retract under More, none on a retracted finding; Look again only when passed", () => {
   const html = renderFindings(S_FINDINGS, { onAction: () => {} });
   const open = S_FINDINGS.data.items.find((f) => f.review_state === "unreviewed")!;
   const b = block(html, open.id);
@@ -114,7 +103,7 @@ test("review actions: Confirm / Correct in view, Retract under More, none on a r
   assert.ok(block(owner, retracted.id).includes('data-action="look_again"'), "Look again is not a review action");
 });
 
-test("a replaced finding reads `Replaced by a later finding` and links to it", () => {
+fixtureTest("a replaced finding reads `Replaced by a later finding` and links to it", () => {
   const replaced = S_SUPERSEDED.data.items.find((f) => f.work_result === "superseded")!;
   assert.ok(replaced);
   const html = renderFindings(S_SUPERSEDED);
@@ -130,7 +119,7 @@ test("a replaced finding reads `Replaced by a later finding` and links to it", (
   assert.ok(text(block(linked, replaced.id)).includes(a.findings.openLater));
 });
 
-test("empty lists: the reason sentence, else `This analysis recorded no findings.`; truncated note", () => {
+fixtureTest("empty lists: the reason sentence, else `This analysis recorded no findings.`; truncated note", () => {
   const noNumber = findingsOf("S3/outreach-findings__s-lead-only.json");
   assert.equal(noNumber.data.reason, "no_number");
   assert.ok(text(renderFindings(noNumber)).includes(a.findings.reason.no_number));
@@ -143,7 +132,7 @@ test("empty lists: the reason sentence, else `This analysis recorded no findings
   assert.ok(pending.includes(a.findings.truncated));
 });
 
-test("View evidence toggles an inline block: transcript quote, speaker, segment time, Open in transcript; record label and as of (A25)", () => {
+fixtureTest("View evidence toggles an inline block: transcript quote, speaker, segment time, Open in transcript; record label and as of (A25)", () => {
   const finding = S_FINDINGS.data.items[0]!;
   const closed = renderToStaticMarkup(createElement(FindingBlock, { finding, asOf: S_FINDINGS.as_of }));
   assert.ok(text(closed).includes(`View evidence (${finding.evidence.length})`));
@@ -161,7 +150,7 @@ test("View evidence toggles an inline block: transcript quote, speaker, segment 
   assert.ok(t.includes(`as of ${formatExact(record.as_of!, S_FINDINGS.as_of)}`));
 });
 
-test("evidence shapes from assessment evidence: summary, said on the call, Lead on file, legacy summary", () => {
+fixtureTest("evidence shapes from assessment evidence: summary, said on the call, Lead on file, legacy summary", () => {
   const conflict = evidenceReadSchema.parse(raw("S3/assessment-evidence__s-conflict-move.json"));
   const asOf = conflict.as_of ?? S_FINDINGS.as_of;
   const pick = (items: EvidenceView[], kind: string, label?: string) => items.find((i) => i.kind === kind && (!label || i.source_label === label))!;
@@ -185,7 +174,7 @@ test("evidence shapes from assessment evidence: summary, said on the call, Lead 
   assert.ok(!text(renderToStaticMarkup(createElement(EvidenceList, { items: [plain], asOf }))).includes("From the call summary · From the call summary"));
 });
 
-test("purged, unavailable and missing evidence: the retention sentence, `No evidence cited`, the should-cite defect", () => {
+fixtureTest("purged, unavailable and missing evidence: the retention sentence, `No evidence cited`, the should-cite defect", () => {
   const retained = S_FINDINGS.data.items[0]!.evidence[0]! as EvidenceView;
   const purgedAt = "2026-09-21T14:00:00.000Z";
   const purged = { ...retained, availability: "purged", purged_at: purgedAt };
@@ -199,7 +188,7 @@ test("purged, unavailable and missing evidence: the retention sentence, `No evid
   assert.equal(text(renderToStaticMarkup(createElement(EvidenceInline, { items: [], asOf: S_FINDINGS.as_of, shouldCite: true }))).trim(), "This score should cite evidence and does not.");
 });
 
-test("Changes since the last analysis: relation words, the new claim, notes, evidence resolved by id, review link, the Unchanged disclosure", () => {
+fixtureTest("Changes since the last analysis: relation words, the new claim, notes, evidence resolved by id, review link, the Unchanged disclosure", () => {
   const pres = runPresentationReadSchema.parse(raw("S3/run-presentation__s-findings-run3.json"));
   const relations = pres.data.summary_findings.prior_finding_relations;
   const evidence = pres.data.evidence.items as EvidenceView[];
