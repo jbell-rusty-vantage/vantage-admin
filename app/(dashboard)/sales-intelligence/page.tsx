@@ -3,7 +3,7 @@ import { permanentRedirect, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getAccessTokenCookie, getAdminFromAccessToken } from "@/server/auth";
 import { DeskRouteSkeleton, legacyDeepLinkRedirect } from "@/components/sales-intelligence/desk";
-import { DeskRoot } from "./desk-root";
+import { DeskClient } from "./desk-client";
 
 /** UI-1 §1: the Owner's Sales Intelligence desk. Old `outreach=&panel=` links redirect to the Outreach route (ADMIN-REBUILD trap 5). */
 export default async function SalesIntelligencePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -15,7 +15,7 @@ export default async function SalesIntelligencePage({ searchParams }: { searchPa
   if (target) permanentRedirect(target);
   return (
     <Suspense fallback={<DeskRouteSkeleton />}>
-      <DeskRoot userId={admin.id} />
+      <DeskClient userId={admin.id} />
     </Suspense>
   );
 }
