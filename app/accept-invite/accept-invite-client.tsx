@@ -15,14 +15,20 @@ export function AcceptInviteClient() {
   const [state, setState] = useState<AcceptViewState>(initialAcceptState);
 
   useEffect(() => {
-    const read = readInviteToken(window.location.hash);
-    token.current = read;
-    if (window.location.hash) {
-      window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}`);
-    }
-    // One-time read of the fragment after mount (it isn't available during the server render).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setState((old) => ({ ...old, phase: read ? "form" : "malformed" }));
+    const readHash = () => {
+      const read = readInviteToken(window.location.hash);
+      token.current = read;
+      if (window.location.hash) {
+        window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}`);
+      }
+      setState({ ...initialAcceptState, phase: read ? "form" : "malformed" });
+    };
+    // Read the fragment after mount (it isn't available during the server render), and again when a link is opened in a
+    // tab that already shows this page (a same-document `#token=` navigation doesn't remount).
+    readHash();
+    const onHash = () => { if (window.location.hash) readHash(); };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
   async function submit() {
