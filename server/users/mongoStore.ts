@@ -159,5 +159,16 @@ export function createMongoAdminUserInvitesStore(connect: () => Promise<void> = 
       ).exec();
       return result.modifiedCount;
     },
+    async latestPerUser() {
+      await connect();
+      // Uses admin_user_invite_user_created ({user_id:1, created_at:-1}). Projection keeps the token hash out.
+      const rows = await AdminUserInvite.aggregate<AdminUserInviteDocument>([
+        { $sort: { user_id: 1, created_at: -1 } },
+        { $group: { _id: "$user_id", doc: { $first: "$$ROOT" } } },
+        { $replaceRoot: { newRoot: "$doc" } },
+        { $project: { token_sha256: 0 } },
+      ]).exec();
+      return rows.map((row) => toInvite({ ...row, token_sha256: "" }));
+    },
   };
 }

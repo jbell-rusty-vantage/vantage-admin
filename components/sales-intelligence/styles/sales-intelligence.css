@@ -1584,3 +1584,72 @@ span.si-evidence__none { display: inline-flex; align-items: center; min-height: 
 @media (max-width: 767px) {
   .si-desk__other { padding: 12px 16px 32px; }
 }
+
+/* UI-2: UI2-USERS (the Owner's Users tab in the Operations Registry and the public accept-invite page; UI-2 §8) */
+.si-users { display: flex; flex-direction: column; gap: 14px; container-type: inline-size; }
+.si-users__head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.si-users__intro { margin-top: 4px; color: var(--si-ink-3); font-size: 14px; max-width: 62ch; }
+.si-users__region { position: relative; background: var(--si-surface); border: 1px solid var(--si-line); border-radius: var(--si-r-lg); overflow: visible; }
+.si-users__table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.si-users__table th, .si-users__table td { padding: 10px 12px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--si-line); }
+.si-users__table thead th { font-size: 12px; font-weight: 600; color: var(--si-ink-3); text-transform: uppercase; letter-spacing: 0.04em; background: var(--si-bg); }
+.si-users__table tbody tr:last-child > * { border-bottom: 0; }
+.si-users__table tr.is-inactive .si-users__email { color: var(--si-ink-3); }
+.si-users__email { font-weight: 600; color: var(--si-ink); overflow-wrap: anywhere; }
+.si-users__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.si-users__inline-actions { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.si-users__more { position: relative; display: none; }
+.si-users__menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 190px; padding: 4px; background: var(--si-surface); border: 1px solid var(--si-line-strong); border-radius: var(--si-r); box-shadow: var(--si-shadow-tip); }
+.si-users__menuitem { display: flex; align-items: center; width: 100%; min-height: var(--si-hit); padding: 0 12px; border: 0; border-radius: var(--si-r-sm); background: transparent; font-weight: 600; text-align: left; cursor: pointer; color: var(--si-navy); }
+.si-users__menuitem:hover, .si-users__menuitem:focus-visible { background: var(--si-surface-2); }
+.si-users__menuitem.si-text--danger { color: var(--si-red); }
+.si-users__empty { padding: 20px 16px; color: var(--si-ink-3); }
+.si-users__skeleton { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
+.si-users__skelrow .si-skeleton--line { height: 18px; }
+.si-users__refusal { padding: 10px 12px; border: 1px solid var(--si-line-strong); border-left: 3px solid var(--si-red); border-radius: var(--si-r); background: var(--si-surface); color: var(--si-ink); font-weight: 600; }
+.si-users__done { padding: 10px 12px; border: 1px solid var(--si-line); border-radius: var(--si-r); background: var(--si-blue-tint); color: var(--si-navy); }
+.si-users__agentsnote { color: var(--si-ink-2); font-size: 13px; }
+.si-users__dialog .si-users__fieldset, .si-users__access { display: flex; flex-direction: column; gap: 14px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.si-users__access legend { margin-bottom: 4px; }
+.si-users__access .si-check { min-height: var(--si-hit); }
+.si-users__pwfield { padding-left: 24px; }
+.si-users__input { height: var(--si-hit); font-size: 16px; }
+.si-users__dialogfooter { flex-wrap: wrap; }
+.si-users__dialog--inline { position: static; display: block; margin: 0; max-width: 100%; }
+.si-users__inviteresult { display: flex; flex-direction: column; gap: 12px; overflow-wrap: anywhere; }
+.si-users__notemailed { font-weight: 600; color: var(--si-ink); }
+.si-users__linkrow { display: flex; gap: 8px; align-items: stretch; min-width: 0; }
+.si-users__link { flex: 1 1 auto; min-width: 0; height: var(--si-hit); font-size: 13px; }
+.si-users__copy { flex: none; }
+/* Narrow (a phone, or the gallery's 390 px frame): the container, not the viewport, decides. */
+@container (max-width: 640px) {
+  .si-users__inline-actions { display: none; }
+  .si-users__more { display: inline-flex; }
+  .si-users__head > .si-btn { width: 100%; min-height: var(--si-hit); }
+  .si-users__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .si-users__table, .si-users__table tbody, .si-users__table tr, .si-users__table th, .si-users__table td { display: block; width: 100%; }
+  .si-users__table tr { padding: 12px 14px; border-bottom: 1px solid var(--si-line); }
+  .si-users__table tbody tr:last-child { border-bottom: 0; }
+  .si-users__table th, .si-users__table td { padding: 3px 0; border-bottom: 0; }
+  .si-users__table td[data-label]::before { content: attr(data-label) " · "; color: var(--si-ink-3); font-size: 12px; font-weight: 600; }
+  .si-users__table td[data-label]:last-child::before { content: none; }
+  .si-users__table td:last-child { padding-top: 8px; }
+}
+@media (max-width: 767px) {
+  .si-users__linkrow { flex-direction: column; }
+  .si-users__dialogfooter .si-btn { flex: 1 1 100%; min-height: var(--si-hit); }
+}
+
+/* Accept-invite page: standalone, 390 px first. */
+.si-accept { min-height: 100dvh; display: flex; justify-content: center; align-items: flex-start; padding: 32px 16px; background: var(--si-bg); }
+.si-accept__frame { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 20px; }
+.si-accept__card { display: flex; flex-direction: column; gap: 14px; padding: 24px 20px; background: var(--si-surface); border: 1px solid var(--si-line); border-radius: var(--si-r-lg); box-shadow: var(--si-shadow-tip); }
+.si-accept__intro { color: var(--si-ink-3); }
+.si-accept__form { display: flex; flex-direction: column; gap: 14px; }
+.si-accept__submit { width: 100%; min-height: var(--si-hit); }
+.si-accept__state { padding: 12px; border: 1px solid var(--si-line-strong); border-radius: var(--si-r); background: var(--si-bg); font-weight: 600; }
+.si-accept__done { display: flex; flex-direction: column; gap: 14px; }
+.si-accept__signin { width: 100%; min-height: var(--si-hit); text-decoration: none; }
+@media (min-width: 768px) {
+  .si-accept { align-items: center; }
+}

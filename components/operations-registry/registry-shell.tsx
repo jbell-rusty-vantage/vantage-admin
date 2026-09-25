@@ -17,17 +17,17 @@ import { RegistryOverview } from "./registry-overview";
 import { RingCentralRoutesManager } from "./ringcentral/routes-list";
 import { GranotCrmSourcesManager } from "./granot-crm-sources-manager";
 import { LeadSourcesManager } from "./lead-sources/lead-sources-manager";
+import { UsersPanel } from "./users";
 import {
   isLegacyRegistryTab,
   parseRegistryTab,
+  registryTabsFor,
   REGISTRY_TABS,
   type RegistryTab,
 } from "./registry-tabs";
 
 export type { RegistryTab };
 export { REGISTRY_TABS };
-
-const TABS = REGISTRY_TABS;
 
 function panelId(tab: RegistryTab) {
   return `registry-panel-${tab}`;
@@ -43,8 +43,9 @@ export function RegistryShell() {
   const searchParams = useSearchParams();
   const role = useDashboardRole();
   const rawTab = searchParams.get("tab");
-  const activeTab = parseRegistryTab(rawTab);
+  const activeTab = parseRegistryTab(rawTab, role);
   const readOnly = role !== "owner";
+  const TABS = registryTabsFor(role);
 
   function selectTab(tab: RegistryTab) {
     const params = new URLSearchParams();
@@ -156,6 +157,7 @@ export function RegistryShell() {
           </div>
         ) : null}
         {activeTab === "changes" ? <RegistryChanges /> : null}
+        {activeTab === "users" && role === "owner" ? <UsersPanel /> : null}
       </div>
     </div>
   );

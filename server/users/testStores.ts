@@ -96,5 +96,13 @@ export function createMemoryInvitesStore(): AdminUserInvitesStore & { rows: Admi
       }
       return count;
     },
+    async latestPerUser() {
+      const newest = new Map<string, AdminUserInviteRecord>();
+      for (const row of rows) {
+        const seen = newest.get(row.user_id);
+        if (!seen || row.created_at.getTime() >= seen.created_at.getTime()) newest.set(row.user_id, row);
+      }
+      return [...newest.values()].map((row) => ({ ...row }));
+    },
   };
 }

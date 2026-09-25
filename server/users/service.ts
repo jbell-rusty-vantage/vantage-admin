@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import {
   UsersError,
+  type AdminUserInviteRecord,
+  type AdminUserLastInvite,
+  type AdminUserListView,
   type AdminUserRecord,
   type AdminUserView,
   type InviteDeliveryStatus,
@@ -103,10 +106,28 @@ async function withFailureAudit<T>(
   }
 }
 
-export async function listAdminUsers(deps: UsersDeps, actor: UsersActor | null): Promise<AdminUserView[]> {
+/**
+ * UI2-USERS: the state of a user's newest invite at `now`. Accepted (`used_at`) and revoked win over the
+ * clock; an unused, unrevoked invite past `expires_at` is expired; otherwise it is pending.
+ */
+export function lastInviteView(invite: AdminUserInviteRecord | null | undefined, now: Date): AdminUserLastInvite | null {
+  if (!invite) return null;
+  const state: AdminUserLastInvite["state"] = invite.used_at
+    ? "accepted"
+    : invite.revoked_at
+      ? "revoked"
+      : invite.expires_at.getTime() <= now.getTime()
+        ? "expired"
+        : "pending";
+  return { state, created_at: invite.created_at.toISOString(), expires_at: invite.expires_at.toISOString() };
+}
+
+export async function listAdminUsers(deps: UsersDeps, actor: UsersActor | null): Promise<AdminUserListView[]> {
   assertOwner(actor);
-  const users = await deps.users.list();
-  return users.map(toAdminUserView);
+  const [users, invites] = await Promise.all([deps.users.list(), deps.invites.latestPerUser()]);
+  const byUser = new Map(invites.map((invite) => [invite.user_id, invite]));
+  const now = deps.now();
+  return users.map((user) => ({ ...toAdminUserView(user), last_invite: lastInviteView(byUser.get(user.id), now) }));
 }
 
 export async function createAdminUser(

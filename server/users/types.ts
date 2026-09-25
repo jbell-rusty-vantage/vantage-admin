@@ -28,6 +28,16 @@ export type AdminUserView = {
   password_changed_at: string;
 };
 
+/** UI2-USERS: the newest invite of a user, as the Users tab shows it. Never the token, its hash or the link. */
+export type AdminUserLastInvite = {
+  state: "pending" | "accepted" | "expired" | "revoked";
+  created_at: string;
+  expires_at: string;
+};
+
+/** A row of the Owner's list read: the view plus the newest invite (null when the user never had one). */
+export type AdminUserListView = AdminUserView & { last_invite: AdminUserLastInvite | null };
+
 export type NewAdminUser = Omit<AdminUserRecord, "id" | "last_login_at">;
 
 export type AdminUserChange = {
@@ -69,6 +79,8 @@ export interface AdminUserInvitesStore {
   consume(tokenSha256: string, now: Date): Promise<AdminUserInviteRecord | null>;
   /** Revokes every unused invite of the user; returns how many. */
   revokeOutstanding(userId: string, now: Date): Promise<number>;
+  /** UI2-USERS: the newest invite (by `created_at`) of each user that has one. */
+  latestPerUser(): Promise<AdminUserInviteRecord[]>;
 }
 
 export type InviteDeliveryStatus = "sent" | "not_configured" | "failed" | "unreachable";
