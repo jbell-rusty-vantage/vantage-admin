@@ -1,6 +1,9 @@
 export { OutreachCard, NumberReviewCard, type OutreachCardProps } from "./outreach-card";
 export { CardActions, NumberReviewActions, defaultMessageRepDisabledReason, outreachHref } from "./card-actions";
+export { RepAvatar, repAvatarLabel } from "./rep-avatar";
 export {
+  CardBandRow,
+  CardSecondary,
   CardTip,
   ChipView,
   LineFive,
@@ -8,6 +11,7 @@ export {
   LineSeven,
   LineSix,
   LineThree,
+  MetricTiles,
   SortLine,
   bandForText,
   countsText,
@@ -15,12 +19,17 @@ export {
   identityText,
   isNumberOnly,
   lineOneChips,
+  metricTiles,
+  promiserText,
+  recordingsText,
+  routeShortText,
   routeText,
   scoreText,
   scoreTipLines,
   uncertainFiveText,
   whoText,
   type CardChip,
+  type CardTile,
   type CardOutreach,
   type CardRow,
 } from "./card-lines";

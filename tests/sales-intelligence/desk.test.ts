@@ -89,8 +89,8 @@ fixtureTest("A09: Needs Attention in Attention order is grouped under band heade
   for (const missing of [1, 3, 4, 7]) assert.ok(!markup.includes(`data-band="${missing}"`), `no header for band ${missing}`);
   // The Number-review row (band null) sits in its own Needs review group.
   assert.ok(groups.some((g) => g.review));
-  // Grouped cards carry no band tag on line 1.
-  assert.ok(!/class="si-bandtag( is-none)?"/.test(markup), "no band tags on cards when grouped");
+  // Outreach card layout D2: grouped cards keep the band header and still start with their own band tag.
+  assert.equal((markup.match(/class="si-bandtag( is-none)?"/g) ?? []).length, page.data.items.filter((r) => r.outreach).length, "one band tag per card when grouped");
   assert.ok(!markup.includes("data-sortline"), "no sort line under Attention order");
   assert.ok(markup.includes(`id="${LIST_HEADING_ID}"`));
   assert.ok(markup.includes(`${page.data.total_items} results`));

@@ -865,15 +865,45 @@
 
 /* UI-1: CARD (the Outreach card, UI-1 §2 / final spec §5; the side dialog, final spec §4) */
 .si-outreachcard .si-cardshell__line { line-height: 18px; }
-.si-outreachcard.is-number-only .si-cardshell__line--2.is-empty { display: none; }
+.si-outreachcard .si-cardshell__line--5.is-empty, .si-outreachcard .si-cardshell__line--7.is-empty { display: none; }
 .si-outreachcard.is-number-review .si-cardshell__line.is-empty { display: none; }
+/* Outreach card layout §3: A band + rep, B identity, C tiles, D scores, E move, F next step, G secondary */
+.si-outreachcard .si-cardshell__line--1 { font-size: 13px; font-weight: 400; color: var(--si-ink-2); }
+.si-outreachcard .si-cardshell__line--2 { font-size: 14px; line-height: 20px; }
+.si-outreachcard .si-cardshell__line--3 { container-type: inline-size; margin-block: 4px; }
+.si-outreachcard .si-cardshell__line--7 { color: var(--si-ink-3); }
+.si-outreachcard:not(.is-live)[data-card-band] { box-shadow: inset 3px 0 0 var(--si-card-band, transparent); }
+.si-outreachcard[data-card-band="1"] { --si-card-band: var(--si-band-1-bg); }
+.si-outreachcard[data-card-band="2"] { --si-card-band: var(--si-band-2-bg); }
+.si-outreachcard[data-card-band="3"] { --si-card-band: var(--si-band-3-bg); }
+.si-outreachcard[data-card-band="4"] { --si-card-band: var(--si-band-4-bg); }
+.si-outreachcard[data-card-band="5"] { --si-card-band: var(--si-band-5-bg); }
+.si-outreachcard[data-card-band="6"] { --si-card-band: var(--si-band-6-bg); }
+.si-outreachcard[data-card-band="7"] { --si-card-band: var(--si-line-strong); }
+.si-tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; margin: 0; padding: 0; list-style: none; background: var(--si-line); border: 1px solid var(--si-line); border-radius: var(--si-r); overflow: hidden; pointer-events: auto; }
+.si-cardshell.is-openable .si-tiles { cursor: pointer; }
+.si-tiles--single { display: inline-grid; grid-template-columns: minmax(84px, auto); }
+.si-tile { display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 2px; min-width: 0; padding: 8px 10px; background: var(--si-surface-2); }
+.si-tile:focus-visible { outline: 2px solid var(--si-blue); outline-offset: -2px; }
+.si-tile__value { font-size: 17px; line-height: 22px; font-weight: 700; color: var(--si-ink); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.si-tile__label { font-size: 11px; line-height: 14px; color: var(--si-ink-3); overflow-wrap: anywhere; }
+.si-tile.is-null .si-tile__value { color: var(--si-ink-3); font-weight: 600; }
+.si-tile.is-amber .si-tile__value { color: var(--si-amber); }
+@container (max-width: 520px) {
+  .si-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .si-tiles--single { grid-template-columns: minmax(84px, auto); }
+}
+.si-repavatar { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; font-weight: 600; color: var(--si-ink); pointer-events: auto; }
+.si-repavatar__dot { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; font-size: 11px; font-weight: 700; line-height: 1; letter-spacing: 0.02em; }
+.si-repavatar.is-unassigned { color: var(--si-ink-3); font-weight: 400; }
+.si-repavatar.is-unassigned .si-repavatar__dot { border: 1.5px dashed var(--si-line-strong); background: transparent; box-sizing: border-box; }
 .si-card__l1 { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
 .si-card__l1main { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
 .si-card__l1side { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-left: auto; font-weight: 400; }
 .si-card__identity { font-weight: 600; color: var(--si-ink); overflow-wrap: anywhere; }
 .si-card__idlink { color: var(--si-blue); text-decoration: none; }
 .si-card__idlink:hover { text-decoration: underline; }
-.si-card__prev { font-weight: 400; }
+.si-card__prev { font-weight: 400; margin-left: 8px; }
 .si-card__chip { display: inline-flex; font-weight: 400; }
 .si-card__tip .si-tip__anchor { border-radius: var(--si-r-sm); }
 .si-card__tip .si-tip__anchor:focus-visible { outline: 2px solid var(--si-blue); outline-offset: 2px; }

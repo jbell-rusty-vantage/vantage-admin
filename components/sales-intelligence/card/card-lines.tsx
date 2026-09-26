@@ -14,7 +14,9 @@ import { copy } from "../sales-intelligence-copy";
 import { cx } from "../lib/format";
 import { OWNER_VIEWER, type Viewer } from "../rep/viewer-session";
 import { useViewer } from "../rep/viewer";
-import { TIME_WORDS, formatCountdown, formatDate, formatDayCount, formatDuration, formatExact } from "../lib/time";
+import { TIME_WORDS, formatCountdown, formatDate, formatDayCount, formatDuration, formatExact, formatExactFull } from "../lib/time";
+import { timePhrase } from "../primitives/time-text";
+import { RepAvatar } from "./rep-avatar";
 import { elapsedMs, reasonSegment } from "./reason-phrase";
 
 export type CardRow = AttentionRow;
@@ -383,5 +385,165 @@ export function SortLine({ sortLine }: { sortLine: { label: string; value: strin
     <span className={cx("si-card__sortline", sortLine.value == null && "is-null")} data-sortline>
       {c.sortLine(sortLine.label, sortLine.value ?? sortLine.nullLabel)}
     </span>
+  );
+}
+
+// ── Outreach card layout (OUTREACH-CARD-LAYOUT-SPECIFICATION §3): rows A, C, E and G ─────────────────────────
+
+/**
+ * Row A (D2, D4): the band tag on every card, in both layouts, then the line-1 chips; the state pill and the rep avatar
+ * on the right. A card with no band prints the null `BandBadge` (`Not in Attention`); the row never hides.
+ */
+export function CardBandRow({ row, asOf }: { row: CardRow; asOf: string }) {
+  const o = row.outreach;
+  const band = row.derived.attention_band;
+  const rep = useViewer().role === "rep";
+  return (
+    <span className="si-card__l1 si-card__bandrow">
+      <span className="si-card__l1main">
+        <BandBadge band={isBand(band) ? band : null} />
+        {lineOneChips(row, asOf, { rep }).map((chip) => (
+          <ChipView key={chip.id} chip={chip} />
+        ))}
+      </span>
+      {o && (
+        <span className="si-card__l1side">
+          <StatePill state={o.state} />
+          <RepAvatar o={o} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Row E: `Boston, MA → Austin, TX · Oct 15`. The countdown is tile 6 now; null (row omitted) without a route. */
+export function routeShortText(o: CardOutreach, asOf: string): string | null {
+  const route = o.facts?.route;
+  if (!route) return null;
+  const path = `${place(route.pickup_city, route.pickup_state, c.pickupUnknown)} → ${place(route.delivery_city, route.delivery_state, c.deliveryUnknown)}`;
+  return route.move_date ? `${path}${SEP}${formatDate(route.move_date, asOf)}` : path;
+}
+
+export type CardTile = { id: string; label: string; value: string; exact?: string; dateTime?: string; nullTip?: string; tone?: "null" | "amber" };
+
+function timeTile(id: string, label: string, t: string | null | undefined, asOf: string, nullValue: string): CardTile {
+  if (!t) return { id, label, value: nullValue, tone: "null" };
+  return { id, label, value: timePhrase(t, asOf, "relative").text, exact: formatExactFull(t), dateTime: t };
+}
+
+/**
+ * Row C (D1, D5): six tiles in a fixed order. Values are server fields worded against `as_of`; the only colour is the
+ * amber for the server's `move_date_passed`. Nothing here sets a threshold.
+ */
+export function metricTiles(o: CardOutreach, asOf: string): CardTile[] {
+  const t = c.tile;
+  const f = o.facts;
+  const received: CardTile = isNumberOnly(o)
+    ? { id: "received", label: c.notALead, value: t.dash, tone: "null" }
+    : timeTile("received", t.received, o.trigger_at, asOf, t.dash);
+  const calls = f?.calls_total ?? null;
+  const conversations = f?.conversations_total ?? null;
+  const moveDate = f?.route?.move_date;
+  let move: CardTile;
+  if (!moveDate) move = { id: "move", label: t.move, value: t.noDate, tone: "null" };
+  else if (f?.move_date_passed) move = { id: "move", label: t.move, value: t.passed, exact: formatDate(moveDate, asOf), tone: "amber" };
+  else move = { id: "move", label: t.move, value: formatDayCount(moveDate, asOf).text, exact: formatDate(moveDate, asOf) };
+  return [
+    received,
+    timeTile("last-conversation", t.lastConversation, o.last_meaningful_contact_at, asOf, t.none),
+    timeTile("last-call", t.lastCall, f?.last_call_at, asOf, t.none),
+    calls == null
+      ? { id: "calls", label: t.calls(null), value: t.dash, tone: "null", nullTip: c.noNumber }
+      : { id: "calls", label: t.calls(calls), value: calls.toLocaleString("en-US") },
+    conversations == null
+      ? { id: "conversations", label: t.conversations(null), value: t.dash, tone: "null" }
+      : { id: "conversations", label: t.conversations(conversations), value: conversations.toLocaleString("en-US") },
+    move,
+  ];
+}
+
+/**
+ * One tile: the label comes first in the DOM (a screen reader hears `Received 3h ago`); CSS puts the value on top.
+ * A tile with an exact time is focusable and shows it on hover and focus (`title`), and says it to a screen reader.
+ */
+export function TileView({ tile }: { tile: CardTile }) {
+  const tip = tile.exact ?? tile.nullTip;
+  return (
+    <li className={cx("si-tile", tile.tone && `is-${tile.tone}`)} data-tile={tile.id} title={tip} tabIndex={tip ? 0 : undefined}>
+      <span className="si-tile__label">{tile.label}</span>{" "}
+      {tile.dateTime ? (
+        <time className="si-tile__value" dateTime={tile.dateTime}>
+          {tile.value}
+        </time>
+      ) : (
+        <span className="si-tile__value">{tile.value}</span>
+      )}
+      {tip && <span className="si-sr">{`, ${tip}`}</span>}
+    </li>
+  );
+}
+
+/** Row C. A click on a tile opens the card like the rest of the body (the tiles take pointer events for their `title`). */
+export function MetricTiles({ tiles, onOpen, className }: { tiles: CardTile[]; onOpen?: () => void; className?: string }) {
+  return (
+    <ul className={cx("si-tiles", className)} aria-label={c.tile.listLabel} onClick={onOpen}>
+      {tiles.map((tile) => (
+        <TileView key={tile.id} tile={tile} />
+      ))}
+    </ul>
+  );
+}
+
+/** Row G's recordings text: `2 recordings analyzed · 1 recording not yet analyzed`; null without the counts. */
+export function recordingsText(o: CardOutreach): string | null {
+  const f = o.facts;
+  if (!f || f.recordings_analyzed == null) return null;
+  const parts = [c.recordingsAnalyzed(f.recordings_analyzed)];
+  if (f.recordings_available != null && f.recordings_available > f.recordings_analyzed) parts.push(c.recordingsPending(f.recordings_available - f.recordings_analyzed));
+  return parts.join(SEP);
+}
+
+/**
+ * Row G's first segment: `Promised by {name}` only when the promiser isn't the assigned rep (the avatar already names
+ * them). A rep reads its own promise as `Promised by you`. Server ids compared; nothing derived.
+ */
+export function promiserText(o: CardOutreach, viewer: Viewer = OWNER_VIEWER): string | null {
+  const promised = o.next_action?.promised_by;
+  if (!promised?.name) return null;
+  const agent = o.assignment.agent;
+  if (agent && promised.id && promised.id === agent.id) return null;
+  if (viewer.role === "rep" && viewer.agentId && promised.id === viewer.agentId) return copy.ui2.scope.promisedByYou;
+  return c.promisedBy(promised.name);
+}
+
+/** Row G: promiser › reason › `Band n for …` › uncertain Priority 5 › recordings, then the sort line. */
+export function CardSecondary({ row, o, asOf, sortLine }: { row: CardRow; o: CardOutreach; asOf: string; sortLine?: ReactNode }) {
+  const viewer = useViewer();
+  const parts: ReactNode[] = [];
+  const who = promiserText(o, viewer);
+  if (who) parts.push(<span key="who" data-seg="who">{who}</span>);
+  const why = reasonSegment({ outreach: o, derived: row.derived }, asOf);
+  if (why) parts.push(<CardTip key="why" title={copy.ui1.reason.allTitle} lines={why.tooltipLines} label={<span data-seg="why">{why.text}</span>} />);
+  const band = bandForText(row, o, asOf);
+  if (band) parts.push(<span key="band" data-seg="band">{band}</span>);
+  const five = uncertainFiveText(o);
+  if (five) parts.push(<span key="lp" data-seg="lead-progress">{five}</span>);
+  const recordings = recordingsText(o);
+  if (recordings) parts.push(<span key="rec" data-seg="recordings">{recordings}</span>);
+  if (!parts.length && !sortLine) return null;
+  return (
+    <>
+      {parts.length > 0 && (
+        <span className="si-card__l7">
+          {parts.map((part, i) => (
+            <Fragment key={i}>
+              {i > 0 && SEP}
+              {part}
+            </Fragment>
+          ))}
+        </span>
+      )}
+      {sortLine}
+    </>
   );
 }

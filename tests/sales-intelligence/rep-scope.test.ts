@@ -177,12 +177,17 @@ fixtureTest("A05 line 7 for a rep: Yours (assigned wins over a promise) · Promi
   // The Owner's text is unchanged.
   assert.equal(whoText(assigned.outreach!), "Promised by Marcus Bell");
   assert.equal(whoText(promised.outreach!, OWNER_VIEWER), "Promised by Dana Reyes");
-  // The rendered card reads the viewer from the context.
+  // The rendered card reads the viewer from the context. Outreach card layout D4/D7: the avatar names the assignee;
+  // row G says only a promise by someone other than the assignee.
   const card = (row: AttentionRow) => renderAs(DANA, createElement(OutreachCard, { row, asOf: attention.as_of, layout: "flat", view: "all_outreach" })).html;
-  const seg = (html: string) => text(html.slice(html.indexOf('data-seg="who"'), html.indexOf("</span>", html.indexOf('data-seg="who"'))).replace(/^[^>]*>/, ""));
-  assert.equal(seg(card(assigned)).trim(), "Yours");
-  assert.equal(seg(card(promised)).trim(), "Promised by you");
-  assert.equal(seg(card(other)).trim(), "Assigned to Marcus Bell");
+  const seg = (html: string) =>
+    html.includes('data-seg="who"') ? text(html.slice(html.indexOf('data-seg="who"'), html.indexOf("</span>", html.indexOf('data-seg="who"'))).replace(/^[^>]*>/, "")).trim() : null;
+  assert.equal(seg(card(assigned)), "Promised by Marcus Bell");
+  assert.ok(card(assigned).includes('aria-label="Assigned to Dana Reyes'), "a rep sees the avatar on its own card");
+  assert.equal(seg(card(promised)), "Promised by you");
+  assert.ok(card(promised).includes('aria-label="Assigned to Marcus Bell'));
+  assert.equal(seg(card(other)), null);
+  assert.ok(card(unassigned).includes("si-repavatar is-unassigned"));
 });
 
 fixtureTest("A04 card (rep): Open (Work tab) and Open analysis, no Message rep, no Apply, no Owner-only href; closed keeps Open", () => {

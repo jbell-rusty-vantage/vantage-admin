@@ -77,28 +77,50 @@ fixtureTest("every row in every attention fixture renders seven lines without th
   assert.ok(rendered > 1000);
 });
 
-fixtureTest("A01: a Number-only subject prints its specific nulls and no route line", () => {
+/** Row C's tiles as `{label} {value}` (the screen-reader order), without the exact-time suffix. */
+function tiles(html: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of html.matchAll(/<li class="si-tile[^"]*" data-tile="([a-z-]+)"[^>]*>([\s\S]*?)<\/li>/g)) {
+    out[m[1]!] = text(m[2]!.replace(/<span class="si-sr">[\s\S]*?<\/span>/g, "")).replace(/\s+/g, " ").trim();
+  }
+  return out;
+}
+const TILE_ORDER = ["received", "last-conversation", "last-call", "calls", "conversations", "move"];
+
+fixtureTest("A01: a Number-only subject prints its specific nulls and no route row", () => {
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", bySubject("number:6ab448710705ca95222b49be"));
   const html = render(row, asOf);
   const l = lines(html).map(text);
-  assert.ok(l[0]!.includes("(305) 555-1001 · No Lead attached"), l[0]);
-  assert.ok(l[0]!.includes("Previous version"));
+  assert.ok(l[1]!.includes("(305) 555-1001 · No Lead attached"), l[1]);
+  assert.ok(l[1]!.includes("Previous version"));
   assert.ok(decode(html).includes(`href="${legacyNumberHref("6ab448710705ca95222b49be")}"`), "identity links to the legacy Number");
-  assert.equal(l[1]!.trim(), "");
-  assert.ok(lineClass(html, 2).includes("is-empty") && html.includes("is-number-only"), "route slot empty and hidden");
-  assert.ok(l[2]!.startsWith("Not a Lead · No conversation observed · Last call "), l[2]);
-  assert.equal(l[3], "3 calls · 0 conversations · 0 recordings analyzed");
-  assert.ok(l[4]!.startsWith("Transaction intent Not assessedMove likelihood Not assessed"), l[4]);
+  assert.equal(l[4]!.trim(), "");
+  assert.ok(lineClass(html, 5).includes("is-empty") && html.includes("is-number-only"), "route slot empty and hidden");
+  const t = tiles(lines(html)[2]!);
+  assert.deepEqual(Object.keys(t), TILE_ORDER);
+  assert.equal(t.received, "Not a Lead —");
+  assert.equal(t["last-conversation"], "Last conversation None");
+  assert.match(t["last-call"]!, /^Last call \d/);
+  assert.equal(t.calls, "calls 3");
+  assert.equal(t.conversations, "conversations 0");
+  assert.ok(l[3]!.startsWith("Transaction intent Not assessedMove likelihood Not assessed"), l[3]);
   assert.equal(l[5], "No next step set");
-  assert.ok(l[6]!.startsWith("Unassigned · Nobody owns this work"), l[6]);
+  assert.ok(l[6]!.startsWith("Nobody owns this work"), l[6]);
+  assert.ok(l[6]!.includes("0 recordings analyzed"), "recordings moved to row G");
+  assert.ok(l[0]!.includes("Unassigned") && html.includes("si-repavatar is-unassigned"), "unassigned avatar");
 });
 
 fixtureTest("A01 (nulls): no Number, no conversation, no call, unknown score", () => {
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", byName("Maria Klein"));
-  const l = lines(render(row, asOf)).map(text);
-  assert.equal(l[3], "No Number on file");
-  assert.ok(l[2]!.includes("No conversation observed") && l[2]!.includes("No call observed"), l[2]);
-  assert.ok(l[4]!.includes("Transaction intent Unknown"), l[4]);
+  const html = render(row, asOf);
+  const l = lines(html).map(text);
+  const t = tiles(lines(html)[2]!);
+  assert.equal(t.calls, "calls —");
+  assert.ok(/data-tile="calls" title="No Number on file" tabindex="0"/i.test(html), "the null calls tile says why");
+  assert.equal(t.conversations, "conversations —");
+  assert.equal(t["last-conversation"], "Last conversation None");
+  assert.equal(t["last-call"], "Last call None");
+  assert.ok(l[3]!.includes("Transaction intent Unknown"), l[3]);
 });
 
 fixtureTest("A02: `Received 4d ago` carries the exact ET time in title and aria-label, from as_of", () => {
@@ -108,9 +130,32 @@ fixtureTest("A02: `Received 4d ago` carries the exact ET time in title and aria-
   const exact = formatExactFull(t);
   assert.equal(exact, "Sep 20, 2026, 2:38 PM ET");
   const html = render(row, asOf);
-  assert.ok(html.includes(`<time dateTime="${t}" title="${exact}" aria-label="Received ${exact}" class="si-time">Received <!-- -->4d ago</time>`) ||
-    html.includes(`<time dateTime="${t}" title="${exact}" aria-label="Received ${exact}" class="si-time">Received 4d ago</time>`), "received time element");
-  assert.ok(text(lines(html)[2]!).startsWith("Received 4d ago · Last conversation "));
+  assert.ok(
+    html.includes(`<li class="si-tile" data-tile="received" title="${exact}" tabindex="0"><span class="si-tile__label">Received</span> <time class="si-tile__value" dateTime="${t}">4d ago</time><span class="si-sr">, ${exact}</span></li>`),
+    "received tile: label first, value, exact time on hover/focus and for a screen reader",
+  );
+  assert.equal(tiles(lines(html)[2]!).received, "Received 4d ago");
+});
+
+fixtureTest("tiles: six in the fixed order on every card, the move countdown, No date, and the server's move_date_passed in amber", () => {
+  const { rows, asOf } = page("S1/attention__all-outreach.json");
+  for (const row of rows) {
+    if (!row.outreach) continue;
+    const html = render(row, asOf);
+    const t = tiles(lines(html)[2]!);
+    assert.deepEqual(Object.keys(t), TILE_ORDER, row.subject_key);
+    const f = row.outreach.facts;
+    if (!f?.route?.move_date) assert.equal(t.move, "Move No date", row.subject_key);
+    else if (f.move_date_passed) {
+      assert.equal(t.move, "Move Passed", row.subject_key);
+      assert.ok(/class="si-tile is-amber" data-tile="move"/.test(html), "passed is amber");
+    } else assert.match(t.move!, /^Move (in \d+d|today)$/, row.subject_key);
+  }
+  const passed = rowBy("S1/attention__all-outreach.json", byName("Hannah Duarte"));
+  assert.equal(passed.row.outreach!.facts!.move_date_passed, true);
+  assert.equal(tiles(lines(render(passed.row, passed.asOf))[2]!).move, "Move Passed");
+  const notPassed = { ...passed.row, outreach: { ...passed.row.outreach!, facts: { ...passed.row.outreach!.facts!, move_date_passed: false } } } as AttentionRow;
+  assert.ok(!/class="si-tile is-amber"/.test(render(notPassed, passed.asOf)), "no amber tile without the server boolean");
 });
 
 fixtureTest("A03: Details disagree and Newer call since assessment appear exactly when the server booleans are true", () => {
@@ -139,7 +184,7 @@ fixtureTest("A04: no `%` in any card", () => {
     for (const row of rows) assert.ok(!render(row, asOf, { layout: "flat" }).includes("%"), `${rel} ${row.subject_key}`);
   }
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", byName("Ivan Sato"));
-  const l5 = text(lines(render(row, asOf))[4]!);
+  const l5 = text(lines(render(row, asOf))[3]!);
   assert.ok(l5.startsWith("Transaction intent 75 / 100 · StrongMove likelihood "), l5);
   assert.ok(l5.includes("Ordinal evidence assessment out of 100. Not a percentage or a booking probability."));
 });
@@ -147,9 +192,9 @@ fixtureTest("A04: no `%` in any card", () => {
 fixtureTest("A04 (stale): the stale reason is a tooltip sentence on the score line, never a chip", () => {
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", byName("Hannah Duarte"));
   const l = lines(render(row, asOf));
-  assert.ok(text(l[4]!).includes("Assessment stale: move date passed"));
+  assert.ok(text(l[3]!).includes("Assessment stale: move date passed"));
   assert.ok(!text(l[0]!).includes("stale"));
-  assert.ok(text(l[1]!).includes("(passed)"), "route line reads the server's move_date_passed");
+  assert.ok(!text(l[4]!).includes("(passed)") && !text(l[4]!).includes(" ago"), "row E keeps the date, drops the countdown");
 });
 
 fixtureTest("A05: an uncertain Priority 5 reads `Granot Priority 5 (Booked in Granot) · No Vantage Booking yet` on line 7", () => {
@@ -186,18 +231,21 @@ fixtureTest("A06: live chip precedence (live_call over call_progress; Owner call
   assert.ok(ownerL1.includes("Owner calling") && !ownerL1.includes("On the call"), ownerL1);
 });
 
-fixtureTest("A07: line 7 origin word, primary reason with its amount, `about`, and every reason in the tooltip", () => {
+fixtureTest("A07: the avatar's origin word, row G's primary reason with its amount, `about`, and every reason in the tooltip", () => {
   const crm = rowBy("S6/attention__all-outreach.json", byName("T3 Granot Rep Change"));
-  const crmL7 = text(lines(render(crm.row, crm.asOf))[6]!);
-  assert.ok(crmL7.startsWith("Assigned to Marcus Bell (from Granot) · Not called yet, first call overdue "), crmL7);
+  const crmHtml = render(crm.row, crm.asOf);
+  const crmL7 = text(lines(crmHtml)[6]!);
+  assert.ok(crmL7.startsWith("Not called yet, first call overdue "), crmL7);
+  assert.ok(!crmL7.includes("Assigned to"), "row G has no Assigned to segment");
   assert.ok(/Band 2 for about \d/.test(crmL7), crmL7);
+  assert.ok(crmHtml.includes('title="Assigned to Marcus Bell (from Granot)" role="img" aria-label="Assigned to Marcus Bell (from Granot)"'), "avatar label");
+  assert.ok(text(lines(crmHtml)[0]!).endsWith("MBMarcus B."), text(lines(crmHtml)[0]!));
 
   const owner = rowBy("S6/attention__all-outreach.json", byName("T3 Owner Kept"));
-  assert.ok(text(lines(render(owner.row, owner.asOf))[6]!).startsWith("Assigned to Tina Cho (by you) · "));
+  assert.ok(render(owner.row, owner.asOf).includes('aria-label="Assigned to Tina Cho (by you)"'));
 
   const first = rowBy("S6/attention__all-outreach.json", byName("Lena Brandt"));
-  const l7 = text(lines(render(first.row, first.asOf))[6]!);
-  assert.ok(l7.startsWith("Assigned to Dana Reyes · "), `no origin word for first_conversation: ${l7}`);
+  assert.ok(render(first.row, first.asOf).includes('aria-label="Assigned to Dana Reyes"'), "no origin word for first_conversation");
 
   const promised = rowBy("S6/attention__all-outreach.json", byName("Alicia Reyes"));
   const o = promised.row.outreach!;
@@ -273,12 +321,13 @@ fixtureTest("line 6: retry, Default chip, Apply, due clause and the closed overr
   assert.ok(lines(override)[5]!.includes('data-override="1"'));
 });
 
-fixtureTest("layouts and lists: band tag only in flat, sort line, closed actions, Message rep rule, Number-review row", () => {
+fixtureTest("layouts and lists: band tag first in both layouts, sort line, closed actions, Message rep rule, Number-review row", () => {
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", byName("Priya Nair"));
   const grouped = render(row, asOf, { layout: "grouped" });
   const flat = render(row, asOf, { layout: "flat" });
-  assert.ok(!grouped.includes("si-bandtag") && flat.includes("si-bandtag"));
-  assert.ok(text(lines(flat)[0]!).includes("Band 6 · Open work nobody owns"));
+  assert.equal(grouped, flat, "the layout no longer changes the card (D2)");
+  assert.ok(text(lines(grouped)[0]!).startsWith("6Band 6 · Open work nobody owns"), text(lines(grouped)[0]!));
+  assert.ok(grouped.includes('data-card-band="6"'));
   const nullBand = rowBy("S2/attention-closed__closed.json", (r) => !!r.outreach && r.derived.attention_band == null);
   assert.ok(text(lines(render(nullBand.row, nullBand.asOf, { layout: "flat" }))[0]!).includes("Not in Attention"));
 
@@ -313,6 +362,9 @@ fixtureTest("layouts and lists: band tag only in flat, sort line, closed actions
   const rhtml = render(review.row, review.asOf);
   const rl = lines(rhtml).map(text);
   assert.ok(rl[0]!.includes("Contact Number waiting on your review") && rl[0]!.includes("Needs review"), rl[0]);
+  if (review.row.sort_keys?.interactions != null) {
+    assert.ok(/<ul class="si-tiles si-tiles--single"[^>]*><li class="si-tile" data-tile="calls">/.test(rhtml), "interactions as one calls tile");
+  }
   assert.ok(!rl[0]!.includes("Review first"), "review_only makes no chip");
   assert.ok(decode(rhtml).includes(`href="${legacyNumberHref("6ab448740705ca95222b4b0c")}"`) && text(rhtml).includes("Previous version"));
   assert.ok(!rhtml.includes("Open analysis") && !rhtml.includes("Message rep"));
@@ -347,7 +399,7 @@ test("UX-C2: line 1 shows the formatted phone after the name; no number leaves n
   assert.equal(identityText(numberOnly), "(404) 555-1028 · No Lead attached");
 });
 
-fixtureTest("UX-C2: every fixture Lead card with a number shows it on line 1", () => {
+fixtureTest("UX-C2: every fixture Lead card with a number shows it in the identity row (B)", () => {
   const { rows, asOf } = page("S1/attention__all-outreach.json");
   let seen = 0;
   for (const row of rows) {
@@ -355,8 +407,40 @@ fixtureTest("UX-C2: every fixture Lead card with a number shows it on line 1", (
     if (!o || o.subject.kind !== "lead" || !o.primary_number) continue;
     const us = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(o.primary_number.e164);
     const shown = us ? `(${us[1]}) ${us[2]}-${us[3]}` : o.primary_number.e164;
-    assert.ok(text(lines(render(row, asOf))[0]!).includes(shown), `${row.subject_key} line 1 has ${shown}`);
+    assert.ok(text(lines(render(row, asOf))[1]!).includes(shown), `${row.subject_key} row B has ${shown}`);
     seen++;
   }
   assert.ok(seen > 0, "the fixture has Lead rows with a number");
+});
+
+test("rep avatar: initials, short name, and a colour that depends only on the Agent id and passes AA with white", async () => {
+  const { REP_COLORS, REP_INITIALS_COLOR, repColor, repInitials, repShortName } = await import("../../components/sales-intelligence/lib/rep-color");
+  const { contrastRatio } = await import("../../components/sales-intelligence/primitives/band-badge");
+  assert.equal(repInitials("Jake Bell"), "JB");
+  assert.equal(repInitials("jake van der bell"), "JB");
+  assert.equal(repInitials("Jake"), "J");
+  assert.equal(repShortName("Jake Bell"), "Jake B.");
+  assert.equal(repShortName("Jake"), "Jake");
+  assert.ok(REP_COLORS.length >= 8 && REP_COLORS.length <= 10);
+  for (const color of REP_COLORS) assert.ok(contrastRatio(color, REP_INITIALS_COLOR) >= 4.5, `${color} ${contrastRatio(color, REP_INITIALS_COLOR).toFixed(2)}`);
+  const ids = Array.from({ length: 40 }, (_, i) => `6ab5ab18${String(i).padStart(4, "0")}2eb383d94893`);
+  const first = ids.map(repColor);
+  assert.deepEqual([...ids].reverse().map(repColor), [...first].reverse(), "list order never changes a colour");
+  assert.deepEqual(ids.map(repColor), first, "stable across calls");
+  assert.ok(new Set(first).size >= 5, "ids spread over the palette");
+});
+
+fixtureTest("rep avatar on the card: same colour for the same agent in any list; promiser equal to the assignee leaves row G's segment out", async () => {
+  const { repColor } = await import("../../components/sales-intelligence/lib/rep-color");
+  const { row, asOf } = rowBy("S6/attention__all-outreach.json", byName("Lena Brandt"));
+  const agent = row.outreach!.assignment.agent!;
+  for (const layout of ["grouped", "flat"] as const) {
+    assert.ok(render(row, asOf, { layout }).includes(`background:${repColor(agent.id)}`), layout);
+  }
+  const promisedBy = (id: string, name: string) =>
+    ({ ...row, outreach: { ...row.outreach!, next_action: { ...(row.outreach!.next_action ?? { description: "Call back", due_at: null }), promised_by: { id, name } } } }) as AttentionRow;
+  const same = text(lines(render(promisedBy(agent.id, agent.name), asOf))[6]!);
+  assert.ok(!same.includes("Promised by"), same);
+  const other = text(lines(render(promisedBy("someone-else", "Marcus Bell"), asOf))[6]!);
+  assert.ok(other.startsWith("Promised by Marcus Bell"), other);
 });

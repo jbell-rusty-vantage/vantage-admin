@@ -1,8 +1,9 @@
 "use client";
 /**
- * UI1-CARD: the Outreach card (UI-1 §2, final spec §5). One component for every list; seven lines in a fixed order
- * through `CardShell`. Line 2 is left empty (and hidden) only for a Number-only subject. A Number-review row
- * (`outreach: null`) renders its identity, what counts it has, `Needs review` and `Open` (legacy link-out).
+ * UI1-CARD: the Outreach card (UI-1 §2, final spec §5). One component for every list (grouped, flat, closed, rep pages);
+ * seven rows in a fixed order through `CardShell`, laid out by OUTREACH-CARD-LAYOUT-SPECIFICATION §3: A band + rep,
+ * B identity, C metric tiles, D scores, E move info, F next step, G secondary. Row E is empty (and hidden) without a
+ * route. A Number-review row (`outreach: null`) renders its identity, its interactions tile, `Needs review` and `Open`.
  */
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -13,18 +14,18 @@ import { cx } from "../lib/format";
 import { useIsRep } from "../rep/viewer";
 import { CardActions, NumberReviewActions } from "./card-actions";
 import {
+  CardBandRow,
+  CardSecondary,
   ChipView,
   LineFive,
-  LineOne,
-  LineSeven,
   LineSix,
-  LineThree,
+  MetricTiles,
   SortLine,
-  countsText,
   identityText,
   isNumberOnly,
   lineOneChips,
-  routeText,
+  metricTiles,
+  routeShortText,
   type CardRow,
 } from "./card-lines";
 
@@ -33,6 +34,7 @@ const c = copy.ui1.card;
 export type OutreachCardProps = {
   row: CardRow;
   asOf: string;
+  /** D2: every card starts with its band, so the layout no longer changes the card; the lists still pass it. */
   layout: "grouped" | "flat";
   view: "attention" | "all_outreach" | "closed";
   sortLine?: { label: string; value: string | null; nullLabel: string } | null;
@@ -69,7 +71,6 @@ function Identity({ row }: { row: CardRow }) {
 export function OutreachCard({
   row,
   asOf,
-  layout,
   view,
   sortLine,
   onOpen,
@@ -86,21 +87,26 @@ export function OutreachCard({
   const onMessage = rep ? undefined : onMessageRep;
   const closed = view === "closed" || o.state === "closed";
   const live = !!o.live_call || o.call_progress?.state === "in_progress";
+  const band = row.derived.attention_band;
+  const open = onOpen ? () => onOpen(row) : undefined;
   const lines: ReactNode[] = [
-    <LineOne key={1} row={row} asOf={asOf} layout={layout} identity={<Identity row={row} />} />,
-    routeText(o, asOf),
-    <LineThree key={3} o={o} asOf={asOf} />,
-    countsText(o),
-    <LineFive key={5} o={o} />,
-    line6Override ?? <LineSix key={6} o={o} asOf={asOf} onApply={onApply ? () => onApply(row) : undefined} />,
-    <LineSeven key={7} row={row} o={o} asOf={asOf} sortLine={sortLine ? <SortLine sortLine={sortLine} /> : undefined} />,
+    <CardBandRow key="a" row={row} asOf={asOf} />,
+    <span key="b" className="si-card__identity">
+      <Identity row={row} />
+    </span>,
+    <MetricTiles key="c" tiles={metricTiles(o, asOf)} onOpen={open} />,
+    <LineFive key="d" o={o} />,
+    routeShortText(o, asOf),
+    line6Override ?? <LineSix key="f" o={o} asOf={asOf} onApply={onApply ? () => onApply(row) : undefined} />,
+    <CardSecondary key="g" row={row} o={o} asOf={asOf} sortLine={sortLine ? <SortLine sortLine={sortLine} /> : undefined} />,
   ];
   return (
     <CardShell
       className={cx("si-outreachcard", isNumberOnly(o) && "is-number-only", closed && "is-closed", rep && "is-rep")}
+      band={typeof band === "number" ? band : null}
       lines={lines}
       live={live}
-      onOpen={onOpen ? () => onOpen(row) : undefined}
+      onOpen={open}
       openLabel={c.openQuickLook(identityText(o))}
       actions={
         <CardActions
@@ -131,8 +137,14 @@ export function NumberReviewCard({ row }: { row: CardRow; asOf: string }) {
       </span>
     </span>,
     null,
+    interactions != null ? (
+      <MetricTiles
+        key="c"
+        className="si-tiles--single"
+        tiles={[{ id: "calls", label: c.tile.calls(interactions), value: interactions.toLocaleString("en-US") }]}
+      />
+    ) : null,
     null,
-    interactions != null ? c.calls(interactions) : null,
     null,
     null,
     null,

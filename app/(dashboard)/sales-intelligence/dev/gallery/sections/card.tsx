@@ -30,6 +30,14 @@ function leadLastCall(): string | null {
 function ownerCallingOnly(row: AttentionRow): AttentionRow {
   return { ...row, outreach: row.outreach ? { ...row.outreach, live_call: null } : null };
 }
+/** Outreach card layout §3 row G: the assigned rep also made the promise, so the avatar says it and row G doesn't. */
+function promisedByAssignee(row: AttentionRow): AttentionRow {
+  const o = row.outreach;
+  const agent = o?.assignment.agent;
+  if (!o || !agent) return row;
+  const action = o.next_action ?? { description: "Call back", due_at: null, attention_due_at: null, default_kind: null, promise_chain: null, promised_by: null };
+  return { ...row, outreach: { ...o, next_action: { ...action, promised_by: { id: agent.id, name: agent.name } } as typeof o.next_action } };
+}
 function withRestriction(row: AttentionRow): AttentionRow {
   return { ...row, derived: { ...row.derived, call_blockers: ["restriction", ...row.derived.call_blockers] } };
 }
@@ -63,6 +71,7 @@ export const CARD_SAMPLES: CardSample[] = [
   { id: "closed", fixture: "closed", props: { view: "closed", layout: "flat" } },
   { id: "sort-line", fixture: "lead", props: { layout: "flat", sortLine: { label: LAST_CALL.label, value: leadLastCall(), nullLabel: LAST_CALL.null } } },
   { id: "sort-line-null", fixture: "nulls", props: { layout: "flat", sortLine: { label: LAST_CALL.label, value: null, nullLabel: LAST_CALL.null } } },
+  { id: "promiser-is-assignee", fixture: "crmReceiver", transform: promisedByAssignee, source: "synthetic from S6 T3 Granot Rep Change" },
 ];
 
 function Card({ sample }: { sample: CardSample }) {
@@ -92,7 +101,7 @@ function SampleCard({ sample }: { sample: CardSample }): ReactNode {
   );
 }
 
-const PHONE = ["lead", "live", "number-only", "blocker"];
+const PHONE = ["lead", "live", "number-only", "number-review", "stale", "blocker"];
 
 export function CardSection() {
   const g = copy.ui1.gallery;

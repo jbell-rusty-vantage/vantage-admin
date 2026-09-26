@@ -110,7 +110,9 @@ fixtureTest("a closed card: line 6 is the outcome line and the only action is Op
     assert.ok(html.includes(`data-outcome="${row.outcome!.reason}"`));
     assert.ok(html.includes('data-action="open"'));
     assert.ok(!html.includes('data-action="message-rep"') && !html.includes('data-action="open-analysis"'));
-    assert.ok(!/class="si-bandtag/.test(html), "no band tag on a closed card");
+    // Outreach card layout D2: every card starts with its band; a closed record has none, so it reads `Not in Attention`.
+    const rowA = html.slice(html.indexOf('si-cardshell__line--1'), html.indexOf('si-cardshell__line--2'));
+    assert.ok(/class="si-bandtag/.test(rowA), "row A starts with the band tag on a closed card");
   }
 });
 

@@ -21,6 +21,7 @@ export function CardShell({
   onOpen,
   openLabel = copy.ui1.prim.openCard,
   className,
+  band,
 }: {
   lines: ReactNode[];
   nullText?: (string | undefined)[];
@@ -29,9 +30,11 @@ export function CardShell({
   onOpen?: () => void;
   openLabel?: string;
   className?: string;
+  /** The card's Attention band, for the band-colour left edge (`data-card-band`); null or omitted draws none. */
+  band?: number | null;
 }) {
   return (
-    <article className={cx("si-cardshell", live && "is-live", !!onOpen && "is-openable", className)}>
+    <article className={cx("si-cardshell", live && "is-live", !!onOpen && "is-openable", className)} data-card-band={band ?? undefined}>
       <div className="si-cardshell__body">
         {onOpen && <button type="button" className="si-cardshell__hit" aria-label={openLabel} onClick={onOpen} />}
         <ol className="si-cardshell__lines">
