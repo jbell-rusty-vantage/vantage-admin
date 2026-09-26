@@ -3,7 +3,7 @@
  * and is written as no `view` at all. A view link keeps the shared selection (Priority preset, Lead toggle, rail
  * filters, search) and drops the side dialog and the list cursor. No Numbers or Messages tab until UI-3 / UI-4.
  * UX-C1: the Owner's bar has no Needs Attention tab (`OWNER_TABS`); All Outreach is the one Outreach list.
- * UI2-SHELL (UI-2 §2): a rep's bar is `REP_TABS` (My work · All my Outreach · Closed · Overview · Guide) with the rep labels.
+ * UI2-SHELL (UI-2 §2): a rep's bar is `REP_TABS` (My Outreach · Closed · Overview · Guide) with the rep labels.
  */
 import { RouteTabs, type RouteTab } from "../primitives";
 import { copy } from "../sales-intelligence-copy";

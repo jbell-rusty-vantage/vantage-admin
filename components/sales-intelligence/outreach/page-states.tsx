@@ -78,7 +78,7 @@ export function OutreachRouteSkeleton() {
 
 /**
  * A 404 on the detail read: a page state with the back link, not a region error. UI2-SHELL (UI-2 §1, A02): for a rep the
- * same page serves "outside your scope" and "missing" (the server answers 404 for both), with `Back to My work`.
+ * same page serves "outside your scope" and "missing" (the server answers 404 for both), with `Back to My Outreach`.
  */
 export function OutreachNotFound({ back }: { back: string }) {
   const rep = useIsRep();

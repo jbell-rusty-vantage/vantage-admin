@@ -156,7 +156,7 @@ export function applyRoleRouteGuard(request: NextRequest): NextResponse | null {
   if (role === "rep" && canAccessDashboardPath("rep", pathname)) {
     return null;
   }
-  // UI2-SHELL (UI-2 §1): every other page redirects a rep to its Sales Intelligence home (My work). The set of paths a
+  // UI2-SHELL (UI-2 §1): every other page redirects a rep to its Sales Intelligence home (My Outreach). The set of paths a
   // rep reaches is unchanged (`REP_DASHBOARD_PATHS`); only the refusal's form changes, from a plain 403 to a redirect.
   if (role === "rep") {
     return NextResponse.redirect(new URL(REP_HOME_PATH, request.url));

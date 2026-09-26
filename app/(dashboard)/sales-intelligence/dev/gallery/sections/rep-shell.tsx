@@ -14,7 +14,7 @@ export function RepShellSection() {
   return (
     <GallerySection id="rep-shell" title={copy.ui2.gallery.sections["rep-shell"]}>
       <ViewerProvider viewer={DANA}>
-        <Sample label="View bar · My work (landing)" copyKey="ui2.shell.views" wide>
+        <Sample label="View bar · My Outreach (landing)" copyKey="ui2.shell.views" wide>
           <ViewTabs active="attention" query="" role="rep" />
         </Sample>
         <Sample label="View bar · Closed" copyKey="ui2.shell.views" wide>

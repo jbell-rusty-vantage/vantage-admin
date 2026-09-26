@@ -144,7 +144,7 @@ function onHeadingMount(heading: HTMLHeadingElement | null) {
 }
 
 export function ListHeading({ view, count }: { view: DeskView; count: string | null }) {
-  // UI2-SHELL: a rep's list heading is its view name (My work, All my Outreach, Closed).
+  // UI2-SHELL: a rep's list heading is its view name (My Outreach, Closed).
   const rep = useIsRep();
   return (
     <div className="si-desk__listhead">

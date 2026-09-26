@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { DASHBOARD_MAIN_ID } from "@/components/layout/dashboard-ids";
 import { copy } from "../sales-intelligence-copy";
+import { RepDeskTitle } from "./rep-desk-title";
 
 /** Sign out, at the 44 px rep target (the shared `LogoutButton` is 36 px). */
 function RepSignOut() {
@@ -29,7 +30,7 @@ function RepSignOut() {
   );
 }
 
-export function RepFrame({ email, children }: { email: string; children: ReactNode }) {
+export function RepFrame({ email, agentId = null, children }: { email: string; agentId?: string | null; children: ReactNode }) {
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
@@ -43,9 +44,11 @@ export function RepFrame({ email, children }: { email: string; children: ReactNo
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-cool-white" data-frame="rep">
       <header className="z-30 flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-steel-200 bg-white/95 px-4 py-2 shadow-sm">
-        <BrandLogo size="sm" subtitle={copy.ui2.shell.title} />
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="hidden min-w-0 truncate text-sm text-steel sm:inline" data-rep-email>{copy.ui2.shell.subtitle(email)}</span>
+        <div className="flex min-w-0 items-center gap-4">
+          <BrandLogo size="sm" subtitle={copy.ui2.shell.title} showText={false} />
+          <RepDeskTitle agentId={agentId} email={email} />
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
           <RepSignOut />
         </div>
       </header>

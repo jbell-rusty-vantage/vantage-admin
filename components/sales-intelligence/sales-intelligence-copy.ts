@@ -1990,20 +1990,22 @@ export const copy = {
   ui2: {
     /** UI2-SHELL (UI-2 §1–§2): the rep view bar, the rep header and the not-available page. */
     shell: {
-      views: { attention: "My work", all_outreach: "All my Outreach", closed: "Closed", overview: "Overview", guide: "Guide" } as Record<string, string>,
+      views: { all_outreach: "My Outreach", closed: "Closed", overview: "Overview", guide: "Guide" } as Record<string, string>,
       viewsLabel: "Your views",
       title: "Sales Intelligence",
       subtitle: (name: string) => `Signed in as ${name}`,
       subtitleNoAgent: "Signed in as a rep",
+      /** The rep header's title (2026-09-26): `Dana Reyes's Desk`; `Your Desk` until the name is read. */
+      deskTitle: (name: string) => `${name}'s Desk`,
+      deskTitleNoName: "Your Desk",
       viewIntro: {
-        attention: "Your records that need a next step, most urgent first.",
-        all_outreach: "Every active record in your work.",
+        all_outreach: "Every active record in your work, newest Lead first.",
         closed: "Your records that ended.",
       } as Record<string, string>,
       notAvailable: {
         title: "This record isn't available.",
         body: "It isn't in your work, or it doesn't exist.",
-        back: "Back to My work",
+        back: "Back to My Outreach",
       },
       signOut: "Sign out",
     },
@@ -2107,8 +2109,7 @@ export const copy = {
       intro: "Sales Intelligence shows your customer work that still needs a next step, what the calls said, and what the Owner asked of you.",
       topics: { views: "Your views", bands: "What the bands mean", followups: "Your follow-ups", owner: "The Owner sees your changes", messages: "Messages from the Owner" },
       views: [
-        { name: "My work", body: "Your records that need a next step, most urgent first. Start here." },
-        { name: "All my Outreach", body: "Every active record in your work, newest Lead first." },
+        { name: "My Outreach", body: "Every active record in your work, newest Lead first. Each card starts with its band; Band 1 is the most urgent. Start here." },
         { name: "Closed", body: "Your records that ended: Booked, Booked in Granot, Cancelled and the rest. Older records open from Closed history." },
         { name: "Overview", body: "Your numbers for the period next to the team median. No other rep's numbers are shown." },
       ],

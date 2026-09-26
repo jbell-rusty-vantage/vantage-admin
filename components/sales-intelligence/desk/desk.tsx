@@ -5,7 +5,7 @@
  *
  * Frame: the page header (title, search, live indicator + Refresh) and the view bar, then the view's body.
  * UX-C1: the bar has no Needs Attention tab and `view=attention` reads as All Outreach; the `attention` desk view stays
- * for UI-2's rep `My work`. Above Needs Attention, All Outreach and Closed, in order: the preset bar, the metrics strip (Needs Attention and
+ * (the rep's old My work; a rep now has My Outreach only). Above Needs Attention, All Outreach and Closed, in order: the preset bar, the metrics strip (Needs Attention and
  * All Outreach only), the active filter chips + `Clear filters`, then the list (the stale banner is the list's
  * first line). The Overview mounts its own header with the preset bar (UI1-OVERVIEW), so the desk doesn't repeat it.
  * Desktop: rail left (sticky), list right. Below 768 px: the `Filters (n)` sheet button and full-width cards.
@@ -138,7 +138,7 @@ function DeskList({ view, state, query, update, pending, userId, renderTimelineP
   const preset = usePresetSelection({ userId });
   const asOf = useNewestAsOf();
   const [degrade, setDegrade] = useState<Degrade>(NO_DEGRADE);
-  const requested = attentionParamsFromDesk(state, view, useIsRep() ? "rep" : "owner");
+  const requested = attentionParamsFromDesk(state, view);
   const params = applyDegrade(requested, degrade);
   const error = useQueryError(siKeys.attention(params));
   const next = nextDegrade(error, params, degrade);

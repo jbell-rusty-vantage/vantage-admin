@@ -26,28 +26,28 @@ test("viewerFromSession: a rep carries its Agent; anything else is the Owner", (
   assert.deepEqual(viewerFromSession({ role: "admin", agent_id: "x" }), OWNER_VIEWER);
 });
 
-test("A01: a rep lands on My work (no view) and its bar is My work · All my Outreach · Closed · Overview · Guide", () => {
-  assert.equal(parseDeskUrl(new URLSearchParams(""), "rep").view, "attention");
+test("A01 (2026-09-26): a rep lands on My Outreach (no view) and its bar is My Outreach · Closed · Overview · Guide", () => {
+  assert.equal(parseDeskUrl(new URLSearchParams(""), "rep").view, "all_outreach");
   const tabs = viewTabs("", "rep");
-  assert.deepEqual(tabs.map((t) => t.label), ["My work", "All my Outreach", "Closed", "Overview", "Guide"]);
+  assert.deepEqual(tabs.map((t) => t.label), ["My Outreach", "Closed", "Overview", "Guide"]);
   assert.deepEqual(tabs.map((t) => t.href), [
     "/sales-intelligence",
-    "/sales-intelligence?view=all_outreach",
     "/sales-intelligence?view=closed",
     "/sales-intelligence?view=overview",
     "/sales-intelligence?view=guide",
   ]);
-  // The Owner is unchanged: Overview is the default, and `view=attention` opens All Outreach (UX-C1) for the Owner only.
+  // The Owner is unchanged: Overview is the default. An old `view=attention` (My work) link opens the Outreach list for both.
   assert.equal(parseDeskUrl(new URLSearchParams("")).view, "overview");
   assert.equal(parseDeskUrl(new URLSearchParams("view=attention")).view, "all_outreach");
-  assert.equal(parseDeskUrl(new URLSearchParams("view=attention"), "rep").view, "attention");
+  assert.equal(parseDeskUrl(new URLSearchParams("view=attention"), "rep").view, "all_outreach");
+  assert.equal(parseDeskUrl(new URLSearchParams("view=all_outreach"), "rep").view, "all_outreach");
 });
 
-test("A03: no Numbers, Messages, Accounts or Coverage tab for a rep; those views read as My work", () => {
-  const markup = html(createElement(ViewTabs, { active: "attention", query: "", role: "rep" }));
-  assert.ok(!/Numbers|Messages|RingCentral Accounts|Coverage|Needs Attention/.test(markup), markup);
-  for (const view of ["reps", "coverage", "numbers", "messages", "bogus"]) {
-    assert.equal(parseDeskUrl(new URLSearchParams(`view=${view}`), "rep").view, "attention", view);
+test("A03: no Numbers, Messages, Accounts, Coverage or My work tab for a rep; those views read as My Outreach", () => {
+  const markup = html(createElement(ViewTabs, { active: "all_outreach", query: "", role: "rep" }));
+  assert.ok(!/Numbers|Messages|RingCentral Accounts|Coverage|Needs Attention|My work|All my Outreach/.test(markup), markup);
+  for (const view of ["reps", "coverage", "numbers", "messages", "bogus", "attention"]) {
+    assert.equal(parseDeskUrl(new URLSearchParams(`view=${view}`), "rep").view, "all_outreach", view);
   }
 });
 
@@ -62,8 +62,8 @@ test("UI-2 §1: a rep's page never sends agent_id or unassigned, even when the a
   assert.equal(next.has("agent_id"), false);
   assert.equal(next.has("unassigned"), false);
   assert.ok(!/agent_id|unassigned/.test(serializeDeskUrl({ ...state, agent_id: ["z"], unassigned: true }, "rep").toString()));
-  // A view link keeps the shared selection and writes My work as no view.
-  assert.equal(deskUrlUpdate("view=closed&priority=1", { view: "attention" }, "rep").toString(), "priority=1");
+  // A view link keeps the shared selection and writes My Outreach as no view.
+  assert.equal(deskUrlUpdate("view=closed&priority=1", { view: "all_outreach" }, "rep").toString(), "priority=1");
 });
 
 test("UI-2 §3: a rep's rail has no Rep region (Band · Status · Analysis · Time; Outcome · Time closed)", () => {
@@ -73,18 +73,18 @@ test("UI-2 §3: a rep's rail has no Rep region (Band · Status · Analysis · Ti
   assert.deepEqual(regionsFor("attention").map((r) => r.id), ["band", "status", "rep", "analysis", "time"]);
 });
 
-test("A02: the rep's not-available page (out of scope or missing: the same 404) links back to My work", () => {
+test("A02: the rep's not-available page (out of scope or missing: the same 404) links back to My Outreach", () => {
   const rep = html(asRep(createElement(OutreachNotFound, { back: "/sales-intelligence?view=all_outreach" })));
   assert.match(rep, /This record isn't available\./);
   assert.match(rep, /It isn't in your work, or it doesn't exist\./);
-  assert.match(rep, /href="\/sales-intelligence">.*Back to My work/);
+  assert.match(rep, /href="\/sales-intelligence">.*Back to My Outreach/);
   const owner = html(createElement(OutreachNotFound, { back: "/sales-intelligence?view=all_outreach" }));
   assert.match(owner, /This Outreach doesn't exist or was removed\./);
 });
 
 test("A03: the rep Guide explains the views, bands and follow-ups, and links nowhere Owner-only", () => {
   const markup = html(createElement(RepGuide, { topic: null }));
-  for (const words of ["My work", "All my Outreach", "Your follow-ups", "The Owner sees your changes", "Messages from the Owner", "Band 1", "60 days"]) {
+  for (const words of ["My Outreach", "newest Lead first", "Your follow-ups", "The Owner sees your changes", "Messages from the Owner", "Band 1", "60 days"]) {
     assert.ok(markup.includes(words) || markup.includes(words.replace("Band 1", "1 · ")), words);
   }
   assert.doesNotMatch(markup, OWNER_ONLY_HREF);
@@ -107,13 +107,16 @@ test("UI2: the Owner's `by you` words read as the Owner's to a rep", async () =>
   assert.equal(activeFilterChips(value, closedRegions(), [], { rep: true })[0]?.label, "Closed by the Owner");
 });
 
-test("gate: a rep's My work opens in Attention order; every other view and the Owner keep Lead received", async () => {
+test("2026-09-26: a rep's My Outreach opens in Lead received, newest first, like the Owner's", async () => {
   const { effectiveSort } = await import("../../components/sales-intelligence/data/url-state");
-  assert.equal(effectiveSort("attention", null, "rep").sort, "attention");
-  assert.equal(attentionParamsFromDesk(parseDeskUrl(new URLSearchParams(""), "rep"), "attention", "rep").sort, "attention");
-  assert.equal(effectiveSort("all_outreach", null, "rep").sort, "lead_received");
+  const landing = attentionParamsFromDesk(parseDeskUrl(new URLSearchParams(""), "rep"), "all_outreach");
+  assert.equal(landing.view, "all_outreach");
+  assert.equal(landing.sort, "lead_received");
+  assert.equal(landing.direction, "desc");
+  assert.equal(effectiveSort("all_outreach", null).sort, "lead_received");
   assert.equal(effectiveSort("attention", null).sort, "lead_received");
-  assert.equal(effectiveSort("attention", "last_call", "rep").sort, "last_call");
+  assert.equal(effectiveSort("attention", null).sort, "lead_received");
+  assert.equal(effectiveSort("attention", "last_call").sort, "last_call");
 });
 
 test("gate: the Overview's preset bar hides the Lead toggle and states the limitation", async () => {
@@ -132,4 +135,20 @@ test("V-UI2 fixes: the Owner's actor reads `Owner` to a rep; a follow-up another
   assert.equal(actorText(item, true), "Owner");
   const f = { status: "open", assignment: { agent: null }, promised_by: { id: "6ab5ab0d72ee2eb383d940a8", name: "Marcus Bell" }, allowed_actions: [] } as never;
   assert.equal(repFollowupAccess(f, DANA).readOnly, "Marcus Bell promised this one. Ask the Owner to change it.");
+});
+
+test("2026-09-26: the rep header reads `{Name}'s Desk` with the rep's avatar colour; `Your Desk` until the name is known", async () => {
+  const { RepDeskTitleView, repDeskName } = await import("../../components/sales-intelligence/rep/rep-desk-title");
+  const { repColor } = await import("../../components/sales-intelligence/lib/rep-color");
+  const dana = { agent: { id: "6ab5ab0d72ee2eb383d940a7", name: "Dana Reyes" } };
+  const marcus = { agent: { id: "6ab5ab0d72ee2eb383d940a8", name: "Marcus Bell" } };
+  assert.equal(repDeskName([marcus, dana], dana.agent.id), "Dana Reyes");
+  assert.equal(repDeskName([dana], null), "Dana Reyes");
+  assert.equal(repDeskName([marcus, dana], null), null);
+  assert.equal(repDeskName(undefined, dana.agent.id), null);
+  const named = html(createElement(RepDeskTitleView, { name: "Dana Reyes", agentId: dana.agent.id, email: "dana@x.test" }));
+  assert.ok(named.includes("Dana Reyes&#x27;s Desk") || named.includes("Dana Reyes's Desk"), named);
+  assert.ok(named.includes(`background:${repColor(dana.agent.id)}`) && named.includes(">DR<"));
+  const unnamed = html(createElement(RepDeskTitleView, { name: null, agentId: dana.agent.id, email: "dana@x.test" }));
+  assert.ok(unnamed.includes("Your Desk") && unnamed.includes(">D<"));
 });

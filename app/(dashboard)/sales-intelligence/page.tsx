@@ -8,7 +8,7 @@ import { routeViewer } from "./route-viewer";
 /**
  * UI-1 §1: the Owner's Sales Intelligence desk. Old `outreach=&panel=` links redirect to the Outreach route; an old
  * Lead-only analysis link (`lead=&lead_model=&panel=`) resolves in the browser through `outreach/by-lead` (ADMIN-REBUILD trap 5).
- * UI2-SHELL (UI-2 §1–§2): a rep gets the same page under its forced scope, landing on My work. The Lead-only link needs the
+ * UI2-SHELL (UI-2 §1–§2): a rep gets the same page under its forced scope, landing on My Outreach. The Lead-only link needs the
  * Owner-only `outreach/by-lead` read, so a rep's desk ignores it.
  */
 export default async function SalesIntelligencePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

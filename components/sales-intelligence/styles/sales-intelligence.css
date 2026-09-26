@@ -893,6 +893,11 @@
   .si-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .si-tiles--single { grid-template-columns: minmax(84px, auto); }
 }
+.si-repdesk { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.si-repdesk__avatar { display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 50%; font-size: 14px; font-weight: 700; letter-spacing: 0.02em; }
+.si-repdesk__text { display: flex; flex-direction: column; min-width: 0; }
+.si-repdesk__title { font-family: var(--si-font-heading); font-size: 17px; line-height: 22px; font-weight: 700; color: var(--si-navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.si-repdesk__sub { font-size: 12px; line-height: 16px; color: var(--si-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .si-repavatar { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; font-weight: 600; color: var(--si-ink); pointer-events: auto; }
 .si-repavatar__dot { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; font-size: 11px; font-weight: 700; line-height: 1; letter-spacing: 0.02em; }
 .si-repavatar.is-unassigned { color: var(--si-ink-3); font-weight: 400; }

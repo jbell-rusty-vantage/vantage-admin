@@ -17,17 +17,18 @@ export const PAGE_VIEWS = ["overview", "attention", "all_outreach", "closed", "r
 export type PageView = (typeof PAGE_VIEWS)[number];
 /**
  * UX-C1: the Owner's view bar. One Outreach list (All Outreach); the Needs Attention tab is gone, with no replacement
- * filter. `attention` stays a PageView / DeskView: UI-2 builds the rep's `My work` on `view=attention`.
+ * filter. `attention` stays a PageView / DeskView: an old link may still name it.
  */
 export const OWNER_TABS = ["overview", "all_outreach", "closed", "reps", "coverage", "guide"] as const satisfies readonly PageView[];
 /** UI-1 §1.1: the page opens on Overview when `view` is absent. An unknown view reads as Overview too. */
 export const DEFAULT_VIEW: PageView = "overview";
 /**
- * UI-2 §2 (UX11): the rep's view bar, in order. A rep lands on My work (`view=attention`, written as no `view`); Numbers,
- * Messages, RingCentral Accounts and Coverage don't exist for a rep, so those views (and unknown ones) read as My work.
+ * UI-2 §2 (UX11), revised 2026-09-26: the rep's view bar, in order. One Outreach list, My Outreach (`all_outreach`, written
+ * as no `view`), in Lead received newest first like the Owner's; My work is gone. Numbers, Messages, RingCentral Accounts
+ * and Coverage don't exist for a rep, so those views (and unknown ones, and an old `view=attention`) read as My Outreach.
  */
-export const REP_TABS = ["attention", "all_outreach", "closed", "overview", "guide"] as const satisfies readonly PageView[];
-export const REP_DEFAULT_VIEW: PageView = "attention";
+export const REP_TABS = ["all_outreach", "closed", "overview", "guide"] as const satisfies readonly PageView[];
+export const REP_DEFAULT_VIEW: PageView = "all_outreach";
 /** Who reads the URL: the Owner (default) or a rep (UI2-SHELL). The role comes from the session, never from the URL. */
 export type UrlRole = "owner" | "rep";
 export const defaultViewFor = (role: UrlRole): PageView => (role === "rep" ? REP_DEFAULT_VIEW : DEFAULT_VIEW);
@@ -86,12 +87,12 @@ const text = (value: string | null): string | null => (value && value.trim() ? v
 
 /**
  * UX-C1: an old `view=attention` link (bookmark, Overview tile, trap-4 `lead=`/`outreach=` deep link) opens All Outreach
- * with the same filters and side dialog. **Owner only** (UI2-SHELL): for a rep, `view=attention` is My work.
+ * with the same filters and side dialog. For a rep an old `view=attention` (My work) link reads as My Outreach the same way.
  */
 const OWNER_VIEW_ALIASES: Readonly<Record<string, PageView>> = { attention: "all_outreach" };
 
 /**
- * Reads the desk URL. `role = "rep"` (UI2-SHELL, UI-2 §1): the rep's own views only (anything else is My work), no
+ * Reads the desk URL. `role = "rep"` (UI2-SHELL, UI-2 §1): the rep's own views only (anything else is My Outreach), no
  * Owner alias, and the scope params `agent_id` / `unassigned` are dropped, so a rep page never sends them.
  */
 export function parseDeskUrl(params: URLSearchParams, role: UrlRole = "owner"): DeskUrlState {
@@ -170,22 +171,21 @@ export function isDeskView(view: PageView): view is DeskView { return view === "
 
 /** The sort the server is asked for in a view: a valid URL sort, else the view's default (Closed has its own list). */
 /**
- * The view's default sort when the URL names none. Operator (UI-2 gate, 2026-09-25): a rep's My work (`attention`) opens in
- * Attention order, grouped by band; every other view (and every Owner view) opens in Lead received, newest first (UX-C1).
+ * The view's default sort when the URL names none: Lead received, newest first (UX-C1), for the Owner and for a rep's
+ * My Outreach (2026-09-26, replacing the rep's Attention-ordered My work). Closed has its own list.
  */
-export function effectiveSort(view: DeskView, sort: string | null, role: UrlRole = "owner"): { sort: DeskSort | ClosedSort; direction: "asc" | "desc" } & { closed: boolean } {
+export function effectiveSort(view: DeskView, sort: string | null): { sort: DeskSort | ClosedSort; direction: "asc" | "desc" } & { closed: boolean } {
   if (view === "closed") {
     const chosen = (CLOSED_SORTS as readonly string[]).includes(sort ?? "") ? (sort as ClosedSort) : CLOSED_DEFAULT_SORT;
     return { sort: chosen, direction: CLOSED_SORT_DEFAULT_DIRECTION[chosen], closed: true };
   }
-  const fallback: DeskSort = role === "rep" && view === "attention" ? "attention" : DESK_DEFAULT_SORT;
-  const chosen = (DESK_SORTS as readonly string[]).includes(sort ?? "") ? (sort as DeskSort) : fallback;
+  const chosen = (DESK_SORTS as readonly string[]).includes(sort ?? "") ? (sort as DeskSort) : DESK_DEFAULT_SORT;
   return { sort: chosen, direction: DESK_SORT_DEFAULT_DIRECTION[chosen], closed: false };
 }
 
 /** `GET /attention` params for a desk view. Closed-only params go only to Closed; `freshness` only with a score sort. */
-export function attentionParamsFromDesk(state: DeskUrlState, view: DeskView, role: UrlRole = "owner"): AttentionParams {
-  const { sort, direction: fallback } = effectiveSort(view, state.sort, role);
+export function attentionParamsFromDesk(state: DeskUrlState, view: DeskView): AttentionParams {
+  const { sort, direction: fallback } = effectiveSort(view, state.sort);
   const closed = view === "closed";
   return {
     view, sort, direction: state.direction ?? fallback,
