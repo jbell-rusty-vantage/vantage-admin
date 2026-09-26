@@ -57,7 +57,7 @@ export function repFollowupAccess(f: Pick<Followup, "status" | "assignment" | "p
   }
   if (responsible) return { actions: [], readOnly: k.readOnly.otherRep(responsible.name) };
   if (me && f.promised_by?.id === me) return { actions: [], readOnly: k.readOnly.promisedOnly };
-  if (f.promised_by?.name) return { actions: [], readOnly: k.readOnly.otherRep(f.promised_by.name) };
+  if (f.promised_by?.name) return { actions: [], readOnly: k.readOnly.promisedByOther(f.promised_by.name) };
   return { actions: [], readOnly: k.readOnly.owner };
 }
 

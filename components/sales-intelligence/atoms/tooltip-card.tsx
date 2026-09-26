@@ -71,9 +71,21 @@ export function TooltipCard({
     setHost(wrapRef.current?.closest<HTMLElement>("dialog[open]") ?? document.body);
     setOpen(true);
   };
+  // V-UI2 M1: a tap or click focuses the anchor first (which opens the tip), then clicks it. Remember when focus opened it, so
+  // that same click doesn't close it again; a later click toggles.
+  const focusOpenedAt = useRef(0);
   const showNow = () => {
     clearTimers();
     openCard();
+  };
+  const showOnFocus = () => {
+    if (!open) focusOpenedAt.current = performance.now();
+    showNow();
+  };
+  const onAnchorClick = () => {
+    if (!open) { showNow(); return; }
+    if (performance.now() - focusOpenedAt.current < 500) return;
+    setOpen(false);
   };
   const showSoon = () => {
     if (hideTimer.current) window.clearTimeout(hideTimer.current);
@@ -156,7 +168,7 @@ export function TooltipCard({
       className={cx("si-tip", className)}
       onMouseEnter={showSoon}
       onMouseLeave={hide}
-      onFocusCapture={showNow}
+      onFocusCapture={showOnFocus}
       onBlurCapture={(event) => {
         const next = event.relatedTarget;
         if (next instanceof Node && (wrapRef.current?.contains(next) || cardRef.current?.contains(next))) return;
@@ -170,7 +182,7 @@ export function TooltipCard({
         aria-expanded={open}
         onKeyDown={onAnchorKey}
         // UI2-PHONE: every tip also opens on tap (iOS Safari doesn't focus a tabbable span on tap); a second tap closes it.
-        onClick={() => (open ? setOpen(false) : showNow())}
+        onClick={onAnchorClick}
       >
         {label}
       </span>

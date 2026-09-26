@@ -1737,3 +1737,8 @@ span.si-evidence__none { display: inline-flex; align-items: center; min-height: 
 .si-ownermsgs { position: relative; }
 .si-ownermsgs__also { margin: -4px 0 0; }
 .si-ownermsgs__thread { max-height: none; overflow: visible; }
+
+/* UI-2: V-UI2 fixes (M2: a modal .si-dialog is centred; Tailwind's preflight zeroes the <dialog> margin. m6: the live
+   indicator's tooltip anchor is a 44 px target at 390 px.) */
+.si-dialog { margin: auto; }
+.si-liveind .si-tip__anchor { display: inline-flex; align-items: center; min-height: var(--si-hit); min-width: var(--si-hit); }

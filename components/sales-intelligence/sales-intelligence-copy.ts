@@ -2029,6 +2029,8 @@ export const copy = {
       readOnly: {
         otherRep: (name: string) => `${name} owns this follow-up.`,
         promisedOnly: "You promised this one, but it isn't assigned to you. Ask the Owner to change it.",
+        /** V-UI2 m1: nobody is responsible and another rep promised it. */
+        promisedByOther: (name: string) => `${name} promised this one. Ask the Owner to change it.`,
         owner: "Set by the Owner.",
       },
       due: (t: string) => `Due ${t}`,
@@ -2113,7 +2115,7 @@ export const copy = {
         pending: (t: string) => `Invite expires ${t}`,
         accepted: "Invite accepted",
         expired: "Invite expired",
-        revoked: "Invite replaced",
+        revoked: "Invite cancelled",
       },
       actions: { add: "Add user", edit: "Edit", setPassword: "Set password", deactivate: "Deactivate", invite: "Send invite", more: "More actions" },
       form: {

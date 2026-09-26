@@ -45,7 +45,7 @@ export function RepFrame({ email, children }: { email: string; children: ReactNo
       <header className="z-30 flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-steel-200 bg-white/95 px-4 py-2 shadow-sm">
         <BrandLogo size="sm" subtitle={copy.ui2.shell.title} />
         <div className="flex min-w-0 items-center gap-3">
-          <span className="hidden min-w-0 truncate text-sm text-steel sm:inline" data-rep-email>{email}</span>
+          <span className="hidden min-w-0 truncate text-sm text-steel sm:inline" data-rep-email>{copy.ui2.shell.subtitle(email)}</span>
           <RepSignOut />
         </div>
       </header>

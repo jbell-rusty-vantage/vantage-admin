@@ -23,7 +23,10 @@ export function FollowupCard({ followup: f, overallOwner, asOf }: { followup: Fo
   const due = asOf === undefined ? legacyDue : f.due_at ? (
     <>
       <TimeText t={f.due_at} asOf={asOf} mode="exact" prefix={copy.ui1.card.due} />
-      {f.status === "open" && <>{" ("}<TimeText t={f.due_at} asOf={asOf} mode="countdown" overdue={f.overdue} />{")"}</>}
+      {f.status === "open" && (f.snoozed_until ? (
+        // V-UI2 m3: a snoozed follow-up shows its snooze, not the old due time's overdue countdown.
+        <>{" · "}<TimeText t={f.snoozed_until} asOf={asOf} mode="exact" prefix={copy.time.snoozedUntil("").trim()} /></>
+      ) : <>{" ("}<TimeText t={f.due_at} asOf={asOf} mode="countdown" overdue={f.overdue} />{")"}</>)}
     </>
   ) : f.status === "open" ? copy.time.dueDateNeeded : copy.time.noDueRecorded;
   const rep = useIsRep();

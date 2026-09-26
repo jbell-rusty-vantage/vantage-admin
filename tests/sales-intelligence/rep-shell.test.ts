@@ -123,3 +123,13 @@ test("gate: the Overview's preset bar hides the Lead toggle and states the limit
   const shown = html(createElement(PresetBar, { counts: null, view: "all_outreach", value: { priority: [], attachment: null }, onChange: () => {} }));
   assert.match(shown, /data-lead-btn/);
 });
+
+test("V-UI2 fixes: the Owner's actor reads `Owner` to a rep; a follow-up another rep promised says so", async () => {
+  const { actorText } = await import("../../components/sales-intelligence/timeline/event-row");
+  const { repFollowupAccess } = await import("../../components/sales-intelligence/rep/followup-actions");
+  const item = { actor: { kind: "owner", name: null } } as never;
+  assert.equal(actorText(item), "You");
+  assert.equal(actorText(item, true), "Owner");
+  const f = { status: "open", assignment: { agent: null }, promised_by: { id: "6ab5ab0d72ee2eb383d940a8", name: "Marcus Bell" }, allowed_actions: [] } as never;
+  assert.equal(repFollowupAccess(f, DANA).readOnly, "Marcus Bell promised this one. Ask the Owner to change it.");
+});

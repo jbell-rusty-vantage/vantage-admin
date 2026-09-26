@@ -9,6 +9,7 @@ import { createElement } from "react";
 import type { TimelineEvent } from "@/lib/api/salesIntelligence";
 import { Chip, SkeletonLines, TimeText } from "../primitives";
 import { copy } from "../sales-intelligence-copy";
+import { useIsRep } from "../rep/viewer";
 import { cx } from "../lib/format";
 import { etDateKey, formatDate, formatExactFull } from "../lib/time";
 import { eventAction, eventDetail, eventIcon, hasKindEntry, kindEntry } from "./event-kinds";
@@ -24,9 +25,11 @@ const CHIP_ICONS: Record<string, LucideIcon> = {
 };
 
 /** `actor.name`, else the actor kind's word (SERVER-STATE "Timeline": null name → the kind's word). */
-export function actorText(item: TimelineEvent): string | null {
+export function actorText(item: TimelineEvent, rep = false): string | null {
   const actor = item.actor;
   if (!actor) return null;
+  // V-UI2: the Owner's actor word is `You`; a rep reads it as the Owner.
+  if (rep && actor.kind === "owner" && !actor.name?.trim()) return copy.ui2.nudges.from;
   return actor.name?.trim() || t.actor[actor.kind] || null;
 }
 
@@ -60,7 +63,7 @@ export function EventRow({ item, asOf, compact = false }: EventRowProps) {
   const description = item.title?.trim() ? item.description : null;
   const detail = compact ? null : eventDetail(item);
   const action = eventAction(item);
-  const actor = actorText(item);
+  const actor = actorText(item, useIsRep());
   const inProgress = item.kind === "call" && item.call?.in_progress === true;
   const chips = item.chips ?? [];
   const pending = kindEntry(item.kind).pending;

@@ -116,8 +116,8 @@ fixtureTest("A07: another rep's follow-up, and one the rep only promised, show n
   // The server lists the Owner's actions on both: the rep sees none of them.
   assert.ok(pf.allowed_actions.some((a) => a.enabled) && of.allowed_actions.some((a) => a.enabled));
   assert.deepEqual(repFollowupAccess(pf, DANA), { actions: [], readOnly: k.readOnly.promisedOnly });
-  assert.deepEqual(repFollowupAccess(of, DANA), { actions: [], readOnly: k.readOnly.otherRep("Marcus Bell") });
-  for (const [read, sentence] of [[promisedOnly, k.readOnly.promisedOnly], [otherRep, k.readOnly.otherRep("Marcus Bell")]] as const) {
+  assert.deepEqual(repFollowupAccess(of, DANA), { actions: [], readOnly: k.readOnly.promisedByOther("Marcus Bell") });
+  for (const [read, sentence] of [[promisedOnly, k.readOnly.promisedOnly], [otherRep, k.readOnly.promisedByOther("Marcus Bell")]] as const) {
     const html = render(createElement(RepFollowups, { record: read.data.outreach, asOf: read.as_of }));
     assert.ok(!html.includes("data-rep-command="), "no actions");
     assert.ok(text(html).includes(sentence), sentence);
@@ -125,7 +125,7 @@ fixtureTest("A07: another rep's follow-up, and one the rep only promised, show n
   // S-findings: a Marcus promise with no responsible agent, and an Owner follow-up with none.
   const s = detail("S8/rep-outreach__s-findings.json");
   const open = s.data.outreach.followups.filter((f) => f.status === "open");
-  assert.deepEqual(open.map((f) => repFollowupAccess(f, DANA).readOnly), [k.readOnly.otherRep("Marcus Bell"), k.readOnly.owner]);
+  assert.deepEqual(open.map((f) => repFollowupAccess(f, DANA).readOnly), [k.readOnly.promisedByOther("Marcus Bell"), k.readOnly.owner]);
   const done = s.data.outreach.followups.find((f) => f.status !== "open")!;
   assert.deepEqual(repFollowupAccess(done, DANA), { actions: [], readOnly: null }, "a finished follow-up has neither");
 });

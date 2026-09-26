@@ -149,6 +149,7 @@ export function ListHeading({ view, count }: { view: DeskView; count: string | n
   return (
     <div className="si-desk__listhead">
       <h2 ref={onHeadingMount} id={LIST_HEADING_ID} className="si-desk__listheading" tabIndex={-1}>{rep ? copy.ui2.shell.views[view] : d.listHeading[view]}</h2>
+      {rep && copy.ui2.shell.viewIntro[view] && <p className="si-text--sm si-text--subtle" data-view-intro>{copy.ui2.shell.viewIntro[view]}</p>}
       {count && <span className="si-desk__count" data-results>{count}</span>}
     </div>
   );
