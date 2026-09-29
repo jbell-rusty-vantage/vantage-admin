@@ -275,15 +275,15 @@ test("the active filter chips have 44 px remove buttons and Clear filters", () =
 });
 
 test("trap 5: legacyDeepLinkRedirect", () => {
-  assert.equal(legacyDeepLinkRedirect(new URLSearchParams("view=attention&outreach=o1&panel=assessment")), "/sales-intelligence/outreach/o1#scores");
-  assert.equal(legacyDeepLinkRedirect(new URLSearchParams("outreach=o1&panel=analysis&analysis_run=r9")), "/sales-intelligence/outreach/o1?run=r9#full-output");
-  assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "analysis" }), "/sales-intelligence/outreach/o1#full-output");
+  assert.equal(legacyDeepLinkRedirect(new URLSearchParams("view=attention&outreach=o1&panel=assessment")), "/sales-intelligence/outreach/o1?tab=analysis#scores");
+  assert.equal(legacyDeepLinkRedirect(new URLSearchParams("outreach=o1&panel=analysis&analysis_run=r9")), "/sales-intelligence/outreach/o1?tab=analysis&run=r9#full-output");
+  assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "analysis" }), "/sales-intelligence/outreach/o1?tab=analysis#full-output");
   assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "activity" }), "/sales-intelligence/outreach/o1?tab=timeline");
   assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "work" }), "/sales-intelligence/outreach/o1?tab=work");
   assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "summary" }), "/sales-intelligence/outreach/o1");
   assert.equal(legacyDeepLinkRedirect({ outreach: ["o1", "o2"], panel: "assessment", si_return: "/sales-intelligence?view=closed" }),
-    "/sales-intelligence/outreach/o1?si_return=%2Fsales-intelligence%3Fview%3Dclosed#scores");
-  assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "assessment", si_return: "https://evil.example" }), "/sales-intelligence/outreach/o1#scores");
+    "/sales-intelligence/outreach/o1?tab=analysis&si_return=%2Fsales-intelligence%3Fview%3Dclosed#scores");
+  assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "assessment", si_return: "https://evil.example" }), "/sales-intelligence/outreach/o1?tab=analysis#scores");
   // No outreach → null (a Lead-only link resolves in the browser); outreach without panel → the desk's side dialog.
   assert.equal(legacyDeepLinkRedirect(new URLSearchParams("view=attention&lead=l1&lead_model=FormLead&panel=assessment")), null);
   assert.equal(legacyDeepLinkRedirect(new URLSearchParams("view=attention&outreach=o1")), null);
@@ -293,7 +293,7 @@ test("trap 5: legacyDeepLinkRedirect", () => {
 test("FIX-UI1 M1 (A20): the route's deep-link rule table", () => {
   const p = (q: string) => new URLSearchParams(q);
   // outreach= + panel= → server redirect (unchanged).
-  assert.deepEqual(deskRouteDecision(p("outreach=o1&panel=assessment")), { kind: "redirect", href: "/sales-intelligence/outreach/o1#scores" });
+  assert.deepEqual(deskRouteDecision(p("outreach=o1&panel=assessment")), { kind: "redirect", href: "/sales-intelligence/outreach/o1?tab=analysis#scores" });
   // Lead-only analysis links → the browser resolver, with the tab/run/anchor the route needs.
   const assessment = deskRouteDecision(p("lead=l1&lead_model=FormLead&panel=assessment"));
   assert.equal(assessment.kind, "resolve-lead");

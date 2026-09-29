@@ -30,11 +30,12 @@ export function MyWorkloadView({ row }: { row: NonNullable<Awaited<ReturnType<ty
   return <section className="si-myworkload" aria-label={t.myWorkload}><h2>{t.myWorkload}</h2><div>{items.map(([label, metric, value]) => <Link key={label} href={href(metric)}><strong>{value}</strong><span>{label}</span></Link>)}</div></section>;
 }
 
-export function MyWorkload() {
+export function MyWorkload({ priority = [] }: { priority?: readonly string[] }) {
   const viewer = useViewer();
-  const team = useQuery({ queryKey: teamOverviewKey([]), queryFn: ({ signal }) => readTeamOverview([], signal), retry: false, enabled: viewer.role === "rep", refetchInterval: 60_000 });
+  const team = useQuery({ queryKey: teamOverviewKey(priority), queryFn: ({ signal }) => readTeamOverview(priority, signal), retry: false, enabled: viewer.role === "rep", refetchInterval: 60_000 });
   const row = team.data?.data.rows.find((item) => item.agent.id === viewer.agentId);
+  if (team.isSuccess && team.data.data.status !== "ready") return <section className="si-myworkload" aria-label={t.myWorkload}><h2>{t.myWorkload}</h2><p role="status">{team.data.data.status === "pending_projection" ? copy.oi.overview.preparing : copy.oi.overview.notAvailable}</p><button type="button" onClick={() => void team.refetch()}>Retry workload</button></section>;
   if (!row) return <section className="si-myworkload" aria-label={t.myWorkload}><h2>{t.myWorkload}</h2><p>{team.isPending ? "Loading workload…" : t.notCaptured}</p>{team.isError && <button type="button" onClick={() => void team.refetch()}>Retry workload</button>}</section>;
   if (team.data?.data.status !== "ready") return <section className="si-myworkload" aria-label={t.myWorkload}><h2>{t.myWorkload}</h2><p>{t.notCaptured}</p></section>;
-  return <MyWorkloadView row={row} />;
+  return <>{team.isError && <p role="status" className="si-desk__notice">Could not refresh workload. Showing the previous snapshot. <button type="button" onClick={() => void team.refetch()}>Retry workload</button></p>}<MyWorkloadView row={row} /></>;
 }

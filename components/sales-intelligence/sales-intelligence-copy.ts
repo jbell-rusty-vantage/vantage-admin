@@ -37,6 +37,7 @@ export const copy = {
     },
     /* OI-A5 overview */
     overview: {
+      preparing: "Preparing Outreach", notAvailable: "Not available yet",
       title: "Outreach Intelligence — Overview", updated: "Updated", attention: "Attention now", allOutreach: "Open All Outreach", captureProblem: "Capture needs attention. Recent activity may be incomplete.", checkCoverage: "Check coverage",
       overdue: "Records with overdue follow-ups", firstCall: "Awaiting first call", unassigned: "Unassigned", needsReview: "Needs review",
       workload: "Team workload", myWorkload: "My workload", myActivity: "My activity", myOutcomes: "My Lead outcomes", workloadNow: "now", priority: "Granot Priority", all: "All", otherCode: "Other code", add: "Add", searchRep: "Search rep", showing: (shown: number, total: number) => `Showing ${shown} of ${total} reps`,

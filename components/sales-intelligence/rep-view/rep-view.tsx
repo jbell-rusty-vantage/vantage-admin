@@ -61,12 +61,14 @@ export function RepView({ state, query, children }: { state: DeskUrlState; query
   const canonicalHref = baseMetric ? repCanonicalHref(state, query, baseMetric) : null;
   useEffect(() => { if (canonicalHref) router.replace(canonicalHref, { scroll: false }); }, [canonicalHref, router]);
   if (!id || !/^[a-f\d]{24}$/i.test(id)) return <p role="status" className="si-desk__notice">{t.unavailable} <Link href="/sales-intelligence">{t.back}</Link></p>;
+  if (team.isSuccess && team.data.data.status !== "ready") return <section className="si-repview__header"><p role="status">{team.data.data.status === "pending_projection" ? copy.oi.overview.preparing : copy.oi.overview.notAvailable}</p><button type="button" onClick={() => void team.refetch()}>Retry workload</button><Link href="/sales-intelligence">{t.back}</Link></section>;
   if (team.isSuccess && !row) return <p role="status" className="si-desk__notice">{t.unavailable} <Link href="/sales-intelligence">{t.back}</Link></p>;
   const activityRow = activity.data?.data.by_rep.find((item) => item.agent_id === id) ?? null;
   const overviewParams = new URLSearchParams();
   for (const value of state.priority) overviewParams.append("priority", value);
   const overviewHref = overviewParams.size ? `/sales-intelligence?${overviewParams.toString()}` : "/sales-intelligence";
   return <div className="si-repview">
+    {team.isError && row && <p role="status" className="si-desk__notice">Could not refresh workload. Showing the previous snapshot. <button type="button" onClick={() => void team.refetch()}>Retry workload</button></p>}
     {row ? <><RepViewHeader row={row} selected={selected} activeWork={state.work} snapshotId={state.snapshot_id} latestSnapshotId={team.data?.data.snapshot_id ?? null} activity={activityRow} overviewHref={overviewHref} />{activity.isError && <p role="status" className="si-desk__notice">{t.notCaptured} <button type="button" onClick={() => void activity.refetch()}>Retry activity</button></p>}</> : <header className="si-repview__header"><Link href={overviewHref}>← {t.back}</Link><p role="status">{team.isError ? t.notCaptured : "Loading rep workload…"}</p>{team.isError && <button type="button" onClick={() => void team.refetch()}>Retry workload</button>}</header>}
     {canonicalHref ? <p role="status" className="si-desk__notice">Loading counted Outreach for this rep…</p> : row ? children(row) : null}
   </div>;

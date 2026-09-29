@@ -244,7 +244,7 @@ function DeskList({ view, state, query, update, pending, userId, repView = false
           <PresetArea view={view} params={params} value={preset.value} onChange={preset.setValue} />
         </Region>}
       <WithRailReps rosterAvailable={capabilities?.roster === true}>{(reps) => <SearchControls state={state} onChange={update} reps={reps} capabilities={capabilities} rep={rep} closed={view === "closed"} />}</WithRailReps>
-      {rep && !repView && <MyWorkload />}
+      {rep && !repView && view === "all_outreach" && <MyWorkload priority={state.priority} />}
       {view !== "closed" && !rep && !repView && (blocked ? <MetricsStripView metrics={null} asOf={asOf} /> :
         <Region key={`metrics-${regionKey}`} name="metrics" className="si-desk__metrics" skeleton={<MetricsStrip.Skeleton />} onRetry={reset(siKeys.attention(params))}>
           <MetricsStrip params={params} onApply={onTile} />

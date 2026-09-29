@@ -43,6 +43,7 @@ test("pending team and missing capture never print zero as a substitute", () => 
   const words = visible(render(TEAM_PENDING_C, ACTIVITY_MISSING_C));
   assert.ok(words.includes("Not captured"));
   assert.ok(words.includes("No team data yet"));
+  assert.ok(words.includes("Preparing Outreach"));
   assert.ok(!words.includes("0 records with overdue follow-ups"));
 });
 

@@ -6,7 +6,7 @@
  *   and a Lead-only link (`lead=&lead_model=`) resolves in the browser through `outreach/by-lead` (trap 4).
  * - `panel=assessment` → `#scores`; `panel=analysis` → `#full-output`, with `run=` from `analysis_run=`;
  *   `panel=activity` → the Timeline tab; `panel=work` / `panel=matches` → the Work tab; `panel=summary` and any
- *   other value → the route's default tab (Analysis).
+ *   other value → the route's default tab (Case File).
  * - `si_return=` rides along, so the route's back link still returns where the Owner came from.
  */
 import { deepLinkTarget, type DeepLinkTarget } from "../outreach/deep-links";
@@ -20,7 +20,7 @@ function first(params: SearchParamsInput, key: string): string | null {
   return typeof one === "string" && one.trim() ? one.trim() : null;
 }
 
-const TAB_FOR_PANEL: Record<string, string> = { activity: "timeline", work: "work", matches: "work" };
+const TAB_FOR_PANEL: Record<string, string> = { assessment: "analysis", analysis: "analysis", activity: "timeline", work: "work", matches: "work" };
 
 export function legacyDeepLinkRedirect(searchParams: SearchParamsInput): string | null {
   const outreach = first(searchParams, "outreach");
