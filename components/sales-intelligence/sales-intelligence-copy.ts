@@ -35,6 +35,18 @@ export const copy = {
       unknownDate: "Move date unknown", unknownRoute: "Route unknown", unknownSize: "Not on file", noEstimate: "No estimate yet", unknownPriority: "Not on file",
       work: "Work", nextStep: "Next step", otherFollowups: "Other open follow-ups", reviews: "Needs review", restrictions: "Restrictions", corrections: "Corrections", messages: "Message rep", ownerMessages: "Messages from the Owner", noNextStep: "No next step", compareSources: "Compare sources", leadAndGranot: "Lead and Granot", latestSummary: "Latest summary", fromAnalysis: "From the latest analysis", noSummary: "No analysis summary yet.", openAnalysis: "Open Analysis", workForPromise: "Visible because you promised a follow-up",
     },
+    /* OI-A5 overview */
+    overview: {
+      title: "Outreach Intelligence — Overview", updated: "Updated", attention: "Attention now", allOutreach: "Open All Outreach", captureProblem: "Capture needs attention. Recent activity may be incomplete.", checkCoverage: "Check coverage",
+      overdue: "Records with overdue follow-ups", firstCall: "Awaiting first call", unassigned: "Unassigned", needsReview: "Needs review",
+      workload: "Team workload", myWorkload: "My workload", myActivity: "My activity", myOutcomes: "My Lead outcomes", workloadNow: "now", priority: "Granot Priority", all: "All", otherCode: "Other code", add: "Add", searchRep: "Search rep", showing: (shown: number, total: number) => `Showing ${shown} of ${total} reps`,
+      rep: "Rep", assigned: "Assigned", withOverdue: "With overdue", dueToday: "Due today", noNext: "No next step", followups: "Follow-ups (theirs)",
+      actionsOnRecords: (actions: number, records: number) => `${actions} on ${records} ${records === 1 ? "record" : "records"}`, noFollowups: "No follow-ups",
+      overdueActions: (actions: number) => `${actions} overdue`, inactiveWork: "inactive, has work", noAssigned: "No assigned Outreach", blocked: "Blocked", noTeam: "No team data yet", unassignedRow: "Unassigned",
+      activity: "Activity", conversations: "Conversations", attempts: "Outbound attempts", byRep: "By rep", unmappedConversations: "conversations not matched to a rep", unmappedAttempts: "outbound attempts not matched to a rep", notMapped: "Identity mapping", reviewIdentity: "Review identity", notCaptured: "Not captured", partial: "Partial capture", missing: "Missing capture", complete: "Complete capture",
+      outcomes: "Lead outcomes", leads: "Leads received", quoted: "Quoted", officialBooking: "With official Booking", bookedGranot: "Booked in Granot", observedThrough: "Observed through", costDetail: "Cost detail", deskHealth: "Desk health", unavailable: "—",
+      period: "Period", cohort: "Cohort", from: "From", through: "Through", apply: "Apply", rangeIncomplete: "Choose both dates.", rangeInvalid: "Enter valid calendar dates.", rangeOrder: "Through must be on or after From.", rangeTooLong: "Choose no more than 92 days, including both dates.", periodNames: { today: "Today", yesterday: "Yesterday", last_7_days: "Last 7 days", this_week: "This week", last_30_days: "Last 30 days", this_month: "This month", custom: "Custom" } as Record<string, string>,
+    },
   },
   page: {
     title: "Sales Intelligence",

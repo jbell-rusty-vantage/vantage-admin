@@ -297,10 +297,10 @@ function OtherView({ view, slot }: { view: Exclude<PageView, DeskView>; slot?: R
   const rep = useIsRep();
   if (slot !== undefined) return <Region className="si-desk__other" name={`view-${view}`} skeleton={<SkeletonLines lines={6} />}>{slot}</Region>;
   // UI2-SHELL: a rep reaches only Overview (its slot) and Guide here; the Owner-only fallbacks never mount for a rep.
-  if (rep) return <Region className="si-desk__other" name={`view-${view}`} skeleton={<SkeletonLines lines={6} />}>{view === "guide" ? <RepGuide topic={params.get("topic")} /> : <SkeletonLines lines={6} />}</Region>;
+  if (rep) return <Region className="si-desk__other" name={`view-${view}`} skeleton={<SkeletonLines lines={6} />}>{view === "guide" ? <RepGuide topic={params.get("topic")} withHealth /> : <SkeletonLines lines={6} />}</Region>;
   const body =
     view === "coverage" ? <CoverageView /> :
-    view === "guide" ? <GuideView topic={params.get("topic")} /> :
+    view === "guide" ? <GuideView topic={params.get("topic")} withHealth /> :
     view === "reps" ? <Reps params={new URLSearchParams(params.toString())} update={update} /> :
     <SkeletonLines lines={6} />;
   return <Region className="si-desk__other" name={`view-${view}`} skeleton={<SkeletonLines lines={6} />}>{body}</Region>;
