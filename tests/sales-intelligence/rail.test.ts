@@ -38,7 +38,7 @@ test("the rail renders each region as an open disclosure with the §7.3 controls
   assert.equal((html.match(/class="si-disclosure is-open si-rail__region"/g) ?? []).length, 5);
   assert.equal((html.match(/aria-expanded="true"/g) ?? []).length, 5);
   for (let n = 1; n <= 7; n += 1) assert.ok(html.includes(`data-rail-option="band:${n}"`), `band ${n}`);
-  assert.ok(html.includes("Band 1 · Promised callbacks overdue") && html.includes("Needs review"));
+  assert.ok(html.includes("Promised callbacks overdue · Band 1") && html.includes("Needs review"));
   for (const label of ["Unworked", "Open", "Waiting on customer", "Identity review"]) assert.ok(html.includes(`>${label}<`), label);
   assert.ok(!html.includes("Rep replied"), "no Rep replied chip until UI-4");
   assert.ok(html.includes(">Any rep<") && html.includes(">Dana Reyes<") && html.includes(">Unassigned<"));
@@ -75,7 +75,7 @@ test("activeFilterChips: labels from copy, one chip per value, remove() applies 
   const patches: RailPatch[] = [];
   const chips = activeFilterChips(v, outreachRegions("attention"), REPS, { asOf: AS_OF, onChange: (p) => patches.push(p) });
   assert.deepEqual(chips.map((c) => c.label), [
-    "Band 1 · Promised callbacks overdue", "Band 7 · Going cold", "Needs review", "Waiting on customer", "Involved: Dana Reyes",
+    "Promised callbacks overdue · Band 1", "Going cold · Band 7", "Needs review", "Waiting on customer", "Involved: Dana Reyes",
     "Has assessment", "Newer call since assessment", "Transaction intent at least 25", "Move likelihood at least 75",
     "Lead received last 24h", "Move date within 30d",
   ]);

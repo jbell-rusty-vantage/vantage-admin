@@ -57,7 +57,7 @@ test("band tokens in the CSS match BAND_COLORS and every fg/bg pair reaches WCAG
 test("BandBadge: tag, header with count, needs review, and the null band", () => {
   const tag = render(BandBadge, { band: 1, variant: "tag" });
   assert.match(tag, /si-bandbadge--1/);
-  assert.match(text(tag), new RegExp(`^1 Band 1 · ${BANDS[1]}$`));
+  assert.match(text(tag), new RegExp(`^1 ${BANDS[1]} · Band 1$`));
   const header = render(BandBadge, { band: 4, variant: "header", count: 1234 });
   assert.match(header, /<h3 class="si-bandhead__name">/);
   assert.match(header, new RegExp(BANDS[4]));

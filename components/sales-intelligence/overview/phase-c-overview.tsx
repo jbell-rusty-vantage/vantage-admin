@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ActivityOverview, OutcomesOverview, TeamOverview } from "@/lib/api/salesIntelligenceOverview";
 import { useActivityOverview, useOutcomesOverview, useTeamOverview, activityOverviewKey, outcomesOverviewKey, teamOverviewKey } from "../data/use-team-overview";
 import { useOverview } from "../data/use-overview";
+import { useDeskUrlState } from "../data/use-url-state";
 import { siKeys } from "../data/query-keys";
 import { useReportAsOf } from "../data/live";
 import { useLiveHealth } from "../data/live/use-live-health";
@@ -68,7 +69,9 @@ export function Overview({ userId: _userId }: { userId?: string | null }) {
   const rep = useIsRep();
   const health = useLiveHealth({ enabled: !rep });
   const client = useQueryClient();
-  const [priority, setPriority] = useState<string[]>([]);
+  const { state, update } = useDeskUrlState();
+  const priority = state.priority;
+  const setPriority = (next: string[]) => update({ priority: next });
   const [activity, setActivity] = useState<PeriodChoice>({ key: "today", from: null, through: null });
   const [cohort, setCohort] = useState<PeriodChoice>({ key: "last_7_days", from: null, through: null });
   return <div className="si-overview si-oi-overview" data-viewer={rep ? "rep" : undefined}>

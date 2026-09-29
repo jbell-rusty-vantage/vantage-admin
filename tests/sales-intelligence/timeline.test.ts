@@ -109,7 +109,7 @@ fixtureTest("A28: routine band_changed sits under Processing details; a call-cau
   assert.ok(/<div id="[^"]+" class="si-disclosure__panel" hidden="">/.test(html));
   const visibleRow = text(rowIn(html, visible.id));
   assert.ok(visibleRow.includes("Moved from band 2 to band 5"), "server title");
-  assert.ok(visibleRow.includes("Moved from Band 2 · No call yet after form submission to Band 5 · Being worked, but no next step · Because of a call"), visibleRow);
+  assert.ok(visibleRow.includes("Moved from No call yet after form submission · Band 2 to Being worked, but no next step · Band 5 · Because of a call"), visibleRow);
   const routineRow = text(rowIn(html, routine.id));
   assert.ok(routineRow.includes("(estimated start) · Because of the starting estimate"), routineRow);
   // S6: the baseline band row is routine, the receiver agent changes are not.

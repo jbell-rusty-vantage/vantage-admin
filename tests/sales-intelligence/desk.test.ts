@@ -172,7 +172,7 @@ fixtureTest("A10: five metric tiles from data.metrics with As of; each applies i
   // The tile's filter shows as a chip (A10): Band 2 after `Not called yet`.
   const state = parseDeskUrl(deskUrlUpdate("view=attention&priority=1", by.notCalled!));
   const chips = activeFilterChips(state, outreachRegions("attention"), [], { asOf: page.as_of });
-  assert.deepEqual(chips.map((c) => c.label), ["Band 2 · " + BANDS[2]]);
+  assert.deepEqual(chips.map((c) => c.label), [BANDS[2] + " · Band 2"]);
   const received = parseDeskUrl(deskUrlUpdate("view=attention", by.leads7d!));
   assert.equal(received.view, "all_outreach");
   assert.deepEqual(activeFilterChips(received, outreachRegions("all_outreach"), [], { asOf: page.as_of }).map((c) => c.label), ["Lead received last 7d"]);
