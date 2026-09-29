@@ -32,7 +32,7 @@ export function metricTiles(metrics: DeskMetrics | null | undefined, asOf: strin
     { id: "leads7d", label: m.leads7d, value: metrics?.leads_received_7d ?? null, secondary: null,
       patch: { view: "all_outreach", received_from: since, received_to: null } },
     { id: "notCalled", label: m.notCalled, value: metrics?.not_called_yet ?? null, secondary: null, patch: { view: "all_outreach", band: ["2"] } },
-    { id: "overdue", label: m.overdue, value: metrics?.callbacks_overdue ?? null, secondary: null, patch: { view: "all_outreach", band: ["1"] } },
+    { id: "overdue", label: m.overdue, value: metrics?.records_with_overdue ?? null, secondary: null, patch: { view: "all_outreach", work: ["overdue_followup"], band: [] } },
     { id: "awaiting", label: m.awaiting, value: metrics?.awaiting_assessment ?? null, secondary: null, patch: { newer_call: true } },
     { id: "booked7d", label: m.booked7d, value: metrics?.booked_7d ?? null, secondary: median != null ? m.median(median) : null,
       patch: { view: "closed", priority: [], outcome: ["booked"], closed_from: closedSince, closed_to: null } },

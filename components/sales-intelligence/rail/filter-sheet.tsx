@@ -20,17 +20,17 @@ import { clearAll } from "./regions";
 const ph = copy.ui2.phone;
 
 /** Shown below 768 px only; `alwaysShown` shows the button at any width (the gallery's 390 px sample). */
-export function FilterSheet({ className, initialOpen = false, alwaysShown = false, ...props }: FilterRailProps & { initialOpen?: boolean; alwaysShown?: boolean }) {
+export function FilterSheet({ className, initialOpen = false, alwaysShown = false, onClearAll, filterCount, ...props }: FilterRailProps & { initialOpen?: boolean; alwaysShown?: boolean; onClearAll?: () => void; filterCount?: number }) {
   const [open, setOpen] = useState(initialOpen);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const n = activeFilterChips(props.value, props.regions, props.reps, { asOf: props.asOf }).length;
+  const n = filterCount ?? activeFilterChips(props.value, props.regions, props.reps, { asOf: props.asOf }).length;
   const close = () => {
     setOpen(false);
     buttonRef.current?.focus();
   };
   const footer = (
     <>
-      <button type="button" className="si-btn si-btn--secondary si-btn--md si-hit" data-action="clear-all" disabled={n === 0} onClick={() => props.onChange(clearAll(props.regions))}>
+      <button type="button" className="si-btn si-btn--secondary si-btn--md si-hit" data-action="clear-all" disabled={n === 0} onClick={onClearAll ?? (() => props.onChange(clearAll(props.regions)))}>
         {ph.clearAll}
       </button>
       <button type="button" className="si-btn si-btn--primary si-btn--md si-hit" data-action="show-results" onClick={close}>

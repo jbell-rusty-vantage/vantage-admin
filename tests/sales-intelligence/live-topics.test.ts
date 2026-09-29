@@ -11,6 +11,8 @@ import { assessmentQueryKey } from "../../components/sales-intelligence/data/use
  */
 const SAMPLES: Record<SiKeyBuilder, () => readonly unknown[]> = {
   attention: () => siKeys.attention({ view: "attention", priority: ["0", "not_set"] }),
+  attentionCapabilities: () => siKeys.attentionCapabilities(),
+  roster: () => siKeys.roster(),
   overview: () => siKeys.overview({ period: "today" }),
   closedHistory: () => siKeys.closedHistory({ outcome: ["booked"] }),
   outreach: () => siKeys.outreach("o1"),

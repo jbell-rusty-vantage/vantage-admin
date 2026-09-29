@@ -39,15 +39,15 @@ export function attentionListShape(data: { pages: readonly AttentionLikePage[] }
   };
 }
 
-export function useListRefresh<T>(data: T, { key, shape }: { key: string; shape: (data: T) => ListShape }) {
+export function useListRefresh<T>(data: T, { key, shape, hold = false }: { key: string; shape: (data: T) => ListShape; hold?: boolean }) {
   const [accepted, setAccepted] = useState<{ key: string; data: T }>({ key, data });
   let current = accepted;
   // Adjust during render (React's documented pattern for state derived from props): a new key, or a change that
   // keeps the order and count, is taken at once. Guarded, so it settles after one extra render.
-  if (accepted.key !== key || (accepted.data !== data && !listChanged(shape(accepted.data), shape(data)))) {
+  if (!hold && (accepted.key !== key || (accepted.data !== data && !listChanged(shape(accepted.data), shape(data))))) {
     current = { key, data };
     setAccepted(current);
   }
   const apply = useCallback(() => setAccepted({ key, data }), [key, data]);
-  return { shown: current.data, pending: current.data !== data, apply };
+  return { shown: current.data, pending: !hold && current.data !== data, held: hold && current.data !== data, apply };
 }

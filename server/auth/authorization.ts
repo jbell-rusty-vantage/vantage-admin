@@ -84,6 +84,8 @@ const OBJECT_ID = "[a-f\\d]{24}";
  */
 const REP_PROXY_ROUTES: ReadonlyArray<{ method: VantageApiMethod; pattern: RegExp }> = [
   { method: "GET", pattern: new RegExp(`^${CSI_API}/attention$`) },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/attention/capabilities$`) },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/roster$`) },
   { method: "GET", pattern: new RegExp(`^${CSI_API}/overview$`) },
   { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/closed-history$`) },
   { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/${OBJECT_ID}$`) },

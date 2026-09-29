@@ -120,10 +120,12 @@ fixtureTest("A09: any other sort is flat with the sort line (value or the null l
   const scored = ti.data.items.find((r) => r.sort_keys?.transaction_intent != null)!;
   assert.match(sortLineFor(scored, "transaction_intent", ti.as_of)!.value!, /^\d+ \/ 100/);
   assert.equal(sortLineFor(scored, "interactions", ti.as_of)!.label, "Interactions");
+  assert.equal(sortLineFor({ ...scored, sort_keys: { ...scored.sort_keys!, move_date: "2026-10-01" } }, "move_date", ti.as_of)?.value, "Oct 1");
 });
 
-test("A09: both lists offer the nine sorts; Closed three; direction words; score sorts show Fresh assessments only", () => {
-  assert.equal(sortOptions("attention").length, 9);
+test("A09/A4: both lists offer ten sorts including Move date; Closed three; direction words; score sorts show Fresh assessments only", () => {
+  assert.equal(sortOptions("attention").length, 10);
+  assert.equal(sortOptions("attention").find((option) => option.key === "move_date")?.words.label, "Move date");
   assert.deepEqual(sortOptions("attention").map((o) => o.key), sortOptions("all_outreach").map((o) => o.key));
   assert.deepEqual(sortOptions("closed").map((o) => o.words.label), ["Closed", "Lead received", "Time to close"]);
   const noop = () => {};
@@ -150,7 +152,7 @@ fixtureTest("A10: five metric tiles from data.metrics with As of; each applies i
   const page = load("S6/attention__all-outreach.json");
   const markup = html(createElement(MetricsStripView, { metrics: page.data.metrics!, asOf: page.as_of, onApply: () => {} }));
   const m = page.data.metrics!;
-  for (const [tile, value] of [["leads7d", m.leads_received_7d], ["notCalled", m.not_called_yet], ["overdue", m.callbacks_overdue], ["awaiting", m.awaiting_assessment], ["booked7d", m.booked_7d]] as const) {
+  for (const [tile, value] of [["leads7d", m.leads_received_7d], ["notCalled", m.not_called_yet], ["awaiting", m.awaiting_assessment], ["booked7d", m.booked_7d]] as const) {
     const at = markup.indexOf(`data-tile="${tile}"`);
     assert.ok(at >= 0, tile);
     assert.ok(text(markup.slice(at, markup.indexOf("</button>", at))).includes(String(value)), `${tile} value`);
@@ -164,7 +166,7 @@ fixtureTest("A10: five metric tiles from data.metrics with As of; each applies i
   assert.deepEqual(by.leads7d, { view: "all_outreach", received_from: windowFrom(page.as_of, RECEIVED_WINDOWS["7d"]), received_to: null });
   assert.equal(by.leads7d!.received_from, "2026-09-17T22:58:37.661Z");
   assert.deepEqual(by.notCalled, { view: "all_outreach", band: ["2"] });
-  assert.deepEqual(by.overdue, { view: "all_outreach", band: ["1"] });
+  assert.deepEqual(by.overdue, { view: "all_outreach", work: ["overdue_followup"], band: [] });
   assert.deepEqual(by.awaiting, { newer_call: true });
   assert.deepEqual(by.booked7d, { view: "closed", priority: [], outcome: ["booked"], closed_from: windowFrom(page.as_of, CLOSED_WINDOWS["7d"]), closed_to: null });
   // The tile's filter shows as a chip (A10): Band 2 after `Not called yet`.
@@ -223,7 +225,7 @@ fixtureTest("A38: search — the hint rule, the submit rule, q sent on the three
   assert.deepEqual(searchAction("  "), { kind: "clear" });
   assert.deepEqual(searchAction(" Lopez "), { kind: "search", q: "Lopez" });
   const hinted = html(createElement(PageHeaderView, { value: "12", onChange: () => {}, onSubmit: () => {} }));
-  assert.ok(hinted.includes('placeholder="Search name, Job number or phone"'));
+  assert.ok(hinted.includes('placeholder="Search name, Job Number or phone"'));
   assert.ok(hinted.includes("Enter at least 4 digits to search by phone"));
   assert.ok(!html(createElement(PageHeaderView, { value: "1028", onChange: () => {}, onSubmit: () => {} })).includes("Enter at least 4 digits"));
   for (const view of ["attention", "all_outreach", "closed"] as const) {

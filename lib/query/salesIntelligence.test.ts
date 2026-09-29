@@ -14,8 +14,8 @@ const change = (topics: string[]) => ({ version: 2, reason: "change", topics, as
 const segments = (keys: readonly (readonly string[])[]) => keys.map((key) => key[1] ?? "*").sort();
 
 test("a change frame invalidates only the query keys its topics can change", () => {
-  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention", "closed-history", "overview"]);
-  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["rep"]))), ["nudge-destinations", "reps"]);
+  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention", "attention-capabilities", "closed-history", "overview", "roster"]);
+  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["rep"]))), ["nudge-destinations", "reps", "roster"]);
   assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["outreach"]))), [
     "assessment", "closed-history", "number", "outreach", "outreach-by-lead", "overview", "timeline",
   ]);
@@ -43,7 +43,7 @@ test("record writes do not restart the published attention list", () => {
   for (const topic of ["outreach", "attachment", "number", "review", "restriction", "analysis", "rep", "nudge"]) {
     assert.equal(segments(salesIntelligenceInvalidationKeys(change([topic]))).includes("attention"), false, topic);
   }
-  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention", "closed-history", "overview"]);
+  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention", "attention-capabilities", "closed-history", "overview", "roster"]);
 });
 
 test("anything we cannot narrow honestly resyncs the whole tree", () => {

@@ -24,7 +24,7 @@ import { useAttentionList } from "../data/use-attention";
 import { type DeskUrlPatch, type DeskUrlState } from "../data/url-state";
 import { BandBadge, CardShellSkeleton, Region, RegionProgress, type BandNumber } from "../primitives";
 import { copy } from "../sales-intelligence-copy";
-import { formatRelative } from "../lib/time";
+import { formatDate, formatRelative, formatTimeOnly } from "../lib/time";
 import { cx } from "../lib/format";
 import { StaleBanner } from "./stale-banner";
 import { saveReturnMemory, takeReturnMemory, totalReturnPages, totalReturnRows } from "./return-memory";
@@ -50,6 +50,7 @@ export function sortLineFor(row: AttentionRow, sort: string, asOf: string): Sort
     const level = sort === "transaction_intent" ? a?.transaction_intent_level_label : a?.move_likelihood_level_label;
     return { label: words.label, value: level ? `${raw} / 100 · ${level}` : `${raw} / 100`, nullLabel };
   }
+  if (sort === "move_date") return { label: words.label, value: formatDate(String(raw), asOf), nullLabel };
   if (typeof raw === "number") return { label: words.label, value: raw.toLocaleString("en-US"), nullLabel };
   return { label: words.label, value: formatRelative(String(raw), asOf), nullLabel };
 }
@@ -91,6 +92,7 @@ export type ListViewProps = {
   sort: string;
   q: string | null;
   totalItems: number | null;
+  emptyOverride?: string;
   stale: boolean;
   hasMore: boolean;
   loadingMore?: boolean;
@@ -165,16 +167,17 @@ export function LoadMore({ hasMore, loading, failed, onLoadMore, label = d.loadM
   );
 }
 
-export function OutreachListView({ view, rows, asOf, sort, q, totalItems, stale, hasMore, loadingMore, loadMoreFailed, onLoadMore, renderCard, top, end }: ListViewProps) {
+export function OutreachListView({ view, rows, asOf, sort, q, totalItems, emptyOverride, stale, hasMore, loadingMore, loadMoreFailed, onLoadMore, renderCard, top, end }: ListViewProps) {
   const card = renderCard ?? defaultCard(view, sort, asOf);
   const grouped = view !== "closed" && sort === "attention";
   return (
     <div className="si-desk__listbody" data-layout={grouped ? "grouped" : "flat"} data-view={view}>
       {stale && <StaleBanner asOf={asOf} />}
       <ListHeading view={view} count={resultsText(totalItems, q)} />
+      {totalItems != null && <p className="si-desk__asof">as of {formatTimeOnly(asOf)}</p>}
       {top}
       {rows.length === 0 ? (
-        <p className="si-desk__empty" data-empty>{emptyText(view, q)}</p>
+        <p className="si-desk__empty" data-empty>{emptyOverride ?? emptyText(view, q)}</p>
       ) : grouped ? (
         groupByBand(rows).map((group, index) => (
           <section key={`${group.key}-${index}`} className="si-desk__group" data-band={group.band ?? group.key}>
@@ -248,8 +251,9 @@ export function OutreachList({ view, params, pending, returnTo }: OutreachListPr
   const requestKey = attentionQuery(params).toString();
   const [resetForKey, setResetForKey] = useState<string | null>(null);
   const resetToFirst = resetForKey === requestKey;
+  const pendingProjection = list.status === "pending_projection" && list.data.pages[0]?.data.pending_reason === "snapshot_missing_query_keys";
   const refreshData = useMemo(() => resetToFirst ? { ...list.data, pages: list.data.pages.slice(0, 1), pageParams: list.data.pageParams.slice(0, 1) } : list.data, [list.data, resetToFirst]);
-  const refresh = useListRefresh(refreshData, { key: `${requestKey}|${resetToFirst ? "return-first" : "normal"}`, shape: attentionListShape });
+  const refresh = useListRefresh(refreshData, { key: `${requestKey}|${pendingProjection ? "pending" : resetToFirst ? "return-first" : "normal"}`, shape: attentionListShape, hold: pendingProjection });
   const [messaging, setMessaging] = useState<AttentionRow | null>(null);
   const [missingNotice, setMissingNotice] = useState(false);
   const { shown, pending: refreshPending, apply: applyRefresh } = refresh;
@@ -262,6 +266,7 @@ export function OutreachList({ view, params, pending, returnTo }: OutreachListPr
     if (restore.current === undefined) restore.current = takeReturnMemory(returnTo);
     const memory = restore.current;
     if (!memory) return;
+    if (pendingProjection) return;
     if (totalReturnPages(memory) > 4 || totalReturnRows(memory) > 200) {
       client.setQueryData(siKeys.attention(params), { ...list.data, pages: list.data.pages.slice(0, 1), pageParams: list.data.pageParams.slice(0, 1) });
       requestAnimationFrame(() => setResetForKey(requestKey));
@@ -285,7 +290,7 @@ export function OutreachList({ view, params, pending, returnTo }: OutreachListPr
       window.setTimeout(() => card.classList.remove("is-return-focus"), 1500);
     } else setMissingNotice(true);
     restore.current = null;
-  }, [shown.pages.length, list, client, params, returnTo, refreshPending, applyRefresh, requestKey]);
+  }, [shown.pages.length, list, client, params, returnTo, refreshPending, applyRefresh, requestKey, pendingProjection]);
   const onNavigate = (row: AttentionRow) => {
     if (!row.outreach) return;
     saveReturnMemory(returnTo, { scrollTop: document.querySelector<HTMLElement>(".si-desk__content")?.scrollTop ?? 0, outreachId: row.outreach.id, pagesLoaded: shown.pages.length, rowsLoaded: rows.length });
@@ -297,15 +302,16 @@ export function OutreachList({ view, params, pending, returnTo }: OutreachListPr
         view={view}
         rows={rows}
         asOf={asOf}
-        sort={sort}
+        sort={pendingProjection && refresh.held ? first.data.sort ?? sort : sort}
         q={params.q ?? null}
-        totalItems={first.data.total_items}
+        totalItems={pendingProjection ? null : first.data.total_items}
+        emptyOverride={pendingProjection ? "Results are not available until the next publish." : undefined}
         stale={first.data.stale ?? false}
-        hasMore={!refreshPending && list.hasNextPage}
+        hasMore={!pendingProjection && !refreshPending && list.hasNextPage}
         loadingMore={list.isFetchingNextPage}
         loadMoreFailed={list.isFetchNextPageError}
         onLoadMore={() => { setResetForKey(null); void list.fetchNextPage(); }}
-        top={<>{missingNotice && <p role="status">{copy.oi.card.noLongerMatches}</p>}{refreshPending && <UpdatedListPill onShow={applyRefresh} />}</>}
+        top={<>{pendingProjection && <p role="status" className="si-desk__notice">{refresh.held ? "New filters are awaiting the next publish. Showing previous results; these rows and their count are not results for the current filters." : "These filters are awaiting the next publish. Results are not available yet."}</p>}{missingNotice && <p role="status">{copy.oi.card.noLongerMatches}</p>}{refreshPending && <UpdatedListPill onShow={applyRefresh} />}</>}
         renderCard={(row, layout) => (
           <DeskCard row={row} layout={layout} view={view} sort={sort} asOf={asOf} returnTo={returnTo} onNavigate={onNavigate} onMessage={setMessaging} />
         )}

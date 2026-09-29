@@ -1804,6 +1804,35 @@ span.si-evidence__none { display: inline-flex; align-items: center; min-height: 
 .si-outreachcard.is-return-focus { outline: 2px solid var(--si-focus); outline-offset: 2px; }
 .si-outreachcard .si-tiles { pointer-events: none; }
 .si-cardshell.is-openable.si-outreachcard .si-cardshell__lines .si-tiles .si-tile { pointer-events: none; }
+
+/* OI-A4 search */
+.si-desk__asof { margin: -4px 0 6px; color: var(--si-ink-3); font-size: 12px; }
+.si-presetbar__title { color: var(--si-ink-2); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.si-searchcontrols { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 14px; padding: 12px; border: 1px solid var(--si-line); border-radius: var(--si-r-lg); background: var(--si-surface); min-width: 0; }
+.si-searchctl { display: flex; flex-direction: column; gap: 4px; min-width: min(100%, 150px); color: var(--si-ink-2); font-size: 13px; font-weight: 600; }
+.si-searchctl .si-input, .si-searchctl .si-select { min-height: var(--si-hit); max-width: 100%; }
+.si-searchctl small { color: var(--si-ink-3); font-weight: 400; }
+.si-searchctl__location, .si-searchctl__draft { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; }
+.si-searchctl__location { flex-direction: row; max-width: 100%; }
+.si-searchctl__location > span { flex-basis: 100%; }
+.si-searchctl__location input { width: 110px; }
+.si-searchctl__location select { width: 106px; }
+.si-searchctl__draft { padding: 6px 0; }
+.si-searchctl__draft label { display: flex; flex-direction: column; gap: 3px; }
+.si-searchctl__followup { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; border: 0; padding: 0; margin: 0; }
+.si-searchctl__followup legend { padding: 0; }
+.si-searchctl__followup .si-check { min-height: var(--si-hit); }
+.si-searchctl__more { flex-basis: 100%; }
+.si-searchctl__more summary { min-height: var(--si-hit); cursor: pointer; color: var(--si-blue); }
+.si-searchctl__more[open] { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; }
+.si-searchctl__more label { display: flex; flex-direction: column; gap: 3px; }
+@media (max-width: 767px) {
+  .si-presetbar { flex-wrap: wrap; overflow-x: visible; }
+  .si-presetbar .si-seg { flex-wrap: wrap; }
+  .si-presetbar__title { flex-basis: 100%; }
+  .si-searchcontrols { padding: 10px; }
+  .si-searchctl__location input, .si-searchctl__location select { flex: 1 1 90px; }
+}
 .si-desk__cards { gap: 10px; }
 @media (max-width: 560px) { .si-outreachcard .si-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 /* OI-A3 page */

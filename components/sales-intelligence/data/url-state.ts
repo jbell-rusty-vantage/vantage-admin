@@ -43,6 +43,11 @@ export type DeskUrlState = {
   state: string[];
   agent_id: string[];
   unassigned: boolean;
+  assigned_agent_id: string[]; assignment: "unassigned" | null; followup_agent_id: string[];
+  relationship: "assigned" | "followup" | "involved" | null; agent: string | null;
+  work: string[]; move_date_mode: string | null; move_days: number | null; move_on: string | null; move_from: string | null; move_through: string | null;
+  loc_side: "either" | "pickup" | "delivery" | null; loc_city: string | null; loc_state: string | null; loc_zip: string | null;
+  snapshot_id: string | null;
   priority: string[];
   attachment: "lead" | "none" | null;
   has_recording: boolean;
@@ -69,13 +74,24 @@ export type DeskUrlState = {
 };
 export type DeskUrlPatch = Partial<Omit<DeskUrlState, "lead" | "lead_model" | "outreach">> & { lead?: string | null; lead_model?: string | null; outreach?: string | null };
 
-const LIST_KEYS = ["band", "state", "agent_id", "priority", "outcome"] as const;
+/** Every filter family, including filters hidden in the current view; view and sort remain untouched. */
+export function clearDeskFilters(): DeskUrlPatch {
+  return { band: [], needs_review: false, state: [], agent_id: [], unassigned: false, priority: [], attachment: null,
+    has_recording: false, has_assessment: false, newer_call: false, ti_min: null, ml_min: null,
+    received_from: null, received_to: null, move_date_within: null, move_date_passed: false,
+    outcome: [], closed_from: null, closed_to: null, freshness: null, q: null, period: null, from: null, to: null,
+    assigned_agent_id: [], assignment: null, followup_agent_id: [], relationship: null, agent: null, work: [],
+    move_date_mode: null, move_days: null, move_on: null, move_from: null, move_through: null,
+    loc_side: null, loc_city: null, loc_state: null, loc_zip: null, snapshot_id: null };
+}
+
+const LIST_KEYS = ["band", "state", "agent_id", "assigned_agent_id", "followup_agent_id", "work", "priority", "outcome"] as const;
 const BOOL_KEYS = ["needs_review", "unassigned", "has_recording", "has_assessment", "newer_call", "move_date_passed"] as const;
-const NUM_KEYS = ["ti_min", "ml_min", "move_date_within"] as const;
-const TEXT_KEYS = ["received_from", "received_to", "closed_from", "closed_to", "q", "period", "from", "to", "lead", "lead_model", "outreach"] as const;
+const NUM_KEYS = ["ti_min", "ml_min", "move_date_within", "move_days"] as const;
+const TEXT_KEYS = ["received_from", "received_to", "closed_from", "closed_to", "q", "period", "from", "to", "lead", "lead_model", "outreach", "move_date_mode", "move_on", "move_from", "move_through", "loc_city", "loc_state", "loc_zip", "agent", "snapshot_id"] as const;
 /** A change to any of these restarts paging (the cursor belongs to the old request). */
 export const RESETS_CURSOR: readonly string[] = ["view", "sort", "direction", "freshness", "attachment", ...LIST_KEYS, ...BOOL_KEYS, ...NUM_KEYS,
-  "received_from", "received_to", "closed_from", "closed_to", "q", "period", "from", "to"];
+  "received_from", "received_to", "closed_from", "closed_to", "q", "period", "from", "to", "move_date_mode", "move_on", "move_from", "move_through", "loc_side", "loc_city", "loc_state", "loc_zip", "assignment", "relationship", "agent", "snapshot_id"];
 export const CURSOR_KEYS = ["cursor", "attention_cursor"] as const;
 
 const num = (value: string | null): number | null => {
@@ -107,6 +123,13 @@ export function parseDeskUrl(params: URLSearchParams, role: UrlRole = "owner"): 
     sort: text(params.get("sort")),
     direction: direction === "asc" || direction === "desc" ? direction : null,
     band: readList(params, "band"), state: readList(params, "state"), agent_id: rep ? [] : readList(params, "agent_id"),
+    assigned_agent_id: rep ? [] : readList(params, "assigned_agent_id"), assignment: rep ? null : params.get("assignment") === "unassigned" ? "unassigned" : null,
+    followup_agent_id: rep ? [] : readList(params, "followup_agent_id"),
+    relationship: rep ? null : (["assigned", "followup", "involved"].includes(params.get("relationship") ?? "") ? params.get("relationship") as DeskUrlState["relationship"] : null),
+    agent: rep ? null : text(params.get("agent")), work: readList(params, "work"),
+    move_date_mode: text(params.get("move_date_mode")), move_days: num(params.get("move_days")), move_on: text(params.get("move_on")), move_from: text(params.get("move_from")), move_through: text(params.get("move_through")),
+    loc_side: (["either", "pickup", "delivery"].includes(params.get("loc_side") ?? "") ? params.get("loc_side") as DeskUrlState["loc_side"] : null),
+    loc_city: text(params.get("loc_city")), loc_state: text(params.get("loc_state")), loc_zip: text(params.get("loc_zip")), snapshot_id: text(params.get("snapshot_id")),
     priority: readList(params, "priority"), outcome: readList(params, "outcome"),
     needs_review: params.get("needs_review") === "true", unassigned: !rep && params.get("unassigned") === "true",
     has_recording: params.get("has_recording") === "true", has_assessment: params.get("has_assessment") === "true",
@@ -140,8 +163,8 @@ export function deskUrlUpdate(current: URLSearchParams | string, patch: DeskUrlP
   const next: DeskUrlPatch = { ...patch };
   if (role === "rep") {
     // A rep never writes a scope (UI-2 §1); a stray one in the address is dropped with the next change.
-    delete next.agent_id; delete next.unassigned;
-    params.delete("agent_id"); params.delete("unassigned");
+    delete next.agent_id; delete next.unassigned; delete next.assigned_agent_id; delete next.assignment; delete next.followup_agent_id; delete next.relationship; delete next.agent;
+    for (const key of ["agent_id", "unassigned", "assigned_agent_id", "assignment", "followup_agent_id", "relationship", "agent"]) params.delete(key);
   }
   if ("view" in patch && patch.view !== before.view && !("sort" in patch)) { next.sort = null; next.direction = null; }
   if ("sort" in patch && patch.sort !== before.sort && !("direction" in patch)) next.direction = null;
@@ -158,10 +181,10 @@ export function deskUrlUpdate(current: URLSearchParams | string, patch: DeskUrlP
 /** The whole state as a query, owned keys only, in a fixed order (for links built from state). */
 export function serializeDeskUrl(state: Partial<DeskUrlState>, role: UrlRole = "owner"): URLSearchParams {
   const params = new URLSearchParams();
-  const order = ["view", "sort", "direction", ...LIST_KEYS, ...BOOL_KEYS, "attachment", ...NUM_KEYS, "freshness", ...TEXT_KEYS] as const;
+  const order = ["view", "sort", "direction", ...LIST_KEYS, ...BOOL_KEYS, "attachment", ...NUM_KEYS, "freshness", "assignment", "relationship", "loc_side", ...TEXT_KEYS] as const;
   for (const key of order) {
     if (!(key in state)) continue;
-    if (role === "rep" && (key === "agent_id" || key === "unassigned")) continue;
+    if (role === "rep" && (["agent_id", "unassigned", "assigned_agent_id", "assignment", "followup_agent_id", "relationship", "agent"].includes(key))) continue;
     write(params, key, key === "view" && state.view === defaultViewFor(role) ? null : state[key as keyof DeskUrlState]);
   }
   return params;
@@ -190,10 +213,14 @@ export function attentionParamsFromDesk(state: DeskUrlState, view: DeskView): At
   return {
     view, sort, direction: state.direction ?? fallback,
     band: closed ? [] : state.band, needs_review: state.needs_review, state: state.state, agent_id: state.agent_id, unassigned: state.unassigned,
+    assigned_agent_id: state.assigned_agent_id, assignment: state.assignment, followup_agent_id: closed ? [] : state.followup_agent_id,
+    relationship: closed ? null : state.relationship, agent: closed ? null : state.agent, work: closed ? [] : state.work,
+    move_date_mode: state.move_date_mode, move_days: state.move_days, move_on: state.move_on, move_from: state.move_from, move_through: state.move_through,
+    loc_side: state.loc_side, loc_city: state.loc_city, loc_state: state.loc_state, loc_zip: state.loc_zip, snapshot_id: closed ? null : state.snapshot_id,
     priority: state.priority, attachment: state.attachment,
     has_recording: state.has_recording, has_assessment: state.has_assessment, newer_call: state.newer_call,
     ti_min: state.ti_min, ml_min: state.ml_min, received_from: state.received_from, received_to: state.received_to,
-    move_date_within: state.move_date_within, move_date_passed: state.move_date_passed,
+    move_date_within: state.move_date_mode ? null : state.move_date_within, move_date_passed: state.move_date_mode ? false : state.move_date_passed,
     outcome: closed ? state.outcome : [], closed_from: closed ? state.closed_from : null, closed_to: closed ? state.closed_to : null,
     freshness: !closed && isScoreSort(sort) && state.freshness === "fresh" ? "fresh" : null,
     q: state.q,
@@ -206,7 +233,10 @@ export function overviewParamsFromDesk(state: DeskUrlState): OverviewParams {
 
 /** Closed history takes the Closed view's outcome / Priority / rep filters (E27). */
 export function closedHistoryParamsFromDesk(state: DeskUrlState): ClosedHistoryParams {
-  return { outcome: state.outcome, priority: state.priority, agent_id: state.agent_id, closed_from: state.closed_from, q: state.q };
+  return { outcome: state.outcome, priority: state.priority, agent_id: state.agent_id, closed_from: state.closed_from, q: state.q,
+    assigned_agent_id: state.assigned_agent_id, assignment: state.assignment,
+    move_date_mode: state.move_date_mode, move_days: state.move_days, move_on: state.move_on, move_from: state.move_from, move_through: state.move_through,
+    loc_side: state.loc_side, loc_city: state.loc_city, loc_state: state.loc_state, loc_zip: state.loc_zip };
 }
 
 /** Trap 4: `?view=attention&lead=&lead_model=` (and `outreach=`) opens All Outreach (UX-C1) with that record's side dialog. */

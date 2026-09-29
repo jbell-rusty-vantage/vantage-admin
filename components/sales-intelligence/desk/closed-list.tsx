@@ -191,8 +191,9 @@ export function ClosedList({ params, history, state, pending, returnTo }: Closed
   const requestKey = attentionQuery(params).toString();
   const [resetForKey, setResetForKey] = useState<string | null>(null);
   const resetToFirst = resetForKey === requestKey;
+  const pendingProjection = list.status === "pending_projection" && list.data.pages[0]?.data.pending_reason === "snapshot_missing_query_keys";
   const refreshData = useMemo(() => resetToFirst ? { ...list.data, pages: list.data.pages.slice(0, 1), pageParams: list.data.pageParams.slice(0, 1) } : list.data, [list.data, resetToFirst]);
-  const refresh = useListRefresh(refreshData, { key: `${requestKey}|${resetToFirst ? "return-first" : "normal"}`, shape: attentionListShape });
+  const refresh = useListRefresh(refreshData, { key: `${requestKey}|${pendingProjection ? "pending" : resetToFirst ? "return-first" : "normal"}`, shape: attentionListShape, hold: pendingProjection });
   const { shown, pending: refreshPending, apply: applyRefresh } = refresh;
   const first = shown.pages[0]!;
   const rows = shown.pages.flatMap((page) => page.data.items);
@@ -205,6 +206,7 @@ export function ClosedList({ params, history, state, pending, returnTo }: Closed
     if (restore.current === undefined) restore.current = takeReturnMemory(returnTo);
     const memory = restore.current;
     if (!memory) return;
+    if (pendingProjection) return;
     if (totalReturnPages(memory) > 4 || totalReturnRows(memory) > 200) {
       client.setQueryData(siKeys.attention(params), { ...list.data, pages: list.data.pages.slice(0, 1), pageParams: list.data.pageParams.slice(0, 1) });
       if (memory.history) client.removeQueries({ queryKey: siKeys.closedHistory(memory.history.params), exact: true });
@@ -236,10 +238,10 @@ export function ClosedList({ params, history, state, pending, returnTo }: Closed
       window.setTimeout(() => card.classList.remove("is-return-focus"), 1500);
     } else requestAnimationFrame(() => setMissingNotice(true));
     restore.current = null;
-  }, [shown.pages.length, list, client, params, returnTo, refreshPending, applyRefresh, hp, requestKey]);
+  }, [shown.pages.length, list, client, params, returnTo, refreshPending, applyRefresh, hp, requestKey, pendingProjection]);
   // History stays open only for the request it was opened for; any control change closes it again. Its
   // `closed_before` is fixed when it opens, so a live republish (a new `as_of`) doesn't restart it.
-  const ending = closedListEnd({ cursor: list.hasNextPage ? "more" : null, pending: refreshPending, historyOpen: !!hp });
+  const ending = pendingProjection ? null : closedListEnd({ cursor: list.hasNextPage ? "more" : null, pending: refreshPending, historyOpen: !!hp });
   const onOpen = (row: AttentionRow, historyPages?: number, historyRows?: number) => row.outreach && saveReturnMemory(returnTo, {
     scrollTop: document.querySelector<HTMLElement>(".si-desk__content")?.scrollTop ?? 0,
     outreachId: row.outreach.id,
@@ -270,13 +272,14 @@ export function ClosedList({ params, history, state, pending, returnTo }: Closed
         asOf={asOf}
         sort={params.sort ?? CLOSED_DEFAULT_SORT}
         q={params.q ?? null}
-        totalItems={first.data.total_items}
+        totalItems={pendingProjection ? null : first.data.total_items}
+        emptyOverride={pendingProjection ? "Results are not available until the next publish." : undefined}
         stale={first.data.stale ?? false}
-        hasMore={!refreshPending && list.hasNextPage}
+        hasMore={!pendingProjection && !refreshPending && list.hasNextPage}
         loadingMore={list.isFetchingNextPage}
         loadMoreFailed={list.isFetchNextPageError}
         onLoadMore={() => { setResetForKey(null); void list.fetchNextPage(); }}
-        top={<>{missingNotice && <p role="status">{copy.oi.card.noLongerMatches}</p>}{refreshPending && <UpdatedListPill onShow={applyRefresh} />}</>}
+        top={<>{pendingProjection && <p role="status" className="si-desk__notice">{refresh.held ? "New filters are awaiting the next publish. Showing previous results; these rows and their count are not results for the current filters." : "These filters are awaiting the next publish. Results are not available yet."}</p>}{missingNotice && <p role="status">{copy.oi.card.noLongerMatches}</p>}{refreshPending && <UpdatedListPill onShow={applyRefresh} />}</>}
         renderCard={(row) => <ClosedCard row={row} asOf={asOf} returnTo={returnTo} onOpen={onOpen} />}
         end={end}
       />

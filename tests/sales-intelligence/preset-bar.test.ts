@@ -57,22 +57,20 @@ test("pressing New sends priority=0&priority=not_set (repeated, never priority[]
   assert.deepEqual(priorityToggle("not_set", edited), next);
 });
 
-fixtureTest("the pressed segment follows the selection, and a custom selection shows Custom", () => {
+fixtureTest("the visible 0 and 1 selections are exact; legacy multi-code bookmarks show their actual codes", () => {
   const counts = load("S5c/attention__all-outreach.json").data.priority_counts;
   const newHtml = render(counts, "all_outreach", { priority: ["not_set", "0"], attachment: null });
-  assert.match(newHtml, /aria-pressed="true" data-preset-btn="new"/);
-  assert.equal((newHtml.match(/aria-pressed="true"/g) ?? []).length, 2, "New + the Lead toggle's All");
-  assert.ok(!newHtml.includes('data-preset-btn="custom"'));
-  assert.ok(newHtml.includes("Granot Priority · 2 selected"));
+  assert.match(newHtml, /data-preset-btn="0">0 — New/);
+  assert.match(newHtml, /data-priority-option="not_set"/);
+  assert.equal((newHtml.match(/aria-pressed="true"/g) ?? []).length, 1, "a 0 + Not set bookmark must not masquerade as exact 0");
 
   const custom = render(counts, "all_outreach", { priority: ["1", "7"], attachment: null });
   assert.ok(custom.includes('data-preset="custom"'));
-  assert.match(custom, /class="si-seg__btn si-seg__custom is-active" data-preset-btn="custom">Custom</);
-  for (const name of ["all", "new", "quoted", "other"]) assert.match(custom, new RegExp(`aria-pressed="false" data-preset-btn="${name}"`));
+  for (const name of ["all", "0", "1"]) assert.match(custom, new RegExp(`aria-pressed="false" data-preset-btn="${name}"`));
 
   const all = render(counts, "all_outreach", ALL);
   assert.match(all, /aria-pressed="true" data-preset-btn="all"/);
-  assert.ok(all.includes("Granot Priority · All"));
+  assert.ok(all.includes("Granot Priority:"));
 });
 
 fixtureTest("S5c all-outreach: every key but no_lead is listed in order with its active count and COPY-UI1 §5 label", () => {
@@ -81,13 +79,17 @@ fixtureTest("S5c all-outreach: every key but no_lead is listed in order with its
   assert.ok(counts);
   const html = render(counts, "all_outreach", ALL);
   const listed = [...html.matchAll(/data-priority-option="([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(listed, ["0", "1", "3", "7", "8", "not_set"]);
-  const expected: Record<string, [string, number]> = { "0": ["0 Fresh", 1], "1": ["1 Quoted", 7], "3": ["3 Rep discretion", 1], "7": ["7 CRM bad/unusable", 1], "8": ["8 CRM dead", 0], not_set: ["Not set", 41] };
+  assert.deepEqual(listed, ["3", "5", "7", "8", "not_set"]);
+  assert.match(html, /data-preset-btn="0">0 — New/);
+  assert.match(html, /data-preset-btn="1">1 — Quoted/);
+  const expected: Record<string, [string, number | null]> = { "3": ["3 — Rep discretion", 1], "5": ["5 — Booked in Granot", null], "7": ["7 — Bad\/unusable", 1], "8": ["8 — Dead opportunity", 0], not_set: ["Not set", 41] };
   for (const [key, [label, count]] of Object.entries(expected)) {
     const row = option(html, key);
     assert.ok(row.includes(`>${label}<`), `${key} label`);
-    assert.equal(counts[key].active, count);
-    assert.ok(row.includes(`class="si-prioritymenu__count" aria-label="${count === 1 ? "1 record" : `${count} records`}">${count}<`), `${key} count`);
+    if (count !== null) {
+      assert.equal(counts[key].active, count);
+      assert.ok(row.includes(`class="si-prioritymenu__count" aria-label="${count === 1 ? "1 record" : `${count} records`}">${count}<`), `${key} count`);
+    }
   }
   // No Lead's count sits on the Lead toggle.
   assert.match(html, /data-lead-btn="none">No Lead<span class="si-seg__count" aria-label="2 records">2</);
@@ -106,8 +108,9 @@ fixtureTest("S7: the count column follows the view (attention / active / closed;
     if (view !== "overview") assert.equal(page.data.view, view, rel);
     const field = countField(view);
     const html = render(counts, view, { priority: ["0", "not_set"], attachment: null });
-    for (const key of priorityOptions(counts)) {
-      const n = counts[key][field];
+    for (const key of priorityOptions(counts).filter((key) => key !== "0" && key !== "1")) {
+      const n = counts[key]?.[field];
+      if (n === undefined) continue;
       assert.equal(countFor(counts, key, view), n);
       assert.ok(option(html, key).includes(`>${n}<`), `${rel} ${key} ${field}=${n}`);
     }
@@ -118,18 +121,18 @@ fixtureTest("S7: the count column follows the view (attention / active / closed;
   assert.deepEqual([countFor(counts, "1", "attention"), countFor(counts, "1", "all_outreach"), countFor(counts, "1", "closed"), countFor(counts, "1", "overview")], [8, 7, 1, 7]);
   // Unknown codes print `{n} Unknown meaning`; 5 is Booked in Granot.
   const html = render(counts, "attention", ALL);
-  assert.ok(option(html, "4").includes(">4 Unknown meaning<"));
-  assert.ok(option(html, "9").includes(">9 Unknown meaning<"));
-  assert.ok(option(html, "5").includes(">5 Booked in Granot<"));
+  assert.ok(option(html, "4").includes(">4 — Unmapped<"));
+  assert.ok(option(html, "9").includes(">9 — Unmapped<"));
+  assert.ok(option(html, "5").includes(">5 — Booked in Granot<"));
   assert.equal(priorityLabel("no_lead"), "No Lead");
 });
 
 fixtureTest("a selected key the counts don't have is still listed, so it can be unchecked", () => {
   const counts = load("S5c/attention__all-outreach.json").data.priority_counts;
   const html = render(counts, "all_outreach", { priority: ["3", "4", "7", "8", "9"], attachment: null });
-  assert.match(html, /aria-pressed="true" data-preset-btn="other"/);
+  assert.match(html, /Other priorities · 5 selected/);
   const row = option(html, "9");
-  assert.ok(row.includes('checked=""') && row.includes(">9 Unknown meaning<") && !row.includes("si-prioritymenu__count"));
+  assert.ok(row.includes('checked=""') && row.includes(">9 — Unmapped<") && !row.includes("si-prioritymenu__count"));
 });
 
 fixtureTest("No Lead disables the presets and the multi-select and says why; choosing it clears Priority", () => {
@@ -137,7 +140,7 @@ fixtureTest("No Lead disables the presets and the multi-select and says why; cho
   const html = render(counts, "all_outreach", { priority: [], attachment: "none" });
   const note = "A record with no Lead has no Granot Priority, so the presets don't apply.";
   assert.ok(html.includes(`class="si-presetbar__note">${note}<`));
-  for (const name of ["all", "new", "quoted", "other"]) {
+  for (const name of ["all", "0", "1"]) {
     const at = html.indexOf(`data-preset-btn="${name}"`);
     const tag = html.slice(html.lastIndexOf("<button", at), html.indexOf(">", at));
     assert.ok(tag.includes('disabled=""') && tag.includes(`title="${note}"`) && tag.includes("aria-describedby"), `${name} disabled`);
@@ -156,7 +159,7 @@ fixtureTest("No Lead disables the presets and the multi-select and says why; cho
 
 test("no priority_counts (flag off): options still render, without counts; skeleton has segments and two pills", () => {
   const html = render(undefined, "attention", { priority: ["1"], attachment: null });
-  assert.ok(option(html, "1").includes(">1 Quoted<"));
+  assert.ok(html.includes('data-preset-btn="1">1 — Quoted'));
   assert.ok(!html.includes("si-prioritymenu__count"));
   assert.ok(!html.includes("si-seg__count"));
   const skeleton = renderToStaticMarkup(createElement(PresetBar.Skeleton));
