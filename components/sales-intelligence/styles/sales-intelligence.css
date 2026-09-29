@@ -1812,6 +1812,15 @@ span.si-evidence__none { display: inline-flex; align-items: center; min-height: 
 .si-searchctl { display: flex; flex-direction: column; gap: 4px; min-width: min(100%, 150px); color: var(--si-ink-2); font-size: 13px; font-weight: 600; }
 .si-searchctl .si-input, .si-searchctl .si-select { min-height: var(--si-hit); max-width: 100%; }
 .si-searchctl small { color: var(--si-ink-3); font-weight: 400; }
+.si-searchctl__compact { display: block; min-width: 150px; flex: 1 1 150px; }
+.si-searchctl__compact > summary { list-style: none; cursor: pointer; min-height: 66px; padding: 8px 12px; border: 1px solid var(--si-line); border-radius: var(--si-r-sm); }
+.si-searchctl__compact > summary::-webkit-details-marker { display: none; }
+.si-searchctl__compact > summary span, .si-searchctl__compact > summary strong { display: block; overflow-wrap: anywhere; }
+.si-searchctl__compact > summary strong { margin-top: 5px; color: var(--si-navy); }
+.si-searchctl__compact > summary strong::after { content: " ▾"; }
+.si-searchctl__compact > summary[aria-disabled="true"] { cursor: default; color: var(--si-ink-3); }
+.si-searchctl__compact > summary:focus-visible { outline: 2px solid var(--si-focus); outline-offset: 2px; }
+.si-searchctl__panel { padding: 10px 0 0; display: flex; flex-direction: column; gap: 6px; }
 .si-searchctl__location, .si-searchctl__draft { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; }
 .si-searchctl__location { flex-direction: row; max-width: 100%; }
 .si-searchctl__location > span { flex-basis: 100%; }
@@ -1831,6 +1840,11 @@ span.si-evidence__none { display: inline-flex; align-items: center; min-height: 
   .si-presetbar .si-seg { flex-wrap: wrap; }
   .si-presetbar__title { flex-basis: 100%; }
   .si-searchcontrols { padding: 10px; }
+  .si-searchcontrols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .si-searchcontrols > .si-searchctl { min-width: 0; max-width: 100%; }
+  .si-searchcontrols > .si-searchctl__more { grid-column: 1 / -1; }
+  .si-searchctl__location.si-searchctl__panel { flex-direction: column; align-items: stretch; }
+  .si-searchctl__location.si-searchctl__panel input, .si-searchctl__location.si-searchctl__panel select { width: 100%; flex: initial; }
   .si-searchctl__location input, .si-searchctl__location select { flex: 1 1 90px; }
 }
 .si-desk__cards { gap: 10px; }
