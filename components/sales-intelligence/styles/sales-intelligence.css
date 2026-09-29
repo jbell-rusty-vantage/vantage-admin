@@ -1803,6 +1803,7 @@ span.si-evidence__none { display: inline-flex; align-items: center; min-height: 
 .si-outreachcard .si-cardshell__hit:focus-visible { outline: 2px solid var(--si-focus); outline-offset: 2px; }
 .si-outreachcard.is-return-focus { outline: 2px solid var(--si-focus); outline-offset: 2px; }
 .si-outreachcard .si-tiles { pointer-events: none; }
+.si-cardshell.is-openable.si-outreachcard .si-cardshell__lines .si-tiles .si-tile { pointer-events: none; }
 .si-desk__cards { gap: 10px; }
 @media (max-width: 560px) { .si-outreachcard .si-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 /* OI-A3 page */

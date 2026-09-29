@@ -12,7 +12,7 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { useIsRep } from "../rep/viewer";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AttentionRow } from "@/lib/api/salesIntelligence";
 import { OutreachCard } from "../card";
 import { OutcomeLine } from "../card/outcome-line";
@@ -27,7 +27,7 @@ import { copy } from "../sales-intelligence-copy";
 import { formatRelative } from "../lib/time";
 import { cx } from "../lib/format";
 import { StaleBanner } from "./stale-banner";
-import { saveReturnMemory, takeReturnMemory } from "./return-memory";
+import { saveReturnMemory, takeReturnMemory, totalReturnPages, totalReturnRows } from "./return-memory";
 
 const d = copy.ui1.desk;
 export const LIST_HEADING_ID = "si-desk-list";
@@ -245,7 +245,11 @@ export function OutreachList({ view, params, pending, returnTo }: OutreachListPr
   const client = useQueryClient();
   const list = useAttentionList(params);
   useReportAsOf(list.asOf);
-  const refresh = useListRefresh(list.data, { key: attentionQuery(params).toString(), shape: attentionListShape });
+  const requestKey = attentionQuery(params).toString();
+  const [resetForKey, setResetForKey] = useState<string | null>(null);
+  const resetToFirst = resetForKey === requestKey;
+  const refreshData = useMemo(() => resetToFirst ? { ...list.data, pages: list.data.pages.slice(0, 1), pageParams: list.data.pageParams.slice(0, 1) } : list.data, [list.data, resetToFirst]);
+  const refresh = useListRefresh(refreshData, { key: `${requestKey}|${resetToFirst ? "return-first" : "normal"}`, shape: attentionListShape });
   const [messaging, setMessaging] = useState<AttentionRow | null>(null);
   const [missingNotice, setMissingNotice] = useState(false);
   const { shown, pending: refreshPending, apply: applyRefresh } = refresh;
@@ -258,8 +262,9 @@ export function OutreachList({ view, params, pending, returnTo }: OutreachListPr
     if (restore.current === undefined) restore.current = takeReturnMemory(returnTo);
     const memory = restore.current;
     if (!memory) return;
-    if (memory.pagesLoaded > 4) {
+    if (totalReturnPages(memory) > 4 || totalReturnRows(memory) > 200) {
       client.setQueryData(siKeys.attention(params), { ...list.data, pages: list.data.pages.slice(0, 1), pageParams: list.data.pageParams.slice(0, 1) });
+      requestAnimationFrame(() => setResetForKey(requestKey));
       document.querySelector<HTMLElement>(".si-desk__content")?.scrollTo(0, 0);
       restore.current = null;
       return;
@@ -280,10 +285,10 @@ export function OutreachList({ view, params, pending, returnTo }: OutreachListPr
       window.setTimeout(() => card.classList.remove("is-return-focus"), 1500);
     } else setMissingNotice(true);
     restore.current = null;
-  }, [shown.pages.length, list, client, params, returnTo, refreshPending, applyRefresh]);
+  }, [shown.pages.length, list, client, params, returnTo, refreshPending, applyRefresh, requestKey]);
   const onNavigate = (row: AttentionRow) => {
     if (!row.outreach) return;
-    saveReturnMemory(returnTo, { scrollTop: document.querySelector<HTMLElement>(".si-desk__content")?.scrollTop ?? 0, outreachId: row.outreach.id, pagesLoaded: shown.pages.length });
+    saveReturnMemory(returnTo, { scrollTop: document.querySelector<HTMLElement>(".si-desk__content")?.scrollTop ?? 0, outreachId: row.outreach.id, pagesLoaded: shown.pages.length, rowsLoaded: rows.length });
   };
   return (
     <>
@@ -299,7 +304,7 @@ export function OutreachList({ view, params, pending, returnTo }: OutreachListPr
         hasMore={!refreshPending && list.hasNextPage}
         loadingMore={list.isFetchingNextPage}
         loadMoreFailed={list.isFetchNextPageError}
-        onLoadMore={() => void list.fetchNextPage()}
+        onLoadMore={() => { setResetForKey(null); void list.fetchNextPage(); }}
         top={<>{missingNotice && <p role="status">{copy.oi.card.noLongerMatches}</p>}{refreshPending && <UpdatedListPill onShow={applyRefresh} />}</>}
         renderCard={(row, layout) => (
           <DeskCard row={row} layout={layout} view={view} sort={sort} asOf={asOf} returnTo={returnTo} onNavigate={onNavigate} onMessage={setMessaging} />

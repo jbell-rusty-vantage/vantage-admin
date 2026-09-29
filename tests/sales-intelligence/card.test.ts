@@ -324,7 +324,7 @@ fixtureTest("layouts and lists: band tag first in both layouts, sort line, close
   const grouped = render(row, asOf, { layout: "grouped" });
   const flat = render(row, asOf, { layout: "flat" });
   assert.equal(grouped, flat, "the layout no longer changes the card (D2)");
-  assert.ok(text(lines(grouped)[0]!).startsWith("Open work nobody owns · 6"), text(lines(grouped)[0]!));
+  assert.ok(text(lines(grouped)[0]!).startsWith("Open work nobody owns · Band 6"), text(lines(grouped)[0]!));
   assert.ok(grouped.includes('data-card-band="6"'));
   const nullBand = rowBy("S2/attention-closed__closed.json", (r) => !!r.outreach && r.derived.attention_band == null);
   assert.ok(text(lines(render(nullBand.row, nullBand.asOf, { layout: "flat" }))[0]!).includes("Not in Attention"));

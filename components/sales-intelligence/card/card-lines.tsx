@@ -404,7 +404,7 @@ export function CardBandRow({ row, asOf }: { row: CardRow; asOf: string }) {
   return (
     <span className="si-card__l1 si-card__bandrow">
       <span className="si-card__l1main">
-        {isBand(band) ? <span className="si-card__bandname"><span>{BANDS[band]}</span><span className="si-card__bandnumber"> · {band}</span></span> : <BandBadge band={null} />}
+        {isBand(band) ? <span className="si-card__bandname"><span>{BANDS[band]}</span><span className="si-card__bandnumber"> · Band {band}</span></span> : <BandBadge band={null} />}
         {lineOneChips(row, asOf, { rep }).map((chip) => (
           <ChipView key={chip.id} chip={chip} />
         ))}

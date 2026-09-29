@@ -13,7 +13,7 @@
  *   `cursor: null`, with `Closed Outreach is kept for {days} days` or `That's every closed record we still have.`
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { CLOSED_DEFAULT_SORT, type AttentionRow } from "@/lib/api/salesIntelligence";
 import { OutreachCard } from "../card";
 import { OutcomeLine } from "../card/outcome-line";
@@ -27,7 +27,7 @@ import { CardShellSkeleton, Region, RegionProgress } from "../primitives";
 import { CLOSED_WINDOWS, windowFrom } from "../rail";
 import { copy } from "../sales-intelligence-copy";
 import { LoadMore, OutreachListView } from "./outreach-list";
-import { saveReturnMemory, takeReturnMemory } from "./return-memory";
+import { saveReturnMemory, takeReturnMemory, totalReturnPages, totalReturnRows, type ReturnMemory } from "./return-memory";
 
 const k = copy.ui1.closed;
 /** How many short pages the history follows on its own under `q` before asking (S11-SEARCH bounded scan). */
@@ -117,7 +117,11 @@ function HistorySkeleton() {
   );
 }
 
-function ClosedHistory({ params, returnTo, onOpen }: { params: ClosedHistoryParams; returnTo: string; onOpen: (row: AttentionRow) => void }) {
+function ClosedHistory({ params, returnTo, onOpen, restore, onRestored }: {
+  params: ClosedHistoryParams; returnTo: string; onOpen: (row: AttentionRow, historyPages: number, historyRows: number) => void;
+  restore?: ReturnMemory | null; onRestored?: (found: boolean) => void;
+}) {
+  const client = useQueryClient();
   const history = useClosedHistory(params);
   useReportAsOf(history.asOf);
   const pages = history.data.pages;
@@ -125,13 +129,35 @@ function ClosedHistory({ params, returnTo, onOpen }: { params: ClosedHistoryPara
   const limit = params.limit ?? CLOSED_HISTORY_PAGE_SIZE;
   const auto = useRef(0);
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = history;
+  useEffect(() => {
+    if (!restore?.history) return;
+    if (pages.length > restore.history.pagesLoaded) {
+      client.setQueryData(siKeys.closedHistory(params), { ...history.data, pages: pages.slice(0, restore.history.pagesLoaded), pageParams: history.data.pageParams.slice(0, restore.history.pagesLoaded) });
+      return;
+    }
+    if (pages.length < restore.history.pagesLoaded) {
+      if (isFetchingNextPage) return;
+      if (hasNextPage) { void fetchNextPage(); return; }
+    }
+    if (history.isFetching) return;
+    const card = [...document.querySelectorAll<HTMLElement>(".si-closed__history .si-outreachcard")].find((el) => el.dataset.outreachId === restore.outreachId);
+    if (card) {
+      const scroll = document.querySelector<HTMLElement>(".si-desk__content");
+      if (scroll) scroll.scrollTop = restore.scrollTop;
+      card.querySelector<HTMLElement>(".si-cardshell__hit")?.focus({ preventScroll: true });
+      card.classList.add("is-return-focus");
+      window.setTimeout(() => card.classList.remove("is-return-focus"), 1500);
+    }
+    onRestored?.(!!card);
+  }, [restore, pages, isFetchingNextPage, hasNextPage, fetchNextPage, history, client, params, onRestored]);
   // Bounded scan under `q`: a short page with a cursor means "keep going". Follow it a few times on its own.
   useEffect(() => {
+    if (restore?.history) return;
     if (!hasNextPage || isFetchingNextPage || isFetchNextPageError) return;
     if (last.data.items.length >= limit || auto.current >= HISTORY_AUTO_PAGES) return;
     auto.current += 1;
     void fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, last, limit, fetchNextPage]);
+  }, [restore, hasNextPage, isFetchingNextPage, isFetchNextPageError, last, limit, fetchNextPage]);
   return (
     <ClosedHistoryView
       rows={history.items}
@@ -144,7 +170,7 @@ function ClosedHistory({ params, returnTo, onOpen }: { params: ClosedHistoryPara
         void fetchNextPage();
       }}
       retentionDays={history.retention.days}
-      renderCard={(row) => <ClosedCard row={row} asOf={history.asOf} returnTo={returnTo} onOpen={onOpen} />}
+      renderCard={(row) => <ClosedCard row={row} asOf={history.asOf} returnTo={returnTo} onOpen={() => onOpen(row, pages.length, history.items.length)} />}
     />
   );
 }
@@ -163,18 +189,26 @@ export function ClosedList({ params, history, state, pending, returnTo }: Closed
   const list = useAttentionList(params);
   useReportAsOf(list.asOf);
   const requestKey = attentionQuery(params).toString();
-  const refresh = useListRefresh(list.data, { key: requestKey, shape: attentionListShape });
+  const [resetForKey, setResetForKey] = useState<string | null>(null);
+  const resetToFirst = resetForKey === requestKey;
+  const refreshData = useMemo(() => resetToFirst ? { ...list.data, pages: list.data.pages.slice(0, 1), pageParams: list.data.pageParams.slice(0, 1) } : list.data, [list.data, resetToFirst]);
+  const refresh = useListRefresh(refreshData, { key: `${requestKey}|${resetToFirst ? "return-first" : "normal"}`, shape: attentionListShape });
   const { shown, pending: refreshPending, apply: applyRefresh } = refresh;
   const first = shown.pages[0]!;
   const rows = shown.pages.flatMap((page) => page.data.items);
+  const asOf = first.as_of;
+  const [opened, setOpened] = useState<{ key: string; params: ClosedHistoryParams; restore?: ReturnMemory | null } | null>(null);
+  const hp = opened?.key === requestKey ? opened.params : null;
   const restore = useRef<ReturnType<typeof takeReturnMemory> | undefined>(undefined);
   const [missingNotice, setMissingNotice] = useState(false);
   useEffect(() => {
     if (restore.current === undefined) restore.current = takeReturnMemory(returnTo);
     const memory = restore.current;
     if (!memory) return;
-    if (memory.pagesLoaded > 4) {
+    if (totalReturnPages(memory) > 4 || totalReturnRows(memory) > 200) {
       client.setQueryData(siKeys.attention(params), { ...list.data, pages: list.data.pages.slice(0, 1), pageParams: list.data.pageParams.slice(0, 1) });
+      if (memory.history) client.removeQueries({ queryKey: siKeys.closedHistory(memory.history.params), exact: true });
+      requestAnimationFrame(() => setResetForKey(requestKey));
       document.querySelector<HTMLElement>(".si-desk__content")?.scrollTo(0, 0);
       restore.current = null;
       return;
@@ -185,6 +219,14 @@ export function ClosedList({ params, history, state, pending, returnTo }: Closed
     }
     if (list.isFetching) return;
     if (refreshPending) { applyRefresh(); return; }
+    if (memory.history) {
+      if (list.hasNextPage) { restore.current = null; requestAnimationFrame(() => setMissingNotice(true)); return; }
+      if (!hp) {
+        restore.current = null;
+        requestAnimationFrame(() => setOpened({ key: requestKey, params: memory.history!.params, restore: memory }));
+      }
+      return;
+    }
     const card = [...document.querySelectorAll<HTMLElement>(".si-outreachcard")].find((el) => el.dataset.outreachId === memory.outreachId);
     if (card) {
       const scroll = document.querySelector<HTMLElement>(".si-desk__content");
@@ -192,21 +234,28 @@ export function ClosedList({ params, history, state, pending, returnTo }: Closed
       card.querySelector<HTMLElement>(".si-cardshell__hit")?.focus({ preventScroll: true });
       card.classList.add("is-return-focus");
       window.setTimeout(() => card.classList.remove("is-return-focus"), 1500);
-    } else setMissingNotice(true);
+    } else requestAnimationFrame(() => setMissingNotice(true));
     restore.current = null;
-  }, [shown.pages.length, list, client, params, returnTo, refreshPending, applyRefresh]);
-  const asOf = first.as_of;
+  }, [shown.pages.length, list, client, params, returnTo, refreshPending, applyRefresh, hp, requestKey]);
   // History stays open only for the request it was opened for; any control change closes it again. Its
   // `closed_before` is fixed when it opens, so a live republish (a new `as_of`) doesn't restart it.
-  const [opened, setOpened] = useState<{ key: string; params: ClosedHistoryParams } | null>(null);
-  const hp = opened?.key === requestKey ? opened.params : null;
   const ending = closedListEnd({ cursor: list.hasNextPage ? "more" : null, pending: refreshPending, historyOpen: !!hp });
-  const onOpen = (row: AttentionRow) => row.outreach && saveReturnMemory(returnTo, { scrollTop: document.querySelector<HTMLElement>(".si-desk__content")?.scrollTop ?? 0, outreachId: row.outreach.id, pagesLoaded: shown.pages.length });
+  const onOpen = (row: AttentionRow, historyPages?: number, historyRows?: number) => row.outreach && saveReturnMemory(returnTo, {
+    scrollTop: document.querySelector<HTMLElement>(".si-desk__content")?.scrollTop ?? 0,
+    outreachId: row.outreach.id,
+    pagesLoaded: shown.pages.length,
+    rowsLoaded: rows.length,
+    ...(historyPages && historyRows && hp ? { history: { pagesLoaded: historyPages, rowsLoaded: historyRows, params: hp } } : {}),
+  });
   let end: ReactNode = null;
   if (ending) {
     end = ending === "history" && hp ? (
       <Region name="closed-history" skeleton={<HistorySkeleton />} onRetry={() => void client.resetQueries({ queryKey: siKeys.closedHistory(hp) })}>
-        <ClosedHistory params={hp} returnTo={returnTo} onOpen={onOpen} />
+        <ClosedHistory params={hp} returnTo={returnTo} onOpen={onOpen} restore={opened?.restore} onRestored={(found) => {
+          if (!found) setMissingNotice(true);
+          restore.current = null;
+          setOpened((current) => current ? { ...current, restore: null } : current);
+        }} />
       </Region>
     ) : (
       <HistoryRow onLoad={() => setOpened({ key: requestKey, params: historyParams(history, asOf, state.closed_to) })} />
@@ -226,7 +275,7 @@ export function ClosedList({ params, history, state, pending, returnTo }: Closed
         hasMore={!refreshPending && list.hasNextPage}
         loadingMore={list.isFetchingNextPage}
         loadMoreFailed={list.isFetchNextPageError}
-        onLoadMore={() => void list.fetchNextPage()}
+        onLoadMore={() => { setResetForKey(null); void list.fetchNextPage(); }}
         top={<>{missingNotice && <p role="status">{copy.oi.card.noLongerMatches}</p>}{refreshPending && <UpdatedListPill onShow={applyRefresh} />}</>}
         renderCard={(row) => <ClosedCard row={row} asOf={asOf} returnTo={returnTo} onOpen={onOpen} />}
         end={end}
