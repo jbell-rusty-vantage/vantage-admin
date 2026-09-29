@@ -12,9 +12,10 @@ export default function LegacyRedirect({ id, tab, active, siReturn }: { id: stri
     const sid = oldParams.get("sid");
     let target: OutreachTab | null = null;
     let anchor = hash;
-    if (tab === "work") { target = "case"; anchor = "#work"; }
+    // A finding's relation link (`?tab=work#review-item-{id}`) keeps its row anchor; the rail opens for it.
+    if (tab === "work") { target = "case"; anchor = hash.startsWith("#review-item-") ? hash : "#work"; }
     else if (hash === "#move-details" && active !== "case") target = "case";
-    else if ((hash === "#conversations" || hash.startsWith("#conv-") || !!sid) && active !== "conversations") target = "conversations";
+    else if ((hash === "#conversations" || hash.startsWith("#conv-") || hash.startsWith("#si-conversation-") || !!sid) && active !== "conversations") target = "conversations";
     if (target) {
       const href = outreachRouteHref(id, { tab: target, siReturn });
       const next = new URL(href, window.location.origin);

@@ -60,6 +60,12 @@ export function scrollToSegments(conversationId: string, sids: readonly (number 
   return target;
 }
 
+/**
+ * OI §4.3: where `Open in transcript` links when this surface has no Conversations section (the Outreach page's
+ * Analysis tab, whose calls moved to the Conversations tab). Null: scroll the mounted section in place.
+ */
+export const TranscriptLinkContext = createContext<((conversationId: string, sids: readonly string[]) => string) | null>(null);
+
 /** Ends the target's highlight (only if no newer target replaced it). The card it opened stays open. */
 export function clearTranscriptTarget(targetSeq: number) {
   if (current && current.seq === targetSeq && current.highlight) {

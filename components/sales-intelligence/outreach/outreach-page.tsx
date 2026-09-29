@@ -33,6 +33,7 @@ import { useOutreach } from "../data/use-outreach";
 import { CaseFileTab, CaseFileSkeleton } from "./case-file-tab";
 import { ConversationsTab } from "./conversations-tab";
 import { ConversationsSkeleton } from "./analysis/conversations";
+import { TranscriptLinkContext } from "./analysis/transcript";
 import { MoveGlance, MoveGlanceSkeleton } from "./move-glance";
 import { WorkRail } from "./work-rail";
 
@@ -56,6 +57,15 @@ export type OutreachPageProps = {
 /** The tab bar's links; each keeps `si_return` so the back link survives switching tabs. */
 export function outreachTabs(id: string, siReturn: string | null): RouteTab<OutreachTab>[] {
   return OUTREACH_TABS.map((key) => ({ key, label: copy.oi.page.tabs[key], href: outreachRouteHref(id, { tab: key, siReturn }) }));
+}
+
+/** OI §4.3: a cited turn opens on the Conversations tab, which reads `conversation_id` and `sid` (comma-separated). */
+export function conversationsHref(id: string, siReturn: string | null, conversationId: string, sids: readonly string[]): string {
+  const [path, query = ""] = outreachRouteHref(id, { tab: "conversations", siReturn }).split("?");
+  const params = new URLSearchParams(query);
+  params.set("conversation_id", conversationId);
+  if (sids.length) params.set("sid", sids.join(","));
+  return `${path}?${params.toString()}`;
 }
 
 /** The analysis tab until its sections land: the six titles (with their anchors) over skeleton lines, and a note. */
@@ -168,7 +178,9 @@ export function OutreachPage({ id, tab, run, siReturn, analysis, timeline }: Out
     content = analysis ?? (
       <Region name="outreach-analysis" skeleton={<AnalysisTabSkeleton role={role} caseFileLayout />}>
         {/* The record header already shows the card's lines 1–4 and 7, so Situation doesn't repeat them. */}
-        <AnalysisTab outreachId={id} role={role} run={rep ? null : run ?? null} cardLines={false} caseFileLayout />
+        <TranscriptLinkContext.Provider value={(conversationId, sids) => conversationsHref(id, kept, conversationId, sids)}>
+          <AnalysisTab outreachId={id} role={role} run={rep ? null : run ?? null} cardLines={false} caseFileLayout />
+        </TranscriptLinkContext.Provider>
       </Region>
     );
   return (

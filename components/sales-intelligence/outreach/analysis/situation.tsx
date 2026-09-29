@@ -47,7 +47,8 @@ function OfficialLine({ outreach }: { outreach: Outreach }) {
   // UI2-SCOPE (UI-2 §3): the official Booking page is Owner-only, so a rep sees the status without the link.
   const rep = useIsRep();
   const official = outreach.official;
-  const cost = leadCostText(outreach.lead_cost);
+  // OI §4.5: Lead cost is Owner information; a rep's page never shows it.
+  const cost = rep ? null : leadCostText(outreach.lead_cost);
   if (!official && !cost) return null;
   const parts: ReactNode[] = [];
   if (official) {

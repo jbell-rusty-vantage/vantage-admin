@@ -23,7 +23,7 @@ function ConversationsBody({ id }: { id: string }) {
     const sid = params.get("sid");
     const match = /^#(?:conv-|si-conversation-)(.+)$/.exec(window.location.hash);
     const conversationId = params.get("conversation_id") ?? params.get("conv") ?? (match ? decodeURIComponent(match[1]) : null);
-    if (conversationId) { setFilter("all"); scrollToSegments(conversationId, sid ? [sid] : []); }
+    if (conversationId) { setFilter("all"); scrollToSegments(conversationId, sid ? sid.split(",").filter(Boolean) : []); }
     };
     land();
     window.addEventListener("hashchange", land);

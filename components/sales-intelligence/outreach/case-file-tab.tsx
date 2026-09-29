@@ -15,6 +15,7 @@ import { MoveDetailsSection, MoveDetailsSkeleton } from "./analysis/move-details
 import { numberIdOf } from "./record-header";
 import { outreachRouteHref } from "./deep-links";
 import { useLandOnHash } from "./land-on-hash";
+import { legacyNumberHref } from "../lib/legacy-links";
 import { useRef } from "react";
 
 const p = copy.oi.page;
@@ -36,7 +37,10 @@ function CaseFileBody({ id, returnTo, siReturn }: { id: string; returnTo: string
       <RecordProvenance record={outreach} asOfText={(time) => formatExact(time, asOf)} />
       {outreach.receiver_agent?.agent && <p>{copy.ui1.outreach.receiverAgent(outreach.receiver_agent.agent.name)}</p>}
       {!rep && <RelatedRecordChips outreach={outreach} numberId={numberId} returnTo={returnTo} />}
-      {!rep && (lead || numberId) && <Attachments lead={lead} numberId={lead ? undefined : numberId ?? undefined} returnTo={returnTo} readOnly />}
+      {!rep && (lead || numberId) && <>
+        <Attachments lead={lead} numberId={lead ? undefined : numberId ?? undefined} returnTo={returnTo} readOnly numberHref={legacyNumberHref} />
+        <p className="si-text--sm si-text--subtle">{copy.ui1.outreach.work.attachmentsReadOnly}</p>
+      </>}
     </section>
     <section className="si-casefile__section" aria-labelledby="case-summary-title"><h2 id="case-summary-title" className="si-heading si-heading--2">{p.latestSummary}</h2>
       <p className="si-text--sm si-text--subtle">{p.fromAnalysis}</p><p>{outreach.latest_summary?.overview ?? p.noSummary}</p>

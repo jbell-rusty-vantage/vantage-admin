@@ -6,7 +6,7 @@ import { MessageRepPanel, useMessageRepAvailability } from "../composer";
 import { useOutreach } from "../data/use-outreach";
 import { siKeys } from "../data/query-keys";
 import { Region, SkeletonBlock } from "../primitives";
-import { useIsRep } from "../rep/viewer";
+import { useIsRep, useViewer } from "../rep/viewer";
 import { copy } from "../sales-intelligence-copy";
 import { RecordCommands } from "./commands";
 import { WorkTab } from "./work-tab";
@@ -30,6 +30,11 @@ function WorkRailLoaded({ id, returnTo }: { id: string; returnTo: string }) {
   const { outreach } = useOutreach(id);
   const client = useQueryClient();
   const rep = useIsRep();
+  const me = useViewer().agentId;
+  // OI §4.5: a rep who is neither the record's rep nor a follow-up assignee sees the record only through a promise.
+  const openFollowups = outreach.followups.filter((item) => item.status === "open");
+  const promiseOnly = rep && !!me && outreach.assignment.agent?.id !== me && !openFollowups.some((item) => item.assignment.agent?.id === me)
+    && openFollowups.some((item) => item.promised_by?.id === me);
   const active = outreach.followups.some((item) => item.status === "open") || !!outreach.derived.review_badges?.length;
   const root = useRef<HTMLDetailsElement>(null);
   const [desktop, setDesktop] = useState(true);
@@ -43,7 +48,10 @@ function WorkRailLoaded({ id, returnTo }: { id: string; returnTo: string }) {
     return () => media.removeEventListener("change", update);
   }, []);
   useEffect(() => {
-    const land = () => { if (window.location.hash === "#work") { setHashOpen(true); window.requestAnimationFrame(() => root.current?.querySelector("summary")?.focus()); } };
+    const land = () => {
+      if (window.location.hash === "#work") { setHashOpen(true); window.requestAnimationFrame(() => root.current?.querySelector("summary")?.focus()); }
+      else if (window.location.hash.startsWith("#review-item-")) setHashOpen(true);
+    };
     land();
     window.addEventListener("hashchange", land);
     return () => window.removeEventListener("hashchange", land);
@@ -53,6 +61,7 @@ function WorkRailLoaded({ id, returnTo }: { id: string; returnTo: string }) {
   return <details ref={root} id="work" className="si-workrail" open={desktop || active || hashOpen}>
     <summary className="si-workrail__summary" onClick={(event) => { if (desktop) event.preventDefault(); }}><span className="si-heading si-heading--3">{p.work}</span><span className="si-workrail__hint">{primary?.description ?? p.noNextStep}</span></summary>
     <div className="si-workrail__body">
+      {promiseOnly && <p role="note" className="si-desk__notice">{p.workForPromise}</p>}
       <WorkTab id={id} returnTo={returnTo} />
       {!rep && <Region name="work-commands" skeleton={<SkeletonBlock height={88} />} onRetry={() => void client.resetQueries({ queryKey: siKeys.outreach(id) })}><OwnerCommands id={id} /></Region>}
     </div>
