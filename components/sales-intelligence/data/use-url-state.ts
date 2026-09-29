@@ -32,18 +32,18 @@ export function useDeskUrlState({ userId }: { userId?: string | null } = {}) {
   }, [pathname, query, role, router, userId]);
 
   // Read once on mount: the remembered preset fills a URL that names neither Priority nor the Lead toggle. It replaces
-  // the entry, so it adds no Back step, and it never touches a count drill (`snapshot_id`): OI R8, the list opened
-  // from a count must be exactly the records that count counted.
+  // the entry, so it adds no Back step, and it never touches a count drill (`snapshot_id`) or the Owner's rep view, whose
+  // bare URL is canonicalized to a drill: OI R8, the list opened from a count must be exactly the records it counted.
   const restored = useRef(false);
   useEffect(() => {
     if (restored.current || !userId) return;
     restored.current = true;
-    if (state.priority.length || state.attachment || state.snapshot_id) return;
+    if (state.priority.length || state.attachment || state.snapshot_id || state.view === "rep") return;
     const stored = readStoredPreset(userId);
     if (!stored || !(stored.priority.length || stored.attachment)) return;
     const next = deskUrlUpdate(query, { priority: stored.priority, attachment: stored.attachment }, role).toString();
     if (next !== query) startTransition(() => router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false }));
-  }, [pathname, query, role, router, state.attachment, state.priority.length, state.snapshot_id, userId]);
+  }, [pathname, query, role, router, state.attachment, state.priority.length, state.snapshot_id, state.view, userId]);
 
   return { state, update, isPending, query };
 }
