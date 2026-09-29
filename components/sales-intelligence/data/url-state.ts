@@ -172,6 +172,12 @@ export function deskUrlUpdate(current: URLSearchParams | string, patch: DeskUrlP
     }
   }
   if ("view" in patch && patch.view !== before.view && !("sort" in patch)) { next.sort = null; next.direction = null; }
+  // OI §8.2: Closed history serves no work, follow-up assignee, involvement or snapshot pin, so moving to Closed drops
+  // them (a drill's pin belongs to its count) instead of landing on a blocked list.
+  if ("view" in patch && patch.view === "closed" && before.view !== "closed") {
+    const closedDrops: DeskUrlPatch = { work: [], followup_agent_id: [], relationship: null, agent: null, snapshot_id: null };
+    for (const [key, value] of Object.entries(closedDrops)) if (!(key in patch)) Object.assign(next, { [key]: value });
+  }
   if ("sort" in patch && patch.sort !== before.sort && !("direction" in patch)) next.direction = null;
   let reset = false;
   for (const [key, value] of Object.entries(next)) {

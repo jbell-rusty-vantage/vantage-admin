@@ -40,13 +40,14 @@ import { useDeskUrlState } from "../data/use-url-state";
 import { useAttentionCapabilities, useSalesRoster } from "../data/use-search-contract";
 import { CardShellSkeleton, DelayedSkeleton, Region, SkeletonBlock, SkeletonLines } from "../primitives";
 import { FilterRail, FilterSheet, activeFilterChips, railRegionsFor, type RailRep } from "../rail";
+import { FOLLOWUP_WORK_OPTIONS } from "../rail/followup-filter";
 import { PresetBar, usePresetSelection } from "./preset-bar";
 import { ActiveChips } from "./active-chips";
 import { ClosedListRegion } from "./closed-list";
 import { NO_DEGRADE, applyDegrade, applyHistoryDegrade, degradeNotices, nextDegrade, useQueryError, type Degrade } from "./degrade";
 import { ListControls, SearchControls } from "./list-controls";
 import { MetricsStrip, MetricsStripView, type MetricTile } from "./metrics-strip";
-import { LIST_HEADING_ID, OutreachListRegion, focusListHeading, requestListHeadingFocus } from "./outreach-list";
+import { LIST_HEADING_ID, OutreachListRegion, OutreachListView, focusListHeading, requestListHeadingFocus } from "./outreach-list";
 import { PageHeader } from "./page-header";
 import { ViewTabs, viewLabel } from "./view-tabs";
 import { copy } from "../sales-intelligence-copy";
@@ -133,10 +134,13 @@ function ChipsArea({ view, state, update, asOf, rosterAvailable, onClearAll, res
         for (const id of state.assigned_agent_id) add(`assigned:${id}`, `Assigned: ${reps.find((item) => item.id === id)?.name ?? "Unknown rep"}`, { assigned_agent_id: state.assigned_agent_id.filter((item) => item !== id) });
         if (state.assignment) add("assignment", "Assigned: Unassigned", { assignment: null });
         for (const id of state.followup_agent_id) add(`followup-agent:${id}`, `Follow-up assignee: ${reps.find((item) => item.id === id)?.name ?? "Unknown rep"}`, { followup_agent_id: state.followup_agent_id.filter((item) => item !== id) });
-        for (const key of state.work) add(`work:${key}`, `Follow-up: ${key.replaceAll("_", " ")}`, { work: state.work.filter((item) => item !== key) });
-        if (state.relationship && state.agent) add("relationship", `${state.relationship === "involved" ? "Involved" : state.relationship}: ${reps.find((item) => item.id === state.agent)?.name ?? "Unknown rep"}`, { relationship: null, agent: null });
+        for (const key of state.work) add(`work:${key}`, `Follow-up: ${FOLLOWUP_WORK_OPTIONS.find(([option]) => option === key)?.[1] ?? key.replaceAll("_", " ")}`, { work: state.work.filter((item) => item !== key) });
+        if (state.relationship && state.agent) add("relationship", `${state.relationship === "involved" ? "Involved" : state.relationship === "assigned" ? "Assigned rep" : "Follow-up assignee"}: ${reps.find((item) => item.id === state.agent)?.name ?? "Unknown rep"}`, { relationship: null, agent: null });
         if (state.move_date_mode) {
-          const range = resolvedWindow?.from ? `${formatDate(resolvedWindow.from, asOf ?? undefined)}${resolvedWindow.through && resolvedWindow.through !== resolvedWindow.from ? `–${formatDate(resolvedWindow.through, asOf ?? undefined)}` : ""}` : state.move_date_mode.replaceAll("_", " ");
+          // Open-ended windows (Future, Today onward, Past) say so; a single date alone would read as an exact day.
+          const day = (value: string) => formatDate(value, asOf ?? undefined);
+          const range = resolvedWindow?.from && resolvedWindow.through ? `${day(resolvedWindow.from)}${resolvedWindow.through !== resolvedWindow.from ? `–${day(resolvedWindow.through)}` : ""}`
+            : resolvedWindow?.from ? `${day(resolvedWindow.from)} onward` : resolvedWindow?.through ? `through ${day(resolvedWindow.through)}` : state.move_date_mode.replaceAll("_", " ");
           add("move-date", `Move ${range}${state.move_date_mode === "within" ? ` (Within ${state.move_days} days)` : ""}`, { move_date_mode: null, move_days: null, move_on: null, move_from: null, move_through: null });
         }
         if (state.loc_side && (state.loc_city || state.loc_state || state.loc_zip)) add("loc_side", `Location side: ${state.loc_side}`, { loc_side: "either" });
@@ -200,7 +204,9 @@ function DeskList({ view, state, query, update, pending, userId, repView = false
   const rep = useIsRep();
   const [degrade, setDegrade] = useState<Degrade>(NO_DEGRADE);
   const requested = attentionParamsFromDesk(state, view);
-  const supported = supportedAttentionParams(requested, capabilities);
+  const supported = supportedAttentionParams(requested, capabilities ?? null);
+  // OI §10: while capabilities load, a list using additive families waits in skeletons instead of reading unavailable.
+  const capabilitiesPending = capabilities === undefined && supported.unavailable.length > 0;
   const closedUnsupported = view === "closed" ? [
     ...(state.work.length || state.followup_agent_id.length ? ["Follow-up"] : []),
     ...(state.relationship || state.agent ? ["Involvement"] : []),
@@ -215,11 +221,11 @@ function DeskList({ view, state, query, update, pending, userId, repView = false
     ...(raw.has("move_days") && state.move_days == null ? ["Invalid move date"] : []),
     ...(state.snapshot_id && !/^outreach:[^\s]{1,91}$/.test(state.snapshot_id) ? ["Invalid snapshot"] : []),
   ];
-  const unavailable = [...new Set([...supported.unavailable, ...closedUnsupported, ...invalidRaw])];
+  const unavailable = [...new Set([...(capabilities === undefined ? [] : supported.unavailable), ...closedUnsupported, ...invalidRaw])];
   const params = applyDegrade(supported.params, degrade);
   const error = useQueryError(siKeys.attention(params));
   const expired = isExpiredSnapshot(error, state.snapshot_id);
-  const blocked = unavailable.length > 0 || expired;
+  const blocked = unavailable.length > 0 || expired || capabilitiesPending;
   const next = nextDegrade(error, params, degrade);
   // Render-time adjust (no effect): a 400 on `q` or on a sort moves to the degraded params at once.
   if (next !== degrade) setDegrade(next);
@@ -243,9 +249,9 @@ function DeskList({ view, state, query, update, pending, userId, repView = false
         <Region key={`preset-${regionKey}`} name="preset-bar" className="si-desk__preset" skeleton={<PresetBar.Skeleton />} onRetry={reset(siKeys.attention(params))}>
           <PresetArea view={view} params={params} value={preset.value} onChange={preset.setValue} />
         </Region>}
-      <WithRailReps rosterAvailable={capabilities?.roster === true}>{(reps) => <SearchControls state={state} onChange={update} reps={reps} capabilities={capabilities} rep={rep} closed={view === "closed"} />}</WithRailReps>
+      <WithRailReps rosterAvailable={capabilities?.roster === true}>{(reps) => <SearchControls state={state} onChange={update} reps={reps} capabilities={capabilities ?? null} rep={rep} closed={view === "closed"} />}</WithRailReps>
       {rep && !repView && view === "all_outreach" && <MyWorkload priority={state.priority} />}
-      {view !== "closed" && !rep && !repView && (blocked ? <MetricsStripView metrics={null} asOf={asOf} /> :
+      {view !== "closed" && !rep && !repView && (capabilitiesPending ? <MetricsStrip.Skeleton /> : blocked ? <MetricsStripView metrics={null} asOf={asOf} /> :
         <Region key={`metrics-${regionKey}`} name="metrics" className="si-desk__metrics" skeleton={<MetricsStrip.Skeleton />} onRetry={reset(siKeys.attention(params))}>
           <MetricsStrip params={params} onApply={onTile} />
         </Region>
@@ -264,7 +270,7 @@ function DeskList({ view, state, query, update, pending, userId, repView = false
           <Region name="chips" skeleton={null}>
             {blocked ? <ChipsArea {...railProps} onClearAll={clearFilters} /> : <ConnectedChipsArea {...railProps} params={params} onClearAll={clearFilters} />}
           </Region>
-          {expired ? <p role="status" className="si-desk__notice">{copy.oi.repView.expired} <Link href={`/sales-intelligence?${deskUrlUpdate(query, { snapshot_id: null }, rep ? "rep" : "owner").toString()}`}>{copy.oi.repView.latest}</Link></p> : blocked && <div role="status" className="si-desk__notice"><p>{unavailable.join(", ")}: {unavailable.some((name) => name.startsWith("Invalid")) ? "Invalid filter value." : "Not available yet."} Your selections remain in the URL. Remove a chip or clear filters to continue.</p>{view === "closed" && state.sort === "move_date" && <button type="button" className="si-btn si-btn--secondary si-hit" onClick={() => update({ sort: null, direction: null })}>Reset sort</button>}</div>}
+          {expired ? <p role="status" className="si-desk__notice">{copy.oi.repView.expired} <Link href={`/sales-intelligence?${deskUrlUpdate(query, { snapshot_id: null }, rep ? "rep" : "owner").toString()}`}>{copy.oi.repView.latest}</Link></p> : capabilitiesPending ? <OutreachListView.Skeleton /> : blocked && <div role="status" className="si-desk__notice"><p>{unavailable.join(", ")}: {unavailable.some((name) => name.startsWith("Invalid")) ? "Invalid filter value." : "Not available yet."} Your selections remain in the URL. Remove a chip or clear filters to continue.</p>{view === "closed" && state.sort === "move_date" && <button type="button" className="si-btn si-btn--secondary si-hit" onClick={() => update({ sort: null, direction: null })}>Reset sort</button>}</div>}
           {!repView && !expired && state.snapshot_id && <SnapshotFreshness pinned={state.snapshot_id} query={query} priority={state.priority} role={rep ? "rep" : "owner"} />}
           {!blocked && <Region name="priority-closed-link" skeleton={null}><PriorityClosedLink params={params} state={state} role={rep ? "rep" : "owner"} capabilities={capabilities} /></Region>}
           <Notices search={notices.search} sort={notices.sort} />

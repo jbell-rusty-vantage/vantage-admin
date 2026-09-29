@@ -86,7 +86,7 @@ export function MetricsStripView({ metrics, asOf, onApply, overdue }: { metrics:
 export function MetricsStrip({ params, onApply }: { params: AttentionParams; onApply: (tile: MetricTile) => void }) {
   const list = useAttentionList(params);
   const priority = params.priority ?? [];
-  const team = useQuery({ queryKey: teamOverviewKey(priority), queryFn: ({ signal }) => readTeamOverview(priority, signal), retry: false });
+  const team = useQuery({ queryKey: teamOverviewKey(priority), queryFn: ({ signal }) => readTeamOverview(priority, signal), retry: false, refetchInterval: 60_000 });
   const overdue = team.data?.data.status === "ready" ? team.data.data.attention?.records_with_overdue ?? null : null;
   useReportAsOf(list.asOf);
   return <MetricsStripView metrics={list.metrics} asOf={list.asOf} onApply={onApply} overdue={overdue} />;

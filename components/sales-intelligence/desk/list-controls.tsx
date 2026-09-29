@@ -9,7 +9,7 @@
  * - Every change goes through the URL, which drops the list cursor.
  */
 import { ArrowDownUp } from "lucide-react";
-import { useId } from "react";
+import { useId, useState } from "react";
 import {
   CLOSED_DEFAULT_SORT, CLOSED_SORTS, DESK_SORT_ORDER, DESK_DEFAULT_SORT, isScoreSort,
 } from "@/lib/api/salesIntelligence";
@@ -38,16 +38,23 @@ export function SearchControls({ state, onChange, reps, capabilities, rep, close
   capabilities: AttentionCapabilities | null; rep: boolean; closed: boolean;
 }) {
   const cap = closed ? capabilities?.closed_history : capabilities;
+  // `relationship` is only sent with an `agent`: a type chosen before a rep waits here instead of blocking the list.
+  const [draftRelationship, setDraftRelationship] = useState<DeskUrlState["relationship"]>(null);
+  const relationship = state.relationship ?? draftRelationship ?? "involved";
   return <div className="si-searchcontrols" aria-label="Outreach filters">
     <MoveDateMenu key={[state.move_date_mode,state.move_days,state.move_on,state.move_from,state.move_through].join("|")} value={state} onChange={onChange} available={cap?.move_date === true} />
     <LocationFilter key={[state.loc_side,state.loc_city,state.loc_state,state.loc_zip].join("|")} value={state} onChange={onChange} available={cap?.location === true} />
     {!rep && <RepPicker value={state} reps={reps} onChange={onChange} available={cap?.assignment === true && capabilities?.roster === true} />}
     {!closed && <FollowupFilter value={state} onChange={onChange} available={cap?.work === true} />}
     {!rep && !closed && <details className="si-searchctl si-searchctl__more"><summary>More filters</summary>
-      <label>Involvement <select className="si-input si-select" value={state.relationship ?? "involved"} disabled={cap?.relationship !== true} onChange={(event) => onChange({ relationship: event.target.value as DeskUrlState["relationship"], agent: state.agent })}>
+      <label>Involvement <select className="si-input si-select" value={relationship} disabled={cap?.relationship !== true} onChange={(event) => {
+        const value = event.target.value as DeskUrlState["relationship"];
+        setDraftRelationship(value);
+        if (state.agent) onChange({ relationship: value, agent: state.agent });
+      }}>
         <option value="involved">Rep involved (assigned, follow-up or promised)</option><option value="assigned">Assigned</option><option value="followup">Follow-up</option>
       </select></label>
-      <select aria-label="Involved rep" className="si-input si-select" value={state.agent ?? ""} disabled={cap?.relationship !== true || capabilities?.roster !== true} onChange={(event) => onChange({ agent: event.target.value || null, relationship: event.target.value ? state.relationship ?? "involved" : null })}>
+      <select aria-label="Involved rep" className="si-input si-select" value={state.agent ?? ""} disabled={cap?.relationship !== true || capabilities?.roster !== true} onChange={(event) => onChange({ agent: event.target.value || null, relationship: event.target.value ? relationship : null })}>
         <option value="">Any rep</option>{reps.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select>
       {cap?.relationship !== true && <small>Not available yet</small>}
