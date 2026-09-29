@@ -1,4 +1,5 @@
-export { Overview, OverviewSkeleton, OverviewView, OverviewHeaderBody, isFeatureOff, linksFor, type OverviewPeriodState } from "./overview";
+export { Overview } from "./phase-c-overview";
+export { OverviewSkeleton, OverviewView, OverviewHeaderBody, isFeatureOff, linksFor, type OverviewPeriodState } from "./overview";
 export { PeriodPicker, PeriodPickerSkeleton, periodLabel, periodPatch, periodWord, type PeriodPatch } from "./period-picker";
 export { NowBlock, NowBlockSkeleton } from "./now-block";
 export { DeskHealthBlock, DeskHealthBlockSkeleton, FLOW_OUT, bandMovesRow, keptLine, returnedLine, speedLine } from "./desk-health-block";

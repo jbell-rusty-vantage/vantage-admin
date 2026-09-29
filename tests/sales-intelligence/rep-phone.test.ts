@@ -57,7 +57,7 @@ test("JumpSelect: a labelled select (44 px in CSS) whose options are the anchors
 });
 
 test("the record page's tabs carry the sticky hook", () => {
-  const markup = html(createElement(QueryClientProvider, { client: new QueryClient() }, createElement(OutreachPageFrame, { back: "/sales-intelligence", header: null, tabs: outreachTabs("x", null), active: "work" })));
+  const markup = html(createElement(QueryClientProvider, { client: new QueryClient() }, createElement(OutreachPageFrame, { back: "/sales-intelligence", header: null, tabs: outreachTabs("x", null), active: "case" })));
   assert.ok(markup.includes('class="si-tabs si-routetabs si-outreach__tabs"'));
 });
 
@@ -83,10 +83,11 @@ test("Sheet: full-screen and bottom variants, a labelled dialog with a 44 px clo
   assert.ok(inline.startsWith('<div role="dialog"') && inline.includes("si-sheet is-inline si-sheet--bottom"));
 });
 
-fixtureTest("the rep card's two actions carry the full-width hook", () => {
+fixtureTest("the rep card has one full-page link and no separate open actions", () => {
   const a = attentionSchema.parse(read("S8/rep-attention__all-outreach.json"));
   const markup = html(asRep(createElement(OutreachCard, { row: a.data.items[0]!, asOf: a.as_of, layout: "flat", view: "all_outreach" })));
-  assert.equal((markup.match(/si-card__repaction/g) ?? []).length, 2);
+  assert.equal((markup.match(/si-cardshell__hit/g) ?? []).length, 1);
+  assert.equal((markup.match(/si-card__repaction/g) ?? []).length, 0);
 });
 
 fixtureTest("transcript segments become 44 px buttons that play the recording from their offset, only with a player", () => {

@@ -4,12 +4,13 @@
  * prints the specific null wording from SERVER-STATE-FOR-UI §1. Every time goes through `TimeText` / `lib/time.ts`
  * against the response's `as_of`.
  */
-import { Bot, CircleHelp, PhoneIncoming, PhoneOff, TriangleAlert } from "lucide-react";
+import { ArrowRight, Bot, Calendar, CircleHelp, Package, PhoneIncoming, PhoneOff, Receipt, TriangleAlert } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 import { scoreLabel, type AttentionRow } from "@/lib/api/salesIntelligence";
 import { TooltipCard } from "../atoms/tooltip-card";
 import { Button } from "../atoms/button";
 import { BandBadge, Chip, StatePill, TimeText, type BandNumber, type ChipTone } from "../primitives";
+import { BANDS } from "../sales-intelligence-copy";
 import { copy } from "../sales-intelligence-copy";
 import { cx } from "../lib/format";
 import { OWNER_VIEWER, type Viewer } from "../rep/viewer-session";
@@ -279,19 +280,24 @@ function DueClause({ o, asOf }: { o: CardOutreach; asOf: string }) {
   );
 }
 
-export function LineSix({ o, asOf, onApply }: { o: CardOutreach; asOf: string; onApply?: () => void }) {
+export function LineSix({ o, asOf, onApply, selectedFollowup }: { o: CardOutreach; asOf: string; onApply?: () => void; selectedFollowup?: { id: string; name: string } | null }) {
   const action = o.next_action;
+  const matchesSelected = !!selectedFollowup && action?.assignment?.agent?.id === selectedFollowup.id;
+  const otherFollowup = selectedFollowup && !matchesSelected ? <span className="si-card__selected-followup" data-selected-followup="secondary">{copy.oi.repView.otherFollowup(selectedFollowup.name)}</span> : null;
   if (action) {
     return (
-      <span className="si-card__next">
+      <span className={cx("si-card__next", matchesSelected && "is-selected-followup")} data-selected-followup={matchesSelected ? "primary" : undefined}>
+        <span className={cx("si-card__nextpill", o.facts?.next_action_state === "overdue" && "is-overdue")}>{copy.oi.card.next}</span>
         <span>
-          {c.next(action.description)}
+          {action.description}
           {action.promise_chain?.attempt != null && `${SEP}${ch.retry(action.promise_chain.attempt)}`}
           <DueClause o={o} asOf={asOf} />
+          {action.assignment && (!action.assignment.agent || action.assignment.agent.id !== o.assignment.agent?.id) && `${SEP}${action.assignment.agent?.name ?? copy.oi.card.unassignedFollowup}`}
         </span>
         {action.default_kind === "quote_followup" && (
           <ChipView chip={{ id: "default", tone: "neutral", icon: <Bot size={12} aria-hidden />, label: ch.default, tip: ch.defaultTip }} />
         )}
+        {otherFollowup}
       </span>
     );
   }
@@ -308,7 +314,7 @@ export function LineSix({ o, asOf, onApply }: { o: CardOutreach; asOf: string; o
       </span>
     );
   }
-  return <span className="si-time is-null">{c.noNextStep}</span>;
+  return otherFollowup ?? <span className="si-time is-null">{c.noNextStep}</span>;
 }
 
 // ── Line 7 ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -401,7 +407,7 @@ export function CardBandRow({ row, asOf }: { row: CardRow; asOf: string }) {
   return (
     <span className="si-card__l1 si-card__bandrow">
       <span className="si-card__l1main">
-        <BandBadge band={isBand(band) ? band : null} />
+        {isBand(band) ? <span className="si-card__bandname"><span>{BANDS[band]}</span><span className="si-card__bandnumber"> · Band {band}</span></span> : <BandBadge band={null} />}
         {lineOneChips(row, asOf, { rep }).map((chip) => (
           <ChipView key={chip.id} chip={chip} />
         ))}
@@ -424,6 +430,37 @@ export function routeShortText(o: CardOutreach, asOf: string): string | null {
   return route.move_date ? `${path}${SEP}${formatDate(route.move_date, asOf)}` : path;
 }
 
+/** The move sits beside identity. Legacy snapshots supply only route facts until S1 is available. */
+export function MoveLine({ o, asOf }: { o: CardOutreach; asOf?: string }) {
+  const move = o.facts?.move;
+  const route = o.facts?.route;
+  const date = move === undefined ? route?.move_date : move?.date;
+  const start = place(move === undefined ? route?.pickup_city ?? null : move?.pickup?.city ?? null, move === undefined ? route?.pickup_state ?? null : move?.pickup?.state ?? null, "?");
+  const end = place(move === undefined ? route?.delivery_city ?? null : move?.delivery?.city ?? null, move === undefined ? route?.delivery_state ?? null : move?.delivery?.state ?? null, "?");
+  const calendar = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T12:00:00Z`) : null;
+  const fullDate = calendar && Number.isFinite(calendar.getTime())
+    ? new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(calendar)
+    : null;
+  const spokenDate = calendar && Number.isFinite(calendar.getTime())
+    ? new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(calendar)
+    : copy.oi.card.moveDateUnknown;
+  const routeKnown = move === undefined ? !!route && !!(route.pickup_city || route.pickup_state || route.delivery_city || route.delivery_state) : !!(move?.pickup || move?.delivery);
+  const routeWord = routeKnown ? `${start} to ${end}` : copy.oi.card.routeUnknown;
+  const parts = [move?.size, move?.volume_ft3 != null ? `${move.volume_ft3} ft³` : null].filter(Boolean);
+  const estimate = move?.estimate;
+  const dateNote = move?.date_source === "granot" && move.granot_observed_at ? `From Granot report, ${formatExactFull(move.granot_observed_at)}` : undefined;
+  const estimateNote = estimate ? `Granot estimate, seen ${asOf ? timePhrase(estimate.observed_at, asOf, "relative").text : formatExactFull(estimate.observed_at)} (${formatExactFull(estimate.observed_at)})` : undefined;
+  return (
+    <span className="si-card__move" role="group" aria-label={`Move ${spokenDate}${o.facts?.move_date_passed ? ", passed" : ""}, ${routeWord}${parts.length ? `, ${parts.join(", ")}` : ""}${estimate ? `, estimate ${estimate.display}` : ""}`}>
+      <CardTip title="Move date" lines={dateNote ? [dateNote] : []} label={<span aria-hidden={!dateNote} className={o.facts?.move_date_passed ? "si-text--amber" : undefined}><Calendar size={14} aria-hidden /> {fullDate ?? copy.oi.card.moveDateUnknown}{date && o.facts?.move_date_passed ? " (passed)" : ""}</span>} />
+      <span aria-hidden> · </span>
+      <span aria-hidden>{routeKnown ? <>{start} <ArrowRight size={14} aria-hidden /> {end}</> : copy.oi.card.routeUnknown}</span>
+      {parts.map((part) => <Fragment key={part}><span aria-hidden> · </span><span aria-hidden><Package size={14} aria-hidden /> {part}</span></Fragment>)}
+      {estimate && <><span aria-hidden> · </span><CardTip title="Granot estimate" lines={estimateNote ? [estimateNote] : []} label={<span><Receipt size={14} aria-hidden /> Est. {estimate.display}</span>} /></>}
+    </span>
+  );
+}
+
 export type CardTile = { id: string; label: string; value: string; exact?: string; dateTime?: string; nullTip?: string; tone?: "null" | "amber" };
 
 function timeTile(id: string, label: string, t: string | null | undefined, asOf: string, nullValue: string): CardTile {
@@ -443,7 +480,7 @@ export function metricTiles(o: CardOutreach, asOf: string): CardTile[] {
     : timeTile("received", t.received, o.trigger_at, asOf, t.dash);
   const calls = f?.calls_total ?? null;
   const conversations = f?.conversations_total ?? null;
-  const moveDate = f?.route?.move_date;
+  const moveDate = f?.move === undefined ? f?.route?.move_date : f.move?.date;
   let move: CardTile;
   if (!moveDate) move = { id: "move", label: t.move, value: t.noDate, tone: "null" };
   else if (f?.move_date_passed) move = { id: "move", label: t.move, value: t.passed, exact: formatDate(moveDate, asOf), tone: "amber" };
@@ -484,9 +521,9 @@ export function TileView({ tile }: { tile: CardTile }) {
 }
 
 /** Row C. A click on a tile opens the card like the rest of the body (the tiles take pointer events for their `title`). */
-export function MetricTiles({ tiles, onOpen, className }: { tiles: CardTile[]; onOpen?: () => void; className?: string }) {
+export function MetricTiles({ tiles, className }: { tiles: CardTile[]; className?: string }) {
   return (
-    <ul className={cx("si-tiles", className)} aria-label={c.tile.listLabel} onClick={onOpen}>
+    <ul className={cx("si-tiles", className)} aria-label={c.tile.listLabel}>
       {tiles.map((tile) => (
         <TileView key={tile.id} tile={tile} />
       ))}

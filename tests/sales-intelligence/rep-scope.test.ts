@@ -15,7 +15,6 @@ import { parseDeskUrl } from "../../components/sales-intelligence/data/url-state
 import { RailRegions, railRegionsFor } from "../../components/sales-intelligence/rail";
 import { OutreachPage, RecordHeaderView, headerChips, headerRow } from "../../components/sales-intelligence/outreach";
 import { EvidenceList, type EvidenceView } from "../../components/sales-intelligence/outreach/analysis";
-import { PreviewBody } from "../../components/sales-intelligence/preview-dialog";
 import { ViewerProvider, viewerFromSession, OWNER_VIEWER } from "../../components/sales-intelligence/rep/viewer";
 import { copy } from "../../components/sales-intelligence/sales-intelligence-copy";
 import { findContractsDir, fixtureTest, ifFixtures } from "./contracts-dir";
@@ -94,13 +93,12 @@ fixtureTest("A04 Analysis tab (rep): every section the Owner's has except Full o
   const owner = page("analysis", OWNER_VIEWER);
   const expected = sections(owner.html).filter((id) => id !== "full-output" && id !== "advanced");
   assert.deepEqual(sections(rep.html), expected);
-  for (const id of ["situation", "scores", "next-step", "move-details", "findings", "conversations"]) assert.ok(expected.includes(id), id);
+  for (const id of ["situation", "scores", "findings"]) assert.ok(expected.includes(id), id);
   for (const control of OWNER_CONTROLS) assert.ok(!rep.html.includes(control), control);
   assert.ok(!/>\s*Apply\s*</.test(rep.html), "no Apply on the suggestion");
   const nav = rep.html.slice(rep.html.indexOf('class="si-subnav'), rep.html.indexOf("</nav>", rep.html.indexOf('class="si-subnav')));
   assert.ok(!nav.includes("#full-output"), "the sub-nav has no Full output");
-  // Findings keep their inline evidence and the changes block; Conversations keep transcript and audio.
-  assert.ok(rep.html.includes("data-finding=") && rep.html.includes('<article id="si-conversation-'));
+  assert.ok(rep.html.includes("data-finding=") && !rep.html.includes('<article id="si-conversation-'), "Conversations have their own tab");
   assert.ok(text(rep.html).includes(copy.ui2.scope.back), "Back, not Back to Outreach Intelligence");
   assert.ok(!text(rep.html).includes(copy.ui1.outreach.back));
   assert.doesNotMatch(rep.html, OWNER_ONLY_HREF);
@@ -122,10 +120,10 @@ fixtureTest("A04 Work tab (rep): the follow-ups only; no corrections, review ite
   assert.doesNotMatch(rep.html, OWNER_ONLY_HREF);
   assert.deepEqual(ownerOnlyQueries(rep.client), []);
   assert.deepEqual(requested.filter((url) => OWNER_ONLY_READ.test(url)), []);
-  // The Owner's Work tab is unchanged.
+  // The Owner's Work rail keeps the actionable regions; attachments move to Case File.
   requested.length = 0;
   const owner = page("work", OWNER_VIEWER);
-  for (const region of ["work-corrections", "work-review", "work-restrictions", "work-attachments", "work-messages"]) {
+  for (const region of ["work-corrections", "work-review", "work-restrictions", "work-messages"]) {
     assert.ok(owner.html.includes(`data-region="${region}"`), `Owner ${region}`);
   }
 });
@@ -141,7 +139,7 @@ fixtureTest("A04 Timeline tab (rep): the same timeline, with the rep header; no 
   assert.deepEqual(requested.filter((url) => OWNER_ONLY_READ.test(url)), []);
 });
 
-fixtureTest("A04 record header (rep): blocker chip `Don't call` with no date, provenance, receiver agent; no commands, links or Lead progress controls", () => {
+fixtureTest("A04 record header (rep): blocker chip and receiver agent, six tiles; no Owner commands", () => {
   const o = detail.data.outreach;
   const blocked = { ...o, derived: { ...o.derived, call_blockers: ["restriction"] } };
   const view = (viewer: typeof DANA) => renderAs(viewer, createElement(RecordHeaderView, { outreach: blocked, asOf: detail.as_of, returnTo: "/x", onCommand: () => {}, onMessageRep: () => {}, messageRepDisabledReason: null })).html;
@@ -149,7 +147,7 @@ fixtureTest("A04 record header (rep): blocker chip `Don't call` with no date, pr
   const chip = rep.slice(rep.indexOf('data-chip="blocker-restriction"'), rep.indexOf("</span></span>", rep.indexOf('data-chip="blocker-restriction"')));
   assert.ok(text(chip).includes(copy.ui2.scope.dontCallNoDate) && !text(chip).includes("until"), "Don't call, no date");
   assert.ok(!rep.includes(copy.ui1.chip.blocker.restrictionTip), "no `open the record` tip");
-  assert.ok(rep.includes('class="si-provenance"'));
+  assert.ok(rep.includes('data-tile="received"') && rep.includes('data-tile="move"'));
   for (const control of OWNER_CONTROLS) assert.ok(!rep.includes(control), control);
   assert.doesNotMatch(rep, OWNER_ONLY_HREF);
   // headerChips: a rep never gets the review chip, and the restriction chip never reads a date.
@@ -157,9 +155,9 @@ fixtureTest("A04 record header (rep): blocker chip `Don't call` with no date, pr
   const chips = headerChips(row, detail.as_of, { until: "2026-10-01T12:00:00.000Z" }, true, { rep: true });
   assert.deepEqual(chips.map((c) => c.id), ["blocker-restriction"]);
   assert.equal(chips[0]!.label, copy.ui2.scope.dontCallNoDate);
-  // The Owner keeps commands, Message rep and the related records.
+  // Assign stays in the Owner header; other commands move to the Work rail.
   const owner = view(OWNER_VIEWER);
-  assert.ok(owner.includes('data-command="message_rep"') && owner.includes('class="si-related"'));
+  assert.ok(text(owner).includes("Assign") && !owner.includes('data-command="message_rep"'));
 });
 
 const attention = ifFixtures(() => attentionSchema.parse(read("S8/rep-attention__all-outreach.json")));
@@ -190,25 +188,24 @@ fixtureTest("A05 line 7 for a rep: Yours (assigned wins over a promise) · Promi
   assert.ok(card(unassigned).includes("si-repavatar is-unassigned"));
 });
 
-fixtureTest("A04 card (rep): Open (Work tab) and Open analysis, no Message rep, no Apply, no Owner-only href; closed keeps Open", () => {
+fixtureTest("A04 card (rep): one record link, no Message rep, no Apply, no Owner-only href", () => {
   for (const row of attention.data.items) {
     const html = renderAs(DANA, createElement(OutreachCard, { row, asOf: attention.as_of, layout: "flat", view: "all_outreach", onMessageRep: () => {}, onApplySuggestion: () => {} })).html;
     if (!row.outreach) continue;
-    assert.ok(html.includes(`data-action="open" data-viewer="rep" href="/sales-intelligence/outreach/${row.outreach.id}?tab=work"`), "Open → Work tab");
-    assert.ok(html.includes(`data-action="open-analysis" data-viewer="rep" href="/sales-intelligence/outreach/${row.outreach.id}"`), "Open analysis");
+    assert.ok(html.includes(`href="/sales-intelligence/outreach/${row.outreach.id}"`), "card → full record");
     assert.ok(!html.includes('data-action="message-rep"') && !html.includes("si-card__apply"));
     assert.doesNotMatch(html, OWNER_ONLY_HREF);
   }
   const closed = renderAs(DANA, createElement(OutreachCard, { row: attention.data.items[0]!, asOf: attention.as_of, layout: "flat", view: "closed" })).html;
-  assert.ok(closed.includes('data-action="open"') && !closed.includes('data-action="open-analysis"'));
+  assert.ok(closed.includes('class="si-cardshell__hit"') && !closed.includes('data-action="open-analysis"'));
   // The Owner's card is unchanged.
   const owner = renderAs(OWNER_VIEWER, createElement(OutreachCard, { row: attention.data.items[0]!, asOf: attention.as_of, layout: "flat", view: "all_outreach", onMessageRep: () => {} })).html;
   assert.ok(owner.includes('data-action="message-rep"') && !owner.includes("?tab=work"));
 });
 
-fixtureTest("A04 side dialog (rep): line 7 is the rep's, no Apply, no Owner-only href", () => {
+fixtureTest("A04 card (rep): line 7 is the rep's, no Apply, no Owner-only href", () => {
   const row = rowById("6ab5ab1972ee2eb383d948b1");
-  const html = renderAs(DANA, createElement(PreviewBody, { row, asOf: attention.as_of, onApplySuggestion: () => {} })).html;
+  const html = renderAs(DANA, createElement(OutreachCard, { row, asOf: attention.as_of, layout: "flat", view: "all_outreach", onApplySuggestion: () => {} })).html;
   assert.ok(text(html).includes("Promised by you"));
   assert.ok(!/>\s*Apply\s*</.test(html));
   assert.doesNotMatch(html, OWNER_ONLY_HREF);

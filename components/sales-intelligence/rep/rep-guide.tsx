@@ -5,6 +5,7 @@
  */
 import { useEffect } from "react";
 import { BANDS, copy } from "../sales-intelligence-copy";
+import { GuideHealthRegion } from "../guide-view";
 
 const g = copy.ui2.guide;
 export const REP_GUIDE_TOPICS = ["views", "bands", "card", "followups", "owner", "messages"] as const;
@@ -21,7 +22,7 @@ function Term({ name, body }: { name: string; body: string }) {
   );
 }
 
-export function RepGuide({ topic = null }: { topic?: string | null }) {
+export function RepGuide({ topic = null, withHealth = false }: { topic?: string | null; withHealth?: boolean }) {
   const current = parseTopic(topic);
   useEffect(() => {
     if (topic) document.getElementById(`rep-guide-${current}`)?.scrollIntoView({ block: "start" });
@@ -57,6 +58,7 @@ export function RepGuide({ topic = null }: { topic?: string | null }) {
       <section id="rep-guide-followups"><h2>{g.topics.followups}</h2><p>{g.followupsBody}</p></section>
       <section id="rep-guide-owner"><h2>{g.topics.owner}</h2><p>{g.ownerBody}</p></section>
       <section id="rep-guide-messages"><h2>{g.topics.messages}</h2><p>{g.messagesBody}</p></section>
+      {withHealth && <GuideHealthRegion />}
     </article>
   );
 }

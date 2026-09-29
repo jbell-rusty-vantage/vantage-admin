@@ -118,7 +118,7 @@ fixtureTest("OutreachPage mounts the joined Analysis tab (not the placeholder) w
   assert.ok(!text(html).includes("The analysis sections are still being built."));
   const situation = html.slice(html.indexOf('<section id="situation"'), html.indexOf('<section id="scores"'));
   assert.ok(!situation.includes('data-lines="1-4,6-7"'), "cardLines={false}");
-  assert.ok(html.includes("data-finding=") && html.includes('<article id="si-conversation-'));
+  assert.ok(html.includes("data-finding=") && !html.includes('<article id="si-conversation-'), "Conversations moved to their own tab");
 });
 
 test("AnalysisTabSkeleton uses the Findings and Conversations skeletons", () => {

@@ -2,6 +2,7 @@
 
 import { outreachReadSchema, type Outreach } from "@/lib/api/salesIntelligence";
 import { OutreachNotFound, OutreachRouteSkeleton, RecordHeaderView } from "@/components/sales-intelligence/outreach";
+import { MoveGlanceView } from "@/components/sales-intelligence/outreach/move-glance";
 import { RecordProvenance } from "@/components/sales-intelligence/lead-provenance";
 import { copy } from "@/components/sales-intelligence/sales-intelligence-copy";
 import { formatExact } from "@/components/sales-intelligence/lib/time";
@@ -34,11 +35,16 @@ const PROVENANCE: { id: string; state: string; noNumber?: boolean }[] = [
 export function RecordHeaderSection() {
   const kept = read("ownerKept");
   const live = read("liveCall");
+  const moveFacts: Outreach = { ...kept.outreach, facts: { ...kept.outreach.facts!, move: { date: "2026-10-29", date_source: "granot", pickup: { city: "Chicago", state: "IL", zip: "60601" }, delivery: { city: "Raleigh", state: "NC", zip: "27601" }, size: "2 Bedroom", volume_ft3: 600, service_type: null, estimate: { display: "$4,200", observed_at: "2026-09-23T12:50:25Z" }, granot_observed_at: "2026-09-23T12:50:25Z" } } };
   return (
     <GallerySection id="record-header" title={copy.ui1.gallery.sections["record-header"]}>
       <Subhead>{g.header}</Subhead>
       <Sample copyKey={kept.source} wide>
         <RecordHeaderView outreach={kept.outreach} asOf={kept.asOf} returnTo={RETURN} onCommand={noop} onMessageRep={noop} messageRepDisabledReason={null} />
+      </Sample>
+      <Sample label="Move facts · Granot estimate" copyKey="synthetic CF-B move facts" wide>
+        <RecordHeaderView outreach={moveFacts} asOf={kept.asOf} returnTo={RETURN} onCommand={noop} onMessageRep={noop} messageRepDisabledReason={null} />
+        <MoveGlanceView outreach={moveFacts} asOf={kept.asOf} />
       </Sample>
       <Subhead>{g.live}</Subhead>
       <Sample copyKey={live.source} wide>

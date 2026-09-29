@@ -9,7 +9,7 @@ import { copy } from "../sales-intelligence-copy";
 import { useIsRep } from "../rep/viewer";
 import { cx } from "../lib/format";
 import {
-  BAND_OPTIONS, CLOSED_WINDOWS, MOVE_WITHIN, OUTCOME_OPTIONS, RECEIVED_WINDOWS, SCORE_STEPS, STATUS_OPTIONS,
+  BAND_OPTIONS, CLOSED_WINDOWS, OUTCOME_OPTIONS, RECEIVED_WINDOWS, SCORE_STEPS, STATUS_OPTIONS,
   customRange, matchWindow, rangeDates, windowFrom,
   type RailPatch, type RailRegion, type RailRep, type RailValue, type WindowTable,
 } from "./regions";
@@ -180,29 +180,12 @@ function RangeControl({ legend, windows, labels, from, to, asOf, onPick, data }:
   );
 }
 
-function MoveDateRadios({ value, onChange }: RegionProps) {
-  const name = useId();
-  const pick = (within: number | null, passed: boolean) => onChange({ move_date_within: within, move_date_passed: passed });
-  return (
-    <Group legend={r.moveDate}>
-      <Radio name={name} data="move:any" checked={value.move_date_within == null && !value.move_date_passed} onChange={() => pick(null, false)}>{r.any}</Radio>
-      {MOVE_WITHIN.map((n) => (
-        <Radio key={n} name={name} data={`move:${n}`} checked={value.move_date_within === n && !value.move_date_passed} onChange={() => pick(n, false)}>
-          {n === 7 ? r.moveWithin7 : r.moveWithin30}
-        </Radio>
-      ))}
-      <Radio name={name} data="move:passed" checked={value.move_date_passed} onChange={() => pick(null, true)}>{r.movePassed}</Radio>
-    </Group>
-  );
-}
-
 function TimeRegion(props: RegionProps) {
   const { value, onChange, asOf } = props;
   return (
     <>
       <RangeControl legend={r.received} data="received" windows={RECEIVED_WINDOWS} labels={r.receivedWindow} from={value.received_from} to={value.received_to} asOf={asOf}
         onPick={(from, to) => onChange({ received_from: from, received_to: to })} />
-      <MoveDateRadios {...props} />
     </>
   );
 }

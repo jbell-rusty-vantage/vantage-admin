@@ -6,6 +6,13 @@
  * record's commands still link to.
  */
 import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useOverview } from "./data/use-overview";
+import { siKeys } from "./data/query-keys";
+import { DeskHealthBlock, DeskHealthBlockSkeleton } from "./overview/desk-health-block";
+import { overviewLinks } from "./overview/links";
+import { Region, RegionProgress } from "./primitives";
+import { useIsRep } from "./rep/viewer";
 import { copy, BANDS } from "./sales-intelligence-copy";
 import { GUIDE_TOPICS, guideHref, parseGuideTopic } from "./sales-intelligence-tabs";
 
@@ -19,7 +26,17 @@ function Term({ name, body }: { name: string; body: string }) {
   );
 }
 
-export function GuideView({ topic }: { topic: string | null }) {
+function GuideDeskHealth() {
+  const query = useOverview({});
+  const rep = useIsRep();
+  return <><RegionProgress active={query.isFetching} /><DeskHealthBlock data={query.overview} links={overviewLinks({ priority: [], attachment: null, rep })} title={rep ? copy.ui2.overview.healthTitle : copy.oi.overview.deskHealth} /></>;
+}
+export function GuideHealthRegion() {
+  const client = useQueryClient();
+  return <section id="desk-health" aria-label={copy.oi.overview.deskHealth}><Region name="guide-desk-health" skeleton={<DeskHealthBlockSkeleton />} onRetry={() => void client.resetQueries({ queryKey: siKeys.overview({}) })}><GuideDeskHealth /></Region></section>;
+}
+
+export function GuideView({ topic, withHealth = false }: { topic: string | null; withHealth?: boolean }) {
   const current = parseGuideTopic(topic);
   useEffect(() => {
     document.getElementById(current)?.scrollIntoView({ block: "start" });
@@ -80,6 +97,7 @@ export function GuideView({ topic }: { topic: string | null }) {
         <p>{copy.coverage.intro}</p>
         <p>{copy.clocks.goingCold}</p>
       </section>
+      {withHealth && <GuideHealthRegion />}
       <section id="statuses">
         <h2>{g.topics.statuses}</h2>
         <ul className="si-guide__list">

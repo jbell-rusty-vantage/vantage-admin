@@ -33,7 +33,6 @@ export type PresetBarProps = {
 };
 
 const p = copy.ui1.desk.preset;
-const PRESETS = ["all", "new", "quoted", "other"] as const;
 const LEADS = [
   { value: null, label: copy.ui1.desk.lead.all },
   { value: "lead", label: copy.ui1.desk.lead.hasLead },
@@ -54,7 +53,7 @@ export function priorityLabel(key: string): string {
 
 /** Every key in `counts` (minus `no_lead`, which lives on the Lead toggle) plus any selected key, numeric order, `not_set` last. */
 export function priorityOptions(counts: PriorityCounts | null | undefined, selected: readonly string[] = []): string[] {
-  const keys = new Set([...Object.keys(counts ?? {}), ...selected]);
+  const keys = new Set(["3", "5", "7", "8", "not_set", ...Object.keys(counts ?? {}), ...selected]);
   keys.delete("no_lead");
   const rank = (key: string) => (key === "not_set" ? Number.POSITIVE_INFINITY : Number.isFinite(Number(key)) ? Number(key) : Number.MAX_SAFE_INTEGER);
   return [...keys].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
@@ -86,23 +85,21 @@ export function PresetBar({ counts, view, value, onChange, className, hideLead =
 
   return (
     <div className={cx("si-presetbar", noLead && "is-nolead", className)} data-view={view} data-preset={noLead ? "no_lead" : preset}>
+      <span className="si-presetbar__title">Granot Priority:</span>
       <div className="si-seg" role="group" aria-label={p.presetsLabel}>
-        {PRESETS.map((name) => (
+        {([{"key":"all","label":"All","codes":[]},{"key":"0","label":"0 — New","codes":["0"]},{"key":"1","label":"1 — Quoted","codes":["1"]}] as const).map(({ key, label, codes }) => (
           <button
-            key={name}
+            key={key}
             type="button"
-            className={cx("si-seg__btn", !noLead && preset === name && "is-active")}
-            aria-pressed={!noLead && preset === name}
-            data-preset-btn={name}
-            onClick={() => onChange(presetChange(name, value))}
+            className={cx("si-seg__btn", !noLead && value.priority.length === codes.length && codes.every((code) => value.priority.includes(code)) && "is-active")}
+            aria-pressed={!noLead && value.priority.length === codes.length && codes.every((code) => value.priority.includes(code))}
+            data-preset-btn={key}
+            onClick={() => onChange({ priority: [...codes], attachment: value.attachment })}
             {...disabledProps}
           >
-            {p[name]}
+            {label}
           </button>
         ))}
-        {preset === "custom" && !noLead && (
-          <span className="si-seg__btn si-seg__custom is-active" data-preset-btn="custom">{p.custom}</span>
-        )}
       </div>
       <PriorityMenu counts={counts} view={view} value={value} onChange={onChange} disabled={noLead} noteId={noteId} />
       {!hideLead && (
@@ -139,9 +136,9 @@ function PriorityMenu({ counts, view, value, onChange, disabled, noteId }: Prese
   const panelId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const options = priorityOptions(counts, value.priority);
-  const n = new Set(value.priority).size;
-  const triggerText = `${p.priorityLabel} · ${n ? p.selected(n) : p.all}`;
+  const options = priorityOptions(counts, value.priority).filter((key) => key !== "0" && key !== "1");
+  const n = new Set(value.priority.filter((key) => key !== "0" && key !== "1")).size;
+  const triggerText = `Other priorities${n ? ` · ${p.selected(n)}` : ""}`;
 
   const close = useCallback((refocus: boolean) => {
     setOpen(false);

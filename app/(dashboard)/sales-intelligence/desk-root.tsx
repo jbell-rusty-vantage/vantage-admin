@@ -8,14 +8,13 @@ import { Desk } from "@/components/sales-intelligence/desk";
 import { Overview } from "@/components/sales-intelligence/overview";
 import { ViewerProvider } from "@/components/sales-intelligence/rep/viewer";
 import type { Viewer } from "@/components/sales-intelligence/rep/viewer-session";
-import { TimelinePreview } from "@/components/sales-intelligence/timeline";
 import "@/components/sales-intelligence/styles/sales-intelligence.css";
 
 export function DeskRoot({ userId, viewer }: { userId: string | null; viewer: Viewer }) {
   return (
     <ViewerProvider viewer={viewer}>
       <div className="si-root si-route" data-viewer={viewer.role}>
-        <Desk userId={userId} overview={<Overview userId={userId} />} renderTimelinePreview={(outreachId) => <TimelinePreview outreachId={outreachId} />} />
+        <Desk userId={userId} overview={<Overview userId={userId} />} />
       </div>
     </ViewerProvider>
   );

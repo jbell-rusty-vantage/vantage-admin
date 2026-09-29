@@ -5,6 +5,7 @@
  */
 import { BANDS, copy } from "../sales-intelligence-copy";
 import { formatDate } from "../lib/time";
+import type { DeskUrlPatch } from "../data/url-state";
 import {
   CLOSED_WINDOWS, RECEIVED_WINDOWS, matchWindow, rangeDates,
   type RailPatch, type RailRegion, type RailRep, type RailValue, type WindowTable,
@@ -14,7 +15,7 @@ export type FilterChip = {
   key: string;
   label: string;
   /** The patch that removes this chip's value (pure; tests read it). */
-  patch: RailPatch;
+  patch: DeskUrlPatch;
   /** Calls `onChange(patch)` when one was given. */
   remove: () => void;
 };
@@ -63,7 +64,7 @@ export function activeFilterChips(
         }
         break;
       case "rep":
-        for (const id of value.agent_id) add(`agent:${id}`, r.chip.rep(repName(reps, id)), { agent_id: without(value.agent_id, id) });
+        for (const id of value.agent_id) add(`agent:${id}`, `Involved: ${repName(reps, id)}`, { agent_id: without(value.agent_id, id) });
         if (value.unassigned) add("unassigned", r.unassigned, { unassigned: false });
         break;
       case "analysis":

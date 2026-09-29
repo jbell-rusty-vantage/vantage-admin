@@ -303,14 +303,15 @@ export function RepFollowupActions({ followup, outreachId, asOf, onDone, send }:
  * The rep's Work tab follow-ups: open ones first, each with its card and the rep's actions or read-only sentence, then
  * the finished ones under a disclosure. Replaces the Owner's `FollowupsSection` (whose commands are the Owner's).
  */
-export function RepFollowups({ record, asOf, send }: { record: Outreach; asOf: string; send?: RepSend }) {
+export function RepFollowups({ record, asOf, send, view = "all" }: { record: Outreach; asOf: string; send?: RepSend; view?: "all" | "primary" | "other" | "done" }) {
   const w = copy.ui1.outreach.work;
   const [saved, setSaved] = useState(false);
-  const open = record.followups.filter((f) => f.status === "open");
-  const done = record.followups.filter((f) => f.status !== "open");
+  const primaryId = record.derived.action_facts?.map((fact) => fact.id).find((id) => record.followups.some((action) => action.id === id && action.status === "open")) ?? record.next_action?.id;
+  const open = record.followups.filter((f) => f.status === "open" && (view === "all" || (view === "primary" ? f.id === primaryId : view === "other" && f.id !== primaryId)));
+  const done = view === "all" || view === "done" ? record.followups.filter((f) => f.status !== "open") : [];
   return (
     <section className="si-local-stack si-repfollowups" aria-label={w.followupsTitle} data-viewer="rep">
-      <h3 className="si-heading si-heading--3">{w.followupsTitle}</h3>
+      <h3 className="si-heading si-heading--3">{view === "primary" ? copy.oi.page.nextStep : w.followupsTitle}</h3>
       {saved && <p className="si-repfollowup__done" role="status">{k.done}</p>}
       {open.map((f) => (
         <div className="si-local-stack si-repfollowup" key={f.id} data-followup={f.id}>
@@ -318,9 +319,9 @@ export function RepFollowups({ record, asOf, send }: { record: Outreach; asOf: s
           <RepFollowupActions followup={f} outreachId={record.id} asOf={asOf} onDone={() => setSaved(true)} send={send} />
         </div>
       ))}
-      {!open.length && <p className="si-time is-null">{w.noFollowups}</p>}
+      {!open.length && (view === "all" || view === "primary") && <p className="si-time is-null">{w.noFollowups}</p>}
       {!!done.length && (
-        <details>
+        <details open={view === "done" || undefined}>
           <summary className="si-hit">{copy.panel.completedFollowups} ({done.length})</summary>
           <div className="si-local-stack">{done.map((f) => <FollowupCard key={f.id} followup={f} overallOwner={record.assignment.agent} asOf={asOf} />)}</div>
         </details>

@@ -12,6 +12,8 @@ const all = salesIntelligenceKeys.all;
 export const siKeys = {
   /** Desk list (Needs Attention, All Outreach, Closed): one infinite query per request string; the cursor is the page param. */
   attention: (params: AttentionParams) => [...all, "attention", attentionQuery({ ...params, limit: params.limit }).toString()] as const,
+  attentionCapabilities: () => [...all, "attention-capabilities"] as const,
+  roster: () => [...all, "roster"] as const,
   overview: (params: OverviewParams) => [...all, "overview", overviewQuery(params).toString()] as const,
   closedHistory: (params: ClosedHistoryParams) => [...all, "closed-history", closedHistoryQuery(params).toString()] as const,
   outreach: (id: string) => [...all, "outreach", id] as const,

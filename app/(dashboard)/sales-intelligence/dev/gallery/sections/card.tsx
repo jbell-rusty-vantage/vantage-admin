@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { attentionRowSchema, type AttentionRow } from "@/lib/api/salesIntelligence";
 import { OutreachCard, type OutreachCardProps } from "@/components/sales-intelligence/card";
-import { PreviewBody } from "@/components/sales-intelligence/preview-dialog";
 import { BandBadge } from "@/components/sales-intelligence/primitives";
 import { copy } from "@/components/sales-intelligence/sales-intelligence-copy";
 import { formatRelative } from "@/components/sales-intelligence/lib/time";
@@ -41,6 +40,11 @@ function promisedByAssignee(row: AttentionRow): AttentionRow {
 function withRestriction(row: AttentionRow): AttentionRow {
   return { ...row, derived: { ...row.derived, call_blockers: ["restriction", ...row.derived.call_blockers] } };
 }
+/** Synthetic CF-B move facts on the existing Lead card; values mirror the verified local contract shape. */
+function withMoveFacts(row: AttentionRow): AttentionRow {
+  if (!row.outreach?.facts) return row;
+  return { ...row, outreach: { ...row.outreach, facts: { ...row.outreach.facts, move: { date: "2026-10-29", date_source: "granot", pickup: { city: "Chicago", state: "IL", zip: "60601" }, delivery: { city: "Raleigh", state: "NC", zip: "27601" }, size: "2 Bedroom", volume_ft3: 600, service_type: null, estimate: { display: "$4,200", observed_at: "2026-09-23T12:50:25Z" }, granot_observed_at: "2026-09-23T12:50:25Z" } } } };
+}
 
 export type CardSample = {
   id: string;
@@ -53,6 +57,7 @@ export type CardSample = {
 /** Every card state the brief lists, each from a fixture row (UI1-CARD evidence names the row). */
 export const CARD_SAMPLES: CardSample[] = [
   { id: "lead", fixture: "lead", props: { layout: "flat" } },
+  { id: "move-facts", fixture: "lead", transform: withMoveFacts, source: "synthetic CF-B move facts on S1 Lead" },
   { id: "number-only", fixture: "numberOnly" },
   { id: "number-review", fixture: "numberReview" },
   { id: "nulls", fixture: "nulls" },
@@ -82,7 +87,7 @@ function Card({ sample }: { sample: CardSample }) {
       asOf={asOf}
       layout="grouped"
       view="all_outreach"
-      onOpen={noop}
+      onNavigate={noop}
       onMessageRep={noop}
       onApplySuggestion={noop}
       {...sample.props}
@@ -107,7 +112,6 @@ export function CardSection() {
   const g = copy.ui1.gallery;
   const grouped = fixture("lead");
   const band = grouped.row.derived.attention_band;
-  const preview = fixture("liveAndOwner");
   return (
     <GallerySection id="card" title={g.sections.card}>
       <p className="si-gallery__note">{cg.note}</p>
@@ -121,24 +125,16 @@ export function CardSection() {
       <div className="si-gallery__grid" data-card-sample="grouped-vs-flat">
         <Sample label={cg.grouped} copyKey={grouped.source} wide>
           {band != null && band >= 1 && band <= 7 && <BandBadge band={band as 1 | 2 | 3 | 4 | 5 | 6 | 7} variant="header" count={1} />}
-          <OutreachCard row={grouped.row} asOf={grouped.asOf} layout="grouped" view="attention" onOpen={noop} onMessageRep={noop} />
+          <OutreachCard row={grouped.row} asOf={grouped.asOf} layout="grouped" view="attention" onNavigate={noop} onMessageRep={noop} />
         </Sample>
         <Sample label={cg.flat} copyKey={grouped.source} wide>
-          <OutreachCard row={grouped.row} asOf={grouped.asOf} layout="flat" view="all_outreach" onOpen={noop} onMessageRep={noop} />
+          <OutreachCard row={grouped.row} asOf={grouped.asOf} layout="flat" view="all_outreach" onNavigate={noop} onMessageRep={noop} />
         </Sample>
       </div>
       <Subhead>{cg.skeleton}</Subhead>
       <div data-card-sample="skeleton">
         <Sample label={cg.skeletonLabel} copyKey="CardShell.Skeleton" wide>
           <OutreachCard.Skeleton />
-        </Sample>
-      </div>
-      <Subhead>{cg.dialog}</Subhead>
-      <div data-card-sample="preview">
-        <Sample label={cg.dialogLabel} copyKey={preview.source} wide>
-          <div className="si-gallery__progressbox">
-            <PreviewBody row={preview.row} asOf={preview.asOf} />
-          </div>
         </Sample>
       </div>
       <Subhead>{cg.phone}</Subhead>

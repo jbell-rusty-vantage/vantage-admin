@@ -24,7 +24,7 @@ export type RailKey = (typeof RAIL_KEYS)[number];
 export type RailValue = Pick<DeskUrlState, RailKey>;
 /** A change the rail asks for; it is a `DeskUrlPatch`, so the desk passes `useDeskUrlState().update` straight through. */
 export type RailPatch = Partial<RailValue>;
-export type RailRep = { id: string; name: string };
+export type RailRep = { id: string; name: string; active?: boolean };
 
 export type RailRegion = {
   id: RailRegionId;
@@ -45,7 +45,7 @@ export function outreachRegions(view: "attention" | "all_outreach"): RailRegion[
   return [
     region(view, "band", r.band, ["band", "needs_review"]),
     region(view, "status", r.status, ["state"]),
-    region(view, "rep", r.rep, ["agent_id", "unassigned"]),
+    region(view, "rep", "Rep involved (legacy bookmarks)", ["agent_id", "unassigned"]),
     region(view, "analysis", r.analysis, ["has_recording", "has_assessment", "newer_call", "ti_min", "ml_min"]),
     region(view, "time", r.time, ["received_from", "received_to", "move_date_within", "move_date_passed"]),
   ];
@@ -55,7 +55,7 @@ export function outreachRegions(view: "attention" | "all_outreach"): RailRegion[
 export function closedRegions(): RailRegion[] {
   return [
     region("closed", "outcome", r.closedOutcome, ["outcome"]),
-    region("closed", "rep", r.closedRep, ["agent_id", "unassigned"]),
+    region("closed", "rep", "Rep involved (legacy bookmarks)", ["agent_id", "unassigned"]),
     region("closed", "closed_time", r.closedTime, ["closed_from", "closed_to"]),
   ];
 }

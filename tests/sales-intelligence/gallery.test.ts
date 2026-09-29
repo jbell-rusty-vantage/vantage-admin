@@ -127,7 +127,7 @@ test("preset bar and rail sections: every preset state, No Lead, both rails with
   for (const preset of ["all", "new", "quoted", "other", "custom", "no_lead"]) assert.ok(html.includes(`data-preset="${preset}"`), `bar state ${preset}`);
   assert.ok(text.includes("A record with no Lead has no Granot Priority, so the presets don't apply."));
   for (const id of ["outreach", "closed", "closed-window", "skeleton", "phone"]) assert.ok(html.includes(`data-rail-sample="${id}"`), `rail ${id}`);
-  for (const label of ["Band 1 · Promised callbacks overdue", "Needs review", "Rep: Dana Reyes", "Transaction intent at least 50", "Lead received last 7d", "Move date within 30d", "Booked in Granot", "Unassigned", "Closed Sep 1 – Sep 20", "Closed last 30d"]) {
+  for (const label of ["Promised callbacks overdue · Band 1", "Needs review", "Involved: Dana Reyes", "Transaction intent at least 50", "Lead received last 7d", "Move date within 30d", "Booked in Granot", "Unassigned", "Closed Sep 1 – Sep 20", "Closed last 30d"]) {
     assert.ok(text.includes(label), label);
   }
   assert.match(text, /lucide-sliders-horizontal[^]*?Filters \(9\)/);

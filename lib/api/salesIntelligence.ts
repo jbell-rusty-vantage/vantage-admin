@@ -56,7 +56,7 @@ const followup = z.object({ id: z.string(), revision:z.number(), allowed_actions
   default_kind: z.string().optional(), cancel_reason: z.string().optional(), supersedes_id: z.string().optional(),
   promise_chain: z.object({ attempt: z.number(), root_id: z.string(), root_origin: z.string() }).optional(),
   date_text: z.string().nullable().optional(), wait_expired_at: z.string().nullable().optional(), provenance_refs: z.array(z.string()).optional(),
-  date_resolution: z.object({ anchor: z.string(), precision: z.string(), timezone: z.string(), policy_version: z.string(), assumption: z.string().nullable() }).optional() });
+  date_resolution: z.object({ anchor: z.string(), precision: z.string(), timezone: z.string(), policy_version: z.string(), assumption: z.string().nullable() }).nullable().optional() });
 // LP-01 §7: server-owned Lead progress. Every label is a server word; Admin never derives Quoted from
 // Priority or policy from a code. Optional so a server without it still renders.
 export const leadProgressSchema = z.object({ lead_ref: z.object({ model: z.enum(['FormLead','CallLead']), id: z.string() }),
@@ -73,7 +73,7 @@ export const sortKeysSchema = z.object({ next_action_due: z.string().nullable(),
   transaction_intent: z.number().nullable().optional(), move_likelihood: z.number().nullable().optional(),
   assessment_status: z.string().nullable().optional(), assessment_stale: z.boolean().nullable().optional(),
   // UI1-DATA (S2, D20): `last_call`, `interactions`; the closed partition adds `closed` and `time_to_close`. Absent on older snapshots.
-  last_call: z.string().nullable().optional(), interactions: z.number().nullable().optional(),
+  last_call: z.string().nullable().optional(), interactions: z.number().nullable().optional(), move_date: z.string().nullable().optional(),
   closed: z.string().nullable().optional(), time_to_close: z.number().nullable().optional(), band2_due_rank: z.number().nullable().optional() });
 export const ATTENTION_SORTS = ['attention','next_action_due','lead_received','last_human_contact','last_lead_progress','transaction_intent','move_likelihood'] as const;
 export type AttentionSort = (typeof ATTENTION_SORTS)[number];
@@ -87,12 +87,12 @@ export const ATTENTION_SORT_DEFAULT_DIRECTION: Record<AttentionSort, 'asc'|'desc
  * differ from the legacy map in one place: `last_human_contact` (Last conversation) is newest first on the new desk.
  * The words (label, direction words, null label) live in `copy.ui1.data.sorts`.
  */
-export const DESK_SORTS = [...ATTENTION_SORTS, 'last_call', 'interactions'] as const;
+export const DESK_SORTS = [...ATTENTION_SORTS, 'last_call', 'interactions', 'move_date'] as const;
 export type DeskSort = (typeof DESK_SORTS)[number];
-export const DESK_SORT_DEFAULT_DIRECTION: Record<DeskSort, 'asc'|'desc'> = { ...ATTENTION_SORT_DEFAULT_DIRECTION, last_human_contact: 'desc', last_call: 'desc', interactions: 'desc' };
+export const DESK_SORT_DEFAULT_DIRECTION: Record<DeskSort, 'asc'|'desc'> = { ...ATTENTION_SORT_DEFAULT_DIRECTION, last_human_contact: 'desc', last_call: 'desc', interactions: 'desc', move_date: 'asc' };
 export function parseDeskSort(value: string | null | undefined, fallback: DeskSort = 'attention'): DeskSort { return (DESK_SORTS as readonly string[]).includes(value ?? '') ? value as DeskSort : fallback; }
 /** UI-1 §3.4 order of the sort menu. */
-export const DESK_SORT_ORDER: readonly DeskSort[] = ['attention','lead_received','last_call','last_human_contact','next_action_due','last_lead_progress','transaction_intent','move_likelihood','interactions'];
+export const DESK_SORT_ORDER: readonly DeskSort[] = ['attention','lead_received','move_date','last_call','last_human_contact','next_action_due','last_lead_progress','transaction_intent','move_likelihood','interactions'];
 /** UI-1 §3.5: Closed has its own sorts (`view=closed` only; the server refuses them elsewhere). */
 export const CLOSED_SORTS = ['closed','lead_received','time_to_close'] as const;
 export type ClosedSort = (typeof CLOSED_SORTS)[number];
@@ -136,6 +136,7 @@ export function parseDirection(value: string | null | undefined, fallback: 'asc'
  * a server or snapshot without them still parses, and the UI prints the null wording. ── */
 // Card lines 2–4. Counts are null when the record has no primary Number (`No Number on file`), never zero.
 export const outreachFactsSchema = z.object({
+  move: z.object({ date: z.string().nullable(), date_source: z.string().nullable(), pickup: z.object({ city: z.string().nullable(), state: z.string().nullable(), zip: z.string().nullable() }).nullable(), delivery: z.object({ city: z.string().nullable(), state: z.string().nullable(), zip: z.string().nullable() }).nullable(), size: z.string().nullable(), volume_ft3: z.number().nullable(), service_type: z.string().nullable(), estimate: z.object({ display: z.string(), observed_at: z.string() }).nullable(), granot_observed_at: z.string().nullable() }).nullable().optional(),
   route: z.object({ pickup_city: z.string().nullable(), pickup_state: z.string().nullable(), delivery_city: z.string().nullable(), delivery_state: z.string().nullable(),
     move_date: z.string().nullable(), source: z.string().optional() }).nullable(),
   move_date_passed: z.boolean(), last_call_at: z.string().nullable(),
@@ -145,6 +146,8 @@ export const outreachFactsSchema = z.object({
   next_action_state: z.string(),
   rep_thread: z.json().nullable().optional() });
 export type OutreachFacts = z.infer<typeof outreachFactsSchema>;
+export const moveSummarySchema = outreachFactsSchema.shape.move.unwrap().unwrap().extend({ granot: z.object({ estimate: z.string().nullable(), payment: z.string().nullable(), balance: z.string().nullable(), size: z.string().nullable(), volume_ft3: z.number().nullable(), service_type: z.string().nullable(), observed_at: z.string(), observation_id: z.string() }).nullable() });
+export type MoveSummary = z.infer<typeof moveSummarySchema>;
 // G3: the live chip. `rep.text` is shown exactly as sent.
 export const liveCallSchema = z.object({ interaction_id: z.string(), direction: z.string(), started_at: z.string(),
   rep: z.object({ kind: z.string(), agent_id: z.string().nullable().optional(), name: z.string().nullable().optional(), extension: z.string().nullable().optional(), text: z.string() }) });
@@ -163,7 +166,7 @@ export const leadCostSchema = z.object({ amount: z.number(), basis: z.string() }
 export const latestSummarySchema = z.object({ run_id: z.string().optional(), run_kind: z.string(), overview: z.string(), completed_at: z.string(), conversations_covered: z.number().nullable() });
 export const officialSchema = z.object({ status: z.string(), booking_id: z.string().nullable(), priority: z.object({ code: z.string(), label: z.string() }).nullable() });
 export const outreachSchema = z.object({ id: z.string(), revision: z.number(), subject, state: z.string(), reason: z.string().nullable(),
-  facts: outreachFactsSchema.optional(), live_call: liveCallSchema.nullable().optional(), band_since: bandSinceSchema.nullable().optional(),
+  facts: outreachFactsSchema.optional(), move_summary: moveSummarySchema.nullable().optional(), live_call: liveCallSchema.nullable().optional(), band_since: bandSinceSchema.nullable().optional(),
   next_action: nextActionSchema.nullable().optional(), suggested_next_step: suggestedNextStepSchema.nullable().optional(),
   trigger_at: z.string().optional(), last_activity_at: z.string().nullable().optional(), last_attributable_outbound_at: z.string().nullable().optional(),
   prior_contact_at: z.string().nullable().optional(), last_inbound_human_at: z.string().nullable().optional(),
@@ -281,14 +284,27 @@ export const attentionRowSchema = z.object({ subject_key:z.string(), subject,
   allowed_actions: z.array(availabilitySchema).optional() });
 // Final §6: five tiles computed at publish. Absent (not null) on a snapshot without metrics → every tile `—`.
 export const deskMetricsSchema = z.object({ as_of: z.string(), leads_received_7d: z.number(), not_called_yet: z.number(), callbacks_overdue: z.number(),
-  awaiting_assessment: z.number(), booked_7d: z.number(), booked_7d_median_days: z.number().nullable().optional() });
+  records_with_overdue: z.number().optional(), awaiting_assessment: z.number(), booked_7d: z.number(), booked_7d_median_days: z.number().nullable().optional() });
 export type DeskMetrics = z.infer<typeof deskMetricsSchema>;
 // Addendum §5: per Priority key (`0`…`9`, `not_set`, `no_lead`), the count in each view. Keys are present only when seen.
 export const priorityCountsSchema = z.record(z.string(), z.object({ attention: z.number(), active: z.number(), closed: z.number() }));
 export type PriorityCounts = z.infer<typeof priorityCountsSchema>;
+/* OI-A4: additive reads; older deployments omit the fields on Attention pages. */
+export const attentionCapabilitiesSchema = z.object({
+  move_date: z.boolean().optional(), assignment: z.boolean().optional(), relationship: z.boolean().optional(),
+  work: z.boolean().optional(), location: z.boolean().optional(), move_date_sort: z.boolean().optional(), snapshot_pin: z.boolean().optional(),
+  roster: z.boolean().optional(), closed_history: z.object({ move_date: z.boolean().optional(), assignment: z.boolean().optional(),
+    location: z.boolean().optional(), work: z.boolean().optional(), relationship: z.boolean().optional(), move_date_sort: z.boolean().optional(), snapshot_pin: z.boolean().optional() }).optional(),
+}).passthrough();
+export type AttentionCapabilities = z.infer<typeof attentionCapabilitiesSchema>;
+export const attentionCapabilitiesReadSchema = z.object({ ok: z.boolean(), as_of: z.string(), data: z.object({ capabilities: attentionCapabilitiesSchema }) });
+export const salesRosterSchema = z.object({ ok: z.boolean(), as_of: z.string(), data: z.object({ agents: z.array(z.object({ id: z.string(), name: z.string(), active: z.boolean(), has_open_work: z.boolean() })), status: z.string(), snapshot_id: z.string().nullable() }) });
+export const resolvedMoveWindowSchema = z.object({ reference_date: z.string(), from: z.string().nullable(), through: z.string().nullable() });
 export const attentionSchema = z.object({ as_of: z.string(), coverage, data: z.object({ items: z.array(attentionRowSchema),
   snapshot_id: z.string().nullable(), total_items:z.number().nullable(), cursor:z.string().nullable(), reason_counts:z.record(z.string(), z.number()).optional(),
   metrics: deskMetricsSchema.optional(), priority_counts: priorityCountsSchema.optional(),
+  capabilities: attentionCapabilitiesSchema.optional(), applied_filters: z.record(z.string(), z.unknown()).optional(),
+  resolved_move_window: resolvedMoveWindowSchema.optional(), timezone: z.string().optional(), pending_reason: z.string().optional(),
   // Optional on the server DTO, so requiring it here would fail the whole Attention read on a page the server still publishes.
   status:z.enum(['ready','pending_projection']).optional(), stale:z.boolean().optional(),
   // §14.1: the sort the server produced this page under. Absent means the server has no sort contract; the UI shows "unavailable" rather than sorting locally.
@@ -367,6 +383,8 @@ export type OwnerCoverage = z.infer<typeof ownerCoverageSchema>['data']['coverag
 
 /* ── UI1-DATA: Closed history (E27) — closed rows older than the 90-day partition, same row shape as `view=closed`. ── */
 export const closedHistorySchema = z.object({ as_of: z.string(), coverage, data: z.object({ items: z.array(attentionRowSchema), cursor: z.string().nullable(),
+  capabilities: attentionCapabilitiesSchema.shape.closed_history.optional(), applied_filters: z.record(z.string(), z.unknown()).optional(),
+  resolved_move_window: resolvedMoveWindowSchema.optional(), timezone: z.string().optional(),
   retention: z.object({ days: z.number().nullable(), basis: z.string().optional() }) }) });
 export type ClosedHistoryPage = z.infer<typeof closedHistorySchema>;
 

@@ -5,6 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { outreachAssessmentReadSchema } from "../../lib/api/salesIntelligenceAssessment";
 import { MoveDetails, markerText } from "../../components/sales-intelligence/outreach/analysis";
+import type { MoveSummary } from "../../lib/api/salesIntelligence";
 import { findContractsDir, fixtureTest } from "./contracts-dir";
 
 // UI1-MOVE: Move details from the contract fixtures (final spec §11.4, §11.9; UI1-A23). No DOM (ADMIN-REBUILD trap 7).
@@ -23,6 +24,14 @@ const row = (html: string, key: string) => {
   return html.slice(at, html.indexOf("</tr>", at));
 };
 const ORDER = ["pickup", "delivery", "move_date", "size", "services", "access", "money", "inventory"];
+
+fixtureTest("Case File adds the observed Granot report column, including estimate, payment, and balance", () => {
+  const summary: MoveSummary = { date: null, date_source: null, pickup: null, delivery: null, size: null, volume_ft3: null, service_type: null, estimate: null, granot_observed_at: "2026-09-23T12:50:25Z", granot: { estimate: "$4,200", payment: "$500", balance: "$3,700", size: "2 Bedroom", volume_ft3: 600, service_type: "Packing", observed_at: "2026-09-23T12:50:25Z", observation_id: "g1" } };
+  const html = renderToStaticMarkup(createElement(MoveDetails, { assessment: assessment("s-conflict-move"), moveSummary: summary }));
+  assert.ok(text(html).includes("Granot reportObserved") && !text(html).includes("2026-09-23T12:50:25Z"));
+  assert.ok(text(row(html, "size")).includes("2 Bedroom · 600 ft³"));
+  assert.ok(text(row(html, "money")).includes("Estimate: $4,200 · Payment: $500 · Balance: $3,700"));
+});
 
 fixtureTest("the table: three columns, the origin word in the Original header, rows in the fixed order", () => {
   const html = render("s-conflict-move");

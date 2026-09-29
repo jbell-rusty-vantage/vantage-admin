@@ -22,13 +22,13 @@ const decode = (s: string) => s.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").r
 test("five regions on the outreach rail, three on the closed rail, each remembered per desk", () => {
   for (const view of ["attention", "all_outreach"] as const) {
     const regions = outreachRegions(view);
-    assert.deepEqual(regions.map((r) => r.title), ["Band", "Status", "Rep", "Analysis", "Time"]);
+    assert.deepEqual(regions.map((r) => r.title), ["Band", "Status", "Rep involved (legacy bookmarks)", "Analysis", "Time"]);
     assert.deepEqual(regions.map((r) => r.storageId), ["band", "status", "rep", "analysis", "time"].map((id) => `si.rail.${view}.${id}`));
     // No Lead attachment / Priority here (UX7, UX24).
     assert.ok(!regions.some((r) => r.params.some((p) => (p as string) === "priority" || (p as string) === "attachment")));
   }
   const closed = closedRegions();
-  assert.deepEqual(closed.map((r) => r.title), ["Outcome", "Rep", "Closed"]);
+  assert.deepEqual(closed.map((r) => r.title), ["Outcome", "Rep involved (legacy bookmarks)", "Closed"]);
   assert.deepEqual(closed.map((r) => r.storageId), ["si.rail.closed.outcome", "si.rail.closed.rep", "si.rail.closed.closed_time"]);
 });
 
@@ -38,13 +38,14 @@ test("the rail renders each region as an open disclosure with the §7.3 controls
   assert.equal((html.match(/class="si-disclosure is-open si-rail__region"/g) ?? []).length, 5);
   assert.equal((html.match(/aria-expanded="true"/g) ?? []).length, 5);
   for (let n = 1; n <= 7; n += 1) assert.ok(html.includes(`data-rail-option="band:${n}"`), `band ${n}`);
-  assert.ok(html.includes("Band 1 · Promised callbacks overdue") && html.includes("Needs review"));
+  assert.ok(html.includes("Promised callbacks overdue · Band 1") && html.includes("Needs review"));
   for (const label of ["Unworked", "Open", "Waiting on customer", "Identity review"]) assert.ok(html.includes(`>${label}<`), label);
   assert.ok(!html.includes("Rep replied"), "no Rep replied chip until UI-4");
   assert.ok(html.includes(">Any rep<") && html.includes(">Dana Reyes<") && html.includes(">Unassigned<"));
   for (const label of ["Has recording", "Has assessment", "Newer call since assessment", "Transaction intent at least", "Move likelihood at least"]) assert.ok(html.includes(label), label);
   for (const n of [25, 50, 75]) assert.ok(html.includes(`data-rail-option="ti_min:${n}"`) && html.includes(`data-rail-option="ml_min:${n}"`));
-  for (const label of ["Lead received", "Last 24h", "Last 7d", "Last 30d", "Custom range", "Move date", "Within 7d", "Within 30d", "Already passed"]) assert.ok(html.includes(label), label);
+  for (const label of ["Lead received", "Last 24h", "Last 7d", "Last 30d", "Custom range"]) assert.ok(html.includes(label), label);
+  assert.ok(!html.includes('data-rail-option="move:passed"'), "the new move date menu is the sole move control");
 
   const closed = decode(renderToStaticMarkup(createElement(FilterRail, { regions: closedRegions(), value: empty(), onChange: () => {}, reps: REPS, asOf: AS_OF })));
   for (const label of ["Booked", "Booked in Granot", "Cancelled", "Bad Lead", "Duplicate", "No-Sync", "CRM dead", "CRM bad/unusable", "Closed by you", "Closed in", "Last 90d"]) assert.ok(closed.includes(`>${label}<`), label);
@@ -59,8 +60,8 @@ test("selected values render checked, and a window is recognised from the stored
     const at = html.indexOf(`data-rail-option="${opt}"`);
     return html.slice(at, html.indexOf("</label>", at)).includes('checked=""');
   };
-  for (const opt of ["band:1", "band:3", "needs_review", "state:open", "has_recording", "ti_min:50", "ml_min:any", "received:7d", "move:passed"]) assert.ok(checked(opt), opt);
-  for (const opt of ["band:2", "state:unworked", "ti_min:any", "received:any", "received:custom", "move:any"]) assert.ok(!checked(opt), opt);
+  for (const opt of ["band:1", "band:3", "needs_review", "state:open", "has_recording", "ti_min:50", "ml_min:any", "received:7d"]) assert.ok(checked(opt), opt);
+  for (const opt of ["band:2", "state:unworked", "ti_min:any", "received:any", "received:custom"]) assert.ok(!checked(opt), opt);
   assert.match(html, /<option value="agent-b" selected="">Alex Kim<\/option>/);
   // An hour after as_of the same filter still reads "last 7d"; a day later it is a fixed range.
   assert.equal(matchWindow(from, null, "2026-09-24T21:32:56.744Z", RECEIVED_WINDOWS), "7d");
@@ -74,7 +75,7 @@ test("activeFilterChips: labels from copy, one chip per value, remove() applies 
   const patches: RailPatch[] = [];
   const chips = activeFilterChips(v, outreachRegions("attention"), REPS, { asOf: AS_OF, onChange: (p) => patches.push(p) });
   assert.deepEqual(chips.map((c) => c.label), [
-    "Band 1 · Promised callbacks overdue", "Band 7 · Going cold", "Needs review", "Waiting on customer", "Rep: Dana Reyes",
+    "Promised callbacks overdue · Band 1", "Going cold · Band 7", "Needs review", "Waiting on customer", "Involved: Dana Reyes",
     "Has assessment", "Newer call since assessment", "Transaction intent at least 25", "Move likelihood at least 75",
     "Lead received last 24h", "Move date within 30d",
   ]);
@@ -88,13 +89,13 @@ test("activeFilterChips: labels from copy, one chip per value, remove() applies 
   assert.equal(url.toString(), "view=attention&band=7");
 
   const unknown = activeFilterChips(value("unassigned=true&agent_id=gone"), outreachRegions("attention"), REPS);
-  assert.deepEqual(unknown.map((c) => c.label), ["Rep: Unknown rep", "Unassigned"]);
+  assert.deepEqual(unknown.map((c) => c.label), ["Involved: Unknown rep", "Unassigned"]);
 
   const closed = activeFilterChips(
     value(`outcome=granot_booked&outcome=owner&agent_id=agent-b&closed_from=${encodeURIComponent(windowFrom(AS_OF, CLOSED_WINDOWS["90d"])!)}&band=2`),
     closedRegions(), REPS, { asOf: AS_OF },
   );
-  assert.deepEqual(closed.map((c) => c.label), ["Booked in Granot", "Closed by you", "Rep: Alex Kim", "Closed last 90d"]);
+  assert.deepEqual(closed.map((c) => c.label), ["Booked in Granot", "Closed by you", "Involved: Alex Kim", "Closed last 90d"]);
 
   const range = customRange("2026-09-01", "2026-09-07");
   const custom = activeFilterChips(value(`received_from=${range.from}&received_to=${range.to}`), outreachRegions("all_outreach"), REPS, { asOf: AS_OF });

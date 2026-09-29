@@ -12,12 +12,13 @@
  * it, for the Owner and the rep alike (`Open in transcript` scrolls within the page).
  */
 import { FileSearch } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { useContext, useId, useState, type ReactNode } from "react";
 import { SkeletonLines } from "../../primitives";
 import { copy } from "../../sales-intelligence-copy";
 import { cx } from "../../lib/format";
 import { etDateKey, formatDate, formatExact, formatExactFull } from "../../lib/time";
-import { scrollToSegments } from "./transcript";
+import { TranscriptLinkContext, scrollToSegments } from "./transcript";
 
 const e = copy.ui1.analysis.evidence;
 
@@ -101,7 +102,15 @@ function CallDate({ t, asOf }: { t: string; asOf: string }) {
 function OpenInTranscript({ item }: { item: EvidenceView }) {
   const conversationId = item.conversation_id ?? str(item.source?.conversation_id);
   const sids = item.segment_ids?.length ? [...item.segment_ids] : nums(item.source?.segment_ids);
+  const linkTo = useContext(TranscriptLinkContext);
   if (!conversationId || sids.length === 0) return null;
+  if (linkTo) {
+    return (
+      <Link className="si-evidence__open si-hit" href={linkTo(conversationId, sids.map(String))} data-conversation={conversationId} data-sids={sids.join(",")} onClick={() => scrollToSegments(conversationId, sids)}>
+        {e.openInTranscript}
+      </Link>
+    );
+  }
   return (
     <button type="button" className="si-evidence__open si-hit" data-conversation={conversationId} data-sids={sids.join(",")} onClick={() => scrollToSegments(conversationId, sids)}>
       {e.openInTranscript}

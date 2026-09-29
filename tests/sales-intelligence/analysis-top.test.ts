@@ -41,7 +41,7 @@ fixtureTest("Situation: the card lines, the latest-analysis label and overview, 
   assert.ok(html.includes(`aria-label="Latest analysis, ${formatExactFull(data.outreach.latest_summary!.completed_at)} · 3 conversations"`));
   assert.ok(t.includes("Priya is moving a two bedroom apartment"));
   assert.ok(t.includes("Official: Open Lead · Granot Priority 1 (Quoted)"), t);
-  assert.ok(t.includes("Next: Call Friday about the estimate"), "line 6 from the card");
+  assert.ok(t.includes("NextCall Friday about the estimate"), "line 6 from the card");
   assert.ok(!t.includes("%"));
 });
 

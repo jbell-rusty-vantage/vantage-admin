@@ -9,8 +9,14 @@
  * browser clock, so the rail recognises them as `last 7d`.
  */
 import type { DeskMetrics } from "@/lib/api/salesIntelligence";
+import type { WorkloadCount } from "@/lib/api/salesIntelligenceOverview";
+import { readTeamOverview } from "@/lib/api/salesIntelligenceOverview";
+import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import type { DeskUrlPatch } from "../data/url-state";
 import { useAttentionList } from "../data/use-attention";
+import { teamOverviewKey } from "../data/use-team-overview";
+import { workloadHref } from "../overview/links";
 import { useReportAsOf } from "../data/live";
 import type { AttentionParams } from "../data/requests";
 import { TimeText } from "../primitives";
@@ -21,10 +27,10 @@ import { cx } from "../lib/format";
 const m = copy.ui1.desk.metrics;
 
 export type MetricTileId = "leads7d" | "notCalled" | "overdue" | "awaiting" | "booked7d";
-export type MetricTile = { id: MetricTileId; label: string; value: number | null; secondary: string | null; patch: DeskUrlPatch };
+export type MetricTile = { id: MetricTileId; label: string; value: number | null; secondary: string | null; patch: DeskUrlPatch; href?: string };
 
 /** The five tiles in order, with the filter each one applies (UI-1 §3.1 table). */
-export function metricTiles(metrics: DeskMetrics | null | undefined, asOf: string | null): MetricTile[] {
+export function metricTiles(metrics: DeskMetrics | null | undefined, asOf: string | null, overdue?: WorkloadCount | null): MetricTile[] {
   const since = asOf ? windowFrom(asOf, RECEIVED_WINDOWS["7d"]) : null;
   const closedSince = asOf ? windowFrom(asOf, CLOSED_WINDOWS["7d"]) : null;
   const median = metrics?.booked_7d_median_days;
@@ -32,15 +38,15 @@ export function metricTiles(metrics: DeskMetrics | null | undefined, asOf: strin
     { id: "leads7d", label: m.leads7d, value: metrics?.leads_received_7d ?? null, secondary: null,
       patch: { view: "all_outreach", received_from: since, received_to: null } },
     { id: "notCalled", label: m.notCalled, value: metrics?.not_called_yet ?? null, secondary: null, patch: { view: "all_outreach", band: ["2"] } },
-    { id: "overdue", label: m.overdue, value: metrics?.callbacks_overdue ?? null, secondary: null, patch: { view: "all_outreach", band: ["1"] } },
+    { id: "overdue", label: m.overdue, value: overdue?.count ?? null, secondary: null, patch: { view: "all_outreach", work: ["overdue_followup"], band: [] }, href: overdue ? workloadHref(overdue) : undefined },
     { id: "awaiting", label: m.awaiting, value: metrics?.awaiting_assessment ?? null, secondary: null, patch: { newer_call: true } },
     { id: "booked7d", label: m.booked7d, value: metrics?.booked_7d ?? null, secondary: median != null ? m.median(median) : null,
       patch: { view: "closed", priority: [], outcome: ["booked"], closed_from: closedSince, closed_to: null } },
   ];
 }
 
-export function MetricsStripView({ metrics, asOf, onApply }: { metrics: DeskMetrics | null; asOf: string | null; onApply?: (tile: MetricTile) => void }) {
-  const tiles = metricTiles(metrics, asOf);
+export function MetricsStripView({ metrics, asOf, onApply, overdue }: { metrics: DeskMetrics | null; asOf: string | null; onApply?: (tile: MetricTile) => void; overdue?: WorkloadCount | null }) {
+  const tiles = metricTiles(metrics, asOf, overdue);
   const unavailable = !metrics;
   return (
     <section className={cx("si-metrics", unavailable && "is-unavailable")} aria-label={m.label} data-metrics={unavailable ? "absent" : "present"}>
@@ -56,8 +62,10 @@ export function MetricsStripView({ metrics, asOf, onApply }: { metrics: DeskMetr
           );
           return (
             <li key={tile.id} className="si-metrics__item">
-              {unavailable || !onApply ? (
-                <span className="si-metrics__tile is-static" data-tile={tile.id} title={unavailable ? m.unavailable : undefined}>{body}</span>
+              {tile.href && !unavailable ? (
+                <Link className="si-metrics__tile" data-tile={tile.id} href={tile.href} aria-label={m.tileLabel(tile.label, value)}>{body}</Link>
+              ) : unavailable || !onApply || (tile.id === "overdue" && !overdue) ? (
+                <span className="si-metrics__tile is-static" data-tile={tile.id} title={unavailable || (tile.id === "overdue" && !overdue) ? m.unavailable : undefined}>{body}</span>
               ) : (
                 <button type="button" className="si-metrics__tile" data-tile={tile.id} aria-label={m.tileLabel(tile.label, [value, tile.secondary].filter(Boolean).join(", "))} onClick={() => onApply(tile)}>
                   {body}
@@ -77,8 +85,11 @@ export function MetricsStripView({ metrics, asOf, onApply }: { metrics: DeskMetr
 /** Reads the list's first page (the same query as the list, so no extra request). */
 export function MetricsStrip({ params, onApply }: { params: AttentionParams; onApply: (tile: MetricTile) => void }) {
   const list = useAttentionList(params);
+  const priority = params.priority ?? [];
+  const team = useQuery({ queryKey: teamOverviewKey(priority), queryFn: ({ signal }) => readTeamOverview(priority, signal), retry: false, refetchInterval: 60_000 });
+  const overdue = team.data?.data.status === "ready" ? team.data.data.attention?.records_with_overdue ?? null : null;
   useReportAsOf(list.asOf);
-  return <MetricsStripView metrics={list.metrics} asOf={list.asOf} onApply={onApply} />;
+  return <MetricsStripView metrics={list.metrics} asOf={list.asOf} onApply={onApply} overdue={overdue} />;
 }
 
 function MetricsStripSkeleton() {

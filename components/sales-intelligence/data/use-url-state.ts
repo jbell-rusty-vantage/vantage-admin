@@ -1,7 +1,7 @@
 "use client";
 /**
  * UI1-DATA: `useDeskUrlState()` reads and writes the desk's URL (see url-state.ts for the rules). Writes use
- * `router.replace(…, { scroll: false })` inside a transition, so a suspended region keeps showing its old
+ * `router.push(…, { scroll: false })` inside a transition, so browser Back/Forward restores filter choices and a suspended region keeps showing its old
  * data while the new request loads; `isPending` drives the 2 px progress bar (UI-0 §2.4).
  * With a `userId`, a Priority / Lead-toggle change is remembered per user, and on mount a URL without either
  * gets the remembered choice (UI-1 §3.2). UI2-SHELL: the viewer's role picks the default view and drops a rep's scope params.
@@ -28,18 +28,22 @@ export function useDeskUrlState({ userId }: { userId?: string | null } = {}) {
       writeStoredPreset(userId, { priority: after.priority, attachment: after.attachment });
     }
     if (next === query) return;
-    startTransition(() => router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false }));
+    startTransition(() => router.push(next ? `${pathname}?${next}` : pathname, { scroll: false }));
   }, [pathname, query, role, router, userId]);
 
-  // Read once on mount: the remembered preset fills a URL that names neither Priority nor the Lead toggle.
+  // Read once on mount: the remembered preset fills a URL that names neither Priority nor the Lead toggle. It replaces
+  // the entry, so it adds no Back step, and it never touches a count drill (`snapshot_id`) or the Owner's rep view, whose
+  // bare URL is canonicalized to a drill: OI R8, the list opened from a count must be exactly the records it counted.
   const restored = useRef(false);
   useEffect(() => {
     if (restored.current || !userId) return;
     restored.current = true;
-    if (state.priority.length || state.attachment) return;
+    if (state.priority.length || state.attachment || state.snapshot_id || state.view === "rep") return;
     const stored = readStoredPreset(userId);
-    if (stored && (stored.priority.length || stored.attachment)) update({ priority: stored.priority, attachment: stored.attachment });
-  }, [state.attachment, state.priority.length, update, userId]);
+    if (!stored || !(stored.priority.length || stored.attachment)) return;
+    const next = deskUrlUpdate(query, { priority: stored.priority, attachment: stored.attachment }, role).toString();
+    if (next !== query) startTransition(() => router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false }));
+  }, [pathname, query, role, router, state.attachment, state.priority.length, state.snapshot_id, state.view, userId]);
 
   return { state, update, isPending, query };
 }

@@ -18,10 +18,10 @@ export const salesIntelligenceTopicKeys:Readonly<Record<string, readonly (readon
  analysis: prefixes('analysis-runs','analysis-run','analysis-evidence','analysis-evidence-content','analysis-presentation','analysis-output','assessment','assessment-artifact','assessment-evidence','assessment-output','number','coverage','findings','conversations','transcript'),
  number: prefixes('number','numbers','timeline','outreach','outreach-by-lead','coverage','conversations','transcript'),
  // A new snapshot also moves the Overview's Now block (C8) and can move rows out of the 90-day Closed partition.
- attention: prefixes('attention','overview','closed-history'),
+ attention: prefixes('attention','attention-capabilities','overview','closed-history','roster'),
  review: prefixes('reviews','number','outreach','outreach-by-lead','timeline','findings'),
  restriction: prefixes('number','outreach','outreach-by-lead','timeline'),
- rep: prefixes('reps','nudge-destinations'),
+ rep: prefixes('reps','roster','nudge-destinations'),
  // The Outreach detail read carries `nudges.items` (Work tab), so a nudge refreshes it too.
  nudge: prefixes('nudges','timeline','outreach'),
 };

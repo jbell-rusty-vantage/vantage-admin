@@ -16,6 +16,52 @@ export const BANDS = {
 } as const;
 
 export const copy = {
+  /* OI-A2 card */
+  oi: {
+    card: {
+      open: (identity: string) => `Open ${identity}`,
+      moveDateUnknown: "Move date unknown",
+      routeUnknown: "Route unknown",
+      unassignedFollowup: "Unassigned follow-up",
+      next: "Next",
+      noLongerMatches: "The record you opened no longer matches these filters.",
+      noOutreachForLead: "No Outreach record for this Lead",
+      leadLookupFailed: "Couldn't load this Lead's Outreach record. Try again.",
+    },
+    /* OI-A3 page */
+    page: {
+      tabs: { case: "Case File", conversations: "Conversations", timeline: "Timeline", analysis: "Analysis" }, conversationFilter: "Conversations", allCalls: "All calls",
+      moveGlance: "Move at a glance", moveDate: "Move date", route: "Route", size: "Size · volume", estimate: "Estimate (Granot)", priority: "Granot Priority",
+      unknownDate: "Move date unknown", unknownRoute: "Route unknown", unknownSize: "Not on file", noEstimate: "No estimate yet", unknownPriority: "Not on file",
+      work: "Work", nextStep: "Next step", otherFollowups: "Other open follow-ups", reviews: "Needs review", restrictions: "Restrictions", corrections: "Corrections", messages: "Message rep", ownerMessages: "Messages from the Owner", noNextStep: "No next step", compareSources: "Compare sources", leadAndGranot: "Lead and Granot", latestSummary: "Latest summary", fromAnalysis: "From the latest analysis", noSummary: "No analysis summary yet.", openAnalysis: "Open Analysis", workForPromise: "Visible because you promised a follow-up",
+    },
+    /* OI-A5 overview */
+    overview: {
+      preparing: "Preparing Outreach", notAvailable: "Not available yet",
+      title: "Outreach Intelligence — Overview", updated: "Updated", attention: "Attention now", allOutreach: "Open All Outreach", captureProblem: "Capture needs attention. Recent activity may be incomplete.", checkCoverage: "Check coverage",
+      overdue: "Records with overdue follow-ups", firstCall: "Awaiting first call", unassigned: "Unassigned", needsReview: "Needs review",
+      workload: "Team workload", myWorkload: "My workload", myActivity: "My activity", myOutcomes: "My Lead outcomes", workloadNow: "now", priority: "Granot Priority", all: "All", otherCode: "Other code", add: "Add", searchRep: "Search rep", showing: (shown: number, total: number) => `Showing ${shown} of ${total} reps`,
+      rep: "Rep", assigned: "Assigned", withOverdue: "With overdue", dueToday: "Due today", noNext: "No next step", followups: "Follow-ups (theirs)",
+      actionsOnRecords: (actions: number, records: number) => `${actions} on ${records} ${records === 1 ? "record" : "records"}`, noFollowups: "No follow-ups",
+      overdueActions: (actions: number) => `${actions} overdue`, inactiveWork: "inactive, has work", noAssigned: "No assigned Outreach", blocked: "Blocked", noTeam: "No team data yet", unassignedRow: "Unassigned",
+      activity: "Activity", conversations: "Conversations", attempts: "Outbound attempts", byRep: "By rep", unmappedConversations: "conversations not matched to a rep", unmappedAttempts: "outbound attempts not matched to a rep", notMapped: "Identity mapping", reviewIdentity: "Review identity", notCaptured: "Not captured", partial: "Partial capture", missing: "Missing capture", complete: "Complete capture",
+      outcomes: "Lead outcomes", leads: "Leads received", quoted: "Quoted", officialBooking: "With official Booking", bookedGranot: "Booked in Granot", observedThrough: "Observed through", costDetail: "Cost detail", deskHealth: "Desk health", unavailable: "—",
+      period: "Period", cohort: "Cohort", from: "From", through: "Through", apply: "Apply", rangeIncomplete: "Choose both dates.", rangeInvalid: "Enter valid calendar dates.", rangeOrder: "Through must be on or after From.", rangeTooLong: "Choose no more than 92 days, including both dates.", periodNames: { today: "Today", yesterday: "Yesterday", last_7_days: "Last 7 days", this_week: "This week", last_30_days: "Last 30 days", this_month: "This month", custom: "Custom" } as Record<string, string>,
+    },
+    /* OI-A6 rep view */
+    repView: {
+      title: "Rep view", back: "Overview", ownerViewing: (name: string) => `Owner viewing ${name}'s work`,
+      assigned: "Assigned Outreach", followups: "Follow-ups assigned", involved: "Involved",
+      withOverdue: "With overdue follow-ups", dueToday: "Due today", noNextStep: "No next step",
+      today: "Today", conversations: "conversations", attempts: "attempts", lastConversation: "last conversation",
+      notCaptured: "Not captured", noConversation: "none", inactive: "inactive, has work", unavailable: "This rep is not on the sales roster.",
+      updatedSince: "Updated since this list was opened. The count above is from a newer snapshot.",
+      expired: "This snapshot is no longer available. Open the latest results.", latest: "Open latest results",
+      myWorkload: "My workload", records: (n: number) => `${n} ${n === 1 ? "record" : "records"}`,
+      myOverdue: "My overdue follow-ups", assignedOverdue: "Assigned with overdue",
+      otherFollowup: (name: string) => `${name} has another follow-up on this record. Open the record for details.`,
+    },
+  },
   page: {
     title: "Sales Intelligence",
     purpose: "See which customer numbers still need a next step, who owns the work, and what the calls actually said.",
@@ -704,7 +750,7 @@ export const copy = {
       notInAttention: "Not in Attention",
       needsReview: "Needs review",
       bandNumber: (n: number) => `Band ${n}`,
-      bandTag: (n: number, name: string) => `Band ${n} · ${name}`,
+      bandTag: (n: number, name: string) => `${name} · Band ${n}`,
       bandCount: (n: number) => (n === 1 ? "1 record" : `${n.toLocaleString("en-US")} records`),
       states: {
         unworked: "Unworked",
@@ -868,6 +914,7 @@ export const copy = {
       sorts: {
         attention: { label: "Attention order", asc: null, desc: null, null: null },
         lead_received: { label: "Lead received", asc: "Oldest first", desc: "Newest first", null: "Not a Lead" },
+        move_date: { label: "Move date", asc: "Earliest first", desc: "Latest first", null: "Move date unknown" },
         last_call: { label: "Last call", asc: "Oldest", desc: "Newest", null: "No call observed" },
         last_human_contact: { label: "Last conversation", asc: "Oldest", desc: "Newest", null: "No conversation observed" },
         next_action_due: { label: "Next action due", asc: "Soonest", desc: "Latest", null: "No next action" },
@@ -962,12 +1009,6 @@ export const copy = {
       messageRep: "Message rep",
       noRep: "No rep to message",
       previousVersion: "Previous version",
-      openQuickLook: (who: string) => `Quick look: ${who}`,
-      // Side dialog (final §4)
-      dialogTitle: "Quick look",
-      close: "Close",
-      openFullRecord: "Open full record",
-      recentActivity: "Recent activity",
       nextStepTitle: "Next step",
       scoreCardEmpty: "No score yet",
       /** Dev-only gallery labels for the Card section (UI-0 §7.4). */
@@ -979,8 +1020,6 @@ export const copy = {
         flat: "Flat (any other sort): the same card",
         skeleton: "Skeleton",
         skeletonLabel: "OutreachCard.Skeleton (seven lines)",
-        dialog: "Side dialog content",
-        dialogLabel: "PreviewBody (timeline preview placeholder until UI1-TL)",
         phone: "At 390 px (tiles wrap 3 × 2)",
         samples: {
           lead: "Lead row (Promised by, due in, band tag)",
@@ -1080,13 +1119,13 @@ export const copy = {
         countLabel: (n: number) => (n === 1 ? "1 record" : `${n.toLocaleString("en-US")} records`),
       },
       priority: {
-        "0": "0 Fresh",
-        "1": "1 Quoted",
-        "3": "3 Rep discretion",
-        "5": "5 Booked in Granot",
-        "7": "7 CRM bad/unusable",
-        "8": "8 CRM dead",
-        unknown: (code: string) => `${code} Unknown meaning`,
+        "0": "0 — New",
+        "1": "1 — Quoted",
+        "3": "3 — Rep discretion",
+        "5": "5 — Booked in Granot",
+        "7": "7 — Bad/unusable",
+        "8": "8 — Dead opportunity",
+        unknown: (code: string) => `${code} — Unmapped`,
         not_set: "Not set",
         no_lead: "No Lead",
       },
@@ -1173,7 +1212,7 @@ export const copy = {
         guide: "Guide",
       },
       search: {
-        placeholder: "Search name, Job number or phone",
+        placeholder: "Search name, Job Number or phone",
         label: "Search Outreach",
         hint: "Enter at least 4 digits to search by phone",
         results: (n: number, q: string) => `${n.toLocaleString("en-US")} ${n === 1 ? "result" : "results"} for "${q}"`,
@@ -1198,7 +1237,7 @@ export const copy = {
       metrics: {
         leads7d: "Leads received 7d",
         notCalled: "Not called yet",
-        overdue: "Callbacks overdue",
+        overdue: "Records with overdue follow-ups",
         awaiting: "Awaiting assessment",
         booked7d: "Booked 7d",
         median: (n: number) => `median ${n}d`,
@@ -1364,7 +1403,7 @@ export const copy = {
         entered: (to: string) => `Entered ${to}`,
         left: (from: string) => `Left Attention (was ${from})`,
         leftUnknown: "Left Attention",
-        name: (n: number, name: string) => `Band ${n} · ${name}`,
+        name: (n: number, name: string) => `${name} · Band ${n}`,
         cause: (word: string) => `Because of ${word}`,
         causes: {
           call: "a call",
@@ -1667,9 +1706,9 @@ export const copy = {
       tabsLabel: "Record sections",
       /** draft: the page header's back link to the desk (honours `si_return`). */
       back: "Back to Outreach Intelligence",
-      bandFor: (n: number, name: string, duration: string) => `Band ${n} · ${name} · for ${duration}`,
+      bandFor: (n: number, name: string, duration: string) => `${name} · Band ${n} · for ${duration}`,
       /** draft: the header's band line with no `band_since` (older server). */
-      bandOnly: (n: number, name: string) => `Band ${n} · ${name}`,
+      bandOnly: (n: number, name: string) => `${name} · Band ${n}`,
       receiverAgent: (name: string) => `Receiver agent in Granot: ${name}`,
       receiverTip: (t: string, source: string) => `Set ${t} from ${source}.`,
       /** drafts: the tooltip when `set_at` or `source` is null (legacy Leads). */

@@ -90,7 +90,7 @@ fixtureTest("A09: Needs Attention in Attention order is grouped under band heade
   // The Number-review row (band null) sits in its own Needs review group.
   assert.ok(groups.some((g) => g.review));
   // Outreach card layout D2: grouped cards keep the band header and still start with their own band tag.
-  assert.equal((markup.match(/class="si-bandtag( is-none)?"/g) ?? []).length, page.data.items.filter((r) => r.outreach).length, "one band tag per card when grouped");
+  assert.equal((markup.match(/class="si-card__bandname"/g) ?? []).length, page.data.items.filter((r) => r.outreach && r.derived.attention_band != null).length, "one band name per banded card when grouped");
   assert.ok(!markup.includes("data-sortline"), "no sort line under Attention order");
   assert.ok(markup.includes(`id="${LIST_HEADING_ID}"`));
   assert.ok(markup.includes(`${page.data.total_items} results`));
@@ -100,7 +100,7 @@ fixtureTest("A09: All Outreach under Lead received is flat with band tags and no
   const markup = listHtml("S1/attention__all-outreach.json", { sort: "lead_received" });
   assert.match(markup, /data-layout="flat"/);
   assert.ok(!markup.includes("si-bandhead"), "no band headers");
-  assert.ok(markup.includes("si-bandtag"), "band tag on line 1");
+  assert.ok(markup.includes("si-card__bandname"), "band name on line 1");
   assert.ok(!markup.includes("data-sortline"));
 });
 
@@ -120,10 +120,12 @@ fixtureTest("A09: any other sort is flat with the sort line (value or the null l
   const scored = ti.data.items.find((r) => r.sort_keys?.transaction_intent != null)!;
   assert.match(sortLineFor(scored, "transaction_intent", ti.as_of)!.value!, /^\d+ \/ 100/);
   assert.equal(sortLineFor(scored, "interactions", ti.as_of)!.label, "Interactions");
+  assert.equal(sortLineFor({ ...scored, sort_keys: { ...scored.sort_keys!, move_date: "2026-10-01" } }, "move_date", ti.as_of)?.value, "Oct 1");
 });
 
-test("A09: both lists offer the nine sorts; Closed three; direction words; score sorts show Fresh assessments only", () => {
-  assert.equal(sortOptions("attention").length, 9);
+test("A09/A4: both lists offer ten sorts including Move date; Closed three; direction words; score sorts show Fresh assessments only", () => {
+  assert.equal(sortOptions("attention").length, 10);
+  assert.equal(sortOptions("attention").find((option) => option.key === "move_date")?.words.label, "Move date");
   assert.deepEqual(sortOptions("attention").map((o) => o.key), sortOptions("all_outreach").map((o) => o.key));
   assert.deepEqual(sortOptions("closed").map((o) => o.words.label), ["Closed", "Lead received", "Time to close"]);
   const noop = () => {};
@@ -146,31 +148,32 @@ test("A09: both lists offer the nine sorts; Closed three; direction words; score
   assert.equal(sortPatch("closed", "lead_received").sort, null);
 });
 
-fixtureTest("A10: five metric tiles from data.metrics with As of; each applies its filter", () => {
+fixtureTest("A10: legacy metrics render; Overdue waits for its matching team drill", () => {
   const page = load("S6/attention__all-outreach.json");
   const markup = html(createElement(MetricsStripView, { metrics: page.data.metrics!, asOf: page.as_of, onApply: () => {} }));
   const m = page.data.metrics!;
-  for (const [tile, value] of [["leads7d", m.leads_received_7d], ["notCalled", m.not_called_yet], ["overdue", m.callbacks_overdue], ["awaiting", m.awaiting_assessment], ["booked7d", m.booked_7d]] as const) {
+  for (const [tile, value] of [["leads7d", m.leads_received_7d], ["notCalled", m.not_called_yet], ["awaiting", m.awaiting_assessment], ["booked7d", m.booked_7d]] as const) {
     const at = markup.indexOf(`data-tile="${tile}"`);
     assert.ok(at >= 0, tile);
     assert.ok(text(markup.slice(at, markup.indexOf("</button>", at))).includes(String(value)), `${tile} value`);
   }
   assert.ok(markup.includes("median 5d"));
   assert.match(text(markup), /As of Sep 24, 6:58 PM ET/);
-  assert.equal((markup.match(/<button/g) ?? []).length, 5);
+  assert.equal((markup.match(/<button/g) ?? []).length, 4);
+  assert.match(markup, /data-tile="overdue"[^>]*>.*?Records with overdue follow-ups/s);
 
   const tiles = metricTiles(page.data.metrics, page.as_of);
   const by = Object.fromEntries(tiles.map((t) => [t.id, t.patch]));
   assert.deepEqual(by.leads7d, { view: "all_outreach", received_from: windowFrom(page.as_of, RECEIVED_WINDOWS["7d"]), received_to: null });
   assert.equal(by.leads7d!.received_from, "2026-09-17T22:58:37.661Z");
   assert.deepEqual(by.notCalled, { view: "all_outreach", band: ["2"] });
-  assert.deepEqual(by.overdue, { view: "all_outreach", band: ["1"] });
+  assert.deepEqual(by.overdue, { view: "all_outreach", work: ["overdue_followup"], band: [] });
   assert.deepEqual(by.awaiting, { newer_call: true });
   assert.deepEqual(by.booked7d, { view: "closed", priority: [], outcome: ["booked"], closed_from: windowFrom(page.as_of, CLOSED_WINDOWS["7d"]), closed_to: null });
   // The tile's filter shows as a chip (A10): Band 2 after `Not called yet`.
   const state = parseDeskUrl(deskUrlUpdate("view=attention&priority=1", by.notCalled!));
   const chips = activeFilterChips(state, outreachRegions("attention"), [], { asOf: page.as_of });
-  assert.deepEqual(chips.map((c) => c.label), ["Band 2 · " + BANDS[2]]);
+  assert.deepEqual(chips.map((c) => c.label), [BANDS[2] + " · Band 2"]);
   const received = parseDeskUrl(deskUrlUpdate("view=attention", by.leads7d!));
   assert.equal(received.view, "all_outreach");
   assert.deepEqual(activeFilterChips(received, outreachRegions("all_outreach"), [], { asOf: page.as_of }).map((c) => c.label), ["Lead received last 7d"]);
@@ -223,7 +226,7 @@ fixtureTest("A38: search — the hint rule, the submit rule, q sent on the three
   assert.deepEqual(searchAction("  "), { kind: "clear" });
   assert.deepEqual(searchAction(" Lopez "), { kind: "search", q: "Lopez" });
   const hinted = html(createElement(PageHeaderView, { value: "12", onChange: () => {}, onSubmit: () => {} }));
-  assert.ok(hinted.includes('placeholder="Search name, Job number or phone"'));
+  assert.ok(hinted.includes('placeholder="Search name, Job Number or phone"'));
   assert.ok(hinted.includes("Enter at least 4 digits to search by phone"));
   assert.ok(!html(createElement(PageHeaderView, { value: "1028", onChange: () => {}, onSubmit: () => {} })).includes("Enter at least 4 digits"));
   for (const view of ["attention", "all_outreach", "closed"] as const) {
@@ -272,15 +275,15 @@ test("the active filter chips have 44 px remove buttons and Clear filters", () =
 });
 
 test("trap 5: legacyDeepLinkRedirect", () => {
-  assert.equal(legacyDeepLinkRedirect(new URLSearchParams("view=attention&outreach=o1&panel=assessment")), "/sales-intelligence/outreach/o1#scores");
-  assert.equal(legacyDeepLinkRedirect(new URLSearchParams("outreach=o1&panel=analysis&analysis_run=r9")), "/sales-intelligence/outreach/o1?run=r9#full-output");
-  assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "analysis" }), "/sales-intelligence/outreach/o1#full-output");
+  assert.equal(legacyDeepLinkRedirect(new URLSearchParams("view=attention&outreach=o1&panel=assessment")), "/sales-intelligence/outreach/o1?tab=analysis#scores");
+  assert.equal(legacyDeepLinkRedirect(new URLSearchParams("outreach=o1&panel=analysis&analysis_run=r9")), "/sales-intelligence/outreach/o1?tab=analysis&run=r9#full-output");
+  assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "analysis" }), "/sales-intelligence/outreach/o1?tab=analysis#full-output");
   assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "activity" }), "/sales-intelligence/outreach/o1?tab=timeline");
   assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "work" }), "/sales-intelligence/outreach/o1?tab=work");
   assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "summary" }), "/sales-intelligence/outreach/o1");
   assert.equal(legacyDeepLinkRedirect({ outreach: ["o1", "o2"], panel: "assessment", si_return: "/sales-intelligence?view=closed" }),
-    "/sales-intelligence/outreach/o1?si_return=%2Fsales-intelligence%3Fview%3Dclosed#scores");
-  assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "assessment", si_return: "https://evil.example" }), "/sales-intelligence/outreach/o1#scores");
+    "/sales-intelligence/outreach/o1?tab=analysis&si_return=%2Fsales-intelligence%3Fview%3Dclosed#scores");
+  assert.equal(legacyDeepLinkRedirect({ outreach: "o1", panel: "assessment", si_return: "https://evil.example" }), "/sales-intelligence/outreach/o1?tab=analysis#scores");
   // No outreach → null (a Lead-only link resolves in the browser); outreach without panel → the desk's side dialog.
   assert.equal(legacyDeepLinkRedirect(new URLSearchParams("view=attention&lead=l1&lead_model=FormLead&panel=assessment")), null);
   assert.equal(legacyDeepLinkRedirect(new URLSearchParams("view=attention&outreach=o1")), null);
@@ -290,7 +293,7 @@ test("trap 5: legacyDeepLinkRedirect", () => {
 test("FIX-UI1 M1 (A20): the route's deep-link rule table", () => {
   const p = (q: string) => new URLSearchParams(q);
   // outreach= + panel= → server redirect (unchanged).
-  assert.deepEqual(deskRouteDecision(p("outreach=o1&panel=assessment")), { kind: "redirect", href: "/sales-intelligence/outreach/o1#scores" });
+  assert.deepEqual(deskRouteDecision(p("outreach=o1&panel=assessment")), { kind: "redirect", href: "/sales-intelligence/outreach/o1?tab=analysis#scores" });
   // Lead-only analysis links → the browser resolver, with the tab/run/anchor the route needs.
   const assessment = deskRouteDecision(p("lead=l1&lead_model=FormLead&panel=assessment"));
   assert.equal(assessment.kind, "resolve-lead");

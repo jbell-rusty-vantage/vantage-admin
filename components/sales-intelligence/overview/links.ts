@@ -4,8 +4,19 @@
  * records the number counted (the Overview's `now` is the Needs Attention index at the same `as_of`, C8).
  */
 import { serializeDeskUrl, type DeskUrlState } from "../data/url-state";
+import type { WorkloadCount } from "@/lib/api/salesIntelligenceOverview";
 
 export const SI_PATH = "/sales-intelligence";
+
+/** Phase C: keep the server's drill params and snapshot id exactly; repeated values stay repeated. */
+export function workloadHref(metric: WorkloadCount): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(metric.drill.params)) {
+    if (Array.isArray(value)) for (const item of value) params.append(key, item);
+    else params.append(key, value);
+  }
+  return `${SI_PATH}?${params.toString()}`;
+}
 
 export type OverviewLinkContext = {
   priority: readonly string[];

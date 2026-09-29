@@ -152,7 +152,12 @@ test("canAccessDashboardPath: a rep opens only /sales-intelligence and one Outre
 
 const REP_ALLOWED = [
   ["GET", "api/v1/admin/sales-intelligence/attention?scope=production&agent_id=65f0000000000000000000ee"],
+  ["GET", "api/v1/admin/sales-intelligence/attention/capabilities"],
+  ["GET", "api/v1/admin/sales-intelligence/roster"],
   ["GET", "api/v1/admin/sales-intelligence/overview?period=today"],
+  ["GET", "api/v1/admin/sales-intelligence/overview/team?priority=OI"],
+  ["GET", "api/v1/admin/sales-intelligence/overview/activity?period=today"],
+  ["GET", "api/v1/admin/sales-intelligence/overview/outcomes?cohort=last_7_days"],
   ["GET", "api/v1/admin/sales-intelligence/outreach/closed-history?cursor=x"],
   ["GET", `api/v1/admin/sales-intelligence/outreach/${ID}`],
   ["GET", `api/v1/admin/sales-intelligence/outreach/${ID}/timeline`],

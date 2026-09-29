@@ -9,13 +9,20 @@
  * - Every change goes through the URL, which drops the list cursor.
  */
 import { ArrowDownUp } from "lucide-react";
-import { useId } from "react";
+import { useId, useState } from "react";
 import {
   CLOSED_DEFAULT_SORT, CLOSED_SORTS, DESK_SORT_ORDER, DESK_DEFAULT_SORT, isScoreSort,
 } from "@/lib/api/salesIntelligence";
 import type { DeskUrlPatch } from "../data/url-state";
 import type { DeskView } from "../data/requests";
 import { copy } from "../sales-intelligence-copy";
+import type { AttentionCapabilities } from "@/lib/api/salesIntelligence";
+import type { DeskUrlState } from "../data/url-state";
+import type { RailRep } from "../rail";
+import { MoveDateMenu } from "../rail/move-date-menu";
+import { LocationFilter } from "../rail/location-filter";
+import { RepPicker } from "../rail/rep-picker";
+import { FollowupFilter } from "../rail/followup-filter";
 
 type SortWords = { label: string; asc: string | null; desc: string | null; null: string | null };
 
@@ -23,6 +30,40 @@ export function sortOptions(view: DeskView): { key: string; words: SortWords }[]
   const data = copy.ui1.data;
   if (view === "closed") return CLOSED_SORTS.map((key) => ({ key, words: data.closedSorts[key] }));
   return DESK_SORT_ORDER.map((key) => ({ key, words: data.sorts[key] }));
+}
+
+/** All additive search controls share the URL writer; a missing capability leaves their saved URL state visible. */
+export function SearchControls({ state, onChange, reps, capabilities, rep, closed }: {
+  state: DeskUrlState; onChange: (patch: DeskUrlPatch) => void; reps: readonly RailRep[];
+  capabilities: AttentionCapabilities | null; rep: boolean; closed: boolean;
+}) {
+  const cap = closed ? capabilities?.closed_history : capabilities;
+  // `relationship` is only sent with an `agent`: a type chosen before a rep waits here instead of blocking the list.
+  const [draftRelationship, setDraftRelationship] = useState<DeskUrlState["relationship"]>(null);
+  const relationship = state.relationship ?? draftRelationship ?? "involved";
+  return <div className="si-searchcontrols" aria-label="Outreach filters">
+    <MoveDateMenu key={[state.move_date_mode,state.move_days,state.move_on,state.move_from,state.move_through].join("|")} value={state} onChange={onChange} available={cap?.move_date === true} />
+    <LocationFilter key={[state.loc_side,state.loc_city,state.loc_state,state.loc_zip].join("|")} value={state} onChange={onChange} available={cap?.location === true} />
+    {!rep && <RepPicker value={state} reps={reps} onChange={onChange} available={cap?.assignment === true && capabilities?.roster === true} />}
+    {!closed && <FollowupFilter value={state} onChange={onChange} available={cap?.work === true} />}
+    {!rep && !closed && <details className="si-searchctl si-searchctl__more"><summary>More filters</summary>
+      <label>Involvement <select className="si-input si-select" value={relationship} disabled={cap?.relationship !== true} onChange={(event) => {
+        const value = event.target.value as DeskUrlState["relationship"];
+        setDraftRelationship(value);
+        if (state.agent) onChange({ relationship: value, agent: state.agent });
+      }}>
+        <option value="involved">Rep involved (assigned, follow-up or promised)</option><option value="assigned">Assigned</option><option value="followup">Follow-up</option>
+      </select></label>
+      <select aria-label="Involved rep" className="si-input si-select" value={state.agent ?? ""} disabled={cap?.relationship !== true || capabilities?.roster !== true} onChange={(event) => onChange({ agent: event.target.value || null, relationship: event.target.value ? relationship : null })}>
+        <option value="">Any rep</option>{reps.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+      </select>
+      {cap?.relationship !== true && <small>Not available yet</small>}
+      <label>Follow-up assignee <select className="si-input si-select" value={state.followup_agent_id[0] ?? ""} disabled={cap?.work !== true || capabilities?.roster !== true} onChange={(event) => onChange({ followup_agent_id: event.target.value ? [event.target.value] : [] })}>
+        <option value="">Any rep</option>{reps.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+      </select></label>
+      {cap?.work !== true && <small>Not available yet</small>}
+    </details>}
+  </div>;
 }
 
 export function sortWords(view: DeskView, sort: string): SortWords | null {
@@ -43,6 +84,7 @@ export function ListControls({
   sort,
   direction,
   freshness,
+  moveDateAvailable = false,
   onChange,
 }: {
   view: DeskView;
@@ -50,6 +92,7 @@ export function ListControls({
   sort: string;
   direction: "asc" | "desc";
   freshness: "fresh" | null;
+  moveDateAvailable?: boolean;
   onChange: (patch: DeskUrlPatch) => void;
 }) {
   const id = useId();
@@ -62,7 +105,7 @@ export function ListControls({
         <span className="si-desk__sortlabel">{d.desk.sortLabel}</span>
         <select id={`${id}-sort`} className="si-input si-select si-desk__sortselect" value={sort} onChange={(event) => onChange(sortPatch(view, event.target.value))}>
           {sortOptions(view).map((option) => (
-            <option key={option.key} value={option.key}>{option.words.label}</option>
+            <option key={option.key} value={option.key} disabled={option.key === "move_date" && !moveDateAvailable}>{option.words.label}{option.key === "move_date" && !moveDateAvailable ? " · Not available yet" : ""}</option>
           ))}
         </select>
       </label>

@@ -21,7 +21,7 @@ export function viewHref(query: string | URLSearchParams, view: PageView, role: 
   return deskHref(query, { view, outreach: null, lead: null, lead_model: null }, role);
 }
 
-export const viewLabel = (view: PageView, role: UrlRole = "owner"): string => (role === "rep" ? copy.ui2.shell.views[view] ?? copy.ui1.desk.views[view] : copy.ui1.desk.views[view]);
+export const viewLabel = (view: PageView, role: UrlRole = "owner"): string => view === "rep" ? copy.oi.repView.title : (role === "rep" ? copy.ui2.shell.views[view] ?? copy.ui1.desk.views[view] : copy.ui1.desk.views[view]);
 
 export function viewTabs(query: string | URLSearchParams, role: UrlRole = "owner"): RouteTab<PageView>[] {
   return tabsFor(role).map((view) => ({ key: view, label: viewLabel(view, role), href: viewHref(query, view, role) }));
