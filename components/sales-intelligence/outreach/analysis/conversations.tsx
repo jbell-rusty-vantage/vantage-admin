@@ -163,10 +163,10 @@ export function ConversationCardView({ card, transcriptOpen = false, renderTrans
   );
 }
 
-export function OtherCalls({ calls }: { calls: readonly OtherCall[] }) {
+export function OtherCalls({ calls, defaultOpen = false }: { calls: readonly OtherCall[]; defaultOpen?: boolean }) {
   if (calls.length === 0) return null;
   return (
-    <Disclosure id="si-conv-other" title={c.other(calls.length)} className="si-conv__other">
+    <Disclosure id="si-conv-other" title={c.other(calls.length)} className="si-conv__other" defaultOpen={defaultOpen}>
       <ul className="si-conv__otherlist">
         {calls.map((call) => (
           <li key={call.interaction_id} className="si-conv__otherrow" data-interaction={call.interaction_id}>
@@ -195,16 +195,18 @@ export type ConversationsProps = {
   openTranscripts?: readonly string[];
   /** Gallery / tests: a player state per conversation id. */
   audioStates?: Record<string, AudioState>;
+  filter?: "human" | "all";
 };
 
 /** Presentational Conversations (UX15: props in, no role read). */
-export function Conversations({ items, otherCalls, hasMore = false, loadingMore = false, moreFailed = false, onLoadMore, renderTranscript, openTranscripts = [], audioStates = {} }: ConversationsProps) {
+export function Conversations({ items, otherCalls, hasMore = false, loadingMore = false, moreFailed = false, onLoadMore, renderTranscript, openTranscripts = [], audioStates = {}, filter = "all" }: ConversationsProps) {
+  const visible = filter === "human" ? items.filter((card) => card.contact_type === "human_conversation") : items;
   return (
     <div className="si-convs">
-      {items.length === 0 ? (
+      {visible.length === 0 ? (
         <p className="si-conv__empty">{c.none}</p>
       ) : (
-        items.map((card) => (
+        visible.map((card) => (
           <ConversationCardView key={card.conversation_id} card={card} transcriptOpen={openTranscripts.includes(card.conversation_id)} renderTranscript={renderTranscript} audioState={audioStates[card.conversation_id]} />
         ))
       )}
@@ -214,12 +216,12 @@ export function Conversations({ items, otherCalls, hasMore = false, loadingMore 
           {moreFailed && <p className="si-conv__note" role="alert">{c.loadMoreFailed}</p>}
         </div>
       )}
-      <OtherCalls calls={otherCalls} />
+      {filter === "all" && <OtherCalls calls={otherCalls} defaultOpen />}
     </div>
   );
 }
 
-function ConversationsLoaded({ numberId }: { numberId: string }) {
+function ConversationsLoaded({ numberId, filter }: { numberId: string; filter: "human" | "all" }) {
   const query = useConversations(numberId);
   const { items, otherCalls, asOf, hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = query;
   const target = useTranscriptTarget();
@@ -237,16 +239,17 @@ function ConversationsLoaded({ numberId }: { numberId: string }) {
       loadingMore={isFetchingNextPage}
       moreFailed={isFetchNextPageError}
       onLoadMore={() => void fetchNextPage()}
+      filter={filter}
     />
   );
 }
 
 /** The section wrapper the analysis frame mounts: its own region; `numberId` is `outreach.primary_number.id`. */
-export function ConversationsSection({ numberId, onRetry }: { numberId: string | null; onRetry?: () => void }) {
+export function ConversationsSection({ numberId, onRetry, filter = "all" }: { numberId: string | null; onRetry?: () => void; filter?: "human" | "all" }) {
   if (!numberId) return <p className="si-conv__empty">{c.noNumber}</p>;
   return (
     <Region name="conversations" skeleton={<ConversationsSkeleton />} onRetry={onRetry}>
-      <ConversationsLoaded numberId={numberId} />
+      <ConversationsLoaded numberId={numberId} filter={filter} />
     </Region>
   );
 }

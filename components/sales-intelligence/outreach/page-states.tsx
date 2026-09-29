@@ -12,6 +12,9 @@ import { ArrowLeft } from "lucide-react";
 import { copy } from "../sales-intelligence-copy";
 import { SkeletonBlock, SkeletonLines } from "../primitives";
 import { RecordHeaderSkeleton } from "./record-header";
+import { MoveGlanceSkeleton } from "./move-glance";
+import { WorkRailSkeleton } from "./work-rail";
+import { CaseFileSkeleton } from "./case-file-tab";
 import { REP_HOME_HREF } from "../rep/links";
 import { useIsRep } from "../rep/viewer";
 
@@ -64,13 +67,14 @@ export function OutreachRouteSkeleton() {
         <span className="si-sr">{copy.ui1.prim.loading}</span>
         <RecordHeaderSkeleton />
       </div>
-      <nav className="si-tabs si-routetabs" aria-label={h.tabsLabel}>
-        {(["analysis", "timeline", "work"] as const).map((tab) => (
-          <span key={tab} className={tab === "analysis" ? "si-tab si-routetab is-active" : "si-tab si-routetab"}>{h.tabs[tab]}</span>
-        ))}
-      </nav>
-      <div className="si-outreach__body">
-        <AnalysisSectionsSkeleton />
+      <MoveGlanceSkeleton />
+      <div className="si-outreach__workspace">
+        <aside className="si-outreach__rail"><WorkRailSkeleton /></aside>
+        <div className="si-outreach__main"><nav className="si-tabs si-routetabs" aria-label={h.tabsLabel}>
+          {(["case", "conversations", "timeline", "analysis"] as const).map((tab) => (
+            <span key={tab} className={tab === "case" ? "si-tab si-routetab is-active" : "si-tab si-routetab"}>{copy.oi.page.tabs[tab]}</span>
+          ))}
+        </nav><div className="si-outreach__body"><CaseFileSkeleton /></div></div>
       </div>
     </div>
   );

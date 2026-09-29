@@ -57,7 +57,7 @@ test("JumpSelect: a labelled select (44 px in CSS) whose options are the anchors
 });
 
 test("the record page's tabs carry the sticky hook", () => {
-  const markup = html(createElement(QueryClientProvider, { client: new QueryClient() }, createElement(OutreachPageFrame, { back: "/sales-intelligence", header: null, tabs: outreachTabs("x", null), active: "work" })));
+  const markup = html(createElement(QueryClientProvider, { client: new QueryClient() }, createElement(OutreachPageFrame, { back: "/sales-intelligence", header: null, tabs: outreachTabs("x", null), active: "case" })));
   assert.ok(markup.includes('class="si-tabs si-routetabs si-outreach__tabs"'));
 });
 

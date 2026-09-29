@@ -9,8 +9,11 @@ import { outreachReadSchema, type Outreach } from "../../lib/api/salesIntelligen
 import { buildIntent, initialDraft } from "../../components/sales-intelligence/lib/commands";
 import { FollowupsSection } from "../../components/sales-intelligence/outreach-detail";
 import { RelatedRecordChips } from "../../components/sales-intelligence/related-record-chips";
+import { RecordProvenance } from "../../components/sales-intelligence/lead-provenance";
+import { formatExact } from "../../components/sales-intelligence/lib/time";
+import { MoveGlanceView } from "../../components/sales-intelligence/outreach/move-glance";
 import {
-  ANALYSIS_SECTIONS, CorrectionsView, OutreachNotFound, OutreachPageFrame, OutreachRouteSkeleton, RecordCommands, RecordHeaderView,
+  CorrectionsView, OutreachNotFound, OutreachPageFrame, OutreachRouteSkeleton, RecordCommands, RecordHeaderView,
   activeCallRestriction, backHref, deepLinkTarget, groupCommands, headerChips, headerRow, isNotFoundError, leadTargetHref, outreachRouteHref,
   outreachTabs, parseOutreachTab, showReceiverAgent,
 } from "../../components/sales-intelligence/outreach";
@@ -33,19 +36,20 @@ function header(rel: string, extra: Partial<Parameters<typeof RecordHeaderView>[
 function headerOf(o: Outreach, asOf: string, extra: Partial<Parameters<typeof RecordHeaderView>[0]> = {}) {
   return renderToStaticMarkup(createElement(RecordHeaderView, { outreach: o, asOf, returnTo: RETURN, onCommand: noop, onMessageRep: noop, messageRepDisabledReason: null, ...extra }));
 }
+function provenanceOf(o: Outreach, asOf: string) {
+  return renderToStaticMarkup(createElement(RecordProvenance, { record: o, asOfText: (t: string) => formatExact(t, asOf) }));
+}
 const withClient = (el: ReactElement) => renderToStaticMarkup(createElement(QueryClientProvider, { client: new QueryClient() }, el));
 const outreachFiles = (dir: string) => fs.readdirSync(path.join(CONTRACTS, dir)).filter((f) => /^outreach__.*\.json$/.test(f)).map((f) => `${dir}/${f}`);
 
-fixtureTest("every S1, S5c, S6, AC and S11 detail fixture renders the record header: lines 1–4 and 7, band line, provenance, links, commands; no %", () => {
+fixtureTest("every S1, S5c, S6, AC and S11 detail fixture renders the case header and six time tiles", () => {
   const files = ["S1", "S5c", "S6", "AC", "S11"].flatMap(outreachFiles);
   assert.ok(files.length > 50, `fixtures found: ${files.length}`);
   for (const rel of files) {
     const html = header(rel);
-    for (const line of ["1", "3", "4", "6", "7"]) assert.ok(html.includes(`data-line="${line}"`), `${rel}: line ${line}`);
+    assert.ok(html.includes('data-line="1"') && html.includes('data-line="2"'), `${rel}: identity`);
     assert.ok(html.includes("data-band-line"), `${rel}: band line`);
-    assert.ok(html.includes("data-provenance="), `${rel}: provenance block`);
-    assert.ok(html.includes('aria-label="Related records"'), `${rel}: official links`);
-    assert.ok(html.includes('role="group" aria-label="Commands"'), `${rel}: command group`);
+    for (const tile of ["received", "last-conversation", "last-call", "calls", "conversations", "move"]) assert.ok(html.includes(`data-tile="${tile}"`), `${rel}: ${tile} tile`);
     assert.ok(!text(html).includes("%"), `${rel}: no % anywhere`);
     assert.ok(!html.includes("undefined") && !html.includes("NaN"), `${rel}: no undefined / NaN`);
   }
@@ -106,8 +110,7 @@ fixtureTest("A21 / E26: the receiver agent shows beside an Owner assignment and 
   const kept = detail("S6/outreach__t3-owner-kept.json");
   assert.equal(showReceiverAgent(kept.data.outreach), true);
   const t = text(header("S6/outreach__t3-owner-kept.json"));
-  assert.ok(t.includes("Assigned to Tina Cho (by you) · Receiver agent in Granot: Dana Reyes"), t);
-  assert.ok(t.includes("from the Granot username."), "tooltip: source");
+  assert.ok(t.includes("Receiver agent in Granot: Dana Reyes"), t);
   for (const rel of ["S6/outreach__t3-receiver-granot.json", "S6/outreach__t3-receiver-extension.json", "S6/outreach__t3-receiver-manual.json", "S6/outreach__t3-receiver-sheet.json", "S6/outreach__t3-receiver-ringcentral.json"]) {
     const o = detail(rel).data.outreach;
     assert.equal(o.assignment.origin, "crm_receiver", rel);
@@ -126,34 +129,35 @@ fixtureTest("the header's band line, live chip and due state come from the serve
   assert.ok(live.includes("On the call · Dana Reyes (ext 101, reviewed) · 4m"), live);
   const closed = text(header("S1/outreach__s-closed-owner.json"));
   assert.ok(closed.includes("Not in Attention"), "null band");
-  const overdue = header("S1/outreach__s-followup-overdue.json");
-  assert.ok(overdue.includes("si-text--amber") && text(overdue).includes("overdue"), "amber overdue from facts.next_action_state");
-  const due = header("S1/outreach__s-followup-due.json");
-  assert.ok(/Due \w{3} \d+, \d+:\d{2} [AP]M ET \(in /.test(text(due)), "due: exact + countdown");
+  const overdue = detail("S1/outreach__s-followup-overdue.json");
+  assert.ok(text(renderToStaticMarkup(createElement(FollowupsSection, { record: overdue.data.outreach, asOf: overdue.as_of }))).includes("overdue"));
+  const due = detail("S1/outreach__s-followup-due.json");
+  assert.ok(text(renderToStaticMarkup(createElement(FollowupsSection, { record: due.data.outreach, asOf: due.as_of }))).includes("Due"));
 });
 
 fixtureTest("A37: Lead provenance — is_the_lead (S11 fixtures and a synthetic row with no Number), needs_a_lead, ambiguous, attached", () => {
-  const noNumber = text(header("S11/outreach__prov-form-no-number.json"));
+  const provenance = (rel: string) => { const d = detail(rel); return provenanceOf(d.data.outreach, d.as_of); };
+  const noNumber = text(provenance("S11/outreach__prov-form-no-number.json"));
   assert.ok(noNumber.includes("This is the Lead") && noNumber.includes("This work is the Form Lead for Job 5590019.") && noNumber.includes("No Contact Number is on file."));
   assert.ok(!noNumber.includes("No Lead attached"), "never No Lead attached for a Lead subject");
-  const call = text(header("S11/outreach__prov-call-lead.json"));
+  const call = text(provenance("S11/outreach__prov-call-lead.json"));
   assert.ok(call.includes("This work is the Call Lead for Job 5590056.") && !call.includes("No Contact Number is on file."));
   // Synthetic (A37, before every fixture carries S11-PROV): an S1 Lead with `is_the_lead` and `primary_number: null`.
   const d = detail("S1/outreach__s-lead-only.json");
   const synthetic = { ...d.data.outreach, primary_number: null, derived: { ...d.data.outreach.derived, provenance_state: "is_the_lead" } };
-  const s = text(headerOf(synthetic, d.as_of));
+  const s = text(provenanceOf(synthetic, d.as_of));
   assert.ok(s.includes("This is the Lead") && s.includes("No Contact Number is on file.") && !s.includes("No Lead attached"));
-  const number = header("S11/outreach__prov-number-only.json");
+  const number = provenance("S11/outreach__prov-number-only.json");
   assert.ok(text(number).includes("No Lead attached") && text(number).includes("Attach a Lead"));
   assert.ok(number.includes('href="/sales-intelligence/legacy?view=numbers&amp;number='), "Attach a Lead links out to legacy Numbers");
   const base = detail("S1/outreach__s-assessment-pending.json");
   const ambiguous = { ...base.data.outreach, derived: { ...base.data.outreach.derived, provenance_state: "ambiguous" } };
-  const a = headerOf(ambiguous, base.as_of);
+  const a = provenanceOf(ambiguous, base.as_of);
   assert.ok(/data-action="review-lead"[^>]*>Review</.test(a), "ambiguous → Review link-out");
   const byYou = { ...base.data.outreach, derived: { ...base.data.outreach.derived, provenance_state: "attached_by_you" } };
-  assert.ok(text(headerOf(byYou, base.as_of)).includes("You attached this Lead"), "attached_* keep today's wording");
+  assert.ok(text(provenanceOf(byYou, base.as_of)).includes("You attached this Lead"), "attached_* keep today's wording");
   const none = { ...base.data.outreach, derived: { ...base.data.outreach.derived, provenance_state: undefined } };
-  assert.ok(text(headerOf(none, base.as_of)).includes("How this Lead was attached is not recorded yet."));
+  assert.ok(text(provenanceOf(none, base.as_of)).includes("How this Lead was attached is not recorded yet."));
 });
 
 fixtureTest("A41: official-record links carry si_return and Open in new tab; the Number goes to legacy; `None` when absent", () => {
@@ -201,6 +205,23 @@ fixtureTest("Work tab follow-ups: retry, superseded wording, due via as_of, each
   assert.ok(text(renderToStaticMarkup(createElement(FollowupsSection, { record: none.data.outreach, asOf: none.as_of }))).includes("No next step set"));
 });
 
+fixtureTest("the Work rail separates the server-selected next step from other open follow-ups", () => {
+  const d = detail("S1/outreach__s-followup-overdue.json");
+  const primary = renderToStaticMarkup(createElement(FollowupsSection, { record: d.data.outreach, asOf: d.as_of, view: "primary" }));
+  const other = renderToStaticMarkup(createElement(FollowupsSection, { record: d.data.outreach, asOf: d.as_of, view: "other" }));
+  assert.ok(text(primary).includes("Next step"));
+  assert.ok(primary.includes(`data-followup-status="open"`));
+  assert.ok(!other.includes(`data-followup-status="open"`));
+});
+
+fixtureTest("Move at a glance renders current route facts and an unknown estimate without inventing money", () => {
+  const d = detail("S1/outreach__s-assessment-pending.json");
+  const markup = renderToStaticMarkup(createElement(MoveGlanceView, { outreach: d.data.outreach, asOf: d.as_of }));
+  assert.ok(text(markup).includes("Move at a glance"));
+  assert.ok(text(markup).includes("No estimate yet"));
+  assert.ok(!text(markup).includes("$0"));
+});
+
 fixtureTest("Work tab corrections (owner_instructions) and the blank-note refusal", () => {
   const d = detail("S1/outreach__s-closed-owner.json");
   const items = d.data.owner_instructions ?? [];
@@ -214,16 +235,16 @@ fixtureTest("Work tab corrections (owner_instructions) and the blank-note refusa
   assert.equal(buildIntent("add_note", { ...initialDraft(), note: "Called twice" }, o, undefined, "k1").body.text, "Called twice");
 });
 
-test("the tab bar: Analysis · Timeline · Work, default Analysis, si_return kept on every tab", () => {
-  assert.equal(parseOutreachTab(undefined), "analysis");
+test("the tab bar: Case File · Conversations · Timeline · Analysis, default Case File, si_return kept", () => {
+  assert.equal(parseOutreachTab(undefined), "case");
   assert.equal(parseOutreachTab("timeline"), "timeline");
-  assert.equal(parseOutreachTab("messages"), "analysis");
+  assert.equal(parseOutreachTab("messages"), "case");
   const tabs = outreachTabs("o 1", "/sales-intelligence?view=closed");
-  assert.deepEqual(tabs.map((t) => t.label), ["Analysis", "Timeline", "Work"]);
+  assert.deepEqual(tabs.map((t) => t.label), ["Case File", "Conversations", "Timeline", "Analysis"]);
   assert.equal(tabs[0]!.href, "/sales-intelligence/outreach/o%201?si_return=%2Fsales-intelligence%3Fview%3Dclosed");
-  assert.equal(tabs[2]!.href, "/sales-intelligence/outreach/o%201?tab=work&si_return=%2Fsales-intelligence%3Fview%3Dclosed");
-  const html = withClient(createElement(OutreachPageFrame, { back: backHref("/sales-intelligence?view=closed"), header: createElement("div", { "data-header": "1" }), tabs, active: "work" }, createElement("p", null, "body")));
-  assert.ok(html.includes('aria-current="page"') && /aria-current="page"[^>]*>|href="[^"]*tab=work[^"]*"[^>]*aria-current="page"/.test(html));
+  assert.equal(tabs[2]!.href, "/sales-intelligence/outreach/o%201?tab=timeline&si_return=%2Fsales-intelligence%3Fview%3Dclosed");
+  const html = withClient(createElement(OutreachPageFrame, { back: backHref("/sales-intelligence?view=closed"), header: createElement("div", { "data-header": "1" }), tabs, active: "case" }, createElement("p", null, "body")));
+  assert.ok(html.includes('aria-current="page"'));
   assert.ok(html.includes('href="/sales-intelligence?view=closed"') && text(html).includes("Back to Outreach Intelligence"), "back link honours si_return");
   assert.ok(html.includes("si-liveind"), "the header live indicator");
   assert.equal(backHref("https://evil.example"), "/sales-intelligence");
@@ -248,15 +269,11 @@ test("A20: the redirect rule table", () => {
   assert.equal(outreachRouteHref("o1"), "/sales-intelligence/outreach/o1");
 });
 
-fixtureTest("page states: the route skeleton (frame + header skeleton + six section titles), the 404 page state", () => {
+fixtureTest("page states: the route skeleton (header, glance, rail, Case File) and 404", () => {
   const sk = renderToStaticMarkup(createElement(OutreachRouteSkeleton));
   const t = text(sk);
-  assert.deepEqual(ANALYSIS_SECTIONS.map((s) => s.title), ["Situation", "Scores", "Move details", "Findings", "Conversations", "Full output"]);
-  for (const s of ANALYSIS_SECTIONS) {
-    assert.ok(t.includes(s.title), s.title);
-    assert.ok(sk.includes(`id="${s.id}"`), `anchor #${s.id}`);
-  }
-  assert.ok(t.includes("Analysis") && t.includes("Timeline") && t.includes("Work"), "tab bar");
+  assert.ok(t.includes("Case File") && t.includes("Conversations") && t.includes("Timeline") && t.includes("Analysis"), "tab bar");
+  assert.ok(sk.includes("si-workrail") && sk.includes("si-moveglance"), "rail and glance skeletons");
   assert.ok(sk.includes("si-recordheader is-skeleton") && sk.includes("si-skeleton"), "header skeleton");
   const missing = raw("S8/owner-outreach-missing__missing-id.json");
   assert.equal(isNotFoundError({ status: missing.status, code: missing.body.code }), true);

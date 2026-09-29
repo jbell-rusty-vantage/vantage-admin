@@ -51,7 +51,7 @@ export const ANALYSIS_SECTIONS = [
 ] as const;
 type SectionId = (typeof ANALYSIS_SECTIONS)[number]["id"];
 
-const sectionsFor = (role: AnalysisRole) => ANALYSIS_SECTIONS.filter((section) => role === "owner" || !section.ownerOnly);
+const sectionsFor = (role: AnalysisRole, caseFileLayout = false) => ANALYSIS_SECTIONS.filter((section) => (role === "owner" || !section.ownerOnly) && (!caseFileLayout || (section.id !== "move-details" && section.id !== "conversations")));
 const titleOf = (id: SectionId) => ANALYSIS_SECTIONS.find((section) => section.id === id)!.label;
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -118,6 +118,8 @@ export type AnalysisTabProps = {
   /** Overrides for the Findings / Conversations bodies (default: FIND's and CONV's sections). */
   renderFindings?: AnalysisSlot;
   renderConversations?: AnalysisSlot;
+  /** Page layout moves these sections into their own tabs; gallery/legacy kit fixtures retain the full kit. */
+  caseFileLayout?: boolean;
 };
 
 /** The Analysis tab. Mount it in the Outreach page's `analysis` slot: `<AnalysisTab outreachId={id} role="owner" run={run} />`. */
@@ -129,7 +131,7 @@ export function AnalysisTab({ idPrefix = "", ...props }: AnalysisTabProps) {
   );
 }
 
-function AnalysisTabBody({ outreachId, role, run = null, cardLines = true, renderFindings = defaultFindings, renderConversations = defaultConversations }: Omit<AnalysisTabProps, "idPrefix">) {
+function AnalysisTabBody({ outreachId, role, run = null, cardLines = true, renderFindings = defaultFindings, renderConversations = defaultConversations, caseFileLayout = false }: Omit<AnalysisTabProps, "idPrefix">) {
   const kid = useKitId();
   const root = useRef<HTMLDivElement>(null);
   useLandOnHash(root);
@@ -151,9 +153,9 @@ function AnalysisTabBody({ outreachId, role, run = null, cardLines = true, rende
   );
   return (
     <div ref={root} className="si-analysis" data-role={role}>
-      <SubNav items={sectionsFor(role).map(({ id, label }) => ({ id: kid(id), label }))} label={f.subNavLabel} className="si-analysis__subnav" />
+      <SubNav items={sectionsFor(role, caseFileLayout).map(({ id, label }) => ({ id: kid(id), label }))} label={f.subNavLabel} className="si-analysis__subnav" />
       {/* UI2-PHONE (UI-2 §7): below 768 px the sub-nav collapses into this select (CSS swaps them). */}
-      <JumpSelect items={sectionsFor(role).map(({ id, label }) => ({ id: kid(id), label }))} label={copy.ui2.phone.jumpTo} className="si-analysis__jump" />
+      <JumpSelect items={sectionsFor(role, caseFileLayout).map(({ id, label }) => ({ id: kid(id), label }))} label={copy.ui2.phone.jumpTo} className="si-analysis__jump" />
       <Section id="situation" title={titleOf("situation")}>
         <Region name="analysis-situation" skeleton={<SituationSkeleton />} onRetry={reset(outreachKey, ...runKeys)}>
           <SituationSection outreachId={outreachId} cardLines={cardLines} />
@@ -164,18 +166,10 @@ function AnalysisTabBody({ outreachId, role, run = null, cardLines = true, rende
           <ScoresSection outreachId={outreachId} />
         </Region>
       </Section>
-      <section id={kid("next-step")} className="si-analysis__section si-analysis__section--strip" aria-label={f.nextStep} data-section="next-step">
-        <Region name="analysis-next-step" skeleton={<NextStepSkeleton />} onRetry={reset(outreachKey, assessmentKey, ...runKeys)}>
-          <NextStepSection outreachId={outreachId} owner={owner} />
-        </Region>
-      </section>
-      <Section id="move-details" title={titleOf("move-details")}>
-        <Region name="analysis-move" skeleton={<MoveDetailsSkeleton />} onRetry={reset(assessmentKey)}>
-          <MoveDetailsSection outreachId={outreachId} />
-        </Region>
-      </Section>
+      {!caseFileLayout && <section id={kid("next-step")} className="si-analysis__section si-analysis__section--strip" aria-label={f.nextStep} data-section="next-step"><Region name="analysis-next-step" skeleton={<NextStepSkeleton />} onRetry={reset(outreachKey, assessmentKey, ...runKeys)}><NextStepSection outreachId={outreachId} owner={owner} /></Region></section>}
+      {!caseFileLayout && <Section id="move-details" title={titleOf("move-details")}><Region name="analysis-move" skeleton={<MoveDetailsSkeleton />} onRetry={reset(assessmentKey)}><MoveDetailsSection outreachId={outreachId} /></Region></Section>}
       {slot("findings", renderFindings, <FindingsSkeleton />, [[...all, "findings"], ...runKeys])}
-      {slot("conversations", renderConversations, <ConversationsSkeleton />, [[...all, "conversations"], [...all, "transcript"]])}
+      {!caseFileLayout && slot("conversations", renderConversations, <ConversationsSkeleton />, [[...all, "conversations"], [...all, "transcript"]])}
       {owner && (
         <Section id="full-output" title={titleOf("full-output")}>
           <Region name="analysis-full-output" skeleton={<SkeletonLines lines={4} />} onRetry={reset(outreachKey, assessmentKey, ...runKeys)}>
@@ -197,7 +191,7 @@ function AnalysisTabBody({ outreachId, role, run = null, cardLines = true, rende
 }
 
 /** Route-level loading for the tab (§11.9): the sub-nav and the six section titles over shaped skeletons. No reads. */
-export function AnalysisTabSkeleton({ role = "owner" }: { role?: AnalysisRole }) {
+export function AnalysisTabSkeleton({ role = "owner", caseFileLayout = false }: { role?: AnalysisRole; caseFileLayout?: boolean }) {
   const skeletons: Record<SectionId, ReactNode> = {
     situation: <SituationSkeleton />,
     scores: <ScoresSkeleton />,
@@ -209,11 +203,11 @@ export function AnalysisTabSkeleton({ role = "owner" }: { role?: AnalysisRole })
   return (
     <div className="si-analysis" data-role={role} role="status" aria-busy="true">
       <span className="si-sr">{copy.ui1.prim.loading}</span>
-      <SubNav items={sectionsFor(role).map(({ id, label }) => ({ id, label }))} label={f.subNavLabel} className="si-analysis__subnav" />
-      {sectionsFor(role).map(({ id, label }) => (
+      <SubNav items={sectionsFor(role, caseFileLayout).map(({ id, label }) => ({ id, label }))} label={f.subNavLabel} className="si-analysis__subnav" />
+      {sectionsFor(role, caseFileLayout).map(({ id, label }) => (
         <Section key={id} id={id} title={label}>
           {skeletons[id]}
-          {id === "scores" && <NextStepSkeleton />}
+          {!caseFileLayout && id === "scores" && <NextStepSkeleton />}
         </Section>
       ))}
     </div>

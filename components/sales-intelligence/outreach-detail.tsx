@@ -26,17 +26,18 @@ type Availability = Outreach['allowed_actions'][number];
  * `allowed_actions[]` offers (every one opens the kept `command-dialog.tsx`), then completed, cancelled and superseded
  * ones under a disclosure. With `asOf` each card formats its times against the response's `as_of`.
  */
-export function FollowupsSection({record,asOf}:{record:Outreach;asOf?:string}) {
+export function FollowupsSection({record,asOf,view='all'}:{record:Outreach;asOf?:string;view?:'all'|'primary'|'other'|'done'}) {
  const [editing,setEditing]=useState<{command:string;actionId:string}|null>(null);
  const w=copy.ui1.outreach.work;
  const selected=record.followups.find(action=>action.id===editing?.actionId);
- const open=record.followups.filter(f=>f.status==='open'),done=record.followups.filter(f=>f.status!=='open');
+ const primaryId=record.next_action?.id??record.derived.action_facts?.[0]?.id;
+ const open=record.followups.filter(f=>f.status==='open'&&(view==='all'||(view==='primary'?f.id===primaryId:view==='other'&&f.id!==primaryId))),done=view==='all'||view==='done'?record.followups.filter(f=>f.status!=='open'):[];
  return <section className="si-local-stack" aria-label={w.followupsTitle}>
- <h3 className="si-heading si-heading--3">{w.followupsTitle}</h3>
+ <h3 className="si-heading si-heading--3">{view==='primary'?copy.oi.page.nextStep:w.followupsTitle}</h3>
  {open.map(f=><div className="si-local-stack" key={f.id}><FollowupCard followup={f} overallOwner={record.assignment.agent} asOf={asOf}/>
   <div className="si-local-filters">{f.allowed_actions.filter(action=>commandLabels[action.action]).map(action=><Button key={action.action} disabled={!action.enabled} title={action.enabled?undefined:callBlockerSentence(action.action,record,action.blocker_codes,copy.call.blockers,copy.call.blockerCodes)||undefined} onClick={()=>setEditing({command:action.action,actionId:f.id})}>{commandLabels[action.action]}</Button>)}</div></div>)}
- {!open.length&&<p className="si-time is-null">{w.noFollowups}</p>}
- {!!done.length&&<details><summary>{copy.panel.completedFollowups} ({done.length})</summary><div className="si-local-stack">{done.map(f=><FollowupCard key={f.id} followup={f} overallOwner={record.assignment.agent} asOf={asOf}/>)}</div></details>}
+ {!open.length&&(view==='all'||view==='primary')&&<p className="si-time is-null">{w.noFollowups}</p>}
+ {!!done.length&&(view==='done'?<div className="si-local-stack">{done.map(f=><FollowupCard key={f.id} followup={f} overallOwner={record.assignment.agent} asOf={asOf}/>)}</div>:<details><summary>{copy.panel.completedFollowups} ({done.length})</summary><div className="si-local-stack">{done.map(f=><FollowupCard key={f.id} followup={f} overallOwner={record.assignment.agent} asOf={asOf}/>)}</div></details>)}
  {record.followups_cursor&&<p className="si-text--sm si-text--subtle">{w.moreFollowups}</p>}
  {editing&&<CommandDialog key={`${editing.command}:${editing.actionId}`} command={editing.command} record={record} action={selected} onClose={()=>setEditing(null)}/>}
  </section>;

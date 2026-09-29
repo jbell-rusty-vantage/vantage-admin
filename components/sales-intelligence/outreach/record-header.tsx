@@ -10,30 +10,27 @@
  * restriction's `until` from the Number read (the detail read carries no restrictions).
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Fragment, useState, type ReactNode } from "react";
+import { useState } from "react";
 import { numberSchema, readSalesIntelligence, type NumberRead, type Outreach } from "@/lib/api/salesIntelligence";
 import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
 import { BANDS, copy } from "../sales-intelligence-copy";
 import {
-  CardTip, ChipView, LineSix, LineThree, countsText, elapsedMs, identityText, lineOneChips, reasonSegment, routeText, uncertainFiveText, whoText,
+  ChipView, elapsedMs, identityText, lineOneChips,
   type CardChip, type CardRow,
 } from "../card";
-import { MessageRepPanel, useMessageRepAvailability } from "../composer";
 import { CommandDialog } from "../command-dialog";
 import { useReportAsOf } from "../data/live";
 import { siKeys } from "../data/query-keys";
 import { useOutreach } from "../data/use-outreach";
-import { LeadProgressSection } from "../lead-progress";
-import { RecordProvenance } from "../lead-provenance";
-import { RelatedRecordChips } from "../related-record-chips";
-import { BandBadge, Region, RegionProgress, SkeletonBlock, SkeletonLines, StatePill, type BandNumber } from "../primitives";
+import { MetricTiles, metricTiles } from "../card";
+import { RepAvatar } from "../card/rep-avatar";
+import { Button } from "../atoms/button";
+import { Region, RegionProgress, SkeletonBlock, SkeletonLines, StatePill, type BandNumber } from "../primitives";
 import { cx } from "../lib/format";
 import { formatDuration, formatExact } from "../lib/time";
-import { useIsRep, useViewer } from "../rep/viewer";
-import { RecordCommands } from "./commands";
+import { useIsRep } from "../rep/viewer";
 
 const h = copy.ui1.outreach;
-const SEP = " · ";
 
 const isBand = (n: unknown): n is BandNumber => typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 7;
 
@@ -135,25 +132,6 @@ export function receiverTip(o: Pick<Outreach, "receiver_agent">, asOf: string): 
   return null;
 }
 
-function HeaderLineSeven({ o, row, asOf }: { o: Outreach; row: CardRow; asOf: string }) {
-  const viewer = useViewer();
-  const parts: ReactNode[] = [<span key="who" data-seg="who">{whoText(o, viewer)}</span>];
-  if (showReceiverAgent(o)) {
-    const tip = receiverTip(o, asOf);
-    const text = <span data-seg="receiver">{h.receiverAgent(o.receiver_agent!.agent!.name)}</span>;
-    parts.push(tip ? <CardTip key="receiver" title={h.receiverTipTitle} lines={[tip]} label={text} /> : <Fragment key="receiver">{text}</Fragment>);
-  }
-  const why = reasonSegment({ outreach: o, derived: row.derived }, asOf);
-  if (why) parts.push(<CardTip key="why" title={copy.ui1.reason.allTitle} lines={why.tooltipLines} label={<span data-seg="why">{why.text}</span>} />);
-  const five = uncertainFiveText(o);
-  if (five) parts.push(<span key="lp" data-seg="lead-progress">{five}</span>);
-  return (
-    <p className="si-recordheader__line si-card__l7" data-line="7">
-      {parts.map((part, i) => <Fragment key={i}>{i > 0 && SEP}{part}</Fragment>)}
-    </p>
-  );
-}
-
 // ── The header ──────────────────────────────────────────────────────────────────────────────────────────────
 
 export type RecordHeaderViewProps = {
@@ -174,45 +152,27 @@ export type RecordHeaderViewProps = {
  * the call blocker chip (no date), the provenance line, the receiver agent and line 7, and drops every Owner control:
  * record commands, `Message rep`, Lead progress controls, `Attach a Lead` / `Review`, and the official-record links.
  */
-export function RecordHeaderView({ outreach: o, asOf, returnTo, restriction = null, restrictionKnown = false, onCommand, onMessageRep, messageRepDisabledReason, refreshing }: RecordHeaderViewProps) {
+export function RecordHeaderView({ outreach: o, asOf, restriction = null, restrictionKnown = false, onCommand, refreshing }: RecordHeaderViewProps) {
   const rep = useIsRep();
   const row = headerRow(o);
-  const band = o.derived.attention_band;
-  const route = routeText(o, asOf);
   const live = !!o.live_call || o.call_progress?.state === "in_progress";
+  const assign = o.allowed_actions.find((action) => action.action === "assign");
   return (
     <header className={cx("si-now si-recordheader", live && "is-live", rep && "is-rep")} data-outreach={o.id} data-viewer={rep ? "rep" : undefined}>
       <RegionProgress active={!!refreshing} />
       <div className="si-now__identity">
         <div className="si-recordheader__l1" data-line="1">
-          <h1 className="si-heading si-heading--1 si-recordheader__title">{identityText(o)}</h1>
+          <p className="si-recordheader__band" data-band-line>{bandLine(o, asOf)}</p>
           <span className="si-chiprow">
             {headerChips(row, asOf, restriction, restrictionKnown, { rep }).map((chip) => <ChipView key={chip.id} chip={chip} />)}
           </span>
-          <span className="si-recordheader__side">
-            <StatePill state={o.state} />
-            <BandBadge band={isBand(band) ? band : null} />
-          </span>
+          <StatePill state={o.state} />
         </div>
-        {route && <p className="si-recordheader__line" data-line="2">{route}</p>}
-        <p className="si-recordheader__line" data-line="3"><LineThree o={o} asOf={asOf} /></p>
-        <p className="si-recordheader__line si-text--subtle" data-line="4">{countsText(o)}</p>
+        <div className="si-recordheader__hero"><h1 className="si-heading si-heading--1 si-recordheader__title">{o.lead_display?.name || identityText(o)}</h1><span className="si-recordheader__rep"><RepAvatar o={o} />{!rep && onCommand && assign && <Button variant="secondary" size="sm" disabled={!assign.enabled} onClick={() => onCommand("assign")}>{h.commands.assign}</Button>}</span></div>
+        <p className="si-recordheader__line" data-line="2">{[o.primary_number?.e164, o.lead_display?.job_no ? `Job ${o.lead_display.job_no}` : null, o.lead_display?.source_company].filter(Boolean).join(" · ")}</p>
+        {showReceiverAgent(o) && <p className="si-recordheader__line">{h.receiverAgent(o.receiver_agent!.agent!.name)}</p>}
+        <MetricTiles tiles={metricTiles(o, asOf)} className="si-recordheader__tiles" />
       </div>
-
-      <div className="si-now__headline">
-        <p className="si-recordheader__line" data-line="6"><LineSix o={o} asOf={asOf} /></p>
-        <HeaderLineSeven o={o} row={row} asOf={asOf} />
-        <p className="si-recordheader__line si-recordheader__band" data-band-line>{bandLine(o, asOf)}</p>
-        <LeadProgressSection record={o} onCommand={rep ? undefined : onCommand} />
-      </div>
-
-      <RecordProvenance record={o} asOfText={(t) => formatExact(t, asOf)} />
-
-      {!rep && <RelatedRecordChips outreach={o} numberId={numberIdOf(o)} returnTo={returnTo} />}
-
-      {onCommand && !rep && (
-        <RecordCommands record={o} onCommand={onCommand} onMessageRep={onMessageRep} messageRepDisabledReason={messageRepDisabledReason} />
-      )}
     </header>
   );
 }
@@ -237,9 +197,7 @@ function OwnerRecordHeaderLive({ id, returnTo }: { id: string; returnTo: string 
   const { outreach, asOf, isRefetching } = useOutreach(id);
   useReportAsOf(asOf);
   const { restriction, known } = useCallRestriction(outreach);
-  const availability = useMessageRepAvailability(outreach);
   const [command, setCommand] = useState<string | null>(null);
-  const [messaging, setMessaging] = useState(false);
   return (
     <>
       <RecordHeaderView
@@ -250,11 +208,8 @@ function OwnerRecordHeaderLive({ id, returnTo }: { id: string; returnTo: string 
         restrictionKnown={known}
         refreshing={isRefetching}
         onCommand={setCommand}
-        onMessageRep={() => setMessaging(true)}
-        messageRepDisabledReason={availability.disabledReason}
       />
       {command && <CommandDialog key={`${command}:${outreach.id}`} command={command} record={outreach} onClose={() => setCommand(null)} />}
-      {messaging && <MessageRepPanel key={outreach.id} outreach={outreach} asOf={asOf} mode="panel" onClose={() => setMessaging(false)} />}
     </>
   );
 }

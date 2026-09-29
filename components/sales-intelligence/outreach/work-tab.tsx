@@ -16,13 +16,12 @@
  * UI2-NUDGES adds `Messages from the Owner` (read-only, from the same detail read).
  */
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { numberSchema, readSalesIntelligence, type OwnerInstruction } from "@/lib/api/salesIntelligence";
 import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
-import { Attachments } from "../attachments";
 import { MessageRepPanel } from "../composer";
 import { siKeys } from "../data/query-keys";
 import { useOutreach } from "../data/use-outreach";
-import { legacyNumberHref } from "../lib/legacy-links";
 import { label } from "../lib/format";
 import { FollowupsSection } from "../outreach-detail";
 import { Region, RegionProgress, SkeletonBlock, SkeletonLines, TimeText } from "../primitives";
@@ -30,6 +29,8 @@ import { Restrictions } from "../restrictions";
 import { ReviewItems } from "../review-items";
 import { copy } from "../sales-intelligence-copy";
 import { RepFollowups } from "../rep/followup-actions";
+import { Button } from "../atoms/button";
+import { RunCommand } from "./analysis/advanced";
 import { OwnerMessages, OwnerMessagesSkeleton } from "../rep/owner-messages";
 import { useIsRep } from "../rep/viewer";
 import { numberIdOf, subjectKeyOf } from "./record-header";
@@ -71,12 +72,12 @@ export function CorrectionsView({ items, asOf }: { items: readonly OwnerInstruct
   );
 }
 
-function FollowupsLive({ id }: { id: string }) {
+function FollowupsLive({ id, view }: { id: string; view: "primary" | "other" | "done" }) {
   const { outreach, asOf, isRefetching } = useOutreach(id);
   return (
     <>
       <RegionProgress active={isRefetching} />
-      <FollowupsSection record={outreach} asOf={asOf} />
+      <FollowupsSection record={outreach} asOf={asOf} view={view} />
     </>
   );
 }
@@ -112,22 +113,23 @@ function RestrictionsLive({ id }: { id: string }) {
   return <RestrictionsForNumber numberId={numberId} />;
 }
 
-function AttachmentsLive({ id, returnTo }: { id: string; returnTo: string }) {
-  const { outreach } = useOutreach(id);
-  const lead = outreach.subject.kind === "lead" ? { model: outreach.subject.model, id: outreach.subject.id } : undefined;
-  const numberId = lead ? undefined : numberIdOf(outreach) ?? undefined;
-  if (!lead && !numberId) return null;
-  return (
-    <>
-      <Attachments lead={lead} numberId={numberId} returnTo={returnTo} readOnly numberHref={legacyNumberHref} />
-      <p className="si-text--sm si-text--subtle">{w.attachmentsReadOnly}</p>
-    </>
-  );
-}
-
 function MessagesLive({ id }: { id: string }) {
   const { outreach, asOf } = useOutreach(id);
   return <MessageRepPanel outreach={outreach} asOf={asOf} mode="inline" />;
+}
+
+function Suggestion({ id }: { id: string }) {
+  const { outreach } = useOutreach(id);
+  const [applying, setApplying] = useState(false);
+  const suggestion = outreach.suggested_next_step;
+  const runId = suggestion?.run_id ?? outreach.newest_run_id;
+  if (!suggestion) return null;
+  return <div className="si-workrail__suggestion">
+    <p className="si-text--sm si-text--subtle">{copy.ui1.analysis.nextStep.suggested}</p>
+    <p>{suggestion.action_label ? `${suggestion.action_label} · ` : ""}{suggestion.description}</p>
+    {suggestion.apply?.enabled && runId && <Button variant="secondary" size="sm" onClick={() => setApplying(true)}>{copy.ui1.analysis.nextStep.apply}</Button>}
+    {applying && runId && <RunCommand runId={runId} action="apply_suggestion" onClose={() => setApplying(false)} />}
+  </div>;
 }
 
 const lines = (n: number) => <SkeletonLines lines={n} widths={["70%", "56%", "64%", "48%"].slice(0, n)} />;
@@ -142,12 +144,12 @@ export function WorkTabSkeleton() {
   );
 }
 
-function RepFollowupsLive({ id }: { id: string }) {
+function RepFollowupsLive({ id, view }: { id: string; view: "primary" | "other" | "done" }) {
   const { outreach, asOf, isRefetching } = useOutreach(id);
   return (
     <>
       <RegionProgress active={isRefetching} />
-      <RepFollowups record={outreach} asOf={asOf} />
+      <RepFollowups record={outreach} asOf={asOf} view={view} />
     </>
   );
 }
@@ -155,11 +157,17 @@ function RepFollowupsLive({ id }: { id: string }) {
 /** The rep's Work tab: the follow-ups region only (every other region reads an Owner-only route). */
 function RepWorkTab({ id }: { id: string }) {
   const client = useQueryClient();
+  const { outreach } = useOutreach(id);
+  const primaryId = outreach.next_action?.id ?? outreach.derived.action_facts?.[0]?.id;
+  const otherCount = outreach.followups.filter((f) => f.status === "open" && f.id !== primaryId).length;
+  const doneCount = outreach.followups.filter((f) => f.status !== "open").length;
   return (
     <div className="si-work" data-tab="work" data-viewer="rep">
       <Region name="work-followups" skeleton={<SkeletonBlock height={120} />} onRetry={() => void client.resetQueries({ queryKey: siKeys.outreach(id) })}>
-        <RepFollowupsLive id={id} />
+        <RepFollowupsLive id={id} view="primary" />
       </Region>
+      {otherCount > 0 && <details className="si-workrail__disclosure"><summary>{copy.oi.page.otherFollowups} ({otherCount})</summary><Region name="work-other-followups" skeleton={<SkeletonBlock height={120} />}><RepFollowupsLive id={id} view="other" /></Region></details>}
+      {doneCount > 0 && <details className="si-workrail__disclosure"><summary>{copy.panel.completedFollowups} ({doneCount})</summary><Region name="work-completed-followups" skeleton={<SkeletonBlock height={120} />}><RepFollowupsLive id={id} view="done" /></Region></details>}
       {/* UI2-NUDGES (UI-2 §5): the same detail read, so no extra request; omitted when there are no messages. */}
       <Region name="work-owner-messages" skeleton={<OwnerMessagesSkeleton />} onRetry={() => void client.resetQueries({ queryKey: siKeys.outreach(id) })}>
         <OwnerMessages id={id} />
@@ -172,33 +180,30 @@ export function WorkTab({ id, returnTo }: { id: string; returnTo: string }) {
   return useIsRep() ? <RepWorkTab id={id} /> : <OwnerWorkTab id={id} returnTo={returnTo} />;
 }
 
-function OwnerWorkTab({ id, returnTo }: { id: string; returnTo: string }) {
+function OwnerWorkTab({ id }: { id: string; returnTo: string }) {
   const client = useQueryClient();
+  const { outreach } = useOutreach(id);
+  const primaryId = outreach.next_action?.id ?? outreach.derived.action_facts?.[0]?.id;
+  const otherCount = outreach.followups.filter((f) => f.status === "open" && f.id !== primaryId).length;
+  const doneCount = outreach.followups.filter((f) => f.status !== "open").length;
   const retryOutreach = () => void client.resetQueries({ queryKey: siKeys.outreach(id) });
   const retryNumber = () => void client.resetQueries({ queryKey: [...salesIntelligenceKeys.all, "number"] });
   return (
     <div className="si-work" data-tab="work">
       <Region name="work-followups" skeleton={<SkeletonBlock height={120} />} onRetry={retryOutreach}>
-        <FollowupsLive id={id} />
+        <FollowupsLive id={id} view="primary" />
       </Region>
-      <Region name="work-corrections" skeleton={lines(2)} onRetry={retryOutreach}>
-        <CorrectionsLive id={id} />
-      </Region>
-      <Region name="work-review" skeleton={lines(2)} onRetry={retryOutreach}>
-        <ReviewLive id={id} />
-      </Region>
-      <Region name="work-restrictions" skeleton={lines(2)} onRetry={retryNumber}>
-        <RestrictionsLive id={id} />
-      </Region>
-      <Region name="work-attachments" skeleton={lines(3)} onRetry={retryOutreach}>
-        <AttachmentsLive id={id} returnTo={returnTo} />
-      </Region>
-      <section className="si-work__messages" aria-labelledby="si-work-messages">
-        <h3 id="si-work-messages" className="si-heading si-heading--3">{w.messagesTitle}</h3>
+      {!outreach.next_action && outreach.suggested_next_step && <Suggestion id={id} />}
+      {otherCount > 0 && <details className="si-workrail__disclosure"><summary>{copy.oi.page.otherFollowups} ({otherCount})</summary><Region name="work-other-followups" skeleton={<SkeletonBlock height={120} />} onRetry={retryOutreach}><FollowupsLive id={id} view="other" /></Region></details>}
+      {doneCount > 0 && <details className="si-workrail__disclosure"><summary>{copy.panel.completedFollowups} ({doneCount})</summary><Region name="work-completed-followups" skeleton={<SkeletonBlock height={120} />} onRetry={retryOutreach}><FollowupsLive id={id} view="done" /></Region></details>}
+      <details className="si-workrail__disclosure" open><summary>{copy.oi.page.reviews}</summary><Region name="work-review" skeleton={lines(2)} onRetry={retryOutreach}><ReviewLive id={id} /></Region></details>
+      <details className="si-workrail__disclosure"><summary>{copy.oi.page.restrictions}</summary><Region name="work-restrictions" skeleton={lines(2)} onRetry={retryNumber}><RestrictionsLive id={id} /></Region></details>
+      <details className="si-workrail__disclosure"><summary>{copy.oi.page.corrections}</summary><Region name="work-corrections" skeleton={lines(2)} onRetry={retryOutreach}><CorrectionsLive id={id} /></Region></details>
+      <details className="si-workrail__disclosure"><summary>{w.messagesTitle}</summary>
         <Region name="work-messages" skeleton={lines(4)} onRetry={retryOutreach}>
           <MessagesLive id={id} />
         </Region>
-      </section>
+      </details>
     </div>
   );
 }

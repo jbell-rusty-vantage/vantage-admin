@@ -11,9 +11,9 @@
  *
  * `si_return` is carried to the route so the back link still returns where the Owner came from.
  */
-export type OutreachTab = "analysis" | "timeline" | "work";
-export const OUTREACH_TABS: readonly OutreachTab[] = ["analysis", "timeline", "work"];
-export const DEFAULT_OUTREACH_TAB: OutreachTab = "analysis";
+export type OutreachTab = "case" | "conversations" | "timeline" | "analysis" | "work";
+export const OUTREACH_TABS: readonly Exclude<OutreachTab, "work">[] = ["case", "conversations", "timeline", "analysis"];
+export const DEFAULT_OUTREACH_TAB: OutreachTab = "case";
 
 /** Final spec §11 anchors (the analysis kit's section ids; `#full-output` is Full output). */
 export const ANALYSIS_ANCHORS = ["situation", "scores", "move-details", "findings", "conversations", "full-output"] as const;
@@ -31,7 +31,7 @@ export function validReturn(value: string | null | undefined): string | null {
 
 export function outreachRouteHref(
   id: string,
-  { tab, run, anchor, siReturn }: { tab?: OutreachTab; run?: string | null; anchor?: AnalysisAnchor | null; siReturn?: string | null } = {},
+  { tab, run, anchor, siReturn }: { tab?: OutreachTab; run?: string | null; anchor?: string | null; siReturn?: string | null } = {},
 ): string {
   const params = new URLSearchParams();
   if (tab && tab !== DEFAULT_OUTREACH_TAB) params.set("tab", tab);
