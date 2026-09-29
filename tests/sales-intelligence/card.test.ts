@@ -5,8 +5,8 @@ import test from "node:test";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { attentionSchema, type AttentionRow } from "../../lib/api/salesIntelligence";
-import { OutreachCard, identityText, reasonPhrase, reasonSegment, type CardOutreach, type OutreachCardProps } from "../../components/sales-intelligence/card";
-import { formatDuration, formatExactFull, formatRelative } from "../../components/sales-intelligence/lib/time";
+import { OutreachCard, identityText, metricTiles, reasonPhrase, reasonSegment, type CardOutreach, type OutreachCardProps } from "../../components/sales-intelligence/card";
+import { formatDate, formatDuration, formatExactFull, formatRelative } from "../../components/sales-intelligence/lib/time";
 import { legacyNumberHref } from "../../components/sales-intelligence/lib/legacy-links";
 import { findContractsDir, fixtureTest } from "./contracts-dir";
 
@@ -85,6 +85,19 @@ function tiles(html: string): Record<string, string> {
   return out;
 }
 const TILE_ORDER = ["received", "last-conversation", "last-call", "calls", "conversations", "move"];
+
+fixtureTest("row C shows canonical move size, volume, estimate and Granot date provenance", () => {
+  const { row, asOf } = rowBy("S1/attention__all-outreach.json", (item) => !!item.outreach && item.subject.kind === "lead");
+  const outreach = row.outreach!;
+  const enriched: AttentionRow = { ...row, outreach: { ...outreach, facts: { ...outreach.facts!, move: { date: "2026-10-29", date_source: "granot", pickup: { city: "Chicago", state: "IL", zip: null }, delivery: { city: "Raleigh", state: "NC", zip: null }, size: "2 Bedroom", volume_ft3: 600, service_type: null, estimate: { display: "$4,200", observed_at: "2026-09-23T12:50:25Z" }, granot_observed_at: "2026-09-23T12:50:25Z" } } } };
+  const html = render(enriched, asOf);
+  const moveLine = lines(html)[2]!;
+  assert.ok(moveLine.includes("2 Bedroom") && moveLine.includes("600 ft³") && moveLine.includes("Est. $4,200"));
+  assert.ok(moveLine.includes("From Granot report") && moveLine.includes("Granot estimate, seen"));
+  assert.equal(metricTiles(enriched.outreach!, asOf)[5]?.exact, formatDate("2026-10-29", asOf), "the sixth tile uses the canonical date");
+  const missing: AttentionRow = { ...enriched, outreach: { ...enriched.outreach!, facts: { ...enriched.outreach!.facts!, move: { ...enriched.outreach!.facts!.move!, estimate: null } } } };
+  assert.ok(!text(lines(render(missing, asOf))[2]!).includes("Est."));
+});
 
 fixtureTest("A01: a Number-only subject prints its specific nulls and an unknown move", () => {
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", bySubject("number:6ab448710705ca95222b49be"));

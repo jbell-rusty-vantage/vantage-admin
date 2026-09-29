@@ -306,7 +306,7 @@ export function RepFollowupActions({ followup, outreachId, asOf, onDone, send }:
 export function RepFollowups({ record, asOf, send, view = "all" }: { record: Outreach; asOf: string; send?: RepSend; view?: "all" | "primary" | "other" | "done" }) {
   const w = copy.ui1.outreach.work;
   const [saved, setSaved] = useState(false);
-  const primaryId = record.next_action?.id ?? record.derived.action_facts?.[0]?.id;
+  const primaryId = record.derived.action_facts?.map((fact) => fact.id).find((id) => record.followups.some((action) => action.id === id && action.status === "open")) ?? record.next_action?.id;
   const open = record.followups.filter((f) => f.status === "open" && (view === "all" || (view === "primary" ? f.id === primaryId : view === "other" && f.id !== primaryId)));
   const done = view === "all" || view === "done" ? record.followups.filter((f) => f.status !== "open") : [];
   return (

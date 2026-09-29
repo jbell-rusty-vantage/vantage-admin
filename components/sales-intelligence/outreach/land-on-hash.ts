@@ -27,26 +27,31 @@ export function hashTarget(): string | null {
 export function useLandOnHash(root: RefObject<HTMLElement | null>, ready = true) {
   useEffect(() => {
     const el = root.current;
-    const id = hashTarget();
-    if (!ready || !el || !id) return;
+    if (!ready || !el) return;
     const find = () => {
+      const id = hashTarget();
+      if (!id) return null;
       const found = document.getElementById(id);
       return found && el.contains(found) ? found : null;
     };
-    if (!find()) return;
     let active = true;
     const land = () => {
       if (active) find()?.scrollIntoView({ block: "start" });
     };
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(land);
+    const mutations = typeof MutationObserver === "undefined" ? null : new MutationObserver(land);
     const stop = () => {
       active = false;
       observer?.disconnect();
+      mutations?.disconnect();
       for (const name of STOP_EVENTS) window.removeEventListener(name, stop);
+      window.removeEventListener("hashchange", land);
     };
     land();
     observer?.observe(el);
+    mutations?.observe(el, { childList: true, subtree: true });
     for (const name of STOP_EVENTS) window.addEventListener(name, stop, { passive: true });
+    window.addEventListener("hashchange", land);
     const timer = window.setTimeout(stop, LAND_SETTLE_MS);
     return () => {
       window.clearTimeout(timer);

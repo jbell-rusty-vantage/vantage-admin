@@ -100,7 +100,7 @@ export function OutreachCard({
     <span key="b" className="si-card__identity">
       <Identity row={row} />
     </span>,
-    <MoveLine key="c" o={o} />,
+    <MoveLine key="c" o={o} asOf={asOf} />,
     <MetricTiles key="d" tiles={metricTiles(o, asOf)} />,
     <LineFive key="e" o={o} />,
     line6Override ?? <LineSix key="f" o={o} asOf={asOf} onApply={onApply ? () => onApply(row) : undefined} />,

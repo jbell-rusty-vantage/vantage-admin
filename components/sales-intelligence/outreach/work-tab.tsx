@@ -15,7 +15,7 @@
  * the Message rep history and composer (`GET /nudges`, `GET /reps`) are Owner-only and never mount for a rep.
  * UI2-NUDGES adds `Messages from the Owner` (read-only, from the same detail read).
  */
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { numberSchema, readSalesIntelligence, type OwnerInstruction } from "@/lib/api/salesIntelligence";
 import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
@@ -158,7 +158,7 @@ function RepFollowupsLive({ id, view }: { id: string; view: "primary" | "other" 
 function RepWorkTab({ id }: { id: string }) {
   const client = useQueryClient();
   const { outreach } = useOutreach(id);
-  const primaryId = outreach.next_action?.id ?? outreach.derived.action_facts?.[0]?.id;
+  const primaryId = outreach.derived.action_facts?.map((fact) => fact.id).find((actionId) => outreach.followups.some((action) => action.id === actionId && action.status === "open")) ?? outreach.next_action?.id;
   const otherCount = outreach.followups.filter((f) => f.status === "open" && f.id !== primaryId).length;
   const doneCount = outreach.followups.filter((f) => f.status !== "open").length;
   return (
@@ -182,8 +182,10 @@ export function WorkTab({ id, returnTo }: { id: string; returnTo: string }) {
 
 function OwnerWorkTab({ id }: { id: string; returnTo: string }) {
   const client = useQueryClient();
-  const { outreach } = useOutreach(id);
-  const primaryId = outreach.next_action?.id ?? outreach.derived.action_facts?.[0]?.id;
+  const { outreach, ownerInstructions } = useOutreach(id);
+  const numberId = numberIdOf(outreach);
+  const restrictionsQuery = useQuery({ queryKey: [...salesIntelligenceKeys.all, "number", numberId], queryFn: ({ signal }) => readSalesIntelligence(`numbers/${encodeURIComponent(numberId!)}`, numberSchema, signal), enabled: !!numberId, retry: false });
+  const primaryId = outreach.derived.action_facts?.map((fact) => fact.id).find((actionId) => outreach.followups.some((action) => action.id === actionId && action.status === "open")) ?? outreach.next_action?.id;
   const otherCount = outreach.followups.filter((f) => f.status === "open" && f.id !== primaryId).length;
   const doneCount = outreach.followups.filter((f) => f.status !== "open").length;
   const retryOutreach = () => void client.resetQueries({ queryKey: siKeys.outreach(id) });
@@ -193,12 +195,12 @@ function OwnerWorkTab({ id }: { id: string; returnTo: string }) {
       <Region name="work-followups" skeleton={<SkeletonBlock height={120} />} onRetry={retryOutreach}>
         <FollowupsLive id={id} view="primary" />
       </Region>
-      {!outreach.next_action && outreach.suggested_next_step && <Suggestion id={id} />}
+      {!primaryId && outreach.suggested_next_step && <Suggestion id={id} />}
       {otherCount > 0 && <details className="si-workrail__disclosure"><summary>{copy.oi.page.otherFollowups} ({otherCount})</summary><Region name="work-other-followups" skeleton={<SkeletonBlock height={120} />} onRetry={retryOutreach}><FollowupsLive id={id} view="other" /></Region></details>}
       {doneCount > 0 && <details className="si-workrail__disclosure"><summary>{copy.panel.completedFollowups} ({doneCount})</summary><Region name="work-completed-followups" skeleton={<SkeletonBlock height={120} />} onRetry={retryOutreach}><FollowupsLive id={id} view="done" /></Region></details>}
-      <details className="si-workrail__disclosure" open><summary>{copy.oi.page.reviews}</summary><Region name="work-review" skeleton={lines(2)} onRetry={retryOutreach}><ReviewLive id={id} /></Region></details>
-      <details className="si-workrail__disclosure"><summary>{copy.oi.page.restrictions}</summary><Region name="work-restrictions" skeleton={lines(2)} onRetry={retryNumber}><RestrictionsLive id={id} /></Region></details>
-      <details className="si-workrail__disclosure"><summary>{copy.oi.page.corrections}</summary><Region name="work-corrections" skeleton={lines(2)} onRetry={retryOutreach}><CorrectionsLive id={id} /></Region></details>
+      <details className="si-workrail__disclosure" open={!!outreach.derived.review_item_ids?.length || !!outreach.derived.review_badges?.length}><summary>{copy.oi.page.reviews}</summary><Region name="work-review" skeleton={lines(2)} onRetry={retryOutreach}><ReviewLive id={id} /></Region></details>
+      <details className="si-workrail__disclosure" open={!!restrictionsQuery.data?.data.restrictions.length || outreach.derived.call_blockers.includes("restriction")}><summary>{copy.oi.page.restrictions}</summary><Region name="work-restrictions" skeleton={lines(2)} onRetry={retryNumber}><RestrictionsLive id={id} /></Region></details>
+      <details className="si-workrail__disclosure" open={ownerInstructions.length > 0}><summary>{copy.oi.page.corrections}</summary><Region name="work-corrections" skeleton={lines(2)} onRetry={retryOutreach}><CorrectionsLive id={id} /></Region></details>
       <details className="si-workrail__disclosure"><summary>{w.messagesTitle}</summary>
         <Region name="work-messages" skeleton={lines(4)} onRetry={retryOutreach}>
           <MessagesLive id={id} />

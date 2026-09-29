@@ -31,7 +31,7 @@ export const copy = {
     /* OI-A3 page */
     page: {
       tabs: { case: "Case File", conversations: "Conversations", timeline: "Timeline", analysis: "Analysis" }, conversationFilter: "Conversations", allCalls: "All calls",
-      moveGlance: "Move at a glance", moveDate: "Move date", route: "Route", size: "Size · volume", estimate: "Estimate (Granot)", priority: "Priority",
+      moveGlance: "Move at a glance", moveDate: "Move date", route: "Route", size: "Size · volume", estimate: "Estimate (Granot)", priority: "Granot Priority",
       unknownDate: "Move date unknown", unknownRoute: "Route unknown", unknownSize: "Not on file", noEstimate: "No estimate yet", unknownPriority: "Not on file",
       work: "Work", nextStep: "Next step", otherFollowups: "Other open follow-ups", reviews: "Needs review", restrictions: "Restrictions", corrections: "Corrections", messages: "Message rep", ownerMessages: "Messages from the Owner", noNextStep: "No next step", compareSources: "Compare sources", leadAndGranot: "Lead and Granot", latestSummary: "Latest summary", fromAnalysis: "From the latest analysis", noSummary: "No analysis summary yet.", openAnalysis: "Open Analysis", workForPromise: "Visible because you promised a follow-up",
     },

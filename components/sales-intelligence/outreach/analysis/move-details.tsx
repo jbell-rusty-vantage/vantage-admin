@@ -10,8 +10,10 @@
  */
 import { TriangleAlert } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
+import type { MoveSummary } from "@/lib/api/salesIntelligence";
 import { itemStatusText, quantityText, type InventoryItem, type MoveTable, type OutreachAssessment } from "@/lib/api/salesIntelligenceAssessment";
 import { useAssessment } from "../../data/use-assessment";
+import { formatExactFull } from "../../lib/time";
 import { assessmentCopy } from "../../evidence-chain-copy";
 import { copy } from "../../sales-intelligence-copy";
 import { cx } from "../../lib/format";
@@ -50,7 +52,18 @@ function CustomerCell({ row }: { row: Row }) {
 const fileCell = (value: string | null) => (value == null ? <span className="si-movetable__null">{t.notOnFile}</span> : <span>{value}</span>);
 
 /** The three-column table. `evidence` builds the conflict line's citation (null in the Lead-only table). */
-export function MoveTableView({ table, evidence }: { table: MoveTable; evidence: ((refs: Row["customer"][number]["evidence"], label: string) => EvidenceTarget | null) | null }) {
+export function granotRowValue(key: string, summary: MoveSummary): string | null {
+  const granot = summary.granot;
+  if (!granot) return null;
+  if (key === "move_date") return summary.date_source === "granot" ? summary.date : null;
+  if (key === "size") return [granot.size, granot.volume_ft3 != null ? `${granot.volume_ft3} ft³` : null].filter(Boolean).join(" · ") || null;
+  if (key === "services") return granot.service_type;
+  if (key === "money") return [["Estimate", granot.estimate], ["Payment", granot.payment], ["Balance", granot.balance]].filter(([, value]) => value != null).map(([label, value]) => `${label}: ${value}`).join(" · ") || null;
+  return null;
+}
+
+export function MoveTableView({ table, evidence, moveSummary }: { table: MoveTable; evidence: ((refs: Row["customer"][number]["evidence"], label: string) => EvidenceTarget | null) | null; moveSummary?: MoveSummary | null }) {
+  const granot = moveSummary?.granot;
   return (
     <table className="si-movetable">
       <caption className="si-sr">{t.tableLabel}</caption>
@@ -63,6 +76,7 @@ export function MoveTableView({ table, evidence }: { table: MoveTable; evidence:
             {t.original}
             {table.original_origin_label && <span className="si-movetable__origin">{table.original_origin_label}</span>}
           </th>
+          {granot && <th scope="col">Granot report<span className="si-movetable__origin">Observed {formatExactFull(granot.observed_at)}</span></th>}
         </tr>
       </thead>
       <tbody>
@@ -82,10 +96,11 @@ export function MoveTableView({ table, evidence }: { table: MoveTable; evidence:
                 {td("customer", t.customer, <CustomerCell row={row} />)}
                 {td("lead_on_file", t.lead, fileCell(row.lead_on_file))}
                 {td("original", t.original, fileCell(row.original))}
+                {granot && <td data-label="Granot report" data-cell="granot">{fileCell(granotRowValue(row.key, moveSummary!))}</td>}
               </tr>
               {row.conflict && (
                 <tr className="si-movetable__conflict" data-conflict={row.key}>
-                  <td colSpan={4}>
+                  <td colSpan={granot ? 5 : 4}>
                     <span className="si-movetable__disagree">
                       <TriangleAlert size={14} className="si-text--amber" aria-hidden />
                       <span className="si-text--amber">{t.disagree}:</span> {row.conflict.explanation}
@@ -186,7 +201,7 @@ function ScoreConflicts({ conflicts, evidence }: { conflicts: MoveTable["score_c
 }
 
 /** Presentational Move details (UX15): the parsed `GET /outreach/:id/assessment` body in. */
-export function MoveDetails({ assessment }: { assessment: OutreachAssessment }) {
+export function MoveDetails({ assessment, moveSummary }: { assessment: OutreachAssessment; moveSummary?: MoveSummary | null }) {
   const section = assessment.current;
   const table = section?.move_table ?? null;
   if (!section || !table) {
@@ -194,7 +209,8 @@ export function MoveDetails({ assessment }: { assessment: OutreachAssessment }) 
     return (
       <div className="si-move" data-move={lead ? "lead-only" : "none"}>
         <p className="si-text--subtle" data-empty="move">{t.none}</p>
-        {lead && <MoveTableView table={lead} evidence={null} />}
+        {lead && <MoveTableView table={lead} evidence={null} moveSummary={moveSummary} />}
+        {!lead && moveSummary?.granot && <table className="si-movetable"><caption className="si-sr">Granot report</caption><thead><tr><th scope="col">Detail</th><th scope="col">Granot report · Observed {formatExactFull(moveSummary.granot.observed_at)}</th></tr></thead><tbody>{[["size", "Size"], ["services", "Services"], ["money", "Money"]].map(([key, name]) => <tr key={key}><th scope="row">{name}</th><td data-label="Granot report">{fileCell(granotRowValue(key, moveSummary))}</td></tr>)}</tbody></table>}
       </div>
     );
   }
@@ -203,7 +219,7 @@ export function MoveDetails({ assessment }: { assessment: OutreachAssessment }) 
     artifactId ? { source: "assessment", artifactId, ids: refIds(refs), label } : null;
   return (
     <div className="si-move" data-move="assessed">
-      <MoveTableView table={table} evidence={evidence} />
+      <MoveTableView table={table} evidence={evidence} moveSummary={moveSummary} />
       <InventoryBlock count={table.inventory_count} items={section.inventory.items} limitations={section.inventory.limitations} coverageText={table.source_coverage_text} evidence={evidence} />
       <ScoreConflicts conflicts={table.score_conflicts} evidence={evidence} />
     </div>
@@ -220,12 +236,12 @@ export function MoveDetailsSkeleton() {
 }
 MoveDetails.Skeleton = MoveDetailsSkeleton;
 
-export function MoveDetailsSection({ outreachId }: { outreachId: string }) {
+export function MoveDetailsSection({ outreachId, moveSummary }: { outreachId: string; moveSummary?: MoveSummary | null }) {
   const { assessment, isFetching } = useAssessment(outreachId);
   return (
     <>
       <RegionProgress active={isFetching} />
-      <MoveDetails assessment={assessment} />
+      <MoveDetails assessment={assessment} moveSummary={moveSummary} />
     </>
   );
 }

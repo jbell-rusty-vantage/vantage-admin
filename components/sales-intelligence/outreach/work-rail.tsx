@@ -33,6 +33,7 @@ function WorkRailLoaded({ id, returnTo }: { id: string; returnTo: string }) {
   const active = outreach.followups.some((item) => item.status === "open") || !!outreach.derived.review_badges?.length;
   const root = useRef<HTMLDetailsElement>(null);
   const [desktop, setDesktop] = useState(true);
+  const [hashOpen, setHashOpen] = useState(false);
   useLandOnHash(root);
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1100px)");
@@ -41,9 +42,16 @@ function WorkRailLoaded({ id, returnTo }: { id: string; returnTo: string }) {
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
-  useEffect(() => { if (window.location.hash === "#work" && root.current) { root.current.open = true; root.current.querySelector("summary")?.focus(); } }, []);
-  return <details ref={root} id="work" className="si-workrail" open={desktop || active}>
-    <summary className="si-workrail__summary" onClick={(event) => { if (desktop) event.preventDefault(); }}><span className="si-heading si-heading--3">{p.work}</span><span className="si-workrail__hint">{outreach.next_action?.description ?? p.noNextStep}</span></summary>
+  useEffect(() => {
+    const land = () => { if (window.location.hash === "#work") { setHashOpen(true); window.requestAnimationFrame(() => root.current?.querySelector("summary")?.focus()); } };
+    land();
+    window.addEventListener("hashchange", land);
+    return () => window.removeEventListener("hashchange", land);
+  }, []);
+  const primaryId = outreach.derived.action_facts?.map((fact) => fact.id).find((actionId) => outreach.followups.some((action) => action.id === actionId && action.status === "open")) ?? outreach.next_action?.id;
+  const primary = outreach.followups.find((item) => item.id === primaryId && item.status === "open");
+  return <details ref={root} id="work" className="si-workrail" open={desktop || active || hashOpen}>
+    <summary className="si-workrail__summary" onClick={(event) => { if (desktop) event.preventDefault(); }}><span className="si-heading si-heading--3">{p.work}</span><span className="si-workrail__hint">{primary?.description ?? p.noNextStep}</span></summary>
     <div className="si-workrail__body">
       <WorkTab id={id} returnTo={returnTo} />
       {!rep && <Region name="work-commands" skeleton={<SkeletonBlock height={88} />} onRetry={() => void client.resetQueries({ queryKey: siKeys.outreach(id) })}><OwnerCommands id={id} /></Region>}

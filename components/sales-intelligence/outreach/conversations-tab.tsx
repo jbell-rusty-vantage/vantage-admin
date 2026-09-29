@@ -18,11 +18,16 @@ function ConversationsBody({ id }: { id: string }) {
   const [filter, setFilter] = useState<"human" | "all">("human");
   useLandOnHash(root);
   useEffect(() => {
+    const land = () => {
     const params = new URLSearchParams(window.location.search);
     const sid = params.get("sid");
     const match = /^#(?:conv-|si-conversation-)(.+)$/.exec(window.location.hash);
     const conversationId = params.get("conversation_id") ?? params.get("conv") ?? (match ? decodeURIComponent(match[1]) : null);
-    if (conversationId) scrollToSegments(conversationId, sid ? [sid] : []);
+    if (conversationId) { setFilter("all"); scrollToSegments(conversationId, sid ? [sid] : []); }
+    };
+    land();
+    window.addEventListener("hashchange", land);
+    return () => window.removeEventListener("hashchange", land);
   }, []);
   return <div ref={root} id="conversations" className="si-conversations-tab">
     <div className="si-conversations-tab__filters" role="group" aria-label={copy.oi.page.tabs.conversations}>

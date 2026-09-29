@@ -40,6 +40,11 @@ function promisedByAssignee(row: AttentionRow): AttentionRow {
 function withRestriction(row: AttentionRow): AttentionRow {
   return { ...row, derived: { ...row.derived, call_blockers: ["restriction", ...row.derived.call_blockers] } };
 }
+/** Synthetic CF-B move facts on the existing Lead card; values mirror the verified local contract shape. */
+function withMoveFacts(row: AttentionRow): AttentionRow {
+  if (!row.outreach?.facts) return row;
+  return { ...row, outreach: { ...row.outreach, facts: { ...row.outreach.facts, move: { date: "2026-10-29", date_source: "granot", pickup: { city: "Chicago", state: "IL", zip: "60601" }, delivery: { city: "Raleigh", state: "NC", zip: "27601" }, size: "2 Bedroom", volume_ft3: 600, service_type: null, estimate: { display: "$4,200", observed_at: "2026-09-23T12:50:25Z" }, granot_observed_at: "2026-09-23T12:50:25Z" } } } };
+}
 
 export type CardSample = {
   id: string;
@@ -52,6 +57,7 @@ export type CardSample = {
 /** Every card state the brief lists, each from a fixture row (UI1-CARD evidence names the row). */
 export const CARD_SAMPLES: CardSample[] = [
   { id: "lead", fixture: "lead", props: { layout: "flat" } },
+  { id: "move-facts", fixture: "lead", transform: withMoveFacts, source: "synthetic CF-B move facts on S1 Lead" },
   { id: "number-only", fixture: "numberOnly" },
   { id: "number-review", fixture: "numberReview" },
   { id: "nulls", fixture: "nulls" },

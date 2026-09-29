@@ -20,6 +20,16 @@ export default function LegacyRedirect({ id, tab, active, siReturn }: { id: stri
       const next = new URL(href, window.location.origin);
       for (const key of ["sid", "conversation_id", "conv"]) { const value = oldParams.get(key); if (value) next.searchParams.set(key, value); }
       router.replace(next.pathname + next.search + anchor, { scroll: false });
+      // App Router's replace can update the URL after already-mounted lazy regions run their effects.
+      // Signal the settled anchor so Work opens on mobile and transcript targets can land.
+      let attempts = 0;
+      const timer = window.setInterval(() => {
+        attempts += 1;
+        if (window.location.pathname === next.pathname && window.location.search === next.search && window.location.hash === anchor) {
+          window.dispatchEvent(new Event("hashchange"));
+          window.clearInterval(timer);
+        } else if (attempts >= 80) window.clearInterval(timer);
+      }, 50);
     }
   }, [active, id, router, siReturn, tab]);
   return null;

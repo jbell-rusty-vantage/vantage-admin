@@ -4,7 +4,7 @@
  * prints the specific null wording from SERVER-STATE-FOR-UI §1. Every time goes through `TimeText` / `lib/time.ts`
  * against the response's `as_of`.
  */
-import { ArrowRight, Bot, Calendar, CircleHelp, PhoneIncoming, PhoneOff, TriangleAlert } from "lucide-react";
+import { ArrowRight, Bot, Calendar, CircleHelp, Package, PhoneIncoming, PhoneOff, Receipt, TriangleAlert } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 import { scoreLabel, type AttentionRow } from "@/lib/api/salesIntelligence";
 import { TooltipCard } from "../atoms/tooltip-card";
@@ -428,11 +428,12 @@ export function routeShortText(o: CardOutreach, asOf: string): string | null {
 }
 
 /** The move sits beside identity. Legacy snapshots supply only route facts until S1 is available. */
-export function MoveLine({ o }: { o: CardOutreach }) {
+export function MoveLine({ o, asOf }: { o: CardOutreach; asOf?: string }) {
+  const move = o.facts?.move;
   const route = o.facts?.route;
-  const date = route?.move_date;
-  const start = place(route?.pickup_city ?? null, route?.pickup_state ?? null, "?");
-  const end = place(route?.delivery_city ?? null, route?.delivery_state ?? null, "?");
+  const date = move === undefined ? route?.move_date : move?.date;
+  const start = place(move === undefined ? route?.pickup_city ?? null : move?.pickup?.city ?? null, move === undefined ? route?.pickup_state ?? null : move?.pickup?.state ?? null, "?");
+  const end = place(move === undefined ? route?.delivery_city ?? null : move?.delivery?.city ?? null, move === undefined ? route?.delivery_state ?? null : move?.delivery?.state ?? null, "?");
   const calendar = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T12:00:00Z`) : null;
   const fullDate = calendar && Number.isFinite(calendar.getTime())
     ? new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(calendar)
@@ -440,13 +441,19 @@ export function MoveLine({ o }: { o: CardOutreach }) {
   const spokenDate = calendar && Number.isFinite(calendar.getTime())
     ? new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(calendar)
     : copy.oi.card.moveDateUnknown;
-  const routeKnown = !!route && !!(route.pickup_city || route.pickup_state || route.delivery_city || route.delivery_state);
+  const routeKnown = move === undefined ? !!route && !!(route.pickup_city || route.pickup_state || route.delivery_city || route.delivery_state) : !!(move?.pickup || move?.delivery);
   const routeWord = routeKnown ? `${start} to ${end}` : copy.oi.card.routeUnknown;
+  const parts = [move?.size, move?.volume_ft3 != null ? `${move.volume_ft3} ft³` : null].filter(Boolean);
+  const estimate = move?.estimate;
+  const dateNote = move?.date_source === "granot" && move.granot_observed_at ? `From Granot report, ${formatExactFull(move.granot_observed_at)}` : undefined;
+  const estimateNote = estimate ? `Granot estimate, seen ${asOf ? timePhrase(estimate.observed_at, asOf, "relative").text : formatExactFull(estimate.observed_at)} (${formatExactFull(estimate.observed_at)})` : undefined;
   return (
-    <span className="si-card__move" role="group" aria-label={`Move ${spokenDate}${o.facts?.move_date_passed ? ", passed" : ""}, ${routeWord}`}>
-      <span aria-hidden className={o.facts?.move_date_passed ? "si-text--amber" : undefined}><Calendar size={14} aria-hidden /> {fullDate ?? copy.oi.card.moveDateUnknown}{date && o.facts?.move_date_passed ? " (passed)" : ""}</span>
+    <span className="si-card__move" role="group" aria-label={`Move ${spokenDate}${o.facts?.move_date_passed ? ", passed" : ""}, ${routeWord}${parts.length ? `, ${parts.join(", ")}` : ""}${estimate ? `, estimate ${estimate.display}` : ""}`}>
+      <span aria-hidden={dateNote ? undefined : true} aria-label={dateNote} className={o.facts?.move_date_passed ? "si-text--amber" : undefined} title={dateNote} tabIndex={dateNote ? 0 : undefined}><Calendar size={14} aria-hidden /> {fullDate ?? copy.oi.card.moveDateUnknown}{date && o.facts?.move_date_passed ? " (passed)" : ""}</span>
       <span aria-hidden> · </span>
       <span aria-hidden>{routeKnown ? <>{start} <ArrowRight size={14} aria-hidden /> {end}</> : copy.oi.card.routeUnknown}</span>
+      {parts.map((part) => <Fragment key={part}><span aria-hidden> · </span><span aria-hidden><Package size={14} aria-hidden /> {part}</span></Fragment>)}
+      {estimate && <><span aria-hidden> · </span><span aria-label={estimateNote} title={estimateNote} tabIndex={0}><Receipt size={14} aria-hidden /> Est. {estimate.display}</span></>}
     </span>
   );
 }
@@ -470,7 +477,7 @@ export function metricTiles(o: CardOutreach, asOf: string): CardTile[] {
     : timeTile("received", t.received, o.trigger_at, asOf, t.dash);
   const calls = f?.calls_total ?? null;
   const conversations = f?.conversations_total ?? null;
-  const moveDate = f?.route?.move_date;
+  const moveDate = f?.move === undefined ? f?.route?.move_date : f.move?.date;
   let move: CardTile;
   if (!moveDate) move = { id: "move", label: t.move, value: t.noDate, tone: "null" };
   else if (f?.move_date_passed) move = { id: "move", label: t.move, value: t.passed, exact: formatDate(moveDate, asOf), tone: "amber" };

@@ -136,6 +136,7 @@ export function parseDirection(value: string | null | undefined, fallback: 'asc'
  * a server or snapshot without them still parses, and the UI prints the null wording. ── */
 // Card lines 2–4. Counts are null when the record has no primary Number (`No Number on file`), never zero.
 export const outreachFactsSchema = z.object({
+  move: z.object({ date: z.string().nullable(), date_source: z.string().nullable(), pickup: z.object({ city: z.string().nullable(), state: z.string().nullable(), zip: z.string().nullable() }).nullable(), delivery: z.object({ city: z.string().nullable(), state: z.string().nullable(), zip: z.string().nullable() }).nullable(), size: z.string().nullable(), volume_ft3: z.number().nullable(), service_type: z.string().nullable(), estimate: z.object({ display: z.string(), observed_at: z.string() }).nullable(), granot_observed_at: z.string().nullable() }).nullable().optional(),
   route: z.object({ pickup_city: z.string().nullable(), pickup_state: z.string().nullable(), delivery_city: z.string().nullable(), delivery_state: z.string().nullable(),
     move_date: z.string().nullable(), source: z.string().optional() }).nullable(),
   move_date_passed: z.boolean(), last_call_at: z.string().nullable(),
@@ -145,6 +146,8 @@ export const outreachFactsSchema = z.object({
   next_action_state: z.string(),
   rep_thread: z.json().nullable().optional() });
 export type OutreachFacts = z.infer<typeof outreachFactsSchema>;
+export const moveSummarySchema = outreachFactsSchema.shape.move.unwrap().unwrap().extend({ granot: z.object({ estimate: z.string().nullable(), payment: z.string().nullable(), balance: z.string().nullable(), size: z.string().nullable(), volume_ft3: z.number().nullable(), service_type: z.string().nullable(), observed_at: z.string(), observation_id: z.string() }).nullable() });
+export type MoveSummary = z.infer<typeof moveSummarySchema>;
 // G3: the live chip. `rep.text` is shown exactly as sent.
 export const liveCallSchema = z.object({ interaction_id: z.string(), direction: z.string(), started_at: z.string(),
   rep: z.object({ kind: z.string(), agent_id: z.string().nullable().optional(), name: z.string().nullable().optional(), extension: z.string().nullable().optional(), text: z.string() }) });
@@ -163,7 +166,7 @@ export const leadCostSchema = z.object({ amount: z.number(), basis: z.string() }
 export const latestSummarySchema = z.object({ run_id: z.string().optional(), run_kind: z.string(), overview: z.string(), completed_at: z.string(), conversations_covered: z.number().nullable() });
 export const officialSchema = z.object({ status: z.string(), booking_id: z.string().nullable(), priority: z.object({ code: z.string(), label: z.string() }).nullable() });
 export const outreachSchema = z.object({ id: z.string(), revision: z.number(), subject, state: z.string(), reason: z.string().nullable(),
-  facts: outreachFactsSchema.optional(), live_call: liveCallSchema.nullable().optional(), band_since: bandSinceSchema.nullable().optional(),
+  facts: outreachFactsSchema.optional(), move_summary: moveSummarySchema.nullable().optional(), live_call: liveCallSchema.nullable().optional(), band_since: bandSinceSchema.nullable().optional(),
   next_action: nextActionSchema.nullable().optional(), suggested_next_step: suggestedNextStepSchema.nullable().optional(),
   trigger_at: z.string().optional(), last_activity_at: z.string().nullable().optional(), last_attributable_outbound_at: z.string().nullable().optional(),
   prior_contact_at: z.string().nullable().optional(), last_inbound_human_at: z.string().nullable().optional(),

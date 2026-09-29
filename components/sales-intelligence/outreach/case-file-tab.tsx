@@ -29,7 +29,7 @@ function CaseFileBody({ id, returnTo, siReturn }: { id: string; returnTo: string
   useLandOnHash(root);
   return <div ref={root} className="si-casefile">
     <section id="move-details" className="si-casefile__section" aria-labelledby="case-move-title"><h2 id="case-move-title" className="si-heading si-heading--2">{copy.ui1.analysis.frame.sections.move}</h2>
-      <Region name="case-move" skeleton={<MoveDetailsSkeleton />} onRetry={() => void client.resetQueries({ queryKey: siKeys.assessment(id) })}><MoveDetailsSection outreachId={id} /></Region>
+      <Region name="case-move" skeleton={<MoveDetailsSkeleton />} onRetry={() => void client.resetQueries({ queryKey: siKeys.assessment(id) })}><MoveDetailsSection outreachId={id} moveSummary={outreach.move_summary} /></Region>
     </section>
     <section className="si-casefile__section" aria-labelledby="case-lead-title"><h2 id="case-lead-title" className="si-heading si-heading--2">{p.leadAndGranot}</h2>
       <LeadProgressSection record={outreach} />

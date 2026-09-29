@@ -222,6 +222,26 @@ fixtureTest("Move at a glance renders current route facts and an unknown estimat
   assert.ok(!text(markup).includes("$0"));
 });
 
+fixtureTest("Move at a glance prefers verified move facts, keeps Granot observation notes, and tolerates missing estimate", () => {
+  const d = detail("S1/outreach__s-assessment-pending.json");
+  const outreach: Outreach = { ...d.data.outreach, facts: { ...d.data.outreach.facts!, move: { date: "2026-10-29", date_source: "granot", pickup: { city: "Chicago", state: "IL", zip: "60601" }, delivery: { city: "Raleigh", state: "NC", zip: null }, size: "2 Bedroom", volume_ft3: 600, service_type: null, estimate: { display: "$4,200", observed_at: "2026-09-23T12:50:25.392Z" }, granot_observed_at: "2026-09-23T12:50:25.392Z" } } };
+  const markup = renderToStaticMarkup(createElement(MoveGlanceView, { outreach, asOf: d.as_of }));
+  assert.ok(text(markup).includes("Chicago, IL 60601 → Raleigh, NC"));
+  assert.ok(text(markup).includes("2 Bedroom · 600 ft³"));
+  assert.ok(text(markup).includes("Est. $4,200"));
+  assert.ok(markup.includes("From Granot report") && markup.includes("Granot estimate, seen"));
+  const without = renderToStaticMarkup(createElement(MoveGlanceView, { outreach: { ...outreach, facts: { ...outreach.facts!, move: { ...outreach.facts!.move!, estimate: null } } }, asOf: d.as_of }));
+  assert.ok(text(without).includes("No estimate yet"));
+});
+
+fixtureTest("the detail schema retains optional move summary money for the Case File", () => {
+  const input = raw("S1/outreach__s-assessment-pending.json");
+  input.data.outreach.move_summary = { date: "2026-10-29", date_source: "lead", pickup: null, delivery: null, size: null, volume_ft3: null, service_type: null, estimate: null, granot_observed_at: "2026-09-23T12:50:25Z", granot: { estimate: "$4,200", payment: "$500", balance: "$3,700", size: null, volume_ft3: null, service_type: null, observed_at: "2026-09-23T12:50:25Z", observation_id: "g1" } };
+  const parsed = outreachReadSchema.parse(input);
+  assert.equal(parsed.data.outreach.move_summary?.granot?.balance, "$3,700");
+  assert.equal(detail("S1/outreach__s-assessment-pending.json").data.outreach.move_summary, undefined, "older responses stay valid");
+});
+
 fixtureTest("Work tab corrections (owner_instructions) and the blank-note refusal", () => {
   const d = detail("S1/outreach__s-closed-owner.json");
   const items = d.data.owner_instructions ?? [];

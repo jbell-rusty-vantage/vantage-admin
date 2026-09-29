@@ -1815,6 +1815,7 @@ span.si-evidence__none { display: inline-flex; align-items: center; min-height: 
 .si-outreach__compact-line strong { overflow: hidden; text-overflow: ellipsis; }
 .si-outreach__compact-line span { flex: none; }
 .si-outreach__compact-live { width: 8px; height: 8px; border-radius: 50%; background: var(--si-live); margin-left: auto; }
+.si-outreach__compact-live:not([data-status="live"]) { background: var(--si-amber); }
 .si-recordheader { display: block; padding: 18px 22px; background: var(--si-surface); }
 .si-recordheader__l1 { margin-bottom: 12px; }
 .si-recordheader__band { font-size: 13px; font-weight: 700; color: var(--si-navy); }
@@ -1856,6 +1857,8 @@ span.si-evidence__none { display: inline-flex; align-items: center; min-height: 
 @media (max-width: 600px) {
   .si-outreach { padding: 10px; }
   .si-recordheader, .si-moveglance, .si-casefile__section { padding: 14px; }
+  .si-recordheader__tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .si-recordheader__tiles .si-tile__value { font-size: 15px; }
   .si-outreach__tabs { overflow-x: auto; max-width: 100%; }
   .si-outreach__tabs .si-routetab { flex: 1 0 auto; white-space: nowrap; }
   .si-moveglance__grid { gap: 14px 8px; }

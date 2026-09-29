@@ -17,6 +17,8 @@ import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import { HeaderLive } from "../data/live";
+import { useLiveSnapshot } from "../data/live/use-live";
+import { useNewestAsOf } from "../data/live/use-newest-as-of";
 import { siKeys } from "../data/query-keys";
 import { readOutreach } from "../data/use-outreach";
 import { DelayedSkeleton, Region, RouteTabs, type RouteTab } from "../primitives";
@@ -67,7 +69,12 @@ export function AnalysisPlaceholder({ run }: { run?: string | null }) {
  */
 function CompactHeader({ id, back }: { id: string; back: string }) {
   const { outreach } = useOutreach(id);
-  return <div className="si-outreach__compact-line"><Link href={back}><ArrowLeft size={16} aria-hidden />{copy.ui1.outreach.back}</Link><strong>{outreach.lead_display?.name ?? outreach.primary_number?.e164 ?? copy.ui1.card.unknownName}</strong>{outreach.lead_display?.job_no && <span>Job {outreach.lead_display.job_no}</span>}<span>{outreach.derived.attention_band ? `Band ${outreach.derived.attention_band}` : copy.ui1.prim.notInAttention}</span><span>{outreach.assignment.agent?.name ?? copy.ui1.card.unassigned}</span><span className="si-outreach__compact-live" aria-label="Live" /></div>;
+  const live = useLiveSnapshot();
+  const asOf = useNewestAsOf();
+  const [now, setNow] = useState(0);
+  useEffect(() => { const first = window.setTimeout(() => setNow(Date.now()), 0); const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => { window.clearTimeout(first); window.clearInterval(timer); }; }, []);
+  const fresh = live.status === "live" && !!asOf && now > 0 && now - Date.parse(asOf) <= 300_000;
+  return <div className="si-outreach__compact-line"><Link href={back}><ArrowLeft size={16} aria-hidden />{copy.ui1.outreach.back}</Link><strong>{outreach.lead_display?.name ?? outreach.primary_number?.e164 ?? copy.ui1.card.unknownName}</strong>{outreach.lead_display?.job_no && <span>Job {outreach.lead_display.job_no}</span>}<span>{outreach.derived.attention_band ? `Band ${outreach.derived.attention_band}` : copy.ui1.prim.notInAttention}</span><span>{outreach.assignment.agent?.name ?? copy.ui1.card.unassigned}</span><span className="si-outreach__compact-live" data-status={fresh ? "live" : "delayed"} aria-label={fresh ? "Live" : "Refresh delayed"} /></div>;
 }
 
 export function OutreachPageFrame({ back, header, glance, rail, compact, tabs, active, notFound, children }: {
@@ -129,10 +136,10 @@ export function OutreachPageFrame({ back, header, glance, rail, compact, tabs, a
  * the active tab's regions (assessment, findings, timeline, …) never mount for a record that turns out to be a 404
  * (they logged `INVALID_INPUT` before, for the Owner too); any other failure lets them mount and fail in place.
  */
-function useOutreachGate(id: string): { missing: boolean; ready: boolean; calls: number | null } {
+function useOutreachGate(id: string): { missing: boolean; ready: boolean; conversations: number | null } {
   const query = useQuery({ queryKey: siKeys.outreach(id), queryFn: ({ signal }) => readOutreach(id, signal), retry: false });
   const missing = isNotFoundError(query.error);
-  return { missing, ready: !!query.data || (!!query.error && !missing), calls: query.data?.data.outreach.facts?.calls_total ?? null };
+  return { missing, ready: !!query.data || (!!query.error && !missing), conversations: query.data?.data.outreach.facts?.conversations_total ?? null };
 }
 
 /** The active tab's shape while the detail read is pending (after 150 ms, UI-0 §2.4). */
@@ -148,7 +155,7 @@ export function OutreachPage({ id, tab, run, siReturn, analysis, timeline }: Out
   const back = backHref(kept);
   // Official-record links return here, to this tab.
   const returnTo = outreachRouteHref(id, { tab: active, siReturn: kept });
-  const { missing, ready, calls } = useOutreachGate(id);
+  const { missing, ready, conversations } = useOutreachGate(id);
   // UI2-SCOPE (UX15): the analysis kit's role is the viewer's; a rep's kit has no Full output, Advanced or Apply.
   const rep = useIsRep();
   const role = rep ? "rep" : "owner";
@@ -172,7 +179,7 @@ export function OutreachPage({ id, tab, run, siReturn, analysis, timeline }: Out
       glance={<Region name="move-glance" skeleton={<MoveGlanceSkeleton />} onRetry={() => void client.resetQueries({ queryKey: siKeys.outreach(id) })}><MoveGlance id={id} siReturn={kept} /></Region>}
       rail={<WorkRail id={id} returnTo={returnTo} />}
       compact={<Region name="record-compact" skeleton={null} onRetry={() => void client.resetQueries({ queryKey: siKeys.outreach(id) })}><CompactHeader id={id} back={back} /></Region>}
-      tabs={outreachTabs(id, kept).map((item) => item.key === "conversations" ? { ...item, count: calls } : item)}
+      tabs={outreachTabs(id, kept).map((item) => item.key === "conversations" ? { ...item, count: conversations } : item)}
       active={active}
       notFound={missing}
     >

@@ -30,7 +30,7 @@ export function FollowupsSection({record,asOf,view='all'}:{record:Outreach;asOf?
  const [editing,setEditing]=useState<{command:string;actionId:string}|null>(null);
  const w=copy.ui1.outreach.work;
  const selected=record.followups.find(action=>action.id===editing?.actionId);
- const primaryId=record.next_action?.id??record.derived.action_facts?.[0]?.id;
+ const primaryId=record.derived.action_facts?.map(f=>f.id).find(id=>record.followups.some(action=>action.id===id&&action.status==='open'))??record.next_action?.id;
  const open=record.followups.filter(f=>f.status==='open'&&(view==='all'||(view==='primary'?f.id===primaryId:view==='other'&&f.id!==primaryId))),done=view==='all'||view==='done'?record.followups.filter(f=>f.status!=='open'):[];
  return <section className="si-local-stack" aria-label={w.followupsTitle}>
  <h3 className="si-heading si-heading--3">{view==='primary'?copy.oi.page.nextStep:w.followupsTitle}</h3>
