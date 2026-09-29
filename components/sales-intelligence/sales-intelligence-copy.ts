@@ -724,7 +724,7 @@ export const copy = {
       notInAttention: "Not in Attention",
       needsReview: "Needs review",
       bandNumber: (n: number) => `Band ${n}`,
-      bandTag: (n: number, name: string) => `Band ${n} · ${name}`,
+      bandTag: (n: number, name: string) => `${name} · Band ${n}`,
       bandCount: (n: number) => (n === 1 ? "1 record" : `${n.toLocaleString("en-US")} records`),
       states: {
         unworked: "Unworked",
@@ -1377,7 +1377,7 @@ export const copy = {
         entered: (to: string) => `Entered ${to}`,
         left: (from: string) => `Left Attention (was ${from})`,
         leftUnknown: "Left Attention",
-        name: (n: number, name: string) => `Band ${n} · ${name}`,
+        name: (n: number, name: string) => `${name} · Band ${n}`,
         cause: (word: string) => `Because of ${word}`,
         causes: {
           call: "a call",
@@ -1680,9 +1680,9 @@ export const copy = {
       tabsLabel: "Record sections",
       /** draft: the page header's back link to the desk (honours `si_return`). */
       back: "Back to Outreach Intelligence",
-      bandFor: (n: number, name: string, duration: string) => `Band ${n} · ${name} · for ${duration}`,
+      bandFor: (n: number, name: string, duration: string) => `${name} · Band ${n} · for ${duration}`,
       /** draft: the header's band line with no `band_since` (older server). */
-      bandOnly: (n: number, name: string) => `Band ${n} · ${name}`,
+      bandOnly: (n: number, name: string) => `${name} · Band ${n}`,
       receiverAgent: (name: string) => `Receiver agent in Granot: ${name}`,
       receiverTip: (t: string, source: string) => `Set ${t} from ${source}.`,
       /** drafts: the tooltip when `set_at` or `source` is null (legacy Leads). */

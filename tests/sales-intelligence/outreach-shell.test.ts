@@ -124,7 +124,7 @@ fixtureTest("A21 / E26: the receiver agent shows beside an Owner assignment and 
 
 fixtureTest("the header's band line, live chip and due state come from the server fields", () => {
   const kept = text(header("S6/outreach__t3-owner-kept.json"));
-  assert.ok(/Band 2 · No call yet after form submission · for about \d/.test(kept), "estimated band start reads about");
+  assert.ok(/No call yet after form submission · Band 2 · for about \d/.test(kept), "estimated band start reads about");
   const live = text(header("S5c/outreach__t3-live-call.json"));
   assert.ok(live.includes("On the call · Dana Reyes (ext 101, reviewed) · 4m"), live);
   const closed = text(header("S1/outreach__s-closed-owner.json"));

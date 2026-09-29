@@ -101,7 +101,7 @@ export function headerChips(row: CardRow, asOf: string, restriction: CallRestric
 
 // ── Band line and line 7 ────────────────────────────────────────────────────────────────────────────────────
 
-/** `Band {n} · {name} · for {duration}` (`about` when the start is estimated); `Not in Attention` for a null band. */
+/** `{name} · Band {n} · for {duration}` (`about` when the start is estimated); `Not in Attention` for a null band. */
 export function bandLine(o: Outreach, asOf: string): string {
   const band = o.derived.attention_band;
   if (!isBand(band)) return copy.ui1.prim.notInAttention;
