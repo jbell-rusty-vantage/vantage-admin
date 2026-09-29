@@ -5,7 +5,8 @@
  * answers 400 to the bracket form (S2 CONTRACT "Query encoding"). Only the timeline routes accept
  * `kinds[]`, and they accept the repeated form too, so repeated is used everywhere.
  */
-import { LIST_PAGE_SIZE } from "../lib/paging";
+/** Four retained Outreach pages fit the 200-row Back-restoration budget. */
+export const OUTREACH_PAGE_SIZE = 50;
 import type { AttentionCapabilities } from "@/lib/api/salesIntelligence";
 
 export type DeskView = "attention" | "all_outreach" | "closed";
@@ -141,7 +142,7 @@ export function attentionQuery(params: AttentionParams): URLSearchParams {
     ["move_date_within", params.move_date_within], ["move_date_passed", params.move_date_passed],
     ["outcome", closed ? params.outcome : undefined], ["closed_from", closed ? params.closed_from : null], ["closed_to", closed ? params.closed_to : null],
     ["freshness", params.freshness === "fresh" ? "fresh" : null],
-    ["limit", params.limit ?? LIST_PAGE_SIZE],
+    ["limit", params.limit ?? OUTREACH_PAGE_SIZE],
   ]);
 }
 

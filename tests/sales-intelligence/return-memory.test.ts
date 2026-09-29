@@ -33,3 +33,10 @@ test("return bookmark is scoped to the exact desk URL and consumed once", () => 
     Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: previous });
   }
 });
+import { attentionQuery, closedHistoryQuery } from "../../components/sales-intelligence/data/requests";
+
+test("four default Outreach pages stay within the 200-row Back restoration budget", () => {
+  assert.equal(Number(attentionQuery({ view: "all_outreach" }).get("limit")) * 4, 200);
+  assert.equal(Number(attentionQuery({ view: "closed" }).get("limit")) * 4, 200);
+  assert.equal(Number(closedHistoryQuery({}).get("limit")) * 4, 200);
+});
