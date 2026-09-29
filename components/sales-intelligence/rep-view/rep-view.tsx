@@ -45,7 +45,7 @@ export function RepViewHeader({ row, selected, activeWork, snapshotId, latestSna
       const active = activeWork.includes(item.key) && selected === relation;
       return <Link key={item.key} href={active ? repViewHref(base, id, selected) : repViewHref(item.metric, id, relation)} aria-current={active ? "true" : undefined}>{item.label} {"value" in item && item.value ? item.value : number(item.metric.count)}</Link>;
     })}</div>
-    <p className="si-repview__activity">{t.today}: {activity?.human_conversations == null ? t.notCaptured : number(activity.human_conversations)} {t.conversations} · {activity?.outbound_attempts == null ? t.notCaptured : number(activity.outbound_attempts)} {t.attempts} · {t.lastConversation} {activity?.last_conversation_at ? formatTimeOnly(activity.last_conversation_at) : t.notCaptured}</p>
+    <p className="si-repview__activity">{t.today}: {activity?.human_conversations == null ? t.notCaptured : number(activity.human_conversations)} {t.conversations} · {activity?.outbound_attempts == null ? t.notCaptured : number(activity.outbound_attempts)} {t.attempts} · {t.lastConversation} {activity?.last_conversation_at ? formatTimeOnly(activity.last_conversation_at) : activity?.human_conversations === 0 ? t.noConversation : t.notCaptured}</p>
     {snapshotId && latestSnapshotId && snapshotId !== latestSnapshotId && <p role="status" className="si-desk__notice">{t.updatedSince} <Link href={repViewHref(latestMetric, id, latestRelationship)}>{t.latest}</Link></p>}
   </header>;
 }
@@ -63,7 +63,10 @@ export function RepView({ state, query, children }: { state: DeskUrlState; query
   if (!id || !/^[a-f\d]{24}$/i.test(id)) return <p role="status" className="si-desk__notice">{t.unavailable} <Link href="/sales-intelligence">{t.back}</Link></p>;
   if (team.isSuccess && team.data.data.status !== "ready") return <section className="si-repview__header"><p role="status">{team.data.data.status === "pending_projection" ? copy.oi.overview.preparing : copy.oi.overview.notAvailable}</p><button type="button" onClick={() => void team.refetch()}>Retry workload</button><Link href="/sales-intelligence">{t.back}</Link></section>;
   if (team.isSuccess && !row) return <p role="status" className="si-desk__notice">{t.unavailable} <Link href="/sales-intelligence">{t.back}</Link></p>;
-  const activityRow = activity.data?.data.by_rep.find((item) => item.agent_id === id) ?? null;
+  // `by_rep` lists only reps with attributed calls: a captured period without this rep's row is zero, not "Not captured".
+  const activityData = activity.data?.data;
+  const activityRow = activityData?.by_rep.find((item) => item.agent_id === id)
+    ?? (activityData?.totals ? { human_conversations: 0, outbound_attempts: 0, last_conversation_at: null } : null);
   const overviewParams = new URLSearchParams();
   for (const value of state.priority) overviewParams.append("priority", value);
   const overviewHref = overviewParams.size ? `/sales-intelligence?${overviewParams.toString()}` : "/sales-intelligence";

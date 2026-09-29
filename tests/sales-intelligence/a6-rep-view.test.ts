@@ -117,7 +117,7 @@ test("A6 Overdue tile uses the server record count and exact drill", () => {
 });
 
 test("A6 activity accepts the new server last-conversation fact and older null/missing shapes", () => {
-  const payload = { ok: true, as_of: "2026-09-29T12:00:00Z", data: { totals: { human_conversations: 1, outbound_attempts: 2 }, by_rep: [{ agent_id: AGENT, name: "Alex", human_conversations: 1, outbound_attempts: 2, last_conversation_at: null }], unmapped: null, coverage: [], status: "ready", period: { key: "today", from_day: "2026-09-29", to_day: "2026-09-29", start: "2026-09-29T04:00:00Z", end: "2026-09-30T04:00:00Z" } } };
+  const payload = { ok: true, as_of: "2026-09-29T12:00:00Z", data: { totals: { human_conversations: 1, outbound_attempts: 2 }, by_rep: [{ agent_id: AGENT, name: "Alex", human_conversations: 1, outbound_attempts: 2, last_conversation_at: null }], unmapped: null, coverage: [], status: "complete", period: { key: "today", from_day: "2026-09-29", to_day: "2026-09-29", start: "2026-09-29T04:00:00Z", end: "2026-09-30T04:00:00Z" } } };
   assert.equal(activityOverviewSchema.parse(payload).data.by_rep[0]?.last_conversation_at, null);
   delete (payload.data.by_rep[0] as Partial<typeof payload.data.by_rep[number]>).last_conversation_at;
   assert.equal(activityOverviewSchema.parse(payload).data.by_rep[0]?.last_conversation_at, undefined);

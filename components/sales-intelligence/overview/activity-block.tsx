@@ -16,7 +16,8 @@ export function ActivityBlock({ data, value, onChange, rep = false }: { data: Ac
   const hasUnmapped = (unmappedConversations ?? 0) > 0 || (unmappedAttempts ?? 0) > 0;
   return <section className="si-oi-activity si-ovblock" aria-labelledby={headingId}>
     <div className="si-oi-heading"><h2 id={headingId} className="si-heading si-heading--2">{rep ? t.myActivity : t.activity}</h2><PeriodControl label={t.period} value={value} onChange={onChange} /></div>
-    {data.status !== "ready" && <p className="si-oi-status">{t.partial}</p>}
+    {/* The server reports `complete` or `partial` capture for the period. */}
+    {data.status === "partial" && <p className="si-oi-status">{t.partial}</p>}
     <dl className="si-oi-metrics"><div><dt>{t.conversations}</dt><dd>{display(data.totals?.human_conversations)}</dd></div><div><dt>{t.attempts}</dt><dd>{display(data.totals?.outbound_attempts)}</dd></div></dl>
     {data.coverage.some((day) => day.coverage !== "complete") && <p className="si-oi-activity__coverage">{data.coverage.map((day) => `${day.day}: ${coverageWord(day.coverage)}`).join(" · ")}</p>}
     {data.by_rep.length > 0 && <details className="si-oi-disclosure"><summary>{t.byRep}</summary><ul>{data.by_rep.map((row) => <li key={row.agent_id}><strong>{row.name}</strong><span>{t.conversations} {display(row.human_conversations)} · {t.attempts} {display(row.outbound_attempts)}</span></li>)}</ul></details>}

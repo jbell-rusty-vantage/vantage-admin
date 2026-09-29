@@ -54,7 +54,7 @@ export const copy = {
       assigned: "Assigned Outreach", followups: "Follow-ups assigned", involved: "Involved",
       withOverdue: "With overdue follow-ups", dueToday: "Due today", noNextStep: "No next step",
       today: "Today", conversations: "conversations", attempts: "attempts", lastConversation: "last conversation",
-      notCaptured: "Not captured", inactive: "inactive, has work", unavailable: "This rep is not on the sales roster.",
+      notCaptured: "Not captured", noConversation: "none", inactive: "inactive, has work", unavailable: "This rep is not on the sales roster.",
       updatedSince: "Updated since this list was opened. The count above is from a newer snapshot.",
       expired: "This snapshot is no longer available. Open the latest results.", latest: "Open latest results",
       myWorkload: "My workload", records: (n: number) => `${n} ${n === 1 ? "record" : "records"}`,
