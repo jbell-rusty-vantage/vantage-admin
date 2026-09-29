@@ -47,6 +47,19 @@ export const copy = {
       outcomes: "Lead outcomes", leads: "Leads received", quoted: "Quoted", officialBooking: "With official Booking", bookedGranot: "Booked in Granot", observedThrough: "Observed through", costDetail: "Cost detail", deskHealth: "Desk health", unavailable: "—",
       period: "Period", cohort: "Cohort", from: "From", through: "Through", apply: "Apply", rangeIncomplete: "Choose both dates.", rangeInvalid: "Enter valid calendar dates.", rangeOrder: "Through must be on or after From.", rangeTooLong: "Choose no more than 92 days, including both dates.", periodNames: { today: "Today", yesterday: "Yesterday", last_7_days: "Last 7 days", this_week: "This week", last_30_days: "Last 30 days", this_month: "This month", custom: "Custom" } as Record<string, string>,
     },
+    /* OI-A6 rep view */
+    repView: {
+      title: "Rep view", back: "Overview", ownerViewing: (name: string) => `Owner viewing ${name}'s work`,
+      assigned: "Assigned Outreach", followups: "Follow-ups assigned", involved: "Involved",
+      withOverdue: "With overdue follow-ups", dueToday: "Due today", noNextStep: "No next step",
+      today: "Today", conversations: "conversations", attempts: "attempts", lastConversation: "last conversation",
+      notCaptured: "Not captured", inactive: "inactive, has work", unavailable: "This rep is not on the sales roster.",
+      updatedSince: "Updated since this list was opened. The count above is from a newer snapshot.",
+      expired: "This snapshot is no longer available. Open the latest results.", latest: "Open latest results",
+      myWorkload: "My workload", records: (n: number) => `${n} ${n === 1 ? "record" : "records"}`,
+      myOverdue: "My overdue follow-ups", assignedOverdue: "Assigned with overdue",
+      otherFollowup: (name: string) => `${name} has another follow-up on this record. Open the record for details.`,
+    },
   },
   page: {
     title: "Sales Intelligence",
@@ -1223,7 +1236,7 @@ export const copy = {
       metrics: {
         leads7d: "Leads received 7d",
         notCalled: "Not called yet",
-        overdue: "Callbacks overdue",
+        overdue: "Records with overdue follow-ups",
         awaiting: "Awaiting assessment",
         booked7d: "Booked 7d",
         median: (n: number) => `median ${n}d`,

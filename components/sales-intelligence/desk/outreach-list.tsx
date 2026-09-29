@@ -214,9 +214,10 @@ OutreachListView.Skeleton = ListSkeleton;
 /* ───────── connected ───────── */
 
 /** A card with the Message rep rule from the nudge destinations (UI1-CHAT). */
-function DeskCard({ row, layout, view, sort, asOf, returnTo, onNavigate, onMessage }: {
+function DeskCard({ row, layout, view, sort, asOf, returnTo, onNavigate, onMessage, selectedFollowup }: {
   row: AttentionRow; layout: "grouped" | "flat"; view: DeskView; sort: string; asOf: string; returnTo: string;
   onNavigate: (row: AttentionRow) => void; onMessage: (row: AttentionRow) => void;
+  selectedFollowup?: { id: string; name: string } | null;
 }) {
   const { disabledReason } = useMessageRepAvailability(row.outreach);
   return (
@@ -230,6 +231,7 @@ function DeskCard({ row, layout, view, sort, asOf, returnTo, onNavigate, onMessa
       onNavigate={row.outreach ? onNavigate : undefined}
       onMessageRep={onMessage}
       messageRepDisabledReason={disabledReason}
+      selectedFollowup={selectedFollowup}
       line6Override={row.outcome ? <OutcomeLine outcome={row.outcome} asOf={asOf} receivedAt={row.outreach?.trigger_at ?? null} returnTo={returnTo} /> : undefined}
     />
   );
@@ -242,9 +244,10 @@ export type OutreachListProps = {
   update: (patch: DeskUrlPatch) => void;
   pending: boolean;
   returnTo: string;
+  selectedFollowupName?: string;
 };
 
-export function OutreachList({ view, params, pending, returnTo }: OutreachListProps) {
+export function OutreachList({ view, params, state, pending, returnTo, selectedFollowupName }: OutreachListProps) {
   const client = useQueryClient();
   const list = useAttentionList(params);
   useReportAsOf(list.asOf);
@@ -313,7 +316,7 @@ export function OutreachList({ view, params, pending, returnTo }: OutreachListPr
         onLoadMore={() => { setResetForKey(null); void list.fetchNextPage(); }}
         top={<>{pendingProjection && <p role="status" className="si-desk__notice">{refresh.held ? "New filters are awaiting the next publish. Showing previous results; these rows and their count are not results for the current filters." : "These filters are awaiting the next publish. Results are not available yet."}</p>}{missingNotice && <p role="status">{copy.oi.card.noLongerMatches}</p>}{refreshPending && <UpdatedListPill onShow={applyRefresh} />}</>}
         renderCard={(row, layout) => (
-          <DeskCard row={row} layout={layout} view={view} sort={sort} asOf={asOf} returnTo={returnTo} onNavigate={onNavigate} onMessage={setMessaging} />
+          <DeskCard row={row} layout={layout} view={view} sort={sort} asOf={asOf} returnTo={returnTo} onNavigate={onNavigate} onMessage={setMessaging} selectedFollowup={state.view === "rep" && state.relationship === "followup" && state.agent ? { id: state.agent, name: selectedFollowupName ?? "Selected rep" } : null} />
         )}
       />
       {messaging?.outreach && <MessageRepPanel key={messaging.outreach.id} outreach={messaging.outreach} asOf={asOf} mode="panel" onClose={() => setMessaging(null)} />}

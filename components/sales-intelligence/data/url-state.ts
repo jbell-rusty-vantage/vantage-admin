@@ -13,7 +13,7 @@ import {
 import { readList, writeList } from "../lib/filter-state";
 import type { AttentionParams, ClosedHistoryParams, DeskView, OverviewParams } from "./requests";
 
-export const PAGE_VIEWS = ["overview", "attention", "all_outreach", "closed", "reps", "coverage", "guide"] as const;
+export const PAGE_VIEWS = ["overview", "attention", "all_outreach", "closed", "rep", "reps", "coverage", "guide"] as const;
 export type PageView = (typeof PAGE_VIEWS)[number];
 /**
  * UX-C1: the Owner's view bar. One Outreach list (All Outreach); the Needs Attention tab is gone, with no replacement
@@ -114,6 +114,7 @@ const OWNER_VIEW_ALIASES: Readonly<Record<string, PageView>> = { attention: "all
 export function parseDeskUrl(params: URLSearchParams, role: UrlRole = "owner"): DeskUrlState {
   const raw = params.get("view");
   const rep = role === "rep";
+  const ownerRepLink = rep && raw === "rep";
   const view = !rep && raw && OWNER_VIEW_ALIASES[raw] ? OWNER_VIEW_ALIASES[raw] : raw;
   const direction = params.get("direction");
   const attachment = params.get("attachment");
@@ -123,13 +124,13 @@ export function parseDeskUrl(params: URLSearchParams, role: UrlRole = "owner"): 
     sort: text(params.get("sort")),
     direction: direction === "asc" || direction === "desc" ? direction : null,
     band: readList(params, "band"), state: readList(params, "state"), agent_id: rep ? [] : readList(params, "agent_id"),
-    assigned_agent_id: rep ? [] : readList(params, "assigned_agent_id"), assignment: rep ? null : params.get("assignment") === "unassigned" ? "unassigned" : null,
-    followup_agent_id: rep ? [] : readList(params, "followup_agent_id"),
-    relationship: rep ? null : (["assigned", "followup", "involved"].includes(params.get("relationship") ?? "") ? params.get("relationship") as DeskUrlState["relationship"] : null),
-    agent: rep ? null : text(params.get("agent")), work: readList(params, "work"),
+    assigned_agent_id: ownerRepLink ? [] : readList(params, "assigned_agent_id"), assignment: ownerRepLink ? null : params.get("assignment") === "unassigned" ? "unassigned" : null,
+    followup_agent_id: ownerRepLink ? [] : readList(params, "followup_agent_id"),
+    relationship: ownerRepLink ? null : (["assigned", "followup", "involved"].includes(params.get("relationship") ?? "") ? params.get("relationship") as DeskUrlState["relationship"] : null),
+    agent: ownerRepLink ? null : text(params.get("agent")), work: readList(params, "work"),
     move_date_mode: text(params.get("move_date_mode")), move_days: num(params.get("move_days")), move_on: text(params.get("move_on")), move_from: text(params.get("move_from")), move_through: text(params.get("move_through")),
     loc_side: (["either", "pickup", "delivery"].includes(params.get("loc_side") ?? "") ? params.get("loc_side") as DeskUrlState["loc_side"] : null),
-    loc_city: text(params.get("loc_city")), loc_state: text(params.get("loc_state")), loc_zip: text(params.get("loc_zip")), snapshot_id: text(params.get("snapshot_id")),
+    loc_city: text(params.get("loc_city")), loc_state: text(params.get("loc_state")), loc_zip: text(params.get("loc_zip")), snapshot_id: ownerRepLink ? null : text(params.get("snapshot_id")),
     priority: readList(params, "priority"), outcome: readList(params, "outcome"),
     needs_review: params.get("needs_review") === "true", unassigned: !rep && params.get("unassigned") === "true",
     has_recording: params.get("has_recording") === "true", has_assessment: params.get("has_assessment") === "true",
@@ -163,8 +164,12 @@ export function deskUrlUpdate(current: URLSearchParams | string, patch: DeskUrlP
   const next: DeskUrlPatch = { ...patch };
   if (role === "rep") {
     // A rep never writes a scope (UI-2 §1); a stray one in the address is dropped with the next change.
-    delete next.agent_id; delete next.unassigned; delete next.assigned_agent_id; delete next.assignment; delete next.followup_agent_id; delete next.relationship; delete next.agent;
-    for (const key of ["agent_id", "unassigned", "assigned_agent_id", "assignment", "followup_agent_id", "relationship", "agent"]) params.delete(key);
+    delete next.agent_id; delete next.unassigned;
+    for (const key of ["agent_id", "unassigned"]) params.delete(key);
+    if (params.get("view") === "rep") {
+      for (const key of ["agent", "relationship", "assigned_agent_id", "assignment", "followup_agent_id", "snapshot_id"]) { params.delete(key); delete next[key as keyof DeskUrlPatch]; }
+      params.delete("view");
+    }
   }
   if ("view" in patch && patch.view !== before.view && !("sort" in patch)) { next.sort = null; next.direction = null; }
   if ("sort" in patch && patch.sort !== before.sort && !("direction" in patch)) next.direction = null;
@@ -184,7 +189,7 @@ export function serializeDeskUrl(state: Partial<DeskUrlState>, role: UrlRole = "
   const order = ["view", "sort", "direction", ...LIST_KEYS, ...BOOL_KEYS, "attachment", ...NUM_KEYS, "freshness", "assignment", "relationship", "loc_side", ...TEXT_KEYS] as const;
   for (const key of order) {
     if (!(key in state)) continue;
-    if (role === "rep" && (["agent_id", "unassigned", "assigned_agent_id", "assignment", "followup_agent_id", "relationship", "agent"].includes(key))) continue;
+    if (role === "rep" && (["agent_id", "unassigned"].includes(key))) continue;
     write(params, key, key === "view" && state.view === defaultViewFor(role) ? null : state[key as keyof DeskUrlState]);
   }
   return params;

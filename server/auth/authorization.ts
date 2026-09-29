@@ -87,6 +87,7 @@ const REP_PROXY_ROUTES: ReadonlyArray<{ method: VantageApiMethod; pattern: RegEx
   { method: "GET", pattern: new RegExp(`^${CSI_API}/attention/capabilities$`) },
   { method: "GET", pattern: new RegExp(`^${CSI_API}/roster$`) },
   { method: "GET", pattern: new RegExp(`^${CSI_API}/overview$`) },
+  { method: "GET", pattern: new RegExp(`^${CSI_API}/overview/(?:team|activity|outcomes)$`) },
   { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/closed-history$`) },
   { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/${OBJECT_ID}$`) },
   { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/${OBJECT_ID}/(?:timeline|assessment|findings)$`) },

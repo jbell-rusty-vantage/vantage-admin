@@ -1983,3 +1983,25 @@ span.si-evidence__none { display: inline-flex; align-items: center; min-height: 
   .si-moveglance__grid { gap: 14px 8px; }
   .si-moveglance__item { padding-inline: 8px; }
 }
+
+/* OI-A6 rep view */
+.si-repview { display: grid; gap: 14px; min-width: 0; }
+.si-repview__header { background: var(--si-surface); border: 1px solid var(--si-line); border-radius: 12px; padding: 16px; display: grid; gap: 10px; }
+.si-repview__header h1 { margin: 0; font-size: clamp(21px, 2vw, 28px); }
+.si-repview__header h1 small { color: var(--si-ink-3); font-size: 13px; font-weight: 500; }
+.si-repview__header p { margin: 0; }
+.si-repview__back { font-size: 13px; width: max-content; }
+.si-repview__segments, .si-repview__quick { display: flex; flex-wrap: wrap; gap: 8px; }
+.si-repview__segments a, .si-repview__quick a { display: inline-flex; gap: 7px; align-items: center; min-height: 40px; padding: 8px 12px; border: 1px solid var(--si-line); border-radius: 8px; text-decoration: none; color: inherit; }
+.si-repview__segments a[aria-current="page"], .si-repview__quick a[aria-current="true"] { background: var(--si-accent-soft); border-color: var(--si-accent); }
+.si-repview__activity { font-size: 13px; color: var(--si-ink-3); }
+.si-myworkload { border: 1px solid var(--si-line); border-radius: 12px; padding: 12px; }
+.si-myworkload h2 { margin: 0 0 10px; font-size: 16px; }
+.si-myworkload > div { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.si-myworkload a { display: grid; align-content: center; gap: 3px; min-height: 66px; padding: 9px; border: 1px solid var(--si-line); border-radius: 8px; text-decoration: none; color: inherit; }
+.si-myworkload a strong { font-size: 21px; }
+.si-myworkload a span { font-size: 12px; }
+.si-oi-workload__card--rep { display: block; max-width: 650px; }
+.si-card__next.is-selected-followup { outline: 2px solid var(--si-accent); outline-offset: 2px; border-radius: 4px; }
+.si-card__selected-followup { display: block; color: var(--si-accent); font-weight: 600; }
+@media (max-width: 700px) { .si-myworkload > div { grid-template-columns: repeat(2, minmax(0, 1fr)); } .si-repview__segments a { flex: 1 1 130px; } }

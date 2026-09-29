@@ -148,7 +148,7 @@ test("A09/A4: both lists offer ten sorts including Move date; Closed three; dire
   assert.equal(sortPatch("closed", "lead_received").sort, null);
 });
 
-fixtureTest("A10: five metric tiles from data.metrics with As of; each applies its filter", () => {
+fixtureTest("A10: legacy metrics render; Overdue waits for its matching team drill", () => {
   const page = load("S6/attention__all-outreach.json");
   const markup = html(createElement(MetricsStripView, { metrics: page.data.metrics!, asOf: page.as_of, onApply: () => {} }));
   const m = page.data.metrics!;
@@ -159,7 +159,8 @@ fixtureTest("A10: five metric tiles from data.metrics with As of; each applies i
   }
   assert.ok(markup.includes("median 5d"));
   assert.match(text(markup), /As of Sep 24, 6:58 PM ET/);
-  assert.equal((markup.match(/<button/g) ?? []).length, 5);
+  assert.equal((markup.match(/<button/g) ?? []).length, 4);
+  assert.match(markup, /data-tile="overdue"[^>]*>.*?Records with overdue follow-ups/s);
 
   const tiles = metricTiles(page.data.metrics, page.as_of);
   const by = Object.fromEntries(tiles.map((t) => [t.id, t.patch]));

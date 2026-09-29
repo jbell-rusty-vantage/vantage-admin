@@ -27,11 +27,15 @@ import { outreachRouteHref } from "../outreach/deep-links";
 import { readOutreachByLead } from "../data/use-outreach";
 import { isNotFoundError } from "../outreach/page-states";
 import { siKeys } from "../data/query-keys";
-import { attentionParamsFromDesk, clearDeskFilters, closedHistoryParamsFromDesk, isDeskView, serializeDeskUrl, tabsFor, type DeskUrlPatch, type DeskUrlState, type PageView, type UrlRole } from "../data/url-state";
+import { attentionParamsFromDesk, clearDeskFilters, closedHistoryParamsFromDesk, deskUrlUpdate, isDeskView, serializeDeskUrl, tabsFor, type DeskUrlPatch, type DeskUrlState, type PageView, type UrlRole } from "../data/url-state";
 import { RepGuide } from "../rep/rep-guide";
+import { MyWorkload } from "../rep/my-workload";
+import { RepView } from "../rep-view/rep-view";
 import { useIsRep } from "../rep/viewer";
 import { supportedAttentionParams, type AttentionParams, type DeskView } from "../data/requests";
 import { useAttentionList } from "../data/use-attention";
+import { SnapshotFreshness, isExpiredSnapshot } from "../rep-view/snapshot-freshness";
+import { clearRepViewFilters } from "../rep-view/drills";
 import { useDeskUrlState } from "../data/use-url-state";
 import { useAttentionCapabilities, useSalesRoster } from "../data/use-search-contract";
 import { CardShellSkeleton, DelayedSkeleton, Region, SkeletonBlock, SkeletonLines } from "../primitives";
@@ -186,8 +190,8 @@ function useLooseUpdate() {
   }, [params, pathname, router]);
 }
 
-function DeskList({ view, state, query, update, pending, userId }: {
-  view: DeskView; state: DeskUrlState; query: string; update: (patch: DeskUrlPatch) => void; pending: boolean; userId?: string | null;
+function DeskList({ view, state, query, update, pending, userId, repView = false, selectedFollowupName }: {
+  view: DeskView; state: DeskUrlState; query: string; update: (patch: DeskUrlPatch) => void; pending: boolean; userId?: string | null; repView?: boolean; selectedFollowupName?: string;
 }) {
   const client = useQueryClient();
   const preset = usePresetSelection({ userId });
@@ -205,7 +209,6 @@ function DeskList({ view, state, query, update, pending, userId }: {
   ] : [];
   const raw = new URLSearchParams(query);
   const invalidRaw = [
-    ...(rep && ["assigned_agent_id", "assignment", "followup_agent_id", "relationship", "agent"].some((key) => raw.has(key)) ? ["Rep filter"] : []),
     ...(raw.has("assignment") && raw.get("assignment") !== "unassigned" ? ["Invalid assigned rep"] : []),
     ...(raw.has("relationship") && !["assigned", "followup", "involved"].includes(raw.get("relationship") ?? "") ? ["Invalid involvement"] : []),
     ...(raw.has("loc_side") && !["either", "pickup", "delivery"].includes(raw.get("loc_side") ?? "") ? ["Invalid location"] : []),
@@ -213,9 +216,10 @@ function DeskList({ view, state, query, update, pending, userId }: {
     ...(state.snapshot_id && !/^outreach:[^\s]{1,91}$/.test(state.snapshot_id) ? ["Invalid snapshot"] : []),
   ];
   const unavailable = [...new Set([...supported.unavailable, ...closedUnsupported, ...invalidRaw])];
-  const blocked = unavailable.length > 0;
   const params = applyDegrade(supported.params, degrade);
   const error = useQueryError(siKeys.attention(params));
+  const expired = isExpiredSnapshot(error, state.snapshot_id);
+  const blocked = unavailable.length > 0 || expired;
   const next = nextDegrade(error, params, degrade);
   // Render-time adjust (no effect): a 400 on `q` or on a sort moves to the degraded params at once.
   if (next !== degrade) setDegrade(next);
@@ -232,7 +236,7 @@ function DeskList({ view, state, query, update, pending, userId }: {
     if (!changesView) focusListHeading();
   };
   const busy = pending || preset.isPending;
-  const clearFilters = () => update(clearDeskFilters());
+  const clearFilters = () => update(repView ? clearRepViewFilters(state) : clearDeskFilters());
   return (
     <div className="si-desk__body" data-view={view}>
       {blocked ? <PresetBar counts={null} view={view} value={preset.value} onChange={preset.setValue} /> :
@@ -240,7 +244,8 @@ function DeskList({ view, state, query, update, pending, userId }: {
           <PresetArea view={view} params={params} value={preset.value} onChange={preset.setValue} />
         </Region>}
       <WithRailReps rosterAvailable={capabilities?.roster === true}>{(reps) => <SearchControls state={state} onChange={update} reps={reps} capabilities={capabilities} rep={rep} closed={view === "closed"} />}</WithRailReps>
-      {view !== "closed" && (blocked ? <MetricsStripView metrics={null} asOf={asOf} /> :
+      {rep && !repView && <MyWorkload />}
+      {view !== "closed" && !rep && !repView && (blocked ? <MetricsStripView metrics={null} asOf={asOf} /> :
         <Region key={`metrics-${regionKey}`} name="metrics" className="si-desk__metrics" skeleton={<MetricsStrip.Skeleton />} onRetry={reset(siKeys.attention(params))}>
           <MetricsStrip params={params} onApply={onTile} />
         </Region>
@@ -259,7 +264,8 @@ function DeskList({ view, state, query, update, pending, userId }: {
           <Region name="chips" skeleton={null}>
             {blocked ? <ChipsArea {...railProps} onClearAll={clearFilters} /> : <ConnectedChipsArea {...railProps} params={params} onClearAll={clearFilters} />}
           </Region>
-          {blocked && <div role="status" className="si-desk__notice"><p>{unavailable.join(", ")}: {unavailable.some((name) => name.startsWith("Invalid")) ? "Invalid filter value." : "Not available yet."} Your selections remain in the URL. Remove a chip or clear filters to continue.</p>{view === "closed" && state.sort === "move_date" && <button type="button" className="si-btn si-btn--secondary si-hit" onClick={() => update({ sort: null, direction: null })}>Reset sort</button>}</div>}
+          {expired ? <p role="status" className="si-desk__notice">{copy.oi.repView.expired} <Link href={`/sales-intelligence?${deskUrlUpdate(query, { snapshot_id: null }, rep ? "rep" : "owner").toString()}`}>{copy.oi.repView.latest}</Link></p> : blocked && <div role="status" className="si-desk__notice"><p>{unavailable.join(", ")}: {unavailable.some((name) => name.startsWith("Invalid")) ? "Invalid filter value." : "Not available yet."} Your selections remain in the URL. Remove a chip or clear filters to continue.</p>{view === "closed" && state.sort === "move_date" && <button type="button" className="si-btn si-btn--secondary si-hit" onClick={() => update({ sort: null, direction: null })}>Reset sort</button>}</div>}
+          {!repView && !expired && state.snapshot_id && <SnapshotFreshness pinned={state.snapshot_id} query={query} priority={state.priority} role={rep ? "rep" : "owner"} />}
           {!blocked && <Region name="priority-closed-link" skeleton={null}><PriorityClosedLink params={params} state={state} role={rep ? "rep" : "owner"} capabilities={capabilities} /></Region>}
           <Notices search={notices.search} sort={notices.sort} />
           {blocked ? null : view === "closed" ? (
@@ -283,6 +289,7 @@ function DeskList({ view, state, query, update, pending, userId }: {
               update={update}
               pending={busy}
               returnTo={returnTo}
+              selectedFollowupName={selectedFollowupName}
             />
           )}
         </section>
@@ -326,6 +333,7 @@ function useScrollHeightVar() {
 
 export function Desk({ userId, overview, coverage, reps, guide }: DeskProps) {
   const { state, update, isPending, query } = useDeskUrlState({ userId });
+  const router = useRouter();
   const contentRef = useScrollHeightVar();
   // A record's `Back` returns to this view with its filters and sort (not the open side dialog).
   useEffect(() => {
@@ -335,8 +343,13 @@ export function Desk({ userId, overview, coverage, reps, guide }: DeskProps) {
   }, [query]);
   const view = state.view;
   const role: UrlRole = useIsRep() ? "rep" : "owner";
-  const onSearch = (q: string | null) => update(isDeskView(view) || q === null ? { q } : { view: "all_outreach", q });
-  const slots: Record<Exclude<PageView, DeskView>, ReactNode | undefined> = { overview, coverage, reps, guide };
+  useEffect(() => {
+    if (role !== "rep" || new URLSearchParams(query).get("view") !== "rep") return;
+    const clean = deskUrlUpdate(query, {}, "rep").toString();
+    router.replace(clean ? `/sales-intelligence?${clean}` : "/sales-intelligence", { scroll: false });
+  }, [query, role, router]);
+  const onSearch = (q: string | null) => update(isDeskView(view) || view === "rep" || q === null ? { q } : { view: "all_outreach", q });
+  const slots: Record<Exclude<PageView, DeskView>, ReactNode | undefined> = { overview, rep: undefined, coverage, reps, guide };
   return (
     <div className="si-root si-desk">
       <header className="si-desk__header">
@@ -345,7 +358,9 @@ export function Desk({ userId, overview, coverage, reps, guide }: DeskProps) {
       </header>
       <div ref={contentRef} className="si-desk__content">
         <LegacyOpen query={query} />
-        {isDeskView(view) ? (
+        {view === "rep" ? (
+          <RepView state={state} query={query}>{(row) => <DeskList key="rep" view="all_outreach" state={{ ...state, relationship: state.relationship ?? "assigned" }} query={query} update={update} pending={isPending} userId={userId} repView selectedFollowupName={row?.agent.name} />}</RepView>
+        ) : isDeskView(view) ? (
           <DeskList key={view} view={view} state={state} query={query} update={update} pending={isPending} userId={userId} />
         ) : (
           <OtherView view={view} slot={slots[view]} />

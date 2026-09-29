@@ -48,6 +48,7 @@ export type OutreachCardProps = {
   messageRepDisabledReason?: string | null;
   /** UI1-CLOSED's `Closed · {outcome}` line replaces line 6 on a closed record. */
   line6Override?: ReactNode;
+  selectedFollowup?: { id: string; name: string } | null;
 };
 
 /**
@@ -85,6 +86,7 @@ export function OutreachCard({
   onApplySuggestion,
   messageRepDisabledReason,
   line6Override,
+  selectedFollowup,
 }: OutreachCardProps) {
   const o = row.outreach;
   const rep = useIsRep();
@@ -103,7 +105,7 @@ export function OutreachCard({
     <MoveLine key="c" o={o} asOf={asOf} />,
     <MetricTiles key="d" tiles={metricTiles(o, asOf)} />,
     <LineFive key="e" o={o} />,
-    line6Override ?? <LineSix key="f" o={o} asOf={asOf} onApply={onApply ? () => onApply(row) : undefined} />,
+    line6Override ?? <LineSix key="f" o={o} asOf={asOf} onApply={onApply ? () => onApply(row) : undefined} selectedFollowup={selectedFollowup} />,
     <CardSecondary key="g" row={row} o={o} asOf={asOf} sortLine={sortLine ? <SortLine sortLine={sortLine} /> : undefined} />,
   ];
   return (

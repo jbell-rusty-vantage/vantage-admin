@@ -280,11 +280,13 @@ function DueClause({ o, asOf }: { o: CardOutreach; asOf: string }) {
   );
 }
 
-export function LineSix({ o, asOf, onApply }: { o: CardOutreach; asOf: string; onApply?: () => void }) {
+export function LineSix({ o, asOf, onApply, selectedFollowup }: { o: CardOutreach; asOf: string; onApply?: () => void; selectedFollowup?: { id: string; name: string } | null }) {
   const action = o.next_action;
+  const matchesSelected = !!selectedFollowup && action?.assignment?.agent?.id === selectedFollowup.id;
+  const otherFollowup = selectedFollowup && !matchesSelected ? <span className="si-card__selected-followup" data-selected-followup="secondary">{copy.oi.repView.otherFollowup(selectedFollowup.name)}</span> : null;
   if (action) {
     return (
-      <span className="si-card__next">
+      <span className={cx("si-card__next", matchesSelected && "is-selected-followup")} data-selected-followup={matchesSelected ? "primary" : undefined}>
         <span className={cx("si-card__nextpill", o.facts?.next_action_state === "overdue" && "is-overdue")}>{copy.oi.card.next}</span>
         <span>
           {action.description}
@@ -295,6 +297,7 @@ export function LineSix({ o, asOf, onApply }: { o: CardOutreach; asOf: string; o
         {action.default_kind === "quote_followup" && (
           <ChipView chip={{ id: "default", tone: "neutral", icon: <Bot size={12} aria-hidden />, label: ch.default, tip: ch.defaultTip }} />
         )}
+        {otherFollowup}
       </span>
     );
   }
@@ -311,7 +314,7 @@ export function LineSix({ o, asOf, onApply }: { o: CardOutreach; asOf: string; o
       </span>
     );
   }
-  return <span className="si-time is-null">{c.noNextStep}</span>;
+  return otherFollowup ?? <span className="si-time is-null">{c.noNextStep}</span>;
 }
 
 // ── Line 7 ────────────────────────────────────────────────────────────────────────────────────────────────
