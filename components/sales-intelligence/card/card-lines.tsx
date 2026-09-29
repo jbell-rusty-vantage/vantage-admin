@@ -449,11 +449,11 @@ export function MoveLine({ o, asOf }: { o: CardOutreach; asOf?: string }) {
   const estimateNote = estimate ? `Granot estimate, seen ${asOf ? timePhrase(estimate.observed_at, asOf, "relative").text : formatExactFull(estimate.observed_at)} (${formatExactFull(estimate.observed_at)})` : undefined;
   return (
     <span className="si-card__move" role="group" aria-label={`Move ${spokenDate}${o.facts?.move_date_passed ? ", passed" : ""}, ${routeWord}${parts.length ? `, ${parts.join(", ")}` : ""}${estimate ? `, estimate ${estimate.display}` : ""}`}>
-      <span aria-hidden={dateNote ? undefined : true} aria-label={dateNote} className={o.facts?.move_date_passed ? "si-text--amber" : undefined} title={dateNote} tabIndex={dateNote ? 0 : undefined}><Calendar size={14} aria-hidden /> {fullDate ?? copy.oi.card.moveDateUnknown}{date && o.facts?.move_date_passed ? " (passed)" : ""}</span>
+      <CardTip title="Move date" lines={dateNote ? [dateNote] : []} label={<span aria-hidden={!dateNote} className={o.facts?.move_date_passed ? "si-text--amber" : undefined}><Calendar size={14} aria-hidden /> {fullDate ?? copy.oi.card.moveDateUnknown}{date && o.facts?.move_date_passed ? " (passed)" : ""}</span>} />
       <span aria-hidden> · </span>
       <span aria-hidden>{routeKnown ? <>{start} <ArrowRight size={14} aria-hidden /> {end}</> : copy.oi.card.routeUnknown}</span>
       {parts.map((part) => <Fragment key={part}><span aria-hidden> · </span><span aria-hidden><Package size={14} aria-hidden /> {part}</span></Fragment>)}
-      {estimate && <><span aria-hidden> · </span><span aria-label={estimateNote} title={estimateNote} tabIndex={0}><Receipt size={14} aria-hidden /> Est. {estimate.display}</span></>}
+      {estimate && <><span aria-hidden> · </span><CardTip title="Granot estimate" lines={estimateNote ? [estimateNote] : []} label={<span><Receipt size={14} aria-hidden /> Est. {estimate.display}</span>} /></>}
     </span>
   );
 }
