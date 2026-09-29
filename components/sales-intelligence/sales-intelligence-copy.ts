@@ -16,6 +16,19 @@ export const BANDS = {
 } as const;
 
 export const copy = {
+  /* OI-A2 card */
+  oi: {
+    card: {
+      open: (identity: string) => `Open ${identity}`,
+      moveDateUnknown: "Move date unknown",
+      routeUnknown: "Route unknown",
+      unassignedFollowup: "Unassigned follow-up",
+      next: "Next",
+      noLongerMatches: "The record you opened no longer matches these filters.",
+      noOutreachForLead: "No Outreach record for this Lead",
+      leadLookupFailed: "Couldn't load this Lead's Outreach record. Try again.",
+    },
+  },
   page: {
     title: "Sales Intelligence",
     purpose: "See which customer numbers still need a next step, who owns the work, and what the calls actually said.",
@@ -962,12 +975,6 @@ export const copy = {
       messageRep: "Message rep",
       noRep: "No rep to message",
       previousVersion: "Previous version",
-      openQuickLook: (who: string) => `Quick look: ${who}`,
-      // Side dialog (final §4)
-      dialogTitle: "Quick look",
-      close: "Close",
-      openFullRecord: "Open full record",
-      recentActivity: "Recent activity",
       nextStepTitle: "Next step",
       scoreCardEmpty: "No score yet",
       /** Dev-only gallery labels for the Card section (UI-0 §7.4). */
@@ -979,8 +986,6 @@ export const copy = {
         flat: "Flat (any other sort): the same card",
         skeleton: "Skeleton",
         skeletonLabel: "OutreachCard.Skeleton (seven lines)",
-        dialog: "Side dialog content",
-        dialogLabel: "PreviewBody (timeline preview placeholder until UI1-TL)",
         phone: "At 390 px (tiles wrap 3 × 2)",
         samples: {
           lead: "Lead row (Promised by, due in, band tag)",

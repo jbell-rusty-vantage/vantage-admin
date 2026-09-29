@@ -3,7 +3,6 @@
 import { attentionRowSchema, outreachReadSchema, type AttentionRow } from "@/lib/api/salesIntelligence";
 import { ChipView, OutreachCard } from "@/components/sales-intelligence/card";
 import { RecordHeaderView, headerChips, headerRow } from "@/components/sales-intelligence/outreach";
-import { PreviewBody } from "@/components/sales-intelligence/preview-dialog";
 import { ViewerProvider, viewerFromSession } from "@/components/sales-intelligence/rep/viewer";
 import { copy } from "@/components/sales-intelligence/sales-intelligence-copy";
 import { REP_FIXTURES } from "./rep-fixtures";
@@ -47,12 +46,6 @@ export function RepCardSection() {
         </Sample>
         <Sample label="Provenance line and line 7, no commands / Message rep / Lead progress controls / related records" copyKey={REP_FIXTURES.details.sFindings!.source} wide>
           <RecordHeaderView outreach={sFindings.data.outreach} asOf={sFindings.as_of} returnTo="/sales-intelligence" />
-        </Sample>
-        <Subhead>Side dialog · no Apply</Subhead>
-        <Sample label="Quick look (timeline preview omitted here)" copyKey="ui1.card · ui2.scope" wide>
-          <div className="si-gallery__progressbox">
-            <PreviewBody row={row("promisedByYou")} asOf={REP_FIXTURES.asOf} />
-          </div>
         </Sample>
       </ViewerProvider>
     </GallerySection>

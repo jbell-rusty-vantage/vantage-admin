@@ -8,12 +8,11 @@
  *   `sort_keys`, or the sort's null label.
  * - Keyset `Load more` on `cursor`; `total_items` is the server count; a failed `Load more` keeps what's shown.
  * - A live republish that reorders the list waits behind `Updated list available · Show` (UI1-LIVE).
- * - A card body opens the side dialog with `outreach=` in the URL; old `outreach=` and `lead=&lead_model=` links
- *   open it too (trap 4), resolved through the detail read when the record isn't on the loaded pages.
+ * - A card opens the full Outreach page; old query links are resolved by the desk.
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { useIsRep } from "../rep/viewer";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AttentionRow } from "@/lib/api/salesIntelligence";
 import { OutreachCard } from "../card";
 import { OutcomeLine } from "../card/outcome-line";
@@ -22,14 +21,13 @@ import { UpdatedListPill, attentionListShape, useListRefresh, useReportAsOf } fr
 import { siKeys } from "../data/query-keys";
 import { attentionQuery, type AttentionParams, type DeskView } from "../data/requests";
 import { useAttentionList } from "../data/use-attention";
-import { useOutreach, useOutreachByLead } from "../data/use-outreach";
-import { deepLinkTarget, type DeskUrlPatch, type DeskUrlState } from "../data/url-state";
-import { PreviewDialog } from "../preview-dialog";
+import { type DeskUrlPatch, type DeskUrlState } from "../data/url-state";
 import { BandBadge, CardShellSkeleton, Region, RegionProgress, type BandNumber } from "../primitives";
 import { copy } from "../sales-intelligence-copy";
 import { formatRelative } from "../lib/time";
 import { cx } from "../lib/format";
 import { StaleBanner } from "./stale-banner";
+import { saveReturnMemory, takeReturnMemory } from "./return-memory";
 
 const d = copy.ui1.desk;
 export const LIST_HEADING_ID = "si-desk-list";
@@ -213,9 +211,9 @@ OutreachListView.Skeleton = ListSkeleton;
 /* ───────── connected ───────── */
 
 /** A card with the Message rep rule from the nudge destinations (UI1-CHAT). */
-function DeskCard({ row, layout, view, sort, asOf, returnTo, onOpen, onMessage }: {
+function DeskCard({ row, layout, view, sort, asOf, returnTo, onNavigate, onMessage }: {
   row: AttentionRow; layout: "grouped" | "flat"; view: DeskView; sort: string; asOf: string; returnTo: string;
-  onOpen: (row: AttentionRow) => void; onMessage: (row: AttentionRow) => void;
+  onNavigate: (row: AttentionRow) => void; onMessage: (row: AttentionRow) => void;
 }) {
   const { disabledReason } = useMessageRepAvailability(row.outreach);
   return (
@@ -225,49 +223,12 @@ function DeskCard({ row, layout, view, sort, asOf, returnTo, onOpen, onMessage }
       layout={layout}
       view={view}
       sortLine={sortLineFor(row, sort, asOf)}
-      onOpen={row.outreach ? onOpen : undefined}
+      returnTo={returnTo}
+      onNavigate={row.outreach ? onNavigate : undefined}
       onMessageRep={onMessage}
       messageRepDisabledReason={disabledReason}
       line6Override={row.outcome ? <OutcomeLine outcome={row.outcome} asOf={asOf} receivedAt={row.outreach?.trigger_at ?? null} returnTo={returnTo} /> : undefined}
     />
-  );
-}
-
-function asRow(outreach: NonNullable<AttentionRow["outreach"]>): AttentionRow {
-  return { subject_key: `outreach:${outreach.id}`, subject: outreach.subject, outreach, derived: outreach.derived } as AttentionRow;
-}
-
-function OutreachDeepLink({ id, onClose, timelinePreview }: { id: string; onClose: () => void; timelinePreview?: ReactNode }) {
-  const { outreach } = useOutreach(id);
-  return <PreviewDialog row={asRow(outreach)} onClose={onClose} timelinePreview={timelinePreview} />;
-}
-
-function LeadDeepLink({ model, id, onClose, renderTimeline }: { model: string; id: string; onClose: () => void; renderTimeline?: (outreachId: string) => ReactNode }) {
-  const { outreach } = useOutreachByLead(model, id);
-  return <PreviewDialog row={asRow(outreach)} onClose={onClose} timelinePreview={renderTimeline?.(outreach.id)} />;
-}
-
-/** The side dialog for the URL's `outreach=` (or an old `lead=&lead_model=` link). */
-export function DialogHost({ state, rows, update, renderTimeline }: {
-  state: DeskUrlState; rows: readonly AttentionRow[]; update: (patch: DeskUrlPatch) => void; renderTimeline?: (outreachId: string) => ReactNode;
-}) {
-  const client = useQueryClient();
-  const target = deepLinkTarget(state);
-  if (!target) return null;
-  const onClose = () => update({ outreach: null, lead: null, lead_model: null });
-  if (target.kind === "outreach") {
-    const row = rows.find((candidate) => candidate.outreach?.id === target.id);
-    if (row) return <PreviewDialog key={target.id} row={row} onClose={onClose} timelinePreview={renderTimeline?.(target.id)} />;
-    return (
-      <Region name="deep-link" className="si-desk__deeplink" skeleton={null} onRetry={() => void client.resetQueries({ queryKey: siKeys.outreach(target.id) })}>
-        <OutreachDeepLink key={target.id} id={target.id} onClose={onClose} timelinePreview={renderTimeline?.(target.id)} />
-      </Region>
-    );
-  }
-  return (
-    <Region name="deep-link" className="si-desk__deeplink" skeleton={null} onRetry={() => void client.resetQueries({ queryKey: siKeys.outreachByLead(target.model, target.id) })}>
-      <LeadDeepLink key={`${target.model}:${target.id}`} model={target.model} id={target.id} onClose={onClose} renderTimeline={renderTimeline} />
-    </Region>
   );
 }
 
@@ -278,20 +239,52 @@ export type OutreachListProps = {
   update: (patch: DeskUrlPatch) => void;
   pending: boolean;
   returnTo: string;
-  renderTimeline?: (outreachId: string) => ReactNode;
 };
 
-export function OutreachList({ view, params, state, update, pending, returnTo, renderTimeline }: OutreachListProps) {
+export function OutreachList({ view, params, pending, returnTo }: OutreachListProps) {
+  const client = useQueryClient();
   const list = useAttentionList(params);
   useReportAsOf(list.asOf);
   const refresh = useListRefresh(list.data, { key: attentionQuery(params).toString(), shape: attentionListShape });
   const [messaging, setMessaging] = useState<AttentionRow | null>(null);
-  const shown = refresh.shown;
+  const [missingNotice, setMissingNotice] = useState(false);
+  const { shown, pending: refreshPending, apply: applyRefresh } = refresh;
   const first = shown.pages[0]!;
   const rows = shown.pages.flatMap((page) => page.data.items);
   const asOf = first.as_of;
   const sort = params.sort ?? "attention";
-  const onOpen = (row: AttentionRow) => row.outreach && update({ outreach: row.outreach.id, lead: null, lead_model: null });
+  const restore = useRef<ReturnType<typeof takeReturnMemory> | undefined>(undefined);
+  useEffect(() => {
+    if (restore.current === undefined) restore.current = takeReturnMemory(returnTo);
+    const memory = restore.current;
+    if (!memory) return;
+    if (memory.pagesLoaded > 4) {
+      client.setQueryData(siKeys.attention(params), { ...list.data, pages: list.data.pages.slice(0, 1), pageParams: list.data.pageParams.slice(0, 1) });
+      document.querySelector<HTMLElement>(".si-desk__content")?.scrollTo(0, 0);
+      restore.current = null;
+      return;
+    }
+    if (shown.pages.length < memory.pagesLoaded) {
+      if (list.isFetchingNextPage) return;
+      if (list.hasNextPage) { void list.fetchNextPage(); return; }
+    }
+    if (list.isFetching) return;
+    if (refreshPending) { applyRefresh(); return; }
+    const scroll = document.querySelector<HTMLElement>(".si-desk__content");
+    const card = [...document.querySelectorAll<HTMLElement>(".si-outreachcard")].find((el) => el.dataset.outreachId === memory.outreachId);
+    if (card) {
+      if (scroll) scroll.scrollTop = memory.scrollTop;
+      const link = card.querySelector<HTMLElement>(".si-cardshell__hit");
+      link?.focus({ preventScroll: true });
+      card.classList.add("is-return-focus");
+      window.setTimeout(() => card.classList.remove("is-return-focus"), 1500);
+    } else setMissingNotice(true);
+    restore.current = null;
+  }, [shown.pages.length, list, client, params, returnTo, refreshPending, applyRefresh]);
+  const onNavigate = (row: AttentionRow) => {
+    if (!row.outreach) return;
+    saveReturnMemory(returnTo, { scrollTop: document.querySelector<HTMLElement>(".si-desk__content")?.scrollTop ?? 0, outreachId: row.outreach.id, pagesLoaded: shown.pages.length });
+  };
   return (
     <>
       <RegionProgress active={pending || (list.isFetching && !list.isFetchingNextPage)} />
@@ -303,16 +296,15 @@ export function OutreachList({ view, params, state, update, pending, returnTo, r
         q={params.q ?? null}
         totalItems={first.data.total_items}
         stale={first.data.stale ?? false}
-        hasMore={!refresh.pending && list.hasNextPage}
+        hasMore={!refreshPending && list.hasNextPage}
         loadingMore={list.isFetchingNextPage}
         loadMoreFailed={list.isFetchNextPageError}
         onLoadMore={() => void list.fetchNextPage()}
-        top={refresh.pending ? <UpdatedListPill onShow={refresh.apply} /> : null}
+        top={<>{missingNotice && <p role="status">{copy.oi.card.noLongerMatches}</p>}{refreshPending && <UpdatedListPill onShow={applyRefresh} />}</>}
         renderCard={(row, layout) => (
-          <DeskCard row={row} layout={layout} view={view} sort={sort} asOf={asOf} returnTo={returnTo} onOpen={onOpen} onMessage={setMessaging} />
+          <DeskCard row={row} layout={layout} view={view} sort={sort} asOf={asOf} returnTo={returnTo} onNavigate={onNavigate} onMessage={setMessaging} />
         )}
       />
-      <DialogHost state={state} rows={rows} update={update} renderTimeline={renderTimeline} />
       {messaging?.outreach && <MessageRepPanel key={messaging.outreach.id} outreach={messaging.outreach} asOf={asOf} mode="panel" onClose={() => setMessaging(null)} />}
     </>
   );

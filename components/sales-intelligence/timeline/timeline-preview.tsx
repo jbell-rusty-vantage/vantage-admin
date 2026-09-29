@@ -2,7 +2,7 @@
 /**
  * UI1-TL: the side dialog's five-event preview (final spec §4, §10.1; UI-1 §2.4). The five newest events of the
  * `outreach` scope, routine rows left out (they sit under Processing details on the full timeline), then
- * `Open full timeline` → the Outreach route's Timeline tab. It plugs into `PreviewDialog`'s `timelinePreview` slot.
+ * `Open full timeline` → the Outreach route's Timeline tab. This remains as a gallery sample.
  */
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";

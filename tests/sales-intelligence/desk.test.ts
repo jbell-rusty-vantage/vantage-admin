@@ -90,7 +90,7 @@ fixtureTest("A09: Needs Attention in Attention order is grouped under band heade
   // The Number-review row (band null) sits in its own Needs review group.
   assert.ok(groups.some((g) => g.review));
   // Outreach card layout D2: grouped cards keep the band header and still start with their own band tag.
-  assert.equal((markup.match(/class="si-bandtag( is-none)?"/g) ?? []).length, page.data.items.filter((r) => r.outreach).length, "one band tag per card when grouped");
+  assert.equal((markup.match(/class="si-card__bandname"/g) ?? []).length, page.data.items.filter((r) => r.outreach && r.derived.attention_band != null).length, "one band name per banded card when grouped");
   assert.ok(!markup.includes("data-sortline"), "no sort line under Attention order");
   assert.ok(markup.includes(`id="${LIST_HEADING_ID}"`));
   assert.ok(markup.includes(`${page.data.total_items} results`));
@@ -100,7 +100,7 @@ fixtureTest("A09: All Outreach under Lead received is flat with band tags and no
   const markup = listHtml("S1/attention__all-outreach.json", { sort: "lead_received" });
   assert.match(markup, /data-layout="flat"/);
   assert.ok(!markup.includes("si-bandhead"), "no band headers");
-  assert.ok(markup.includes("si-bandtag"), "band tag on line 1");
+  assert.ok(markup.includes("si-card__bandname"), "band name on line 1");
   assert.ok(!markup.includes("data-sortline"));
 });
 

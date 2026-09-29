@@ -103,12 +103,12 @@ fixtureTest("the outcome line's parts: whole days floored, calls, null paths, Op
   assert.match(text(decode(renderToStaticMarkup(createElement(OutcomeLine, { outcome: unknown, asOf: page.as_of })))), /^Closed .+ · something new$/);
 });
 
-fixtureTest("a closed card: line 6 is the outcome line and the only action is Open", () => {
+fixtureTest("a closed card: line 6 is the outcome line and the card opens the record", () => {
   const page = loadList("S2/attention-closed__closed.json");
   for (const row of page.data.items) {
     const html = decode(renderToStaticMarkup(createElement(ClosedCard, { row, asOf: page.as_of })));
     assert.ok(html.includes(`data-outcome="${row.outcome!.reason}"`));
-    assert.ok(html.includes('data-action="open"'));
+    assert.ok(html.includes(`href="/sales-intelligence/outreach/${row.outreach!.id}"`));
     assert.ok(!html.includes('data-action="message-rep"') && !html.includes('data-action="open-analysis"'));
     // Outreach card layout D2: every card starts with its band; a closed record has none, so it reads `Not in Attention`.
     const rowA = html.slice(html.indexOf('si-cardshell__line--1'), html.indexOf('si-cardshell__line--2'));

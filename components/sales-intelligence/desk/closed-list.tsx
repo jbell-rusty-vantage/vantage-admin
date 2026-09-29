@@ -26,7 +26,8 @@ import type { DeskUrlPatch, DeskUrlState } from "../data/url-state";
 import { CardShellSkeleton, Region, RegionProgress } from "../primitives";
 import { CLOSED_WINDOWS, windowFrom } from "../rail";
 import { copy } from "../sales-intelligence-copy";
-import { DialogHost, LoadMore, OutreachListView } from "./outreach-list";
+import { LoadMore, OutreachListView } from "./outreach-list";
+import { saveReturnMemory, takeReturnMemory } from "./return-memory";
 
 const k = copy.ui1.closed;
 /** How many short pages the history follows on its own under `q` before asking (S11-SEARCH bounded scan). */
@@ -41,7 +42,8 @@ export function ClosedCard({ row, asOf, returnTo, onOpen }: { row: AttentionRow;
       asOf={asOf}
       layout="grouped"
       view="closed"
-      onOpen={row.outreach && onOpen ? onOpen : undefined}
+      returnTo={returnTo ?? undefined}
+      onNavigate={row.outreach && onOpen ? onOpen : undefined}
       line6Override={row.outcome ? <OutcomeLine outcome={row.outcome} asOf={asOf} receivedAt={row.outreach?.trigger_at ?? null} returnTo={returnTo} /> : undefined}
     />
   );
@@ -154,25 +156,52 @@ export type ClosedListProps = {
   update: (patch: DeskUrlPatch) => void;
   pending: boolean;
   returnTo: string;
-  renderTimeline?: (outreachId: string) => ReactNode;
 };
 
-export function ClosedList({ params, history, state, update, pending, returnTo, renderTimeline }: ClosedListProps) {
+export function ClosedList({ params, history, state, pending, returnTo }: ClosedListProps) {
   const client = useQueryClient();
   const list = useAttentionList(params);
   useReportAsOf(list.asOf);
   const requestKey = attentionQuery(params).toString();
   const refresh = useListRefresh(list.data, { key: requestKey, shape: attentionListShape });
-  const shown = refresh.shown;
+  const { shown, pending: refreshPending, apply: applyRefresh } = refresh;
   const first = shown.pages[0]!;
   const rows = shown.pages.flatMap((page) => page.data.items);
+  const restore = useRef<ReturnType<typeof takeReturnMemory> | undefined>(undefined);
+  const [missingNotice, setMissingNotice] = useState(false);
+  useEffect(() => {
+    if (restore.current === undefined) restore.current = takeReturnMemory(returnTo);
+    const memory = restore.current;
+    if (!memory) return;
+    if (memory.pagesLoaded > 4) {
+      client.setQueryData(siKeys.attention(params), { ...list.data, pages: list.data.pages.slice(0, 1), pageParams: list.data.pageParams.slice(0, 1) });
+      document.querySelector<HTMLElement>(".si-desk__content")?.scrollTo(0, 0);
+      restore.current = null;
+      return;
+    }
+    if (shown.pages.length < memory.pagesLoaded) {
+      if (list.isFetchingNextPage) return;
+      if (list.hasNextPage) { void list.fetchNextPage(); return; }
+    }
+    if (list.isFetching) return;
+    if (refreshPending) { applyRefresh(); return; }
+    const card = [...document.querySelectorAll<HTMLElement>(".si-outreachcard")].find((el) => el.dataset.outreachId === memory.outreachId);
+    if (card) {
+      const scroll = document.querySelector<HTMLElement>(".si-desk__content");
+      if (scroll) scroll.scrollTop = memory.scrollTop;
+      card.querySelector<HTMLElement>(".si-cardshell__hit")?.focus({ preventScroll: true });
+      card.classList.add("is-return-focus");
+      window.setTimeout(() => card.classList.remove("is-return-focus"), 1500);
+    } else setMissingNotice(true);
+    restore.current = null;
+  }, [shown.pages.length, list, client, params, returnTo, refreshPending, applyRefresh]);
   const asOf = first.as_of;
   // History stays open only for the request it was opened for; any control change closes it again. Its
   // `closed_before` is fixed when it opens, so a live republish (a new `as_of`) doesn't restart it.
   const [opened, setOpened] = useState<{ key: string; params: ClosedHistoryParams } | null>(null);
   const hp = opened?.key === requestKey ? opened.params : null;
-  const ending = closedListEnd({ cursor: list.hasNextPage ? "more" : null, pending: refresh.pending, historyOpen: !!hp });
-  const onOpen = (row: AttentionRow) => row.outreach && update({ outreach: row.outreach.id, lead: null, lead_model: null });
+  const ending = closedListEnd({ cursor: list.hasNextPage ? "more" : null, pending: refreshPending, historyOpen: !!hp });
+  const onOpen = (row: AttentionRow) => row.outreach && saveReturnMemory(returnTo, { scrollTop: document.querySelector<HTMLElement>(".si-desk__content")?.scrollTop ?? 0, outreachId: row.outreach.id, pagesLoaded: shown.pages.length });
   let end: ReactNode = null;
   if (ending) {
     end = ending === "history" && hp ? (
@@ -194,15 +223,14 @@ export function ClosedList({ params, history, state, update, pending, returnTo, 
         q={params.q ?? null}
         totalItems={first.data.total_items}
         stale={first.data.stale ?? false}
-        hasMore={!refresh.pending && list.hasNextPage}
+        hasMore={!refreshPending && list.hasNextPage}
         loadingMore={list.isFetchingNextPage}
         loadMoreFailed={list.isFetchNextPageError}
         onLoadMore={() => void list.fetchNextPage()}
-        top={refresh.pending ? <UpdatedListPill onShow={refresh.apply} /> : null}
+        top={<>{missingNotice && <p role="status">{copy.oi.card.noLongerMatches}</p>}{refreshPending && <UpdatedListPill onShow={applyRefresh} />}</>}
         renderCard={(row) => <ClosedCard row={row} asOf={asOf} returnTo={returnTo} onOpen={onOpen} />}
         end={end}
       />
-      <DialogHost state={state} rows={rows} update={update} renderTimeline={renderTimeline} />
     </>
   );
 }

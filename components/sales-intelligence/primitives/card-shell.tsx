@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
+import Link from "next/link";
 import { copy } from "../sales-intelligence-copy";
 import { cx } from "../lib/format";
 
@@ -18,25 +19,31 @@ export function CardShell({
   nullText = [],
   actions,
   live = false,
-  onOpen,
+  href,
+  onNavigate,
   openLabel = copy.ui1.prim.openCard,
   className,
   band,
+  outreachId,
 }: {
   lines: ReactNode[];
   nullText?: (string | undefined)[];
   actions?: ReactNode;
   live?: boolean;
-  onOpen?: () => void;
+  href?: string;
+  onNavigate?: () => void;
   openLabel?: string;
   className?: string;
   /** The card's Attention band, for the band-colour left edge (`data-card-band`); null or omitted draws none. */
   band?: number | null;
+  outreachId?: string;
 }) {
   return (
-    <article className={cx("si-cardshell", live && "is-live", !!onOpen && "is-openable", className)} data-card-band={band ?? undefined}>
+    <article className={cx("si-cardshell", live && "is-live", !!href && "is-openable", className)} data-card-band={band ?? undefined} data-outreach-id={outreachId}>
       <div className="si-cardshell__body">
-        {onOpen && <button type="button" className="si-cardshell__hit" aria-label={openLabel} onClick={onOpen} />}
+        {href && <Link href={href} className="si-cardshell__hit" aria-label={openLabel} onClick={(event) => {
+          if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) onNavigate?.();
+        }} />}
         <ol className="si-cardshell__lines">
           {Array.from({ length: CARD_LINES }, (_, i) => {
             const content = lines[i];

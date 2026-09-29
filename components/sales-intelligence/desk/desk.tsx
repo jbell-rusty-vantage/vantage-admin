@@ -13,7 +13,7 @@
  * Every region (preset counts, metrics, rail, chips, list) is its own Suspense + error boundary. Filter, sort
  * and view changes go through the URL inside a transition, so old data stays with the 2 px progress bar.
  */
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { CoverageView } from "../coverage-view";
@@ -22,6 +22,9 @@ import { Reps } from "../reps";
 import { useNewestAsOf } from "../data/live";
 import { currentSalesIntelligenceHref } from "../lib/official-record";
 import { rememberDeskHref } from "../outreach/deep-links";
+import { outreachRouteHref } from "../outreach/deep-links";
+import { readOutreachByLead } from "../data/use-outreach";
+import { isNotFoundError } from "../outreach/page-states";
 import { siKeys } from "../data/query-keys";
 import { attentionParamsFromDesk, closedHistoryParamsFromDesk, isDeskView, tabsFor, type DeskUrlPatch, type DeskUrlState, type PageView, type UrlRole } from "../data/url-state";
 import { RepGuide } from "../rep/rep-guide";
@@ -52,9 +55,29 @@ export type DeskProps = {
   coverage?: ReactNode;
   reps?: ReactNode;
   guide?: ReactNode;
-  /** UI1-TL's five-event preview for the side dialog. */
-  renderTimelinePreview?: (outreachId: string) => ReactNode;
 };
+
+function LegacyOpen({ query }: { query: string }) {
+  const router = useRouter();
+  const rep = useIsRep();
+  const params = new URLSearchParams(query);
+  const panel = params.has("panel");
+  const id = !panel ? params.get("outreach") : null;
+  const lead = !panel && !id ? params.get("lead") : null;
+  const model = params.get("lead_model");
+  const kept = new URLSearchParams(params);
+  for (const key of ["outreach", "lead", "lead_model"]) kept.delete(key);
+  const back = currentSalesIntelligenceHref(kept);
+  const lookup = useQuery({ queryKey: siKeys.outreachByLead(model ?? "", lead ?? ""), queryFn: ({ signal }) => readOutreachByLead(model!, lead!, signal), enabled: !rep && !!lead && !!model, retry: false });
+  useEffect(() => {
+    if (id) router.replace(outreachRouteHref(id, { siReturn: back }));
+    else if (lookup.data?.data.outreach?.id) router.replace(outreachRouteHref(lookup.data.data.outreach.id, { siReturn: back }));
+  }, [id, lookup.data, router, back]);
+  const missing = !!lead && (!!rep || !model || (lookup.isSuccess && !lookup.data.data.outreach) || (lookup.isError && isNotFoundError(lookup.error)));
+  if (missing) return <p role="status" className="si-desk__notice">{copy.oi.card.noOutreachForLead}</p>;
+  if (lookup.isError) return <p role="alert" className="si-desk__notice">{copy.oi.card.leadLookupFailed}</p>;
+  return null;
+}
 
 /** The two notices under the list controls when the server refused a search or a sort. */
 function Notices({ search, sort }: { search: boolean; sort: boolean }) {
@@ -130,9 +153,8 @@ function useLooseUpdate() {
   }, [params, pathname, router]);
 }
 
-function DeskList({ view, state, query, update, pending, userId, renderTimelinePreview }: {
+function DeskList({ view, state, query, update, pending, userId }: {
   view: DeskView; state: DeskUrlState; query: string; update: (patch: DeskUrlPatch) => void; pending: boolean; userId?: string | null;
-  renderTimelinePreview?: (outreachId: string) => ReactNode;
 }) {
   const client = useQueryClient();
   const preset = usePresetSelection({ userId });
@@ -191,7 +213,6 @@ function DeskList({ view, state, query, update, pending, userId, renderTimelineP
               update={update}
               pending={busy}
               returnTo={returnTo}
-              renderTimeline={renderTimelinePreview}
             />
           ) : (
             <OutreachListRegion
@@ -202,7 +223,6 @@ function DeskList({ view, state, query, update, pending, userId, renderTimelineP
               update={update}
               pending={busy}
               returnTo={returnTo}
-              renderTimeline={renderTimelinePreview}
             />
           )}
         </section>
@@ -244,7 +264,7 @@ function useScrollHeightVar() {
   return ref;
 }
 
-export function Desk({ userId, overview, coverage, reps, guide, renderTimelinePreview }: DeskProps) {
+export function Desk({ userId, overview, coverage, reps, guide }: DeskProps) {
   const { state, update, isPending, query } = useDeskUrlState();
   const contentRef = useScrollHeightVar();
   // A record's `Back` returns to this view with its filters and sort (not the open side dialog).
@@ -264,8 +284,9 @@ export function Desk({ userId, overview, coverage, reps, guide, renderTimelinePr
         <ViewTabs active={view} query={query} role={role} />
       </header>
       <div ref={contentRef} className="si-desk__content">
+        <LegacyOpen query={query} />
         {isDeskView(view) ? (
-          <DeskList key={view} view={view} state={state} query={query} update={update} pending={isPending} userId={userId} renderTimelinePreview={renderTimelinePreview} />
+          <DeskList key={view} view={view} state={state} query={query} update={update} pending={isPending} userId={userId} />
         ) : (
           <OtherView view={view} slot={slots[view]} />
         )}

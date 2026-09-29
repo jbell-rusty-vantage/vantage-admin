@@ -101,20 +101,20 @@ test("Chip: tones map to badge classes; live is neutral with a pulse dot and rad
   assert.match(live, /title="On the call"/);
 });
 
-test("CardShell: seven slots always rendered, null wording for empty slots, open button, live class, skeleton", () => {
+test("CardShell: seven slots always rendered, null wording for empty slots, open link, live class, skeleton", () => {
   const html = render(CardShell, {
     lines: ["Jane Doe", null, "Line 3", "", undefined, "Line 6", false],
     nullText: [undefined, "No call observed", undefined, "No next step set"],
     actions: createElement("a", { href: "#x" }, "Open analysis"),
     live: true,
-    onOpen: noop,
+    href: "/sales-intelligence/outreach/abc",
     openLabel: "Open Jane Doe",
   });
   assert.equal((html.match(/class="si-cardshell__line /g) ?? []).length, 7);
   assert.match(html, /si-cardshell is-live is-openable/);
   assert.match(text(html), /Jane Doe No call observed Line 3 No next step set/);
   assert.equal((html.match(/is-empty/g) ?? []).length, 4);
-  assert.match(html, /<button type="button" class="si-cardshell__hit" aria-label="Open Jane Doe">/);
+  assert.match(html, /<a class="si-cardshell__hit" aria-label="Open Jane Doe" href="\/sales-intelligence\/outreach\/abc">/);
   assert.match(html, /si-cardshell__actions/);
   const skeleton = render(CardShell.Skeleton);
   assert.equal((skeleton.match(/si-skeleton si-skeleton--line/g) ?? []).length, 7);

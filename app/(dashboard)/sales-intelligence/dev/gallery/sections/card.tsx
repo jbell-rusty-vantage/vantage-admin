@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { attentionRowSchema, type AttentionRow } from "@/lib/api/salesIntelligence";
 import { OutreachCard, type OutreachCardProps } from "@/components/sales-intelligence/card";
-import { PreviewBody } from "@/components/sales-intelligence/preview-dialog";
 import { BandBadge } from "@/components/sales-intelligence/primitives";
 import { copy } from "@/components/sales-intelligence/sales-intelligence-copy";
 import { formatRelative } from "@/components/sales-intelligence/lib/time";
@@ -82,7 +81,7 @@ function Card({ sample }: { sample: CardSample }) {
       asOf={asOf}
       layout="grouped"
       view="all_outreach"
-      onOpen={noop}
+      onNavigate={noop}
       onMessageRep={noop}
       onApplySuggestion={noop}
       {...sample.props}
@@ -107,7 +106,6 @@ export function CardSection() {
   const g = copy.ui1.gallery;
   const grouped = fixture("lead");
   const band = grouped.row.derived.attention_band;
-  const preview = fixture("liveAndOwner");
   return (
     <GallerySection id="card" title={g.sections.card}>
       <p className="si-gallery__note">{cg.note}</p>
@@ -121,24 +119,16 @@ export function CardSection() {
       <div className="si-gallery__grid" data-card-sample="grouped-vs-flat">
         <Sample label={cg.grouped} copyKey={grouped.source} wide>
           {band != null && band >= 1 && band <= 7 && <BandBadge band={band as 1 | 2 | 3 | 4 | 5 | 6 | 7} variant="header" count={1} />}
-          <OutreachCard row={grouped.row} asOf={grouped.asOf} layout="grouped" view="attention" onOpen={noop} onMessageRep={noop} />
+          <OutreachCard row={grouped.row} asOf={grouped.asOf} layout="grouped" view="attention" onNavigate={noop} onMessageRep={noop} />
         </Sample>
         <Sample label={cg.flat} copyKey={grouped.source} wide>
-          <OutreachCard row={grouped.row} asOf={grouped.asOf} layout="flat" view="all_outreach" onOpen={noop} onMessageRep={noop} />
+          <OutreachCard row={grouped.row} asOf={grouped.asOf} layout="flat" view="all_outreach" onNavigate={noop} onMessageRep={noop} />
         </Sample>
       </div>
       <Subhead>{cg.skeleton}</Subhead>
       <div data-card-sample="skeleton">
         <Sample label={cg.skeletonLabel} copyKey="CardShell.Skeleton" wide>
           <OutreachCard.Skeleton />
-        </Sample>
-      </div>
-      <Subhead>{cg.dialog}</Subhead>
-      <div data-card-sample="preview">
-        <Sample label={cg.dialogLabel} copyKey={preview.source} wide>
-          <div className="si-gallery__progressbox">
-            <PreviewBody row={preview.row} asOf={preview.asOf} />
-          </div>
         </Sample>
       </div>
       <Subhead>{cg.phone}</Subhead>

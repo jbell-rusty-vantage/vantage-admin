@@ -15,7 +15,6 @@ import { parseDeskUrl } from "../../components/sales-intelligence/data/url-state
 import { RailRegions, railRegionsFor } from "../../components/sales-intelligence/rail";
 import { OutreachPage, RecordHeaderView, headerChips, headerRow } from "../../components/sales-intelligence/outreach";
 import { EvidenceList, type EvidenceView } from "../../components/sales-intelligence/outreach/analysis";
-import { PreviewBody } from "../../components/sales-intelligence/preview-dialog";
 import { ViewerProvider, viewerFromSession, OWNER_VIEWER } from "../../components/sales-intelligence/rep/viewer";
 import { copy } from "../../components/sales-intelligence/sales-intelligence-copy";
 import { findContractsDir, fixtureTest, ifFixtures } from "./contracts-dir";
@@ -190,25 +189,24 @@ fixtureTest("A05 line 7 for a rep: Yours (assigned wins over a promise) · Promi
   assert.ok(card(unassigned).includes("si-repavatar is-unassigned"));
 });
 
-fixtureTest("A04 card (rep): Open (Work tab) and Open analysis, no Message rep, no Apply, no Owner-only href; closed keeps Open", () => {
+fixtureTest("A04 card (rep): one record link, no Message rep, no Apply, no Owner-only href", () => {
   for (const row of attention.data.items) {
     const html = renderAs(DANA, createElement(OutreachCard, { row, asOf: attention.as_of, layout: "flat", view: "all_outreach", onMessageRep: () => {}, onApplySuggestion: () => {} })).html;
     if (!row.outreach) continue;
-    assert.ok(html.includes(`data-action="open" data-viewer="rep" href="/sales-intelligence/outreach/${row.outreach.id}?tab=work"`), "Open → Work tab");
-    assert.ok(html.includes(`data-action="open-analysis" data-viewer="rep" href="/sales-intelligence/outreach/${row.outreach.id}"`), "Open analysis");
+    assert.ok(html.includes(`href="/sales-intelligence/outreach/${row.outreach.id}"`), "card → full record");
     assert.ok(!html.includes('data-action="message-rep"') && !html.includes("si-card__apply"));
     assert.doesNotMatch(html, OWNER_ONLY_HREF);
   }
   const closed = renderAs(DANA, createElement(OutreachCard, { row: attention.data.items[0]!, asOf: attention.as_of, layout: "flat", view: "closed" })).html;
-  assert.ok(closed.includes('data-action="open"') && !closed.includes('data-action="open-analysis"'));
+  assert.ok(closed.includes('class="si-cardshell__hit"') && !closed.includes('data-action="open-analysis"'));
   // The Owner's card is unchanged.
   const owner = renderAs(OWNER_VIEWER, createElement(OutreachCard, { row: attention.data.items[0]!, asOf: attention.as_of, layout: "flat", view: "all_outreach", onMessageRep: () => {} })).html;
   assert.ok(owner.includes('data-action="message-rep"') && !owner.includes("?tab=work"));
 });
 
-fixtureTest("A04 side dialog (rep): line 7 is the rep's, no Apply, no Owner-only href", () => {
+fixtureTest("A04 card (rep): line 7 is the rep's, no Apply, no Owner-only href", () => {
   const row = rowById("6ab5ab1972ee2eb383d948b1");
-  const html = renderAs(DANA, createElement(PreviewBody, { row, asOf: attention.as_of, onApplySuggestion: () => {} })).html;
+  const html = renderAs(DANA, createElement(OutreachCard, { row, asOf: attention.as_of, layout: "flat", view: "all_outreach", onApplySuggestion: () => {} })).html;
   assert.ok(text(html).includes("Promised by you"));
   assert.ok(!/>\s*Apply\s*</.test(html));
   assert.doesNotMatch(html, OWNER_ONLY_HREF);
