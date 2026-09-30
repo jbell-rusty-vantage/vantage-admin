@@ -19,7 +19,7 @@ const empty = (): RailValue => parseDeskUrl(new URLSearchParams());
 const value = (query: string): RailValue => parseDeskUrl(new URLSearchParams(query));
 const decode = (s: string) => s.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
 
-test("the sidebar holds every filter: eight sections on the outreach desks, five on Closed, each remembered per desk", () => {
+test("the sidebar holds every filter: eight sections on the outreach desks, five on Closed (no Priority), each remembered per desk", () => {
   for (const view of ["attention", "all_outreach"] as const) {
     const regions = outreachRegions(view);
     assert.deepEqual(regions.map((r) => r.title), ["Granot Priority", "Follow-up", "Rep", "Dates", "Location", "Band", "Status", "Analysis"]);
@@ -29,8 +29,9 @@ test("the sidebar holds every filter: eight sections on the outreach desks, five
     assert.deepEqual(regions[0].params, ["priority", "attachment"]);
   }
   const closed = closedRegions();
-  assert.deepEqual(closed.map((r) => r.title), ["Granot Priority", "Outcome", "Rep", "Dates", "Location"]);
-  assert.deepEqual(closed.map((r) => r.storageId), ["priority", "outcome", "rep", "closed_time", "location"].map((id) => `si.rail.closed.${id}`));
+  assert.deepEqual(closed.map((r) => r.title), ["Outcome", "Lead", "Rep", "Dates", "Location"]);
+  assert.deepEqual(closed.map((r) => r.storageId), ["outcome", "lead", "rep", "closed_time", "location"].map((id) => `si.rail.closed.${id}`));
+  assert.ok(!closed.some((r) => r.params.some((p) => p === "priority")), "Closed filters by Outcome, not Priority");
 });
 
 test("the rail renders each region as an open disclosure with the §7.3 controls", () => {
@@ -38,8 +39,18 @@ test("the rail renders each region as an open disclosure with the §7.3 controls
   assert.ok(html.startsWith('<aside class="si-rail is-responsive" aria-label="Filters"'));
   assert.equal((html.match(/class="si-disclosure is-open si-rail__region"/g) ?? []).length, 4);
   assert.equal((html.match(/class="si-disclosure si-rail__region"/g) ?? []).length, 4);
-  for (const key of ["0", "1", "3", "5", "7", "8", "not_set"]) assert.ok(html.includes(`data-rail-option="priority:${key}"`), `priority ${key}`);
-  assert.ok(html.includes('data-lead-btn="none"') && html.includes(">Has a Lead<"));
+  // All Outreach: 0, 1, 2, 9 and Not set always; other codes only under review, when the counts hold them.
+  for (const key of ["0", "1", "2", "9", "not_set"]) assert.ok(html.includes(`data-rail-option="priority:${key}"`), `priority ${key}`);
+  for (const key of ["3", "5", "7", "8"]) assert.ok(!html.includes(`data-rail-option="priority:${key}"`), `no priority ${key} without records`);
+  assert.ok(!html.includes(">Under review<"));
+  const counts = { "5": { attention: 1, active: 2, closed: 40 }, "8": { attention: 0, active: 0, closed: 12 } };
+  const review = decode(renderToStaticMarkup(createElement(FilterRail, { regions: outreachRegions("all_outreach"), value: empty(), onChange: () => {}, reps: REPS, asOf: AS_OF, priorityCounts: counts })));
+  assert.ok(review.includes(">Under review<") && review.includes('data-rail-option="priority:5"'), "an open record under review with 5 is findable");
+  assert.ok(!review.includes('data-rail-option="priority:8"'), "8 has no open records here");
+  const closedHtml = decode(renderToStaticMarkup(createElement(FilterRail, { regions: closedRegions(), value: empty(), onChange: () => {}, reps: REPS, asOf: AS_OF, priorityCounts: counts })));
+  assert.ok(!closedHtml.includes('data-rail-option="priority:') && closedHtml.includes('data-rail-option="lead:none"'), "Closed: Lead, no Priority");
+  for (const key of ["all", "lead", "none"]) assert.ok(html.includes(`data-rail-option="lead:${key}"><input type="checkbox"`), `lead ${key} is a checkbox`);
+  assert.ok(html.includes(">Has a Lead<") && !html.includes("data-lead-btn"));
   for (const label of ["Overdue", "Due today", "No next step", "Blocked from calling", "Assigned rep", "Involvement", "Follow-up assignee", "Move date", "City contains"]) assert.ok(html.includes(label), label);
   for (let n = 1; n <= 7; n += 1) assert.ok(html.includes(`data-rail-option="band:${n}"`), `band ${n}`);
   assert.ok(html.includes("Promised callbacks overdue · Band 1") && html.includes("Needs review"));

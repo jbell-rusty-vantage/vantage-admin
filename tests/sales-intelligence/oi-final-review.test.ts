@@ -26,8 +26,9 @@ test("moving a count drill to Closed drops the families Closed cannot serve and 
   const next = deskUrlUpdate(drill, { view: "closed" });
   for (const key of ["work", "followup_agent_id", "relationship", "agent", "snapshot_id"]) assert.equal(next.has(key), false, key);
   assert.equal(next.get("view"), "closed");
-  assert.equal(next.get("priority"), "1");
+  assert.equal(next.has("priority"), false, "the active desk's Priority doesn't follow into Closed (Owner, 2026-09-30)");
   assert.equal(next.get("move_date_mode"), "future");
+  assert.equal(deskUrlUpdate(drill, { view: "overview" }).get("priority"), "1", "other views keep it");
   // Other view changes keep the pin: it still names the snapshot the count was taken from.
   assert.equal(deskUrlUpdate(drill, { view: "attention" }).get("snapshot_id"), "outreach:abc");
 });

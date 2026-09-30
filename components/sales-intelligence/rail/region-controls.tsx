@@ -74,10 +74,21 @@ function Unavailable({ when }: { when: boolean }) {
   return when ? <small className="si-rail__hint">{NOT_YET}</small> : null;
 }
 
-/** Granot Priority (every code with its count; `Any priority` clears) and the Lead toggle. `No Lead` clears and disables Priority. */
-function PriorityRegion({ value, onChange, priorityCounts, region }: SectionProps) {
-  const noteId = useId();
-  const noLead = value.attachment === "none";
+/** All Outreach's Priority options (Owner, 2026-09-30): the codes an open record normally carries. 2 and 9 have no confirmed meaning yet. */
+export const ACTIVE_PRIORITY_KEYS = ["0", "1", "2", "9", "not_set"] as const;
+
+/**
+ * The other codes an open record can hold only while it is under review (an uncertain 5, 7 or 8 opens a disposition
+ * review instead of closing; 3 and any unmapped code likewise): shown only when this view's count holds them, or when
+ * the URL already selects one, so an option never promises records that aren't there.
+ */
+export function reviewPriorityKeys(counts: PriorityCounts | null | undefined, view: RailRegion["view"], selected: readonly string[]): string[] {
+  const main: readonly string[] = ACTIVE_PRIORITY_KEYS;
+  return priorityOptions(counts, selected).filter((key) => !main.includes(key) && ((countFor(counts, key, view) ?? 0) > 0 || selected.includes(key)));
+}
+
+/** The Lead toggle as checkboxes, one choice at a time: checking an option selects it, unchecking one goes back to All. */
+function LeadChecks({ value, onChange, priorityCounts, region, legend }: SectionProps & { legend?: string }) {
   const preset = { priority: value.priority, attachment: value.attachment };
   const noLeadCount = countFor(priorityCounts, "no_lead", region.view);
   const leads = [
@@ -86,35 +97,47 @@ function PriorityRegion({ value, onChange, priorityCounts, region }: SectionProp
     { value: "none", label: copy.ui1.desk.lead.noLead },
   ] as const;
   return (
+    <Group legend={legend}>
+      {leads.map((option) => {
+        const active = value.attachment === option.value;
+        return (
+          <label key={option.label} className="si-check si-rail__check" data-rail-option={`lead:${option.value ?? "all"}`}>
+            <input type="checkbox" checked={active} onChange={() => onChange(leadChange(active ? null : option.value, preset))} />
+            <span className="si-rail__optlabel">{option.label}</span>
+            {option.value === "none" && noLeadCount != null && <span className="si-rail__optcount">{fmt(noLeadCount)}</span>}
+          </label>
+        );
+      })}
+    </Group>
+  );
+}
+
+/** Granot Priority (`Any priority` clears) and the Lead toggle. `No Lead` clears and disables Priority. */
+function PriorityRegion(props: SectionProps) {
+  const { value, onChange, priorityCounts, region } = props;
+  const noteId = useId();
+  const noLead = value.attachment === "none";
+  const preset = { priority: value.priority, attachment: value.attachment };
+  const option = (key: string) => {
+    const count = countFor(priorityCounts, key, region.view);
+    return (
+      <label key={key} className={cx("si-check si-rail__check", noLead && "is-disabled")} data-rail-option={`priority:${key}`}>
+        <input type="checkbox" checked={value.priority.includes(key)} disabled={noLead} aria-describedby={noLead ? noteId : undefined}
+          onChange={() => onChange({ priority: priorityToggle(key, preset).priority })} />
+        <span className="si-rail__optlabel">{priorityLabel(key)}</span>
+        {count != null && <span className="si-rail__optcount">{fmt(count)}</span>}
+      </label>
+    );
+  };
+  const review = reviewPriorityKeys(priorityCounts, region.view, value.priority);
+  return (
     <>
       <Group>
         <Check data="priority:any" checked={!noLead && value.priority.length === 0} disabled={noLead} onChange={() => onChange({ priority: [] })}>{r.anyPriority}</Check>
-        {priorityOptions(priorityCounts, ["0", "1", ...value.priority]).map((key) => {
-          const count = countFor(priorityCounts, key, region.view);
-          return (
-            <label key={key} className={cx("si-check si-rail__check", noLead && "is-disabled")} data-rail-option={`priority:${key}`}>
-              <input type="checkbox" checked={value.priority.includes(key)} disabled={noLead} aria-describedby={noLead ? noteId : undefined}
-                onChange={() => onChange({ priority: priorityToggle(key, preset).priority })} />
-              <span className="si-rail__optlabel">{priorityLabel(key)}</span>
-              {count != null && <span className="si-rail__optcount">{fmt(count)}</span>}
-            </label>
-          );
-        })}
+        {ACTIVE_PRIORITY_KEYS.map(option)}
       </Group>
-      <Group legend={copy.ui1.desk.lead.label}>
-        <div className="si-seg si-rail__seg" role="group" aria-label={copy.ui1.desk.lead.label}>
-          {leads.map((option) => {
-            const active = value.attachment === option.value;
-            return (
-              <button key={option.label} type="button" className={cx("si-seg__btn", active && "is-active")} aria-pressed={active} data-lead-btn={option.value ?? "all"}
-                onClick={() => onChange(leadChange(option.value, preset))}>
-                {option.label}
-                {option.value === "none" && noLeadCount != null && <span className="si-seg__count">{fmt(noLeadCount)}</span>}
-              </button>
-            );
-          })}
-        </div>
-      </Group>
+      {review.length > 0 && <Group legend={r.underReview}>{review.map(option)}</Group>}
+      <LeadChecks {...props} legend={copy.ui1.desk.lead.label} />
       {noLead && <p id={noteId} className="si-rail__hint">{copy.ui1.desk.lead.noLeadDisablesPresets}</p>}
     </>
   );
@@ -435,6 +458,7 @@ function ClosedTimeRegion({ value, onChange, asOf, capabilities, region }: Secti
 export function RegionBody(props: SectionProps) {
   switch (props.region.id) {
     case "priority": return <PriorityRegion {...props} />;
+    case "lead": return <LeadChecks {...props} />;
     case "followup": return <FollowupRegion {...props} />;
     case "rep": return <RepRegion {...props} />;
     case "time": return <TimeRegion {...props} />;

@@ -40,8 +40,10 @@ export function useDeskUrlState({ userId }: { userId?: string | null } = {}) {
     restored.current = true;
     if (state.priority.length || state.attachment || state.snapshot_id || state.view === "rep") return;
     const stored = readStoredPreset(userId);
-    if (!stored || !(stored.priority.length || stored.attachment)) return;
-    const next = deskUrlUpdate(query, { priority: stored.priority, attachment: stored.attachment }, role).toString();
+    // Closed has no Priority filter: only the Lead toggle is restored there.
+    const priority = state.view === "closed" ? [] : stored?.priority ?? [];
+    if (!stored || !(priority.length || stored.attachment)) return;
+    const next = deskUrlUpdate(query, { priority, attachment: stored.attachment }, role).toString();
     if (next !== query) startTransition(() => router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false }));
   }, [pathname, query, role, router, state.attachment, state.priority.length, state.snapshot_id, state.view, userId]);
 

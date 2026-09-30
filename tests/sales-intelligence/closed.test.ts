@@ -170,7 +170,7 @@ test("A15: history takes the Closed filters, and closed_before at the 90-day edg
   const hp = historyParams(closedHistoryParamsFromDesk(state), asOf, state.closed_to);
   const query = closedHistoryQuery(hp);
   assert.deepEqual(query.getAll("outcome"), ["booked", "granot_booked"]);
-  assert.deepEqual(query.getAll("priority"), ["5"]);
+  assert.deepEqual(query.getAll("priority"), [], "Closed has no Priority filter (Owner, 2026-09-30): an old URL's priority is not sent");
   assert.deepEqual(query.getAll("agent_id"), ["a1"]);
   assert.equal(query.get("closed_from"), "2026-01-01T05:00:00.000Z");
   assert.equal(query.get("q"), "ivan");
@@ -181,4 +181,5 @@ test("A15: history takes the Closed filters, and closed_before at the 90-day edg
   const params = attentionParamsFromDesk(state, "closed");
   assert.equal(params.sort, "lead_received");
   assert.equal(params.direction, "desc");
+  assert.deepEqual(params.priority, [], "nor on the Closed list");
 });

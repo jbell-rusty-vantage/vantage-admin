@@ -173,9 +173,10 @@ export function deskUrlUpdate(current: URLSearchParams | string, patch: DeskUrlP
   }
   if ("view" in patch && patch.view !== before.view && !("sort" in patch)) { next.sort = null; next.direction = null; }
   // OI §8.2: Closed history serves no work, follow-up assignee, involvement or snapshot pin, so moving to Closed drops
-  // them (a drill's pin belongs to its count) instead of landing on a blocked list.
+  // them (a drill's pin belongs to its count) instead of landing on a blocked list. Owner, 2026-09-30: Closed has no
+  // Priority filter (its Outcome filter says why a record closed), so the active desk's Priority doesn't follow either.
   if ("view" in patch && patch.view === "closed" && before.view !== "closed") {
-    const closedDrops: DeskUrlPatch = { work: [], followup_agent_id: [], relationship: null, agent: null, snapshot_id: null };
+    const closedDrops: DeskUrlPatch = { work: [], followup_agent_id: [], relationship: null, agent: null, snapshot_id: null, priority: [] };
     for (const [key, value] of Object.entries(closedDrops)) if (!(key in patch)) Object.assign(next, { [key]: value });
   }
   if ("sort" in patch && patch.sort !== before.sort && !("direction" in patch)) next.direction = null;
@@ -228,7 +229,7 @@ export function attentionParamsFromDesk(state: DeskUrlState, view: DeskView): At
     relationship: closed ? null : state.relationship, agent: closed ? null : state.agent, work: closed ? [] : state.work,
     move_date_mode: state.move_date_mode, move_days: state.move_days, move_on: state.move_on, move_from: state.move_from, move_through: state.move_through,
     loc_side: state.loc_side, loc_city: state.loc_city, loc_state: state.loc_state, loc_zip: state.loc_zip, snapshot_id: closed ? null : state.snapshot_id,
-    priority: state.priority, attachment: state.attachment,
+    priority: closed ? [] : state.priority, attachment: state.attachment,
     has_recording: state.has_recording, has_assessment: state.has_assessment, newer_call: state.newer_call,
     ti_min: state.ti_min, ml_min: state.ml_min, received_from: state.received_from, received_to: state.received_to,
     move_date_within: state.move_date_mode ? null : state.move_date_within, move_date_passed: state.move_date_mode ? false : state.move_date_passed,
@@ -242,9 +243,9 @@ export function overviewParamsFromDesk(state: DeskUrlState): OverviewParams {
   return { period: state.period, from: state.from, to: state.to, priority: state.priority };
 }
 
-/** Closed history takes the Closed view's outcome / Priority / rep filters (E27). */
+/** Closed history takes the Closed view's outcome / rep filters (E27); Closed has no Priority filter (Owner, 2026-09-30). */
 export function closedHistoryParamsFromDesk(state: DeskUrlState): ClosedHistoryParams {
-  return { outcome: state.outcome, priority: state.priority, agent_id: state.agent_id, closed_from: state.closed_from, q: state.q,
+  return { outcome: state.outcome, priority: [], agent_id: state.agent_id, closed_from: state.closed_from, q: state.q,
     assigned_agent_id: state.assigned_agent_id, assignment: state.assignment,
     move_date_mode: state.move_date_mode, move_days: state.move_days, move_on: state.move_on, move_from: state.move_from, move_through: state.move_through,
     loc_side: state.loc_side, loc_city: state.loc_city, loc_state: state.loc_state, loc_zip: state.loc_zip };

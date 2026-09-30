@@ -2,9 +2,10 @@
 /**
  * UI1-CARD: the Outreach card (UI-1 §2, final spec §5). One component for every list (grouped, flat, closed, rep pages);
  * seven slots in a fixed order through `CardShell`. 2026-09-29 refresh (the Owner's Claude Design reference): 1 band,
- * chips, state and rep · 2 name, phone / Job / source · 3 the Move / Estimate panel · 4 the Next panel with the card's
- * actions (a closed card shows its outcome there) · 5 the score bars · 6 the activity footer (received, last
- * conversation, last call, counts) · 7 the secondary line (promiser, reason, band age, sort line).
+ * chips, state and rep · 2 name, phone / Job / source · 3 the Move / Estimate panel · 4 the activity (received, last
+ * conversation, last call, counts) · 5 the Next panel with the card's actions (a closed card shows its outcome there)
+ * · 6 the score bars · 7 the secondary line (promiser, reason, band age, sort line). Owner, 2026-09-30: the times sit
+ * under the move; Next and the scores close the card.
  * A Number-review row (`outreach: null`) renders its identity, its interactions tile, `Needs review` and `Open`.
  */
 import type { ReactNode } from "react";
@@ -66,10 +67,10 @@ export function OutreachCard({
     <CardBandRow key="a" row={row} asOf={asOf} />,
     <CardIdentity key="b" o={o} />,
     <MovePanel key="c" o={o} asOf={asOf} />,
+    <ActivityFooter key="e" o={o} asOf={asOf} />,
     <NextPanel key="d" o={o} asOf={asOf} onApply={onApply ? () => onApply(row) : undefined} selectedFollowup={selectedFollowup} actions={actions}
       outcome={line6Override} outcomeLabel={outcome ? `Closed · ${outcomeWord(outcome.reason, rep)}` : undefined} booked={outcome?.reason === "booked"} />,
-    <ScoreBars key="e" o={o} />,
-    <ActivityFooter key="f" o={o} asOf={asOf} />,
+    <ScoreBars key="f" o={o} />,
     <CardSecondary key="g" row={row} o={o} asOf={asOf} recordings={false} sortLine={sortLine ? <SortLine sortLine={sortLine} /> : undefined} />,
   ];
   return (

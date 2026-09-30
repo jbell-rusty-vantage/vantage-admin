@@ -17,7 +17,7 @@ import { copy } from "../sales-intelligence-copy";
 import type { DeskUrlState } from "../data/url-state";
 
 export type RailView = "attention" | "all_outreach" | "closed";
-export type RailRegionId = "priority" | "followup" | "rep" | "time" | "location" | "band" | "status" | "analysis" | "outcome" | "closed_time";
+export type RailRegionId = "priority" | "lead" | "followup" | "rep" | "time" | "location" | "band" | "status" | "analysis" | "outcome" | "closed_time";
 
 export const RAIL_KEYS = [
   "band", "needs_review", "state", "agent_id", "unassigned", "has_recording", "has_assessment", "newer_call",
@@ -69,11 +69,15 @@ export function outreachRegions(view: "attention" | "all_outreach"): RailRegion[
   ];
 }
 
-/** Closed: Granot Priority · Outcome (with Booked in Granot) · Rep · Dates (closed, move) · Location. */
+/**
+ * Closed: Outcome · Lead · Rep · Dates (closed, move) · Location. No Granot Priority (Owner, 2026-09-30): Priority
+ * doesn't decide what is closed, and the Granot codes that close a record (5, 7, 8) are Outcome options already
+ * (Booked in Granot, CRM bad/unusable, CRM dead), next to the reasons Priority can't express (Booked, Cancelled…).
+ */
 export function closedRegions(): RailRegion[] {
   return [
-    priorityRegion("closed"),
     region("closed", "outcome", r.closedOutcome, ["outcome"]),
+    region("closed", "lead", copy.ui1.desk.lead.label, ["attachment"]),
     region("closed", "rep", r.rep, ["assigned_agent_id", "assignment", "agent_id", "unassigned"]),
     region("closed", "closed_time", r.dates, ["closed_from", "closed_to", ...MOVE_KEYS]),
     region("closed", "location", r.location, LOCATION_KEYS, false),

@@ -106,7 +106,7 @@ test("Overview, Closed history and timeline queries: repeated params, no empty v
   assert.equal(overviewQuery(overviewParamsFromDesk(state)).toString(), "period=custom&from=2026-09-01&to=2026-09-07&priority=0&priority=not_set");
   assert.equal(overviewQuery({ period: "today", from: "2026-09-01" }).toString(), "period=today", "from/to only with a custom period");
   assert.equal(overviewQuery({}).toString(), "");
-  assert.equal(closedHistoryQuery(closedHistoryParamsFromDesk(state)).toString(), "outcome=booked&outcome=granot_booked&priority=0&priority=not_set&agent_id=a1&limit=50");
+  assert.equal(closedHistoryQuery(closedHistoryParamsFromDesk(state)).toString(), "outcome=booked&outcome=granot_booked&agent_id=a1&limit=50", "Closed history takes no Priority");
   assert.equal(timelineQuery(["call", "band_changed"]).toString(), "kinds=band_changed&kinds=call&limit=50");
   assert.equal(withCursor("attention", url("view=attention"), "c1"), "attention?view=attention&cursor=c1");
   assert.equal(withCursor("overview", url(""), null), "overview");

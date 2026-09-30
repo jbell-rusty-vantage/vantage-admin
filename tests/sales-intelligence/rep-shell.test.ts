@@ -69,7 +69,7 @@ test("UI-2 §1: a rep's page never sends agent_id or unassigned, even when the a
 test("UI-2 §3: a rep's sidebar has every section but Rep", () => {
   assert.deepEqual(regionsFor("attention", true).map((r) => r.id), ["priority", "followup", "time", "location", "band", "status", "analysis"]);
   assert.deepEqual(regionsFor("all_outreach", true).map((r) => r.id), ["priority", "followup", "time", "location", "band", "status", "analysis"]);
-  assert.deepEqual(regionsFor("closed", true).map((r) => r.id), ["priority", "outcome", "closed_time", "location"]);
+  assert.deepEqual(regionsFor("closed", true).map((r) => r.id), ["outcome", "lead", "closed_time", "location"]);
   assert.deepEqual(regionsFor("attention").map((r) => r.id), ["priority", "followup", "rep", "time", "location", "band", "status", "analysis"]);
 });
 

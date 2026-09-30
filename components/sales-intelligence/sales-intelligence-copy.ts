@@ -1143,6 +1143,7 @@ export const copy = {
         dates: "Dates",
         location: "Location",
         anyPriority: "Any priority",
+        underReview: "Under review",
         clearAll: "Clear all",
         hide: "Hide filters",
         show: "Show filters",

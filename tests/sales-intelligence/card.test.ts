@@ -113,15 +113,15 @@ fixtureTest("A01: a Number-only subject prints its specific nulls and an unknown
   assert.ok(l[1]!.includes("Previous version"));
   assert.ok(decode(html).includes(`href="${legacyNumberHref("6ab448710705ca95222b49be")}"`), "identity links to the legacy Number");
   assert.ok(l[2]!.includes("Move date unknown") && l[2]!.includes("Route unknown"));
-  const t = stats(lines(html)[5]!);
+  const t = stats(lines(html)[3]!);
   assert.deepEqual(Object.keys(t), STAT_ORDER);
   assert.equal(t.received, "Received Not a Lead");
   assert.equal(t["last-conversation"], "Last conversation None");
   assert.match(t["last-call"]!, /^Last call \d/);
-  assert.equal(counts(lines(html)[5]!), "3 calls / 0 conversations / 0 recordings analyzed");
-  assert.ok(l[4]!.startsWith("Transaction intent Not assessedMove likelihood Not assessed"), l[4]);
-  assert.ok(l[3]!.startsWith("NextNo next step set"), l[3]);
-  assert.ok(l[3]!.includes("No rep to message"), "Message rep stays in the panel, disabled with its reason");
+  assert.equal(counts(lines(html)[3]!), "3 calls / 0 conversations / 0 recordings analyzed");
+  assert.ok(l[5]!.startsWith("Transaction intent Not assessedMove likelihood Not assessed"), l[5]);
+  assert.ok(l[4]!.startsWith("NextNo next step set"), l[4]);
+  assert.ok(l[4]!.includes("No rep to message"), "Message rep stays in the panel, disabled with its reason");
   assert.ok(l[6]!.startsWith("Nobody owns this work"), l[6]);
   assert.ok(!l[6]!.includes("recordings analyzed"), "recordings are counted in the footer, not repeated on the secondary line");
   assert.ok(l[0]!.includes("Unassigned") && html.includes("si-repavatar is-unassigned"), "unassigned avatar");
@@ -131,11 +131,11 @@ fixtureTest("A01 (nulls): no Number, no conversation, no call, unknown score", (
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", byName("Maria Klein"));
   const html = render(row, asOf);
   const l = lines(html).map(text);
-  const t = stats(lines(html)[5]!);
-  assert.equal(counts(lines(html)[5]!), "No Number on file", "no Number: the counts say why");
+  const t = stats(lines(html)[3]!);
+  assert.equal(counts(lines(html)[3]!), "No Number on file", "no Number: the counts say why");
   assert.equal(t["last-conversation"], "Last conversation None");
   assert.equal(t["last-call"], "Last call None");
-  assert.ok(l[4]!.includes("Transaction intent Unknown"), l[4]);
+  assert.ok(l[5]!.includes("Transaction intent Unknown"), l[5]);
 });
 
 fixtureTest("A02: `Received 4d ago` prints the exact ET time under it, from as_of", () => {
@@ -149,7 +149,7 @@ fixtureTest("A02: `Received 4d ago` prints the exact ET time under it, from as_o
     html.includes(`<span class="si-card__stat" data-stat="received"><span class="si-card__statlabel">Received</span> <time class="si-card__statvalue" dateTime="${t}">4d ago</time> <span class="si-card__statexact">${exact}</span></span>`),
     "received: label first, relative value, the exact time visible (never hover-only)",
   );
-  assert.equal(stats(lines(html)[5]!).received, "Received 4d ago");
+  assert.equal(stats(lines(html)[3]!).received, "Received 4d ago");
 });
 
 fixtureTest("activity stats in the fixed order on every card; the move pill counts down, and turns amber only on the server's move_date_passed", () => {
@@ -158,7 +158,7 @@ fixtureTest("activity stats in the fixed order on every card; the move pill coun
   for (const row of rows) {
     if (!row.outreach) continue;
     const html = render(row, asOf);
-    assert.deepEqual(Object.keys(stats(lines(html)[5]!)), STAT_ORDER, row.subject_key);
+    assert.deepEqual(Object.keys(stats(lines(html)[3]!)), STAT_ORDER, row.subject_key);
     const f = row.outreach.facts;
     const p = pill(html);
     if (!f?.route?.move_date) {
@@ -202,7 +202,7 @@ fixtureTest("A04: no `%` in any card", () => {
     for (const row of rows) assert.ok(!render(row, asOf, { layout: "flat" }).includes("%"), `${rel} ${row.subject_key}`);
   }
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", byName("Ivan Sato"));
-  const l5 = text(lines(render(row, asOf))[4]!);
+  const l5 = text(lines(render(row, asOf))[5]!);
   assert.ok(l5.startsWith("Transaction intent 75 / 100StrongMove likelihood "), l5);
   assert.ok(l5.includes("Ordinal evidence assessment out of 100. Not a percentage or a booking probability."));
 });
@@ -210,7 +210,7 @@ fixtureTest("A04: no `%` in any card", () => {
 fixtureTest("A04 (stale): the stale reason is a tooltip sentence on the score line, never a chip", () => {
   const { row, asOf } = rowBy("S1/attention__all-outreach.json", byName("Hannah Duarte"));
   const l = lines(render(row, asOf));
-  assert.ok(text(l[4]!).includes("Assessment stale: move date passed"));
+  assert.ok(text(l[5]!).includes("Assessment stale: move date passed"));
   assert.ok(!text(l[0]!).includes("stale"));
   assert.ok(text(l[2]!).includes("(passed)"), "row C marks the passed date");
 });
@@ -313,33 +313,33 @@ fixtureTest("reason phrases: every fixture key has its own phrase, followups_due
 
 fixtureTest("the Next panel: retry, the Default note, Apply, the due line, Message rep inside, and the closed override", () => {
   const retry = rowBy("AC/attention__all-outreach.json", byName("Keisha Nair"));
-  const rl = text(lines(render(retry.row, retry.asOf))[3]!);
+  const rl = text(lines(render(retry.row, retry.asOf))[4]!);
   assert.ok(rl.startsWith(`Next${retry.row.outreach!.next_action!.description}Due `), rl);
   assert.ok(rl.includes("Try again (1 of 2)"), rl);
 
   const dflt = rowBy("AC/attention__all-outreach.json", byName("Hannah Nair"));
-  const dhtml = lines(render(dflt.row, dflt.asOf))[3]!;
+  const dhtml = lines(render(dflt.row, dflt.asOf))[4]!;
   assert.ok(text(dhtml).includes("Default — Created by the system when the Lead was quoted."));
   assert.ok(/data-next="overdue"/.test(dhtml) && text(dhtml).startsWith("Next · Overdue"), "overdue panel from the server's next_action_state");
   assert.ok(/si-text--amber"> · overdue \d/.test(dhtml), "overdue due clause is amber (server next_action_state)");
 
   const noDue = rowBy("S1/attention__all-outreach.json", byName("Carlos Sato"));
-  assert.ok(text(lines(render(noDue.row, noDue.asOf))[3]!).includes("Due date needed"));
+  assert.ok(text(lines(render(noDue.row, noDue.asOf))[4]!).includes("Due date needed"));
 
   const dueSoon = rowBy("S1/attention__all-outreach.json", byName("Priya Nair"));
   const dhtml2 = render(dueSoon.row, dueSoon.asOf, { onMessageRep: () => {} });
-  const dl = text(lines(dhtml2)[3]!);
+  const dl = text(lines(dhtml2)[4]!);
   assert.ok(/Due Sep 24, 8:45 PM ET · in \d/.test(dl), dl);
-  assert.ok(lines(dhtml2)[3]!.includes('data-action="message-rep"'), "Message rep sits in the Next panel");
+  assert.ok(lines(dhtml2)[4]!.includes('data-action="message-rep"'), "Message rep sits in the Next panel");
 
   const sug = rowBy("AC/attention__all-outreach.json", (r) => !!r.outreach?.suggested_next_step?.apply?.enabled);
   const shtml = render(sug.row, sug.asOf, { onApplySuggestion: () => {} });
-  assert.ok(text(lines(shtml)[3]!).startsWith(`Suggested${sug.row.outreach!.suggested_next_step!.description}`));
+  assert.ok(text(lines(shtml)[4]!).startsWith(`Suggested${sug.row.outreach!.suggested_next_step!.description}`));
   assert.ok(/<button[^>]*aria-label="Apply the suggested next step: [^"]*"[^>]*>Apply<\/button>/.test(decode(shtml)));
   assert.ok(!render(sug.row, sug.asOf).includes(">Apply</button>"), "no Apply without a handler");
 
   const override = render(dueSoon.row, dueSoon.asOf, { line6Override: createElement("span", { "data-override": "1" }, "Closed · Booked") as ReactNode });
-  assert.ok(lines(override)[3]!.includes('data-override="1"'));
+  assert.ok(lines(override)[4]!.includes('data-override="1"'));
 });
 
 fixtureTest("layouts and lists: band tag first in both layouts, sort line, closed actions, Message rep rule, Number-review row", () => {

@@ -173,7 +173,7 @@ function ChipsArea({ view, state, update, asOf, rosterAvailable, onClearAll, res
       {(reps) => {
         const chips = activeFilterChips(state, regions, reps, { onChange: update, asOf, rep });
         const add = (key: string, label: string, patch: DeskUrlPatch) => chips.push({ key, label, patch, remove: () => update(patch) });
-        for (const code of state.priority) add(`priority:${code}`, `Granot Priority: ${priorityLabel(code)}`, { priority: state.priority.filter((item) => item !== code) });
+        if (view !== "closed") for (const code of state.priority) add(`priority:${code}`, `Granot Priority: ${priorityLabel(code)}`, { priority: state.priority.filter((item) => item !== code) });
         if (state.attachment) add("attachment", state.attachment === "lead" ? "Has a Lead" : "No Lead", { attachment: null });
         if (state.q) add("q", `Search: ${state.q}`, { q: null });
         for (const id of state.assigned_agent_id) add(`assigned:${id}`, `Assigned: ${reps.find((item) => item.id === id)?.name ?? "Unknown rep"}`, { assigned_agent_id: state.assigned_agent_id.filter((item) => item !== id) });
@@ -203,18 +203,6 @@ function ChipsArea({ view, state, update, asOf, rosterAvailable, onClearAll, res
 function ConnectedChipsArea({ params, ...props }: RailProps & { params: AttentionParams; onClearAll: () => void }) {
   const list = useAttentionList(params);
   return <ChipsArea {...props} resolvedWindow={list.data.pages[0]?.data.resolved_move_window} />;
-}
-
-function PriorityClosedLink({ params, state, role, capabilities }: { params: AttentionParams; state: DeskUrlState; role: UrlRole; capabilities: ReturnType<typeof useAttentionCapabilities> }) {
-  const list = useAttentionList(params);
-  if (params.view === "closed" || !state.priority.length || list.status !== "ready" || list.totalItems !== 0) return null;
-  const closed = capabilities?.closed_history;
-  const query = serializeDeskUrl({ view: "closed", priority: state.priority, q: state.q, agent_id: state.agent_id,
-    ...(closed?.assignment ? { assigned_agent_id: state.assigned_agent_id, assignment: state.assignment } : {}),
-    ...(closed?.location ? { loc_side: state.loc_side, loc_city: state.loc_city, loc_state: state.loc_state, loc_zip: state.loc_zip } : {}),
-    ...(closed?.move_date ? { move_date_mode: state.move_date_mode, move_days: state.move_days, move_on: state.move_on, move_from: state.move_from, move_through: state.move_through } : {}),
-  }, role).toString();
-  return <p className="si-desk__notice">Closed Outreach records are available in <Link href={`/sales-intelligence?${query}`}>Closed</Link>.</p>;
 }
 
 /** Loose writer for the kept RingCentral Accounts view (it writes its own keys). */
@@ -311,7 +299,6 @@ function DeskList({ view, state, query, update, pending, repView = false, select
           </Region>
           {expired ? <p role="status" className="si-desk__notice">{copy.oi.repView.expired} <Link href={`/sales-intelligence?${deskUrlUpdate(query, { snapshot_id: null }, rep ? "rep" : "owner").toString()}`}>{copy.oi.repView.latest}</Link></p> : capabilitiesPending ? <OutreachListView.Skeleton /> : blocked && <div role="status" className="si-desk__notice"><p>{unavailable.join(", ")}: {unavailable.some((name) => name.startsWith("Invalid")) ? "Invalid filter value." : "Not available yet."} Your selections remain in the URL. Remove a chip or clear filters to continue.</p>{view === "closed" && state.sort === "move_date" && <button type="button" className="si-btn si-btn--secondary si-hit" onClick={() => update({ sort: null, direction: null })}>Reset sort</button>}</div>}
           {!repView && !expired && state.snapshot_id && <SnapshotFreshness pinned={state.snapshot_id} query={query} priority={state.priority} role={rep ? "rep" : "owner"} />}
-          {!blocked && <Region name="priority-closed-link" skeleton={null}><PriorityClosedLink params={params} state={state} role={rep ? "rep" : "owner"} capabilities={capabilities} /></Region>}
           <Notices search={notices.search} sort={notices.sort} />
           {blocked ? null : view === "closed" ? (
             <ClosedListRegion
