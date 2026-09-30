@@ -66,11 +66,11 @@ test("UI-2 §1: a rep's page never sends agent_id or unassigned, even when the a
   assert.equal(deskUrlUpdate("view=closed&priority=1", { view: "all_outreach" }, "rep").toString(), "priority=1");
 });
 
-test("UI-2 §3: a rep's rail has no Rep region (Band · Status · Analysis · Time; Outcome · Time closed)", () => {
-  assert.deepEqual(regionsFor("attention", true).map((r) => r.id), ["band", "status", "analysis", "time"]);
-  assert.deepEqual(regionsFor("all_outreach", true).map((r) => r.id), ["band", "status", "analysis", "time"]);
-  assert.deepEqual(regionsFor("closed", true).map((r) => r.id), ["outcome", "closed_time"]);
-  assert.deepEqual(regionsFor("attention").map((r) => r.id), ["band", "status", "rep", "analysis", "time"]);
+test("UI-2 §3: a rep's sidebar has every section but Rep", () => {
+  assert.deepEqual(regionsFor("attention", true).map((r) => r.id), ["priority", "followup", "time", "location", "band", "status", "analysis"]);
+  assert.deepEqual(regionsFor("all_outreach", true).map((r) => r.id), ["priority", "followup", "time", "location", "band", "status", "analysis"]);
+  assert.deepEqual(regionsFor("closed", true).map((r) => r.id), ["priority", "outcome", "closed_time", "location"]);
+  assert.deepEqual(regionsFor("attention").map((r) => r.id), ["priority", "followup", "rep", "time", "location", "band", "status", "analysis"]);
 });
 
 test("A02: the rep's not-available page (out of scope or missing: the same 404) links back to My Outreach", () => {

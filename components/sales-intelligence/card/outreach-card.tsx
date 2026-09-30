@@ -1,35 +1,22 @@
 "use client";
 /**
  * UI1-CARD: the Outreach card (UI-1 §2, final spec §5). One component for every list (grouped, flat, closed, rep pages);
- * seven rows in a fixed order through `CardShell`, laid out by OUTREACH-CARD-LAYOUT-SPECIFICATION §3: A band + rep,
- * B identity, C metric tiles, D scores, E move info, F next step, G secondary. Row E is empty (and hidden) without a
- * route. A Number-review row (`outreach: null`) renders its identity, its interactions tile, `Needs review` and `Open`.
+ * seven slots in a fixed order through `CardShell`. 2026-09-29 refresh (the Owner's Claude Design reference): 1 band,
+ * chips, state and rep · 2 name, phone / Job / source · 3 the Move / Estimate panel · 4 the Next panel with the card's
+ * actions (a closed card shows its outcome there) · 5 the score bars · 6 the activity footer (received, last
+ * conversation, last call, counts) · 7 the secondary line (promiser, reason, band age, sort line).
+ * A Number-review row (`outreach: null`) renders its identity, its interactions tile, `Needs review` and `Open`.
  */
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { CardShell } from "../primitives";
-import { legacyNumberHref } from "../lib/legacy-links";
 import { copy } from "../sales-intelligence-copy";
 import { cx } from "../lib/format";
 import { outreachRouteHref } from "../outreach/deep-links";
 import { useIsRep } from "../rep/viewer";
 import { CardActions, NumberReviewActions } from "./card-actions";
-import {
-  CardBandRow,
-  CardSecondary,
-  ChipView,
-  LineFive,
-  LineSix,
-  MetricTiles,
-  SortLine,
-  identityText,
-  formatE164,
-  isNumberOnly,
-  lineOneChips,
-  metricTiles,
-  MoveLine,
-  type CardRow,
-} from "./card-lines";
+import { CardBandRow, CardSecondary, ChipView, MetricTiles, SortLine, identityText, isNumberOnly, lineOneChips, type CardRow } from "./card-lines";
+import { ActivityFooter, CardIdentity, MovePanel, NextPanel, ScoreBars } from "./card-sections";
+import { outcomeWord } from "./outcome-line";
 
 const c = copy.ui1.card;
 
@@ -46,34 +33,10 @@ export type OutreachCardProps = {
   onApplySuggestion?: (row: CardRow) => void;
   /** UI1-CHAT passes the nudge-destination rule's reason; `null` forces enabled; omitted uses the card's default rule. */
   messageRepDisabledReason?: string | null;
-  /** UI1-CLOSED's `Closed · {outcome}` line replaces line 6 on a closed record. */
+  /** UI1-CLOSED's outcome line: it takes the Next panel's place on a closed record. */
   line6Override?: ReactNode;
   selectedFollowup?: { id: string; name: string } | null;
 };
-
-/**
- * Number-only identity links to the legacy Number (UI-1 §1.3), with the `Previous version` note. UI2-SCOPE: not for a
- * rep (the Numbers view is Owner-only), whose identity is plain text.
- */
-function Identity({ row }: { row: CardRow }) {
-  const o = row.outreach!;
-  const text = identityText(o);
-  const rep = useIsRep();
-  if (isNumberOnly(o) && o.primary_number && !rep) {
-    return (
-      <>
-        <Link className="si-card__idlink" href={legacyNumberHref(o.primary_number.id)}>
-          {text}
-        </Link>
-        <span className="si-card__prev si-text--sm si-text--subtle">{c.previousVersion}</span>
-      </>
-    );
-  }
-  if (isNumberOnly(o)) return <>{text}</>;
-  const meta = [formatE164(o.primary_number?.e164), o.lead_display?.job_no ? c.job(o.lead_display.job_no) : null, o.lead_display?.source_company]
-    .filter(Boolean).join(" · ");
-  return <><strong className="si-card__name">{o.lead_display?.name || c.unknownName}</strong>{meta && <span className="si-card__meta"> · {meta}</span>}</>;
-}
 
 export function OutreachCard({
   row,
@@ -97,16 +60,17 @@ export function OutreachCard({
   const closed = view === "closed" || o.state === "closed";
   const live = !!o.live_call || o.call_progress?.state === "in_progress";
   const band = row.derived.attention_band;
+  const actions = <CardActions o={o} closed={closed} onMessageRep={onMessage ? () => onMessage(row) : undefined} messageRepDisabledReason={messageRepDisabledReason} />;
+  const outcome = row.outcome;
   const lines: ReactNode[] = [
     <CardBandRow key="a" row={row} asOf={asOf} />,
-    <span key="b" className="si-card__identity">
-      <Identity row={row} />
-    </span>,
-    <MoveLine key="c" o={o} asOf={asOf} />,
-    <MetricTiles key="d" tiles={metricTiles(o, asOf)} />,
-    <LineFive key="e" o={o} />,
-    line6Override ?? <LineSix key="f" o={o} asOf={asOf} onApply={onApply ? () => onApply(row) : undefined} selectedFollowup={selectedFollowup} />,
-    <CardSecondary key="g" row={row} o={o} asOf={asOf} sortLine={sortLine ? <SortLine sortLine={sortLine} /> : undefined} />,
+    <CardIdentity key="b" o={o} />,
+    <MovePanel key="c" o={o} asOf={asOf} />,
+    <NextPanel key="d" o={o} asOf={asOf} onApply={onApply ? () => onApply(row) : undefined} selectedFollowup={selectedFollowup} actions={actions}
+      outcome={line6Override} outcomeLabel={outcome ? `Closed · ${outcomeWord(outcome.reason, rep)}` : undefined} booked={outcome?.reason === "booked"} />,
+    <ScoreBars key="e" o={o} />,
+    <ActivityFooter key="f" o={o} asOf={asOf} />,
+    <CardSecondary key="g" row={row} o={o} asOf={asOf} recordings={false} sortLine={sortLine ? <SortLine sortLine={sortLine} /> : undefined} />,
   ];
   return (
     <CardShell
@@ -118,14 +82,6 @@ export function OutreachCard({
       href={outreachRouteHref(o.id, { siReturn: returnTo })}
       onNavigate={onNavigate ? () => onNavigate(row) : undefined}
       openLabel={copy.oi.card.open(identityText(o))}
-      actions={
-        <CardActions
-          o={o}
-          closed={closed}
-          onMessageRep={onMessage ? () => onMessage(row) : undefined}
-          messageRepDisabledReason={messageRepDisabledReason}
-        />
-      }
     />
   );
 }

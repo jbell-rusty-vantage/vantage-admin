@@ -1,23 +1,29 @@
 /**
- * UI1-RAIL: the rail's regions and the pure helpers behind them (UI-1 §3.3, §3.5; final spec §7.3, §8).
- * Needs Attention and All Outreach have five regions (Band · Status · Rep · Analysis · Time); Closed has
- * three (Outcome · Rep · Time closed). Priority and the Lead toggle live in the preset bar, not here (UX7, UX24).
+ * UI1-RAIL: the filter sidebar's sections and the pure helpers behind them (UI-1 §3.3, §3.5; final spec §7.3, §8).
+ * The sidebar is the desk's only filter surface (2026-09-29 cleanup): Granot Priority and the Lead toggle, Follow-up,
+ * Rep, Dates, Location, Band, Status and Analysis on Needs Attention / All Outreach; Granot Priority, Outcome, Rep,
+ * Dates and Location on Closed. The sort stays above the list; the metrics strip stays for context.
  *
  * Server params (S2 CONTRACT): `band`, `needs_review`, `state`, `agent_id`, `unassigned`, `has_recording`,
  * `has_assessment`, `newer_call`, `ti_min`, `ml_min`, `received_from/to`, `move_date_within`, `move_date_passed`;
  * Closed: `outcome`, `closed_from/to`. `received_*` and `closed_*` are ISO instants, half-open `[from, to)`.
  * A window (`last 7d`) is `from = as_of − 7d`, taken from the response's `as_of`, never the browser clock. A custom
  * range is two ET calendar days: `from` = ET midnight of the first day, `to` = ET midnight after the last day.
+ * OI-A4 families (`priority`, `attachment`, `work`, `assigned_agent_id`, `relationship`, `move_date_mode`, `loc_*` …)
+ * are gated by the server's capabilities; their chips are built by the desk (the move date chip needs the list's
+ * resolved window), so `activeFilterChips` skips those sections.
  */
 import { copy } from "../sales-intelligence-copy";
 import type { DeskUrlState } from "../data/url-state";
 
 export type RailView = "attention" | "all_outreach" | "closed";
-export type RailRegionId = "band" | "status" | "rep" | "analysis" | "time" | "outcome" | "closed_time";
+export type RailRegionId = "priority" | "followup" | "rep" | "time" | "location" | "band" | "status" | "analysis" | "outcome" | "closed_time";
 
 export const RAIL_KEYS = [
   "band", "needs_review", "state", "agent_id", "unassigned", "has_recording", "has_assessment", "newer_call",
   "ti_min", "ml_min", "received_from", "received_to", "move_date_within", "move_date_passed", "outcome", "closed_from", "closed_to",
+  "priority", "attachment", "work", "followup_agent_id", "assigned_agent_id", "assignment", "relationship", "agent",
+  "move_date_mode", "move_days", "move_on", "move_from", "move_through", "loc_side", "loc_city", "loc_state", "loc_zip",
 ] as const;
 export type RailKey = (typeof RAIL_KEYS)[number];
 /** The slice of the desk URL state the rail reads (`useDeskUrlState().state` fits as is). */
@@ -29,8 +35,12 @@ export type RailRep = { id: string; name: string; active?: boolean };
 export type RailRegion = {
   id: RailRegionId;
   title: string;
+  /** The desk this section belongs to (Priority counts and Closed capabilities read it). */
+  view: RailView;
   /** Disclosure memory key (localStorage), per desk: `si.rail.{view}.{region}`. */
   storageId: string;
+  /** Open until the viewer closes it (then remembered). */
+  defaultOpen: boolean;
   /** The URL / server params this region owns; clearing the region resets exactly these. */
   params: readonly RailKey[];
 };
@@ -38,25 +48,35 @@ export type RailRegion = {
 const r = copy.ui1.desk.rail;
 export const railStorageId = (view: RailView, region: RailRegionId) => `si.rail.${view}.${region}`;
 
-const region = (view: RailView, id: RailRegionId, title: string, params: readonly RailKey[]): RailRegion => ({ id, title, storageId: railStorageId(view, id), params });
+const region = (view: RailView, id: RailRegionId, title: string, params: readonly RailKey[], defaultOpen = true): RailRegion =>
+  ({ id, title, view, storageId: railStorageId(view, id), defaultOpen, params });
 
-/** Needs Attention / All Outreach: five regions, in order. */
+const MOVE_KEYS = ["move_date_mode", "move_days", "move_on", "move_from", "move_through", "move_date_within", "move_date_passed"] as const;
+const LOCATION_KEYS = ["loc_side", "loc_city", "loc_state", "loc_zip"] as const;
+const priorityRegion = (view: RailView) => region(view, "priority", r.priority, ["priority", "attachment"]);
+
+/** Needs Attention / All Outreach, in order. */
 export function outreachRegions(view: "attention" | "all_outreach"): RailRegion[] {
   return [
-    region(view, "band", r.band, ["band", "needs_review"]),
-    region(view, "status", r.status, ["state"]),
-    region(view, "rep", "Rep involved (legacy bookmarks)", ["agent_id", "unassigned"]),
-    region(view, "analysis", r.analysis, ["has_recording", "has_assessment", "newer_call", "ti_min", "ml_min"]),
-    region(view, "time", r.time, ["received_from", "received_to", "move_date_within", "move_date_passed"]),
+    priorityRegion(view),
+    region(view, "followup", r.followup, ["work", "followup_agent_id"]),
+    region(view, "rep", r.rep, ["assigned_agent_id", "assignment", "relationship", "agent", "agent_id", "unassigned"]),
+    region(view, "time", r.dates, ["received_from", "received_to", ...MOVE_KEYS]),
+    region(view, "location", r.location, LOCATION_KEYS, false),
+    region(view, "band", r.band, ["band", "needs_review"], false),
+    region(view, "status", r.status, ["state"], false),
+    region(view, "analysis", r.analysis, ["has_recording", "has_assessment", "newer_call", "ti_min", "ml_min"], false),
   ];
 }
 
-/** Closed: Outcome (with Booked in Granot) · Rep · Closed (time). */
+/** Closed: Granot Priority · Outcome (with Booked in Granot) · Rep · Dates (closed, move) · Location. */
 export function closedRegions(): RailRegion[] {
   return [
+    priorityRegion("closed"),
     region("closed", "outcome", r.closedOutcome, ["outcome"]),
-    region("closed", "rep", "Rep involved (legacy bookmarks)", ["agent_id", "unassigned"]),
-    region("closed", "closed_time", r.closedTime, ["closed_from", "closed_to"]),
+    region("closed", "rep", r.rep, ["assigned_agent_id", "assignment", "agent_id", "unassigned"]),
+    region("closed", "closed_time", r.dates, ["closed_from", "closed_to", ...MOVE_KEYS]),
+    region("closed", "location", r.location, LOCATION_KEYS, false),
   ];
 }
 
@@ -154,10 +174,19 @@ export function clearRegion(regionDef: RailRegion): RailPatch {
 
 export function emptyValue(key: RailKey): RailValue[RailKey] {
   switch (key) {
-    case "band": case "state": case "agent_id": case "outcome": return [];
+    case "band": case "state": case "agent_id": case "outcome": case "priority": case "work": case "followup_agent_id": case "assigned_agent_id": return [];
     case "needs_review": case "unassigned": case "has_recording": case "has_assessment": case "newer_call": case "move_date_passed": return false;
     default: return null;
   }
+}
+
+/** How many of a section's params hold a value (the number beside its title). `loc_side` alone is not a filter. */
+export function regionActiveCount(regionDef: RailRegion, value: RailValue): number {
+  const keys = regionDef.params.filter((key) => key !== "loc_side" && key !== "relationship" && key !== "move_days" && key !== "move_on" && key !== "move_from" && key !== "move_through");
+  return keys.reduce((n, key) => {
+    const v = value[key];
+    return n + (Array.isArray(v) ? v.length : v !== null && v !== undefined && v !== false ? 1 : 0);
+  }, 0);
 }
 
 /** The patch that clears every region in `regions` (the desk's `Clear filters`). */

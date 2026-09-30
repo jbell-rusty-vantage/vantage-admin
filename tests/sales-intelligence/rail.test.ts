@@ -19,29 +19,34 @@ const empty = (): RailValue => parseDeskUrl(new URLSearchParams());
 const value = (query: string): RailValue => parseDeskUrl(new URLSearchParams(query));
 const decode = (s: string) => s.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
 
-test("five regions on the outreach rail, three on the closed rail, each remembered per desk", () => {
+test("the sidebar holds every filter: eight sections on the outreach desks, five on Closed, each remembered per desk", () => {
   for (const view of ["attention", "all_outreach"] as const) {
     const regions = outreachRegions(view);
-    assert.deepEqual(regions.map((r) => r.title), ["Band", "Status", "Rep involved (legacy bookmarks)", "Analysis", "Time"]);
-    assert.deepEqual(regions.map((r) => r.storageId), ["band", "status", "rep", "analysis", "time"].map((id) => `si.rail.${view}.${id}`));
-    // No Lead attachment / Priority here (UX7, UX24).
-    assert.ok(!regions.some((r) => r.params.some((p) => (p as string) === "priority" || (p as string) === "attachment")));
+    assert.deepEqual(regions.map((r) => r.title), ["Granot Priority", "Follow-up", "Rep", "Dates", "Location", "Band", "Status", "Analysis"]);
+    assert.deepEqual(regions.map((r) => r.storageId), ["priority", "followup", "rep", "time", "location", "band", "status", "analysis"].map((id) => `si.rail.${view}.${id}`));
+    assert.deepEqual(regions.filter((r) => r.defaultOpen).map((r) => r.id), ["priority", "followup", "rep", "time"]);
+    // Priority and the Lead toggle live here now (2026-09-29 cleanup); clearing the section clears both.
+    assert.deepEqual(regions[0].params, ["priority", "attachment"]);
   }
   const closed = closedRegions();
-  assert.deepEqual(closed.map((r) => r.title), ["Outcome", "Rep involved (legacy bookmarks)", "Closed"]);
-  assert.deepEqual(closed.map((r) => r.storageId), ["si.rail.closed.outcome", "si.rail.closed.rep", "si.rail.closed.closed_time"]);
+  assert.deepEqual(closed.map((r) => r.title), ["Granot Priority", "Outcome", "Rep", "Dates", "Location"]);
+  assert.deepEqual(closed.map((r) => r.storageId), ["priority", "outcome", "rep", "closed_time", "location"].map((id) => `si.rail.closed.${id}`));
 });
 
 test("the rail renders each region as an open disclosure with the §7.3 controls", () => {
   const html = decode(renderToStaticMarkup(createElement(FilterRail, { regions: outreachRegions("attention"), value: empty(), onChange: () => {}, reps: REPS, asOf: AS_OF })));
   assert.ok(html.startsWith('<aside class="si-rail is-responsive" aria-label="Filters"'));
-  assert.equal((html.match(/class="si-disclosure is-open si-rail__region"/g) ?? []).length, 5);
-  assert.equal((html.match(/aria-expanded="true"/g) ?? []).length, 5);
+  assert.equal((html.match(/class="si-disclosure is-open si-rail__region"/g) ?? []).length, 4);
+  assert.equal((html.match(/class="si-disclosure si-rail__region"/g) ?? []).length, 4);
+  for (const key of ["0", "1", "3", "5", "7", "8", "not_set"]) assert.ok(html.includes(`data-rail-option="priority:${key}"`), `priority ${key}`);
+  assert.ok(html.includes('data-lead-btn="none"') && html.includes(">Has a Lead<"));
+  for (const label of ["Overdue", "Due today", "No next step", "Blocked from calling", "Assigned rep", "Involvement", "Follow-up assignee", "Move date", "City contains"]) assert.ok(html.includes(label), label);
   for (let n = 1; n <= 7; n += 1) assert.ok(html.includes(`data-rail-option="band:${n}"`), `band ${n}`);
   assert.ok(html.includes("Promised callbacks overdue · Band 1") && html.includes("Needs review"));
   for (const label of ["Unworked", "Open", "Waiting on customer", "Identity review"]) assert.ok(html.includes(`>${label}<`), label);
   assert.ok(!html.includes("Rep replied"), "no Rep replied chip until UI-4");
   assert.ok(html.includes(">Any rep<") && html.includes(">Dana Reyes<") && html.includes(">Unassigned<"));
+  assert.ok(!html.includes("legacy bookmarks"), "old agent_id links apply as chips, with no control of their own");
   for (const label of ["Has recording", "Has assessment", "Newer call since assessment", "Transaction intent at least", "Move likelihood at least"]) assert.ok(html.includes(label), label);
   for (const n of [25, 50, 75]) assert.ok(html.includes(`data-rail-option="ti_min:${n}"`) && html.includes(`data-rail-option="ml_min:${n}"`));
   for (const label of ["Lead received", "Last 24h", "Last 7d", "Last 30d", "Custom range"]) assert.ok(html.includes(label), label);
@@ -62,7 +67,8 @@ test("selected values render checked, and a window is recognised from the stored
   };
   for (const opt of ["band:1", "band:3", "needs_review", "state:open", "has_recording", "ti_min:50", "ml_min:any", "received:7d"]) assert.ok(checked(opt), opt);
   for (const opt of ["band:2", "state:unworked", "ti_min:any", "received:any", "received:custom"]) assert.ok(!checked(opt), opt);
-  assert.match(html, /<option value="agent-b" selected="">Alex Kim<\/option>/);
+  // A section's title counts its values: Band 1, Band 3 and Needs review.
+  assert.match(html, /Band<\/span><span class="si-rail__count" aria-label="3 selected">3<\/span>/);
   // An hour after as_of the same filter still reads "last 7d"; a day later it is a fixed range.
   assert.equal(matchWindow(from, null, "2026-09-24T21:32:56.744Z", RECEIVED_WINDOWS), "7d");
   assert.equal(matchWindow(from, null, "2026-09-26T20:32:56.744Z", RECEIVED_WINDOWS), "custom");
@@ -75,17 +81,17 @@ test("activeFilterChips: labels from copy, one chip per value, remove() applies 
   const patches: RailPatch[] = [];
   const chips = activeFilterChips(v, outreachRegions("attention"), REPS, { asOf: AS_OF, onChange: (p) => patches.push(p) });
   assert.deepEqual(chips.map((c) => c.label), [
-    "Promised callbacks overdue · Band 1", "Going cold · Band 7", "Needs review", "Waiting on customer", "Involved: Dana Reyes",
+    "Involved: Dana Reyes", "Lead received last 24h", "Move date within 30d",
+    "Promised callbacks overdue · Band 1", "Going cold · Band 7", "Needs review", "Waiting on customer",
     "Has assessment", "Newer call since assessment", "Transaction intent at least 25", "Move likelihood at least 75",
-    "Lead received last 24h", "Move date within 30d",
   ]);
   // `outcome` is a Closed param: no chip on an outreach desk.
   assert.ok(!chips.some((c) => c.key.startsWith("outcome")));
-  chips[0].remove();
+  chips.find((c) => c.key === "band:1")!.remove();
   assert.deepEqual(patches[0], { band: ["7"] });
   assert.deepEqual(chips.find((c) => c.key === "received")!.patch, { received_from: null, received_to: null });
   // Removing through the URL helper drops exactly that value and the cursor.
-  const url = deskUrlUpdate(`view=attention&band=1&band=7&cursor=abc`, chips[0].patch);
+  const url = deskUrlUpdate(`view=attention&band=1&band=7&cursor=abc`, chips.find((c) => c.key === "band:1")!.patch);
   assert.equal(url.toString(), "view=attention&band=7");
 
   const unknown = activeFilterChips(value("unassigned=true&agent_id=gone"), outreachRegions("attention"), REPS);
@@ -152,7 +158,7 @@ test("390 px: the Filters ({n}) button with sliders-horizontal opens the same re
   // UI2-PHONE (UI-2 §7): the sheet is the shared bottom sheet, with `Clear all` and `Show results`.
   assert.ok(html.includes('<dialog class="si-root si-sheet si-sheet--bottom si-railsheet__sheet"'));
   assert.ok(html.includes('data-action="clear-all"') && html.includes(">Clear all<") && html.includes('data-action="show-results"') && html.includes(">Show results<"));
-  assert.equal((html.match(/si-rail__region"/g) ?? []).length, 5);
+  assert.equal((html.match(/si-rail__region"/g) ?? []).length, 8);
   const skeleton = renderToStaticMarkup(createElement(FilterRail.Skeleton));
   assert.equal((skeleton.match(/si-rail__skregion/g) ?? []).length, 5);
   assert.ok(skeleton.includes('aria-hidden="true"'));

@@ -1,6 +1,7 @@
 export { OutreachCard, NumberReviewCard, type OutreachCardProps } from "./outreach-card";
 export { CardActions, NumberReviewActions, defaultMessageRepDisabledReason, outreachHref } from "./card-actions";
 export { RepAvatar, repAvatarLabel } from "./rep-avatar";
+export { ActivityFooter, CardIdentity, MovePanel, NextPanel, ScoreBars, countParts, type NextTone } from "./card-sections";
 export {
   CardBandRow,
   CardSecondary,

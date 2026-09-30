@@ -53,9 +53,23 @@ const noRemember = () => null;
  * session or local storage under `id`. The server snapshot is always "nothing remembered", so the first render
  * matches the server and the remembered value applies after hydration (useSyncExternalStore).
  */
+/** An open/closed choice remembered under `id` (see `Disclosure`); shared by the filter sidebar's own toggle. */
+export function useRememberedOpen(id: string, defaultOpen: boolean, remember?: Remember): [boolean, (open: boolean) => void] {
+  const [local, setLocal] = useState(defaultOpen);
+  const getSnapshot = useCallback(() => (remember ? readRemembered(remember, id) : null), [remember, id]);
+  const stored = useSyncExternalStore(subscribe, getSnapshot, noRemember);
+  const open = stored === null ? local : stored === "1";
+  const setOpen = useCallback((next: boolean) => {
+    setLocal(next);
+    if (remember) writeRemembered(remember, id, next);
+  }, [remember, id]);
+  return [open, setOpen];
+}
+
 export function Disclosure({
   id,
   title,
+  badge,
   defaultOpen = false,
   remember,
   children,
@@ -63,25 +77,21 @@ export function Disclosure({
 }: {
   id: string;
   title: ReactNode;
+  /** Shown after the title (the filter sidebar's active count). */
+  badge?: ReactNode;
   defaultOpen?: boolean;
   remember?: Remember;
   children: ReactNode;
   className?: string;
 }) {
   const panelId = useId();
-  const [local, setLocal] = useState(defaultOpen);
-  const getSnapshot = useCallback(() => (remember ? readRemembered(remember, id) : null), [remember, id]);
-  const stored = useSyncExternalStore(subscribe, getSnapshot, noRemember);
-  const open = stored === null ? local : stored === "1";
-  const toggle = () => {
-    setLocal(!open);
-    if (remember) writeRemembered(remember, id, !open);
-  };
+  const [open, setOpen] = useRememberedOpen(id, defaultOpen, remember);
   return (
     <div className={cx("si-disclosure", open && "is-open", className)}>
-      <button type="button" className="si-disclosure__summary" aria-expanded={open} aria-controls={panelId} onClick={toggle}>
+      <button type="button" className="si-disclosure__summary" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(!open)}>
         <ChevronRight size={16} aria-hidden className="si-disclosure__chevron" />
         <span className="si-disclosure__title">{title}</span>
+        {badge}
       </button>
       <div id={panelId} className="si-disclosure__panel" hidden={!open}>
         {children}

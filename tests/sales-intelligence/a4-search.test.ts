@@ -3,7 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { attentionCapabilitiesReadSchema, nextActionSchema, salesRosterSchema } from "../../lib/api/salesIntelligence";
-import { SearchControls } from "../../components/sales-intelligence/desk/list-controls";
+import { FilterRail, railRegionsFor } from "../../components/sales-intelligence/rail";
 import { OutreachListView } from "../../components/sales-intelligence/desk/outreach-list";
 import { attentionQuery, closedHistoryQuery, supportedAttentionParams } from "../../components/sales-intelligence/data/requests";
 import { attentionParamsFromDesk, clearDeskFilters, closedHistoryParamsFromDesk, deskUrlUpdate, parseDeskUrl, serializeDeskUrl } from "../../components/sales-intelligence/data/url-state";
@@ -67,10 +67,11 @@ test("A4 roster and null date resolution follow the verified read shapes", () =>
 
 test("A4 controls keep 0/1 visible and disable unavailable families without losing the selection", () => {
   const state = parseDeskUrl(new URLSearchParams(`assigned_agent_id=${AGENT}&move_date_mode=unknown&loc_state=FL&work=blocked`));
-  const html = renderToStaticMarkup(createElement(SearchControls, { state, onChange: () => {}, reps: [{ id: AGENT, name: "Riley", active: false }], capabilities: null, rep: false, closed: false }));
+  const sidebar = (caps: typeof capabilities | null) => renderToStaticMarkup(createElement(FilterRail, { regions: railRegionsFor("all_outreach"), value: state, onChange: () => {}, reps: [{ id: AGENT, name: "Riley", active: false }], asOf: null, capabilities: caps }));
+  const html = sidebar(null);
   assert.ok(html.includes("Not available yet"));
   assert.ok(html.includes("Unknown"));
-  const available = renderToStaticMarkup(createElement(SearchControls, { state, onChange: () => {}, reps: [{ id: AGENT, name: "Riley", active: false }], capabilities, rep: false, closed: false }));
+  const available = sidebar(capabilities);
   assert.ok(available.includes("Riley (inactive)"));
   assert.ok(available.includes("Blocked from calling"));
 });

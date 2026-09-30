@@ -2,7 +2,7 @@ export { CardShell, CardShellSkeleton, CARD_LINES } from "./card-shell";
 export { BandBadge, BAND_COLORS, contrastRatio, type BandNumber } from "./band-badge";
 export { StatePill } from "./state-pill";
 export { Chip, type ChipTone } from "./chip";
-export { Disclosure, readRemembered } from "./disclosure";
+export { Disclosure, readRemembered, useRememberedOpen } from "./disclosure";
 export { SkeletonLines, SkeletonBlock, DelayedSkeleton } from "./skeleton";
 export { Region, RegionBoundary, RegionError, RegionProgress, regionErrorCode } from "./region";
 export { LiveIndicator, LiveIndicatorDetails, liveIndicatorText, type LiveStatus, type CaptureHealth } from "./live-indicator";

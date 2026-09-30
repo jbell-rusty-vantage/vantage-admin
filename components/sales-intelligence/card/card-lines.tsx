@@ -553,8 +553,11 @@ export function promiserText(o: CardOutreach, viewer: Viewer = OWNER_VIEWER): st
   return c.promisedBy(promised.name);
 }
 
-/** Row G: promiser › reason › `Band n for …` › uncertain Priority 5 › recordings, then the sort line. */
-export function CardSecondary({ row, o, asOf, sortLine }: { row: CardRow; o: CardOutreach; asOf: string; sortLine?: ReactNode }) {
+/**
+ * Row G: promiser › reason › `Band n for …` › uncertain Priority 5 › recordings, then the sort line. The desk card
+ * passes `recordings={false}`: its activity footer already counts them.
+ */
+export function CardSecondary({ row, o, asOf, sortLine, recordings: withRecordings = true }: { row: CardRow; o: CardOutreach; asOf: string; sortLine?: ReactNode; recordings?: boolean }) {
   const viewer = useViewer();
   const parts: ReactNode[] = [];
   const who = promiserText(o, viewer);
@@ -565,7 +568,7 @@ export function CardSecondary({ row, o, asOf, sortLine }: { row: CardRow; o: Car
   if (band) parts.push(<span key="band" data-seg="band">{band}</span>);
   const five = uncertainFiveText(o);
   if (five) parts.push(<span key="lp" data-seg="lead-progress">{five}</span>);
-  const recordings = recordingsText(o);
+  const recordings = withRecordings ? recordingsText(o) : null;
   if (recordings) parts.push(<span key="rec" data-seg="recordings">{recordings}</span>);
   if (!parts.length && !sortLine) return null;
   return (

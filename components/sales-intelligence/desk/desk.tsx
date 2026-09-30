@@ -5,18 +5,23 @@
  *
  * Frame: the page header (title, search, live indicator + Refresh) and the view bar, then the view's body.
  * UX-C1: the bar has no Needs Attention tab and `view=attention` reads as All Outreach; the `attention` desk view stays
- * (the rep's old My work; a rep now has My Outreach only). Above Needs Attention, All Outreach and Closed, in order: the preset bar, the metrics strip (Needs Attention and
- * All Outreach only), the active filter chips + `Clear filters`, then the list (the stale banner is the list's
- * first line). The Overview mounts its own header with the preset bar (UI1-OVERVIEW), so the desk doesn't repeat it.
- * Desktop: rail left (sticky), list right. Below 768 px: the `Filters (n)` sheet button and full-width cards.
+ * (the rep's old My work; a rep now has My Outreach only). Above Needs Attention, All Outreach and Closed, in order:
+ * the metrics strip (the Owner's Needs Attention and All Outreach; a rep's My workload), then the filter sidebar beside
+ * the list. The list column starts with the toolbar (the `Filters (n)` toggle and the one sort control), then the
+ * active filter chips + `Clear filters`, then the list (the stale banner is the list's first line).
+ * Filters (2026-09-29 cleanup): every filter, Granot Priority and the Lead toggle included, lives in the sidebar; the
+ * sidebar opens and closes as a whole and per section. The Overview keeps its own preset bar (UI1-OVERVIEW).
+ * Desktop: sidebar left (sticky), list right. Below 768 px: the `Filters (n)` sheet button and full-width cards.
  *
- * Every region (preset counts, metrics, rail, chips, list) is its own Suspense + error boundary. Filter, sort
- * and view changes go through the URL inside a transition, so old data stays with the 2 px progress bar.
+ * Every region (metrics, rail, chips, list) is its own Suspense + error boundary. Filter, sort and view changes go
+ * through the URL inside a transition, so old data stays with the 2 px progress bar.
  */
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { SlidersHorizontal } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import type { PriorityCounts } from "@/lib/api/salesIntelligence";
 import { CoverageView } from "../coverage-view";
 import { GuideView } from "../guide-view";
 import { Reps } from "../reps";
@@ -34,18 +39,18 @@ import { RepView } from "../rep-view/rep-view";
 import { useIsRep } from "../rep/viewer";
 import { supportedAttentionParams, type AttentionParams, type DeskView } from "../data/requests";
 import { useAttentionList } from "../data/use-attention";
+import type { readAttentionPage } from "../data/use-attention";
 import { SnapshotFreshness, isExpiredSnapshot } from "../rep-view/snapshot-freshness";
 import { clearRepViewFilters } from "../rep-view/drills";
 import { useDeskUrlState } from "../data/use-url-state";
 import { useAttentionCapabilities, useSalesRoster } from "../data/use-search-contract";
 import { CardShellSkeleton, DelayedSkeleton, Region, SkeletonBlock, SkeletonLines } from "../primitives";
-import { FilterRail, FilterSheet, activeFilterChips, railRegionsFor, type RailRep } from "../rail";
+import { FilterRail, FilterSheet, activeFilterChips, railRegionsFor, regionActiveCount, useFilterSidebarOpen, type RailRegion, type RailRep, type RailValue } from "../rail";
 import { FOLLOWUP_WORK_OPTIONS } from "../rail/followup-filter";
-import { PresetBar, usePresetSelection } from "./preset-bar";
 import { ActiveChips } from "./active-chips";
 import { ClosedListRegion } from "./closed-list";
 import { NO_DEGRADE, applyDegrade, applyHistoryDegrade, degradeNotices, nextDegrade, useQueryError, type Degrade } from "./degrade";
-import { ListControls, SearchControls } from "./list-controls";
+import { ListControls } from "./list-controls";
 import { MetricsStrip, MetricsStripView, type MetricTile } from "./metrics-strip";
 import { LIST_HEADING_ID, OutreachListRegion, OutreachListView, focusListHeading, requestListHeadingFocus } from "./outreach-list";
 import { PageHeader } from "./page-header";
@@ -53,6 +58,7 @@ import { ViewTabs, viewLabel } from "./view-tabs";
 import { copy } from "../sales-intelligence-copy";
 import { priorityLabel } from "./preset-bar";
 import { formatDate } from "../lib/time";
+import { cx } from "../lib/format";
 import "../styles/sales-intelligence.css";
 
 export type DeskProps = {
@@ -98,9 +104,30 @@ function Notices({ search, sort }: { search: boolean; sort: boolean }) {
   );
 }
 
-type RailProps = { view: DeskView; state: DeskUrlState; update: (patch: DeskUrlPatch) => void; asOf: string | null; rosterAvailable: boolean };
+type RailProps = {
+  view: DeskView; state: DeskUrlState; update: (patch: DeskUrlPatch) => void; asOf: string | null; rosterAvailable: boolean;
+  capabilities?: ReturnType<typeof useAttentionCapabilities>; priorityCounts?: PriorityCounts | null;
+};
 const regionsFor = railRegionsFor;
 const NO_REPS: RailRep[] = [];
+const RAIL_ID = "si-desk-filters";
+
+/** How many values the sidebar holds (the sum of its sections' counts), for `Filters (n)`. */
+export function sidebarFilterCount(state: RailValue, regions: readonly RailRegion[]): number {
+  return regions.reduce((n, region) => n + regionActiveCount(region, state), 0);
+}
+
+type AttentionPage = Awaited<ReturnType<typeof readAttentionPage>>;
+/**
+ * The list's `priority_counts`, read from the query cache without suspending, so the sidebar never waits on (or
+ * fails with) the list. Null until the list's first page for these params has loaded.
+ */
+function useCachedPriorityCounts(params: AttentionParams, enabled: boolean): PriorityCounts | null {
+  const client = useQueryClient();
+  const key = siKeys.attention(params);
+  const read = () => (enabled ? (client.getQueryData<InfiniteData<AttentionPage>>(key)?.pages[0]?.data.priority_counts ?? null) : null);
+  return useSyncExternalStore((onChange) => client.getQueryCache().subscribe(onChange), read, () => null);
+}
 
 /** The rail's rep list: the Owner's `GET /reps`. A rep never mounts the read (Owner-only; A04 "no 403"). */
 function OwnerRail({ children, rosterAvailable }: { children: (reps: RailRep[]) => ReactNode; rosterAvailable: boolean }) {
@@ -111,14 +138,32 @@ function WithRailReps({ children, rosterAvailable = true }: { children: (reps: R
   return useIsRep() ? <>{children(NO_REPS)}</> : <OwnerRail rosterAvailable={rosterAvailable}>{children}</OwnerRail>;
 }
 
-function RailArea({ view, state, update, asOf, rosterAvailable }: RailProps) {
+function RailArea({ view, state, update, asOf, rosterAvailable, capabilities, priorityCounts, onClearAll, onHide }: RailProps & { onClearAll: () => void; onHide: () => void }) {
   const rep = useIsRep();
-  return <WithRailReps rosterAvailable={rosterAvailable}>{(reps) => <FilterRail regions={regionsFor(view, rep)} value={state} onChange={update} reps={reps} asOf={asOf} />}</WithRailReps>;
+  const regions = regionsFor(view, rep);
+  return (
+    <WithRailReps rosterAvailable={rosterAvailable}>
+      {(reps) => <FilterRail id={RAIL_ID} regions={regions} value={state} onChange={update} reps={reps} asOf={asOf} capabilities={capabilities} priorityCounts={priorityCounts}
+        onClearAll={onClearAll} onHide={onHide} filterCount={sidebarFilterCount(state, regions)} />}
+    </WithRailReps>
+  );
 }
-function SheetArea({ view, state, update, asOf, rosterAvailable, onClearAll }: RailProps & { onClearAll: () => void }) {
+function SheetArea({ view, state, update, asOf, rosterAvailable, capabilities, priorityCounts, onClearAll }: RailProps & { onClearAll: () => void }) {
   const rep = useIsRep();
-  const filterCount = Object.entries(clearDeskFilters()).filter(([key, empty]) => JSON.stringify(state[key as keyof DeskUrlState]) !== JSON.stringify(empty)).length;
-  return <WithRailReps rosterAvailable={rosterAvailable}>{(reps) => <FilterSheet regions={regionsFor(view, rep)} value={state} onChange={update} reps={reps} asOf={asOf} onClearAll={onClearAll} filterCount={filterCount} />}</WithRailReps>;
+  const regions = regionsFor(view, rep);
+  return <WithRailReps rosterAvailable={rosterAvailable}>{(reps) => <FilterSheet regions={regions} value={state} onChange={update} reps={reps} asOf={asOf} capabilities={capabilities} priorityCounts={priorityCounts} onClearAll={onClearAll} filterCount={sidebarFilterCount(state, regions)} />}</WithRailReps>;
+}
+
+/** The desktop sidebar toggle (the sheet button takes its place below 768 px). */
+function SidebarToggle({ open, onToggle, count }: { open: boolean; onToggle: () => void; count: number }) {
+  const r = copy.ui1.desk.rail;
+  return (
+    <button type="button" className={cx("si-btn si-btn--secondary si-btn--md si-hit si-railtoggle", open && "is-open")} aria-expanded={open} aria-controls={RAIL_ID}
+      title={open ? r.hide : r.show} onClick={onToggle}>
+      <SlidersHorizontal size={16} aria-hidden />
+      {count > 0 ? r.filtersCount(count) : r.filters}
+    </button>
+  );
 }
 function ChipsArea({ view, state, update, asOf, rosterAvailable, onClearAll, resolvedWindow }: RailProps & { onClearAll: () => void; resolvedWindow?: { from: string | null; through: string | null } | null }) {
   const rep = useIsRep();
@@ -160,11 +205,6 @@ function ConnectedChipsArea({ params, ...props }: RailProps & { params: Attentio
   return <ChipsArea {...props} resolvedWindow={list.data.pages[0]?.data.resolved_move_window} />;
 }
 
-function PresetArea({ view, params, value, onChange }: { view: DeskView; params: AttentionParams; value: ReturnType<typeof usePresetSelection>["value"]; onChange: (next: ReturnType<typeof usePresetSelection>["value"]) => void }) {
-  const list = useAttentionList(params);
-  return <PresetBar counts={list.priorityCounts} view={view} value={value} onChange={onChange} />;
-}
-
 function PriorityClosedLink({ params, state, role, capabilities }: { params: AttentionParams; state: DeskUrlState; role: UrlRole; capabilities: ReturnType<typeof useAttentionCapabilities> }) {
   const list = useAttentionList(params);
   if (params.view === "closed" || !state.priority.length || list.status !== "ready" || list.totalItems !== 0) return null;
@@ -194,12 +234,12 @@ function useLooseUpdate() {
   }, [params, pathname, router]);
 }
 
-function DeskList({ view, state, query, update, pending, userId, repView = false, selectedFollowupName }: {
-  view: DeskView; state: DeskUrlState; query: string; update: (patch: DeskUrlPatch) => void; pending: boolean; userId?: string | null; repView?: boolean; selectedFollowupName?: string;
+function DeskList({ view, state, query, update, pending, repView = false, selectedFollowupName }: {
+  view: DeskView; state: DeskUrlState; query: string; update: (patch: DeskUrlPatch) => void; pending: boolean; repView?: boolean; selectedFollowupName?: string;
 }) {
   const client = useQueryClient();
-  const preset = usePresetSelection({ userId });
   const asOf = useNewestAsOf();
+  const [sidebarOpen, setSidebarOpen] = useFilterSidebarOpen();
   const capabilities = useAttentionCapabilities();
   const rep = useIsRep();
   const [degrade, setDegrade] = useState<Degrade>(NO_DEGRADE);
@@ -233,7 +273,8 @@ function DeskList({ view, state, query, update, pending, userId, repView = false
   const regionKey = `${degrade.qOff ? "q-off" : "q"}|${degrade.badSorts.join(",")}`;
   const returnTo = currentSalesIntelligenceHref(new URLSearchParams(query));
   const reset = (key: readonly unknown[]) => () => void client.resetQueries({ queryKey: key });
-  const railProps: RailProps = { view, state, update, asOf, rosterAvailable: capabilities?.roster === true };
+  const priorityCounts = useCachedPriorityCounts(params, !blocked);
+  const railProps: RailProps = { view, state, update, asOf, rosterAvailable: capabilities?.roster === true, capabilities, priorityCounts };
   const onTile = (tile: MetricTile) => {
     // A view-changing tile remounts the list: the new heading takes the focus when it mounts (FIX-UI1 A10/m4).
     const changesView = !!tile.patch.view && tile.patch.view !== view;
@@ -241,30 +282,28 @@ function DeskList({ view, state, query, update, pending, userId, repView = false
     update(tile.patch);
     if (!changesView) focusListHeading();
   };
-  const busy = pending || preset.isPending;
+  const busy = pending;
   const clearFilters = () => update(repView ? clearRepViewFilters(state) : clearDeskFilters());
   return (
     <div className="si-desk__body" data-view={view}>
-      {blocked ? <PresetBar counts={null} view={view} value={preset.value} onChange={preset.setValue} /> :
-        <Region key={`preset-${regionKey}`} name="preset-bar" className="si-desk__preset" skeleton={<PresetBar.Skeleton />} onRetry={reset(siKeys.attention(params))}>
-          <PresetArea view={view} params={params} value={preset.value} onChange={preset.setValue} />
-        </Region>}
-      <WithRailReps rosterAvailable={capabilities?.roster === true}>{(reps) => <SearchControls state={state} onChange={update} reps={reps} capabilities={capabilities ?? null} rep={rep} closed={view === "closed"} />}</WithRailReps>
       {rep && !repView && view === "all_outreach" && <MyWorkload priority={state.priority} />}
       {view !== "closed" && !rep && !repView && (capabilitiesPending ? <MetricsStrip.Skeleton /> : blocked ? <MetricsStripView metrics={null} asOf={asOf} /> :
         <Region key={`metrics-${regionKey}`} name="metrics" className="si-desk__metrics" skeleton={<MetricsStrip.Skeleton />} onRetry={reset(siKeys.attention(params))}>
           <MetricsStrip params={params} onApply={onTile} />
         </Region>
       )}
-      <div className="si-desk__grid">
-        <Region name="rail" className="si-desk__railregion" skeleton={<FilterRail.Skeleton regions={view === "closed" ? 3 : 5} />} onRetry={reset(siKeys.reps("limit=100"))}>
-          <RailArea {...railProps} />
-        </Region>
+      <div className={cx("si-desk__grid", !sidebarOpen && "is-rail-hidden")}>
+        {sidebarOpen && (
+          <Region name="rail" className="si-desk__railregion" skeleton={<FilterRail.Skeleton regions={view === "closed" ? 5 : 8} />} onRetry={reset(siKeys.reps("limit=100"))}>
+            <RailArea {...railProps} onClearAll={clearFilters} onHide={() => setSidebarOpen(false)} />
+          </Region>
+        )}
         <section className="si-desk__main" aria-labelledby={LIST_HEADING_ID}>
           <div className="si-desk__toolbar">
             <Region name="rail-sheet" className="si-desk__sheetregion" skeleton={null}>
             <SheetArea {...railProps} onClearAll={clearFilters} />
             </Region>
+            <SidebarToggle open={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} count={sidebarFilterCount(state, regionsFor(view, rep))} />
             <ListControls view={view} sort={state.sort ?? requested.sort ?? "attention"} direction={requested.direction ?? "asc"} freshness={params.freshness === "fresh" ? "fresh" : null} moveDateAvailable={view !== "closed" && capabilities?.move_date_sort === true} onChange={update} />
           </div>
           <Region name="chips" skeleton={null}>
@@ -365,9 +404,9 @@ export function Desk({ userId, overview, coverage, reps, guide }: DeskProps) {
       <div ref={contentRef} className="si-desk__content">
         <LegacyOpen query={query} />
         {view === "rep" ? (
-          <RepView state={state} query={query}>{(row) => <DeskList key="rep" view="all_outreach" state={{ ...state, relationship: state.relationship ?? "assigned" }} query={query} update={update} pending={isPending} userId={userId} repView selectedFollowupName={row?.agent.name} />}</RepView>
+          <RepView state={state} query={query}>{(row) => <DeskList key="rep" view="all_outreach" state={{ ...state, relationship: state.relationship ?? "assigned" }} query={query} update={update} pending={isPending} repView selectedFollowupName={row?.agent.name} />}</RepView>
         ) : isDeskView(view) ? (
-          <DeskList key={view} view={view} state={state} query={query} update={update} pending={isPending} userId={userId} />
+          <DeskList key={view} view={view} state={state} query={query} update={update} pending={isPending} />
         ) : (
           <OtherView view={view} slot={slots[view]} />
         )}
@@ -392,7 +431,6 @@ export function DeskRouteSkeleton({ role = "owner" }: { role?: UrlRole } = {}) {
       <div className="si-desk__content">
         <DelayedSkeleton>
           <div className="si-desk__body">
-            <PresetBar.Skeleton />
             <MetricsStrip.Skeleton />
             <div className="si-desk__grid">
               <FilterRail.Skeleton />
