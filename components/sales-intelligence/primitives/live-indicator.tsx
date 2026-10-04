@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 import { copy } from "../sales-intelligence-copy";
 import { TooltipCard } from "../atoms/tooltip-card";
@@ -20,9 +19,8 @@ export function liveIndicatorText(status: LiveStatus, updatedAt: string | null, 
   return l[status];
 }
 
-/** The tooltip body (UX29): what "live" means, history coverage, the capture status sentence, a link to Coverage. */
-/** UI2-SHELL: `coverageHref = null` (a rep) drops the Coverage link; Coverage is Owner-only. */
-export function LiveIndicatorDetails({ health, asOf, coverageHref }: { health?: CaptureHealth | null; asOf: string | null; coverageHref: string | null }) {
+/** The tooltip body (UX29): what "live" means, history coverage and the capture status sentence. */
+export function LiveIndicatorDetails({ health, asOf }: { health?: CaptureHealth | null; asOf: string | null }) {
   const l = copy.ui1.prim.live;
   const through = health?.knownCompleteThrough;
   return (
@@ -50,7 +48,6 @@ export function LiveIndicatorDetails({ health, asOf, coverageHref }: { health?: 
           l.healthUnknown
         )}
       </span>
-      {coverageHref && <Link className="si-link si-liveind__coverage" href={coverageHref}>{l.openCoverage}</Link>}
     </span>
   );
 }
@@ -65,7 +62,6 @@ export function LiveIndicator({
   updatedAt,
   asOf,
   health,
-  coverageHref,
   onRefresh,
   className,
 }: {
@@ -73,7 +69,6 @@ export function LiveIndicator({
   updatedAt: string | null;
   asOf: string | null;
   health?: CaptureHealth | null;
-  coverageHref: string | null;
   onRefresh: () => void;
   className?: string;
 }) {
@@ -91,7 +86,7 @@ export function LiveIndicator({
           </span>
         }
       >
-        <LiveIndicatorDetails health={health} asOf={asOf} coverageHref={coverageHref} />
+        <LiveIndicatorDetails health={health} asOf={asOf} />
       </TooltipCard>
       {status === "offline" && (
         <>

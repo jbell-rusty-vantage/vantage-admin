@@ -1,51 +1,24 @@
 "use client";
 /**
- * UI1-DATA: `useDeskUrlState()` reads and writes the desk's URL (see url-state.ts for the rules). Writes use
- * `router.push(…, { scroll: false })` inside a transition, so browser Back/Forward restores filter choices and a suspended region keeps showing its old
- * data while the new request loads; `isPending` drives the 2 px progress bar (UI-0 §2.4).
- * With a `userId`, a Priority / Lead-toggle change is remembered per user, and on mount a URL without either
- * gets the remembered choice (UI-1 §3.2). UI2-SHELL: the viewer's role picks the default view and drops a rep's scope params.
+ * `useSiUrlState()` reads and writes the Sales Intelligence URL (see url-state.ts for the rules). Writes use
+ * `router.push(…, { scroll: false })` inside a transition, so browser Back/Forward restores filter choices and a
+ * suspended region keeps showing its old data while the new request loads; `isPending` drives the progress bar.
  */
-import { useCallback, useEffect, useMemo, useRef, useTransition } from "react";
+import { useCallback, useMemo, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { readStoredPreset, writeStoredPreset } from "./preset-storage";
-import { useViewer } from "../rep/viewer";
-import { deskUrlUpdate, parseDeskUrl, type DeskUrlPatch, type DeskUrlState } from "./url-state";
+import { parseSiUrl, siUrlUpdate, type SiUrlPatch, type SiUrlState } from "./url-state";
 
-export function useDeskUrlState({ userId }: { userId?: string | null } = {}) {
+export function useSiUrlState() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
-  const { role } = useViewer();
   const query = params.toString();
-  const state: DeskUrlState = useMemo(() => parseDeskUrl(new URLSearchParams(query), role), [query, role]);
-
-  const update = useCallback((patch: DeskUrlPatch) => {
-    const next = deskUrlUpdate(query, patch, role).toString();
-    if (userId && ("priority" in patch || "attachment" in patch)) {
-      const after = parseDeskUrl(new URLSearchParams(next), role);
-      writeStoredPreset(userId, { priority: after.priority, attachment: after.attachment });
-    }
+  const state: SiUrlState = useMemo(() => parseSiUrl(new URLSearchParams(query)), [query]);
+  const update = useCallback((patch: SiUrlPatch) => {
+    const next = siUrlUpdate(query, patch).toString();
     if (next === query) return;
     startTransition(() => router.push(next ? `${pathname}?${next}` : pathname, { scroll: false }));
-  }, [pathname, query, role, router, userId]);
-
-  // Read once on mount: the remembered preset fills a URL that names neither Priority nor the Lead toggle. It replaces
-  // the entry, so it adds no Back step, and it never touches a count drill (`snapshot_id`) or the Owner's rep view, whose
-  // bare URL is canonicalized to a drill: OI R8, the list opened from a count must be exactly the records it counted.
-  const restored = useRef(false);
-  useEffect(() => {
-    if (restored.current || !userId) return;
-    restored.current = true;
-    if (state.priority.length || state.attachment || state.snapshot_id || state.view === "rep") return;
-    const stored = readStoredPreset(userId);
-    // Closed has no Priority filter: only the Lead toggle is restored there.
-    const priority = state.view === "closed" ? [] : stored?.priority ?? [];
-    if (!stored || !(priority.length || stored.attachment)) return;
-    const next = deskUrlUpdate(query, { priority, attachment: stored.attachment }, role).toString();
-    if (next !== query) startTransition(() => router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false }));
-  }, [pathname, query, role, router, state.attachment, state.priority.length, state.snapshot_id, state.view, userId]);
-
+  }, [pathname, query, router]);
   return { state, update, isPending, query };
 }

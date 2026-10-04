@@ -1,259 +1,151 @@
 /**
- * UI1-DATA: the desk's URL state, pure (the hook lives in use-url-state.ts). The URL is the whole request:
- * view, sort, direction, every rail filter, the Priority preset, the Lead toggle, search, and the Overview
- * period. Multi-values are written **repeated** (`priority=0&priority=not_set`) and read repeated or
- * comma-separated; the bracket form is never written. Any filter, sort, view or search change drops the
- * list cursor. Old deep links (`lead`, `lead_model`, `outreach`, `si_return`, `panel`, `analysis_run`,
- * ADMIN-REBUILD traps 4–5) and every key this module doesn't own are carried through untouched.
+ * The Sales Intelligence URL, pure (the hook lives in use-url-state.ts). The interim page has two views: Numbers (the
+ * default, written as no `view`) and RingCentral Accounts (`view=reps`). The URL is the whole request: the Numbers
+ * search, filters, sort and keyset page, the open Number, and the Accounts directory page.
+ *
+ * `canonicalSiQuery` keeps only the keys the current view owns, with valid values, in a fixed order. Everything else
+ * (old Outreach, Attention, Closed, Overview, Coverage and Guide views, `outreach=`/`lead=`/`panel=` deep links, old
+ * desk filters, `database_scope`) is dropped, so an old link opens Numbers. Old OutreachRecord ids are never mapped.
  */
-import {
-  DESK_SORTS, CLOSED_SORTS, CLOSED_DEFAULT_SORT, CLOSED_SORT_DEFAULT_DIRECTION, DESK_SORT_DEFAULT_DIRECTION, DESK_DEFAULT_SORT, isScoreSort,
-  type DeskSort, type ClosedSort,
-} from "@/lib/api/salesIntelligence";
-import { readList, writeList } from "../lib/filter-state";
-import type { AttentionParams, ClosedHistoryParams, DeskView, OverviewParams } from "./requests";
+import { NUMBER_SORTS, type NumberSort } from "@/lib/api/salesIntelligence";
+import { readList } from "../lib/filter-state";
 
-export const PAGE_VIEWS = ["overview", "attention", "all_outreach", "closed", "rep", "reps", "coverage", "guide"] as const;
-export type PageView = (typeof PAGE_VIEWS)[number];
-/**
- * UX-C1: the Owner's view bar. One Outreach list (All Outreach); the Needs Attention tab is gone, with no replacement
- * filter. `attention` stays a PageView / DeskView: an old link may still name it.
- */
-export const OWNER_TABS = ["overview", "all_outreach", "closed", "reps", "coverage", "guide"] as const satisfies readonly PageView[];
-/** UI-1 §1.1: the page opens on Overview when `view` is absent. An unknown view reads as Overview too. */
-export const DEFAULT_VIEW: PageView = "overview";
-/**
- * UI-2 §2 (UX11), revised 2026-09-26: the rep's view bar, in order. One Outreach list, My Outreach (`all_outreach`, written
- * as no `view`), in Lead received newest first like the Owner's; My work is gone. Numbers, Messages, RingCentral Accounts
- * and Coverage don't exist for a rep, so those views (and unknown ones, and an old `view=attention`) read as My Outreach.
- */
-export const REP_TABS = ["all_outreach", "closed", "overview", "guide"] as const satisfies readonly PageView[];
-export const REP_DEFAULT_VIEW: PageView = "all_outreach";
-/** Who reads the URL: the Owner (default) or a rep (UI2-SHELL). The role comes from the session, never from the URL. */
-export type UrlRole = "owner" | "rep";
-export const defaultViewFor = (role: UrlRole): PageView => (role === "rep" ? REP_DEFAULT_VIEW : DEFAULT_VIEW);
-export const tabsFor = (role: UrlRole): readonly PageView[] => (role === "rep" ? REP_TABS : OWNER_TABS);
+export const SI_VIEWS = ["numbers", "reps"] as const;
+export type SiView = (typeof SI_VIEWS)[number];
+export const DEFAULT_VIEW: SiView = "numbers";
 
-export type DeskUrlState = {
-  view: PageView;
-  sort: string | null;
-  direction: "asc" | "desc" | null;
-  band: string[];
-  needs_review: boolean;
-  state: string[];
-  agent_id: string[];
-  unassigned: boolean;
-  assigned_agent_id: string[]; assignment: "unassigned" | null; followup_agent_id: string[];
-  relationship: "assigned" | "followup" | "involved" | null; agent: string | null;
-  work: string[]; move_date_mode: string | null; move_days: number | null; move_on: string | null; move_from: string | null; move_through: string | null;
-  loc_side: "either" | "pickup" | "delivery" | null; loc_city: string | null; loc_state: string | null; loc_zip: string | null;
-  snapshot_id: string | null;
-  priority: string[];
-  attachment: "lead" | "none" | null;
-  has_recording: boolean;
-  has_assessment: boolean;
-  newer_call: boolean;
-  ti_min: number | null;
-  ml_min: number | null;
-  received_from: string | null;
-  received_to: string | null;
-  move_date_within: number | null;
-  move_date_passed: boolean;
-  outcome: string[];
-  closed_from: string | null;
-  closed_to: string | null;
-  freshness: "fresh" | null;
+export const NUMBER_CLASSIFICATIONS = ["unknown", "customer", "company", "non_customer"] as const;
+export const NUMBER_ATTACHMENTS = ["any", "linked", "unlinked"] as const;
+export type NumberAttachmentFilter = (typeof NUMBER_ATTACHMENTS)[number];
+export const NUMBER_SORT_DEFAULT: { sort: NumberSort; direction: "asc" | "desc" } = { sort: "last_activity", direction: "desc" };
+
+export type SiUrlState = {
+  view: SiView;
+  /** Numbers. */
   q: string | null;
-  period: string | null;
-  from: string | null;
-  to: string | null;
-  /** Old deep links, read-only here: they open All Outreach (UX-C1) with that record's side dialog. */
-  lead: string | null;
-  lead_model: string | null;
-  outreach: string | null;
+  classification: string[];
+  attachment: NumberAttachmentFilter;
+  hygiene: boolean;
+  has_recording: boolean;
+  include_form_only: boolean;
+  active_from: string | null;
+  active_to: string | null;
+  sort: NumberSort;
+  direction: "asc" | "desc";
+  /** The keyset cursor of the page shown, and the cursors of the pages before it (for Previous). */
+  cursor: string | null;
+  before: string[];
+  /** The open Number (its detail dialog). */
+  number: string | null;
+  /** RingCentral Accounts: the directory page. */
+  directory_cursor: string | null;
 };
-export type DeskUrlPatch = Partial<Omit<DeskUrlState, "lead" | "lead_model" | "outreach">> & { lead?: string | null; lead_model?: string | null; outreach?: string | null };
+export type SiUrlPatch = Partial<SiUrlState>;
 
-/** Every filter family, including filters hidden in the current view; view and sort remain untouched. */
-export function clearDeskFilters(): DeskUrlPatch {
-  return { band: [], needs_review: false, state: [], agent_id: [], unassigned: false, priority: [], attachment: null,
-    has_recording: false, has_assessment: false, newer_call: false, ti_min: null, ml_min: null,
-    received_from: null, received_to: null, move_date_within: null, move_date_passed: false,
-    outcome: [], closed_from: null, closed_to: null, freshness: null, q: null, period: null, from: null, to: null,
-    assigned_agent_id: [], assignment: null, followup_agent_id: [], relationship: null, agent: null, work: [],
-    move_date_mode: null, move_days: null, move_on: null, move_from: null, move_through: null,
-    loc_side: null, loc_city: null, loc_state: null, loc_zip: null, snapshot_id: null };
-}
-
-const LIST_KEYS = ["band", "state", "agent_id", "assigned_agent_id", "followup_agent_id", "work", "priority", "outcome"] as const;
-const BOOL_KEYS = ["needs_review", "unassigned", "has_recording", "has_assessment", "newer_call", "move_date_passed"] as const;
-const NUM_KEYS = ["ti_min", "ml_min", "move_date_within", "move_days"] as const;
-const TEXT_KEYS = ["received_from", "received_to", "closed_from", "closed_to", "q", "period", "from", "to", "lead", "lead_model", "outreach", "move_date_mode", "move_on", "move_from", "move_through", "loc_city", "loc_state", "loc_zip", "agent", "snapshot_id"] as const;
-/** A change to any of these restarts paging (the cursor belongs to the old request). */
-export const RESETS_CURSOR: readonly string[] = ["view", "sort", "direction", "freshness", "attachment", ...LIST_KEYS, ...BOOL_KEYS, ...NUM_KEYS,
-  "received_from", "received_to", "closed_from", "closed_to", "q", "period", "from", "to", "move_date_mode", "move_on", "move_from", "move_through", "loc_side", "loc_city", "loc_state", "loc_zip", "assignment", "relationship", "agent", "snapshot_id"];
-export const CURSOR_KEYS = ["cursor", "attention_cursor"] as const;
-
-const num = (value: string | null): number | null => {
-  if (value === null || value.trim() === "") return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+const OBJECT_ID = /^[a-f\d]{24}$/i;
+const text = (value: string | null, max: number): string | null => {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length <= max ? trimmed : null;
 };
-const text = (value: string | null): string | null => (value && value.trim() ? value : null);
+/** The server takes only a Z-suffixed ISO instant, so any readable date is normalized to one (and the route redirects). */
+const instant = (value: string | null): string | null => (value && !Number.isNaN(Date.parse(value)) ? new Date(value).toISOString() : null);
+const cursorText = (value: string | null): string | null => (value && value.length <= 2000 ? value : null);
 
-/**
- * UX-C1: an old `view=attention` link (bookmark, Overview tile, trap-4 `lead=`/`outreach=` deep link) opens All Outreach
- * with the same filters and side dialog. For a rep an old `view=attention` (My work) link reads as My Outreach the same way.
- */
-const OWNER_VIEW_ALIASES: Readonly<Record<string, PageView>> = { attention: "all_outreach" };
-
-/**
- * Reads the desk URL. `role = "rep"` (UI2-SHELL, UI-2 §1): the rep's own views only (anything else is My Outreach), no
- * Owner alias, and the scope params `agent_id` / `unassigned` are dropped, so a rep page never sends them.
- */
-export function parseDeskUrl(params: URLSearchParams, role: UrlRole = "owner"): DeskUrlState {
-  const raw = params.get("view");
-  const rep = role === "rep";
-  const ownerRepLink = rep && raw === "rep";
-  const view = !rep && raw && OWNER_VIEW_ALIASES[raw] ? OWNER_VIEW_ALIASES[raw] : raw;
-  const direction = params.get("direction");
+export function parseSiUrl(params: URLSearchParams): SiUrlState {
+  const view = params.get("view") === "reps" ? "reps" : DEFAULT_VIEW;
+  const sort = (NUMBER_SORTS as readonly string[]).includes(params.get("sort") ?? "") ? (params.get("sort") as NumberSort) : NUMBER_SORT_DEFAULT.sort;
+  const direction = params.get("direction") === "asc" ? "asc" : params.get("direction") === "desc" ? "desc" : NUMBER_SORT_DEFAULT.direction;
   const attachment = params.get("attachment");
-  const views: readonly string[] = rep ? REP_TABS : PAGE_VIEWS;
+  // Numbers is written with no `view`, so a `cursor` beside any other view comes from an old desk link (its All
+  // Outreach or Closed keyset cursor) and would be rejected by `GET /numbers`: such a link opens Numbers at page one.
+  const legacyView = params.has("view") && params.get("view") !== "reps";
+  const cursor = legacyView ? null : cursorText(params.get("cursor"));
   return {
-    view: views.includes(view ?? "") ? (view as PageView) : defaultViewFor(role),
-    sort: text(params.get("sort")),
-    direction: direction === "asc" || direction === "desc" ? direction : null,
-    band: readList(params, "band"), state: readList(params, "state"), agent_id: rep ? [] : readList(params, "agent_id"),
-    assigned_agent_id: ownerRepLink ? [] : readList(params, "assigned_agent_id"), assignment: ownerRepLink ? null : params.get("assignment") === "unassigned" ? "unassigned" : null,
-    followup_agent_id: ownerRepLink ? [] : readList(params, "followup_agent_id"),
-    relationship: ownerRepLink ? null : (["assigned", "followup", "involved"].includes(params.get("relationship") ?? "") ? params.get("relationship") as DeskUrlState["relationship"] : null),
-    agent: ownerRepLink ? null : text(params.get("agent")), work: readList(params, "work"),
-    move_date_mode: text(params.get("move_date_mode")), move_days: num(params.get("move_days")), move_on: text(params.get("move_on")), move_from: text(params.get("move_from")), move_through: text(params.get("move_through")),
-    loc_side: (["either", "pickup", "delivery"].includes(params.get("loc_side") ?? "") ? params.get("loc_side") as DeskUrlState["loc_side"] : null),
-    loc_city: text(params.get("loc_city")), loc_state: text(params.get("loc_state")), loc_zip: text(params.get("loc_zip")), snapshot_id: ownerRepLink ? null : text(params.get("snapshot_id")),
-    priority: readList(params, "priority"), outcome: readList(params, "outcome"),
-    needs_review: params.get("needs_review") === "true", unassigned: !rep && params.get("unassigned") === "true",
-    has_recording: params.get("has_recording") === "true", has_assessment: params.get("has_assessment") === "true",
-    newer_call: params.get("newer_call") === "true", move_date_passed: params.get("move_date_passed") === "true",
-    attachment: attachment === "lead" || attachment === "none" ? attachment : null,
-    ti_min: num(params.get("ti_min")), ml_min: num(params.get("ml_min")), move_date_within: num(params.get("move_date_within")),
-    received_from: text(params.get("received_from")), received_to: text(params.get("received_to")),
-    closed_from: text(params.get("closed_from")), closed_to: text(params.get("closed_to")),
-    freshness: params.get("freshness") === "fresh" ? "fresh" : null,
-    q: text(params.get("q")), period: text(params.get("period")), from: text(params.get("from")), to: text(params.get("to")),
-    // UI2-SHELL: an old Lead-only link resolves through the Owner-only `outreach/by-lead`, so a rep's desk ignores it.
-    lead: rep ? null : text(params.get("lead")), lead_model: rep ? null : text(params.get("lead_model")), outreach: text(params.get("outreach")),
+    view,
+    q: text(params.get("q"), 200),
+    classification: [...new Set(readList(params, "classification").filter((value) => (NUMBER_CLASSIFICATIONS as readonly string[]).includes(value)))],
+    attachment: attachment === "linked" || attachment === "unlinked" ? attachment : "any",
+    hygiene: params.get("hygiene") === "true",
+    has_recording: params.get("has_recording") === "true",
+    include_form_only: params.get("include_form_only") === "true",
+    active_from: instant(params.get("active_from")),
+    active_to: instant(params.get("active_to")),
+    sort,
+    direction,
+    cursor,
+    before: cursor ? params.getAll("before").filter((value) => cursorText(value) !== null) : [],
+    number: OBJECT_ID.test(params.get("number") ?? "") ? params.get("number") : null,
+    directory_cursor: cursorText(params.get("directory_cursor")),
   };
 }
 
-function write(params: URLSearchParams, key: string, value: unknown) {
-  if (Array.isArray(value)) { writeList(params, key, value as string[]); return; }
-  if (value === null || value === undefined || value === false || value === "") { params.delete(key); return; }
-  params.set(key, value === true ? "true" : String(value));
-}
-
-/**
- * Applies a patch to the current query. Keys not in the patch (and keys this module doesn't own) are kept.
- * - Any change to a key in RESETS_CURSOR drops the list cursor.
- * - A new `sort` without a `direction` drops the direction, so the sort's default applies.
- * - A new `view` without a `sort` drops sort and direction (each view has its own default and sort list).
- */
-export function deskUrlUpdate(current: URLSearchParams | string, patch: DeskUrlPatch, role: UrlRole = "owner"): URLSearchParams {
-  const params = new URLSearchParams(current);
-  const before = parseDeskUrl(params, role);
-  const next: DeskUrlPatch = { ...patch };
-  if (role === "rep") {
-    // A rep never writes a scope (UI-2 §1); a stray one in the address is dropped with the next change.
-    delete next.agent_id; delete next.unassigned;
-    for (const key of ["agent_id", "unassigned"]) params.delete(key);
-    if (params.get("view") === "rep") {
-      for (const key of ["agent", "relationship", "assigned_agent_id", "assignment", "followup_agent_id", "snapshot_id"]) { params.delete(key); delete next[key as keyof DeskUrlPatch]; }
-      params.delete("view");
-    }
-  }
-  if ("view" in patch && patch.view !== before.view && !("sort" in patch)) { next.sort = null; next.direction = null; }
-  // OI §8.2: Closed history serves no work, follow-up assignee, involvement or snapshot pin, so moving to Closed drops
-  // them (a drill's pin belongs to its count) instead of landing on a blocked list. Owner, 2026-09-30: Closed has no
-  // Priority filter (its Outcome filter says why a record closed), so the active desk's Priority doesn't follow either.
-  if ("view" in patch && patch.view === "closed" && before.view !== "closed") {
-    const closedDrops: DeskUrlPatch = { work: [], followup_agent_id: [], relationship: null, agent: null, snapshot_id: null, priority: [] };
-    for (const [key, value] of Object.entries(closedDrops)) if (!(key in patch)) Object.assign(next, { [key]: value });
-  }
-  if ("sort" in patch && patch.sort !== before.sort && !("direction" in patch)) next.direction = null;
-  let reset = false;
-  for (const [key, value] of Object.entries(next)) {
-    const was = params.getAll(key).join("\u0000");
-    write(params, key, key === "view" && value === defaultViewFor(role) ? null : value);
-    if (RESETS_CURSOR.includes(key) && params.getAll(key).join("\u0000") !== was) reset = true;
-  }
-  if (reset) for (const key of CURSOR_KEYS) params.delete(key);
-  return params;
-}
-
-/** The whole state as a query, owned keys only, in a fixed order (for links built from state). */
-export function serializeDeskUrl(state: Partial<DeskUrlState>, role: UrlRole = "owner"): URLSearchParams {
+/** The state as a query: the current view's keys only, defaults omitted, in a fixed order. */
+export function serializeSiUrl(state: SiUrlState): URLSearchParams {
   const params = new URLSearchParams();
-  const order = ["view", "sort", "direction", ...LIST_KEYS, ...BOOL_KEYS, "attachment", ...NUM_KEYS, "freshness", "assignment", "relationship", "loc_side", ...TEXT_KEYS] as const;
-  for (const key of order) {
-    if (!(key in state)) continue;
-    if (role === "rep" && (["agent_id", "unassigned"].includes(key))) continue;
-    write(params, key, key === "view" && state.view === defaultViewFor(role) ? null : state[key as keyof DeskUrlState]);
+  if (state.view === "reps") {
+    params.set("view", "reps");
+    if (state.directory_cursor) params.set("directory_cursor", state.directory_cursor);
+    return params;
   }
+  if (state.q) params.set("q", state.q);
+  for (const value of state.classification) params.append("classification", value);
+  if (state.attachment !== "any") params.set("attachment", state.attachment);
+  if (state.hygiene) params.set("hygiene", "true");
+  if (state.has_recording) params.set("has_recording", "true");
+  if (state.include_form_only) params.set("include_form_only", "true");
+  if (state.active_from) params.set("active_from", state.active_from);
+  if (state.active_to) params.set("active_to", state.active_to);
+  if (state.sort !== NUMBER_SORT_DEFAULT.sort || state.direction !== NUMBER_SORT_DEFAULT.direction) {
+    params.set("sort", state.sort);
+    params.set("direction", state.direction);
+  }
+  if (state.cursor) {
+    params.set("cursor", state.cursor);
+    for (const value of state.before) params.append("before", value);
+  }
+  if (state.number) params.set("number", state.number);
   return params;
 }
 
-export function isDeskView(view: PageView): view is DeskView { return view === "attention" || view === "all_outreach" || view === "closed"; }
+/** The canonical query for any incoming query (idempotent). The route redirects when they differ. */
+export function canonicalSiQuery(params: URLSearchParams): URLSearchParams {
+  return serializeSiUrl(parseSiUrl(params));
+}
 
-/** The sort the server is asked for in a view: a valid URL sort, else the view's default (Closed has its own list). */
-/**
- * The view's default sort when the URL names none: Lead received, newest first (UX-C1), for the Owner and for a rep's
- * My Outreach (2026-09-26, replacing the rep's Attention-ordered My work). Closed has its own list.
- */
-export function effectiveSort(view: DeskView, sort: string | null): { sort: DeskSort | ClosedSort; direction: "asc" | "desc" } & { closed: boolean } {
-  if (view === "closed") {
-    const chosen = (CLOSED_SORTS as readonly string[]).includes(sort ?? "") ? (sort as ClosedSort) : CLOSED_DEFAULT_SORT;
-    return { sort: chosen, direction: CLOSED_SORT_DEFAULT_DIRECTION[chosen], closed: true };
+/** Changing any of these restarts paging (the cursor belongs to the old request). */
+const RESETS_PAGING: readonly (keyof SiUrlState)[] = ["view", "q", "classification", "attachment", "hygiene", "has_recording", "include_form_only", "active_from", "active_to", "sort", "direction"];
+
+/** Applies a patch; a request change drops the Numbers cursor, and a view change also closes the open Number. */
+export function siUrlUpdate(current: URLSearchParams | string, patch: SiUrlPatch): URLSearchParams {
+  const before = parseSiUrl(new URLSearchParams(current));
+  const next: SiUrlState = { ...before, ...patch };
+  const changed = (key: keyof SiUrlState) => key in patch && JSON.stringify(patch[key]) !== JSON.stringify(before[key]);
+  if (RESETS_PAGING.some(changed) && !("cursor" in patch)) {
+    next.cursor = null;
+    next.before = [];
   }
-  const chosen = (DESK_SORTS as readonly string[]).includes(sort ?? "") ? (sort as DeskSort) : DESK_DEFAULT_SORT;
-  return { sort: chosen, direction: DESK_SORT_DEFAULT_DIRECTION[chosen], closed: false };
+  if (changed("view") && !("number" in patch)) next.number = null;
+  return serializeSiUrl(next);
 }
 
-/** `GET /attention` params for a desk view. Closed-only params go only to Closed; `freshness` only with a score sort. */
-export function attentionParamsFromDesk(state: DeskUrlState, view: DeskView): AttentionParams {
-  const { sort, direction: fallback } = effectiveSort(view, state.sort);
-  const closed = view === "closed";
-  return {
-    view, sort, direction: state.direction ?? fallback,
-    band: closed ? [] : state.band, needs_review: state.needs_review, state: state.state, agent_id: state.agent_id, unassigned: state.unassigned,
-    assigned_agent_id: state.assigned_agent_id, assignment: state.assignment, followup_agent_id: closed ? [] : state.followup_agent_id,
-    relationship: closed ? null : state.relationship, agent: closed ? null : state.agent, work: closed ? [] : state.work,
-    move_date_mode: state.move_date_mode, move_days: state.move_days, move_on: state.move_on, move_from: state.move_from, move_through: state.move_through,
-    loc_side: state.loc_side, loc_city: state.loc_city, loc_state: state.loc_state, loc_zip: state.loc_zip, snapshot_id: closed ? null : state.snapshot_id,
-    priority: closed ? [] : state.priority, attachment: state.attachment,
-    has_recording: state.has_recording, has_assessment: state.has_assessment, newer_call: state.newer_call,
-    ti_min: state.ti_min, ml_min: state.ml_min, received_from: state.received_from, received_to: state.received_to,
-    move_date_within: state.move_date_mode ? null : state.move_date_within, move_date_passed: state.move_date_mode ? false : state.move_date_passed,
-    outcome: closed ? state.outcome : [], closed_from: closed ? state.closed_from : null, closed_to: closed ? state.closed_to : null,
-    freshness: !closed && isScoreSort(sort) && state.freshness === "fresh" ? "fresh" : null,
-    q: state.q,
-  };
+/** A filter reset for Numbers that keeps the search and the sort. */
+export function clearNumberFilters(): SiUrlPatch {
+  return { classification: [], attachment: "any", hygiene: false, has_recording: false, include_form_only: false, active_from: null, active_to: null };
 }
 
-export function overviewParamsFromDesk(state: DeskUrlState): OverviewParams {
-  return { period: state.period, from: state.from, to: state.to, priority: state.priority };
-}
-
-/** Closed history takes the Closed view's outcome / rep filters (E27); Closed has no Priority filter (Owner, 2026-09-30). */
-export function closedHistoryParamsFromDesk(state: DeskUrlState): ClosedHistoryParams {
-  return { outcome: state.outcome, priority: [], agent_id: state.agent_id, closed_from: state.closed_from, q: state.q,
-    assigned_agent_id: state.assigned_agent_id, assignment: state.assignment,
-    move_date_mode: state.move_date_mode, move_days: state.move_days, move_on: state.move_on, move_from: state.move_from, move_through: state.move_through,
-    loc_side: state.loc_side, loc_city: state.loc_city, loc_state: state.loc_state, loc_zip: state.loc_zip };
-}
-
-/** Trap 4: `?view=attention&lead=&lead_model=` (and `outreach=`) opens All Outreach (UX-C1) with that record's side dialog. */
-export function deepLinkTarget(state: DeskUrlState): { kind: "outreach"; id: string } | { kind: "lead"; model: string; id: string } | null {
-  if (state.outreach) return { kind: "outreach", id: state.outreach };
-  if (state.lead && state.lead_model) return { kind: "lead", model: state.lead_model, id: state.lead };
-  return null;
+/** `GET /numbers` for the URL state (the server's strict query: only these keys). */
+export function numbersQuery(state: SiUrlState, limit: number): URLSearchParams {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (state.q) query.set("q", state.q);
+  for (const value of state.classification) query.append("classification", value);
+  if (state.attachment !== "any") query.set("attachment", state.attachment);
+  if (state.hygiene) query.set("hygiene", "true");
+  if (state.has_recording) query.set("has_recording", "true");
+  if (state.include_form_only) query.set("include_form_only", "true");
+  if (state.active_from) query.set("active_from", state.active_from);
+  if (state.active_to) query.set("active_to", state.active_to);
+  query.set("sort", state.sort);
+  query.set("direction", state.direction);
+  if (state.cursor) query.set("cursor", state.cursor);
+  return query;
 }

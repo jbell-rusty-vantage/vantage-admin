@@ -136,12 +136,10 @@ test("the proxy never forwards a browser-sent scope header", () => {
   });
 });
 
-test("canAccessDashboardPath: a rep opens only /sales-intelligence and one Outreach record's page", () => {
-  for (const path of ["/sales-intelligence", `/sales-intelligence/outreach/${ID}`, `/sales-intelligence/outreach/${ID.toUpperCase()}`]) {
-    assert.equal(canAccessDashboardPath("rep", path), true, path);
-  }
-  for (const path of ["/", "/sales-intelligence/", "/sales-intelligence/numbers", `/sales-intelligence/numbers/${ID}`, "/sales-intelligence/outreach",
-    `/sales-intelligence/outreach/${ID}/messages`, "/sales-intelligence/outreach/abc", "/sales-intelligence/legacy", "/sales-intelligence-x",
+test("canAccessDashboardPath: a rep opens only /sales-intelligence (the interim not-available page)", () => {
+  assert.equal(canAccessDashboardPath("rep", "/sales-intelligence"), true);
+  for (const path of ["/", "/sales-intelligence/", `/sales-intelligence/outreach/${ID}`, `/sales-intelligence/outreach/${ID.toUpperCase()}`, "/sales-intelligence/numbers",
+    `/sales-intelligence/numbers/${ID}`, "/sales-intelligence/outreach", "/sales-intelligence/legacy", "/sales-intelligence-x",
     "/operations-registry", "/settings", "/daily", "/conversations", "/form-leads"]) {
     assert.equal(canAccessDashboardPath("rep", path), false, path);
   }
@@ -150,52 +148,26 @@ test("canAccessDashboardPath: a rep opens only /sales-intelligence and one Outre
   assert.equal(canAccessDashboardPath("admin", "/sales-intelligence"), false);
 });
 
-const REP_ALLOWED = [
-  ["GET", "api/v1/admin/sales-intelligence/attention?scope=production&agent_id=65f0000000000000000000ee"],
-  ["GET", "api/v1/admin/sales-intelligence/attention/capabilities"],
-  ["GET", "api/v1/admin/sales-intelligence/roster"],
-  ["GET", "api/v1/admin/sales-intelligence/overview?period=today"],
-  ["GET", "api/v1/admin/sales-intelligence/overview/team?priority=OI"],
-  ["GET", "api/v1/admin/sales-intelligence/overview/activity?period=today"],
-  ["GET", "api/v1/admin/sales-intelligence/overview/outcomes?cohort=last_7_days"],
-  ["GET", "api/v1/admin/sales-intelligence/outreach/closed-history?cursor=x"],
-  ["GET", `api/v1/admin/sales-intelligence/outreach/${ID}`],
-  ["GET", `api/v1/admin/sales-intelligence/outreach/${ID}/timeline`],
-  ["GET", `api/v1/admin/sales-intelligence/outreach/${ID}/assessment`],
-  ["GET", `api/v1/admin/sales-intelligence/outreach/${ID}/findings`],
-  ["GET", `api/v1/admin/sales-intelligence/numbers/${ID}/conversations`],
-  ["GET", `api/v1/admin/sales-intelligence/conversations/${ID}/transcript`],
-  ["GET", `api/v1/admin/sales-intelligence/conversations/${ID}/media`],
-  // S12-REPREADS (UI-2 §9b).
-  ["GET", `api/v1/admin/sales-intelligence/analysis-runs/${ID}/presentation`],
-  ["GET", `api/v1/admin/sales-intelligence/assessments/${ID}/evidence`],
-  ["POST", `api/v1/admin/sales-intelligence/followups/${ID}/complete`],
-  ["POST", `api/v1/admin/sales-intelligence/followups/${ID}/snooze`],
-  ["PATCH", `api/v1/admin/sales-intelligence/followups/${ID}`],
-] as const;
-const REP_DENIED = [
+/** Every interim Sales Intelligence call (Owner only) and the retired rep allowlist: a rep reaches none of them. */
+const SI_PATHS = [
   "api/v1/admin/sales-intelligence/numbers", `api/v1/admin/sales-intelligence/numbers/${ID}`, `api/v1/admin/sales-intelligence/numbers/${ID}/timeline`,
-  "api/v1/admin/sales-intelligence/settings", "api/v1/admin/sales-intelligence/coverage", "api/v1/admin/sales-intelligence/reps", "api/v1/admin/sales-intelligence/nudges",
-  "api/v1/admin/sales-intelligence/live", "api/v1/admin/sales-intelligence/review-items", "api/v1/admin/sales-intelligence/analysis-runs",
-  `api/v1/admin/sales-intelligence/outreach/${ID}/commands`, `api/v1/admin/sales-intelligence/outreach/by-lead/FormLead/${ID}`, "api/v1/admin/sales-intelligence/followups",
-  `api/v1/admin/sales-intelligence/followups/${ID}/cancel`, `api/v1/admin/sales-intelligence/conversations/${ID}/findings`, `api/v1/admin/sales-intelligence/assessments/${ID}`,
-  `api/v1/admin/sales-intelligence/assessments/${ID}/output`, `api/v1/admin/sales-intelligence/analysis-runs/${ID}`, `api/v1/admin/sales-intelligence/analysis-runs/${ID}/output/${ID}`,
-  `api/v1/admin/sales-intelligence/analysis-runs/${ID}/evidence`,
-  "api/v1/admin/sales-intelligence/overview/rebuild-day", `api/v1/admin/sales-intelligence/outreach/${ID}/timeline/extra`, "api/v1/admin/sales-intelligence/outreach/abc",
-  "api/v1/internal/sales-intelligence/history/story", "api/v1/admin/catalog/agents",
+  `api/v1/admin/sales-intelligence/numbers/${ID}/rebuild`, "api/v1/admin/sales-intelligence/attachments", "api/v1/admin/sales-intelligence/attachments/attach",
+  "api/v1/admin/sales-intelligence/coverage", "api/v1/admin/sales-intelligence/reps", `api/v1/admin/sales-intelligence/reps/${ID}/review`,
+  "api/v1/admin/sales-intelligence/nudges", "api/v1/admin/sales-intelligence/live", "api/v1/admin/sales-intelligence/settings",
+  "api/v1/admin/sales-intelligence/attention?scope=production&agent_id=65f0000000000000000000ee", "api/v1/admin/sales-intelligence/roster",
+  "api/v1/admin/sales-intelligence/overview?period=today", `api/v1/admin/sales-intelligence/outreach/${ID}`, `api/v1/admin/sales-intelligence/outreach/${ID}/timeline`,
+  `api/v1/admin/sales-intelligence/numbers/${ID}/conversations`, `api/v1/admin/sales-intelligence/conversations/${ID}/transcript`,
+  `api/v1/admin/sales-intelligence/analysis-runs/${ID}/presentation`, `api/v1/admin/sales-intelligence/followups/${ID}/complete`, `api/v1/admin/sales-intelligence/followups/${ID}`,
+  "api/v1/internal/sales-intelligence/history/story", "api/v1/admin/catalog/agents", "api/v1/admin/form-leads",
 ];
 const METHODS = ["GET", "POST", "PATCH", "PUT", "DELETE"] as const;
 
-test("canProxyVantagePath: a rep reaches exactly the Sales Intelligence calls its UI makes", () => {
-  for (const [method, path] of REP_ALLOWED) {
-    assert.equal(canProxyVantagePath({ role: "rep", method, path }), true, `${method} ${path}`);
-    for (const other of METHODS.filter((m) => m !== method)) assert.equal(canProxyVantagePath({ role: "rep", method: other, path }), false, `${other} ${path}`);
-  }
-  for (const path of REP_DENIED) for (const method of METHODS) assert.equal(canProxyVantagePath({ role: "rep", method, path }), false, `${method} ${path}`);
+test("canProxyVantagePath: a rep reaches no API (the interim reads are Owner-only)", () => {
+  for (const path of SI_PATHS) for (const method of METHODS) assert.equal(canProxyVantagePath({ role: "rep", method, path }), false, `${method} ${path}`);
   // Owner unchanged; Admin still has no Sales Intelligence API.
-  for (const [method, path] of REP_ALLOWED) {
-    assert.equal(canProxyVantagePath({ role: "owner", method, path }), true);
-    assert.equal(canProxyVantagePath({ role: "admin", method, path }), false);
+  for (const path of SI_PATHS.filter((item) => item.includes("/admin/sales-intelligence"))) {
+    assert.equal(canProxyVantagePath({ role: "owner", method: "GET", path }), true);
+    assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path }), false);
   }
 });
 
@@ -204,45 +176,46 @@ function requestWithRole(pathname: string, role: "owner" | "admin" | "rep") {
   return new NextRequest(`http://localhost:3000${pathname}`, { headers: { cookie: `${ACCESS_TOKEN_COOKIE}=${token}` } });
 }
 
-test("the request-boundary role guard lets a rep through to its two pages only", () => {
+test("the request-boundary role guard lets a rep through to /sales-intelligence only", () => {
   setTestEnv();
   assert.equal(applyRoleRouteGuard(requestWithRole("/sales-intelligence", "rep")), null);
-  assert.equal(applyRoleRouteGuard(requestWithRole("/sales-intelligence?tab=overview", "rep")), null);
-  assert.equal(applyRoleRouteGuard(requestWithRole(`/sales-intelligence/outreach/${ID}`, "rep")), null);
-  // UI2-SHELL: anything else redirects to the rep's home (was a plain 403).
-  for (const path of [`/sales-intelligence/numbers/${ID}`, "/form-leads", "/sales-intelligence/legacy", "/sales-intelligence/dev/gallery", "/operations-registry", "/"]) {
+  assert.equal(applyRoleRouteGuard(requestWithRole("/sales-intelligence?view=reps", "rep")), null);
+  // Anything else redirects to the rep's home.
+  for (const path of [`/sales-intelligence/outreach/${ID}`, `/sales-intelligence/numbers/${ID}`, "/form-leads", "/sales-intelligence/legacy", "/sales-intelligence/dev/gallery", "/operations-registry", "/"]) {
     const response = applyRoleRouteGuard(requestWithRole(path, "rep"));
     assert.equal(response?.status, 307, path);
     assert.equal(new URL(response!.headers.get("location")!).pathname, "/sales-intelligence", path);
   }
 });
 
-test("the live BFF forwards a rep with its signed Agent and still refuses Admin", async () => {
+test("the live BFF admits only the Owner: a rep and the Admin role are refused without an upstream call", async () => {
   process.env.VANTAGE_ADMIN_PROXY_SIGNING_SECRET = SECRET;
   resetServerEnvForTests();
   try {
-    let forwarded: Headers | null = null;
-    const response = await salesIntelligenceLive(new Request("http://localhost/api/sales-intelligence-live?scope=production", { headers: { [ADMIN_PROXY_AGENT_HEADER]: "65f0000000000000000000ff" } }), {
+    const refuse = async () => { throw new Error("must not be called"); };
+    const rep = await salesIntelligenceLive(new Request("http://localhost/api/sales-intelligence-live?scope=production", { headers: { [ADMIN_PROXY_AGENT_HEADER]: "65f0000000000000000000ff" } }), {
       admin: { id: "65f0000000000000000000a1", email: "rep@example.invalid", role: "rep", agent_id: AGENT },
-      url: "http://upstream.invalid/live",
-      apiSecret: "x",
+      url: "http://upstream.invalid/live", apiSecret: "x", fetch: refuse,
+    });
+    assert.equal(rep.status, 403);
+    const admin = await salesIntelligenceLive(new Request("http://localhost/api/sales-intelligence-live"), {
+      admin: { id: "a", email: "a@x.test", role: "admin" }, url: "http://upstream.invalid/live", apiSecret: "x", fetch: refuse,
+    });
+    assert.equal(admin.status, 403);
+    let forwarded: Headers | null = null;
+    const owner = await salesIntelligenceLive(new Request("http://localhost/api/sales-intelligence-live?scope=production"), {
+      admin: { id: "65f0000000000000000000a2", email: "owner@example.invalid", role: "owner" },
+      url: "http://upstream.invalid/live", apiSecret: "x",
       fetch: async (_url, init) => {
         forwarded = new Headers(init?.headers);
         return new Response(new ReadableStream({ start(c) { c.close(); } }), { headers: { "content-type": "text/event-stream" } });
       },
     });
-    assert.equal(response.status, 200);
-    const sent = forwarded as Headers | null;
-    assert.equal(sent?.get(ADMIN_PROXY_AGENT_HEADER), AGENT);
-    assert.equal(sent?.get(ADMIN_PROXY_HEADER_NAMES.role), "rep");
-    assert.match(sent?.get(ADMIN_PROXY_HEADER_NAMES.signature) ?? "", /^[a-f0-9]{64}$/);
-    const admin = await salesIntelligenceLive(new Request("http://localhost/api/sales-intelligence-live"), {
-      admin: { id: "a", email: "a@x.test", role: "admin" }, url: "http://upstream.invalid/live", apiSecret: "x",
-      fetch: async () => { throw new Error("must not be called"); },
-    });
-    assert.equal(admin.status, 403);
+    assert.equal(owner.status, 200);
+    assert.equal((forwarded as Headers | null)?.get(ADMIN_PROXY_HEADER_NAMES.role), "owner");
   } finally {
     delete process.env.VANTAGE_ADMIN_PROXY_SIGNING_SECRET;
     resetServerEnvForTests();
   }
 });
+

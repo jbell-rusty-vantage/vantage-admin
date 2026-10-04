@@ -61,53 +61,16 @@ const GRANOT_AUTOMATION_PREFIX = "/api/v1/admin/granot-automation";
 const GRANOT_LIFECYCLE_PREFIX = "/api/v1/admin/granot-lifecycle";
 
 /**
- * S8-REP (addendum §4.1): the only dashboard pages a rep may open. `/sales-intelligence` (its
- * Overview, Needs Attention, All Outreach and Closed tabs are query state on the same page) and
- * one Outreach record's page. Numbers, Messages / rep threads, Operations, Daily Operations, the
- * Registry and settings stay denied. The main server still decides which records the rep sees.
+ * The only dashboard page a rep may open: `/sales-intelligence`, which shows the interim "not available for Rep
+ * accounts yet" page and makes no read. Every other page stays denied.
  */
-const REP_DASHBOARD_PATHS: readonly RegExp[] = [
-  /^\/sales-intelligence$/,
-  /^\/sales-intelligence\/outreach\/[a-f\d]{24}$/i,
-];
-
-const CSI_API = "/api/v1/admin/sales-intelligence";
-const OBJECT_ID = "[a-f\\d]{24}";
-/**
- * S8-REP: every main-server call the rep UI makes, method by method. Everything else is denied
- * here and again on the server (which also forces the rep's scope and returns 404 outside it).
- * The live stream goes through `/api/sales-intelligence-live`, not this proxy.
- */
-const REP_PROXY_ROUTES: ReadonlyArray<{ method: VantageApiMethod; pattern: RegExp }> = [
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/attention$`) },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/attention/capabilities$`) },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/roster$`) },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/overview$`) },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/overview/(?:team|activity|outcomes)$`) },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/closed-history$`) },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/${OBJECT_ID}$`) },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/outreach/${OBJECT_ID}/(?:timeline|assessment|findings)$`) },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/numbers/${OBJECT_ID}/conversations$`) },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/conversations/${OBJECT_ID}/(?:transcript|media)$`) },
-  // S12-REPREADS (UI-2 §9b, UX15): the analysis kit's presentation and assessment-evidence reads, for in-scope records only
-  // (the server answers 404 outside the rep's scope and empties `full_output[]`). Full output stays Owner-only.
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/analysis-runs/${OBJECT_ID}/presentation$`) },
-  { method: "GET", pattern: new RegExp(`^${CSI_API}/assessments/${OBJECT_ID}/evidence$`) },
-  // E9: complete, snooze and re-date (`PATCH /followups/:id` with only `due_at`) their own follow-ups.
-  { method: "POST", pattern: new RegExp(`^${CSI_API}/followups/${OBJECT_ID}/(?:complete|snooze)$`) },
-  { method: "PATCH", pattern: new RegExp(`^${CSI_API}/followups/${OBJECT_ID}$`) },
-];
-
-export function canRepProxyVantagePath(method: VantageApiMethod, path: string): boolean {
-  const normalized = normalizeProxyPath(path);
-  return REP_PROXY_ROUTES.some(route => route.method === method && route.pattern.test(normalized));
-}
+const REP_DASHBOARD_PATHS: readonly RegExp[] = [/^\/sales-intelligence$/];
 
 export function canAccessDashboardPath(role: AdminRole, pathname: string): boolean {
   if (role === "owner") {
     return true;
   }
-  // S8-REP: a rep reaches only its Sales Intelligence pages. Anything that is
+  // A rep reaches only the interim Sales Intelligence page. Anything that is
   // not exactly "admin" or "rep" is denied, so a new role never inherits the
   // Admin allowances below.
   if (role === "rep") {
@@ -152,9 +115,9 @@ export function canProxyVantagePath(input: {
   if (input.role === "owner") {
     return true;
   }
-  // S8-REP: a rep reaches only the Sales Intelligence calls its UI makes.
+  // The interim Sales Intelligence reads are Owner-only and the rep page makes no read, so a rep reaches no API.
   if (input.role === "rep") {
-    return canRepProxyVantagePath(input.method, input.path);
+    return false;
   }
   // Any role that is not exactly "admin" reaches no API.
   if (input.role !== "admin") {
@@ -166,12 +129,6 @@ export function canProxyVantagePath(input: {
   if (
     path === "/api/v1/admin/job-number-timeline" ||
     path.startsWith("/api/v1/admin/job-number-timeline/")
-  ) {
-    return false;
-  }
-  if (
-    path === "/api/v1/admin/conversations" ||
-    path.startsWith("/api/v1/admin/conversations/")
   ) {
     return false;
   }

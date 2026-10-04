@@ -29,7 +29,7 @@ export default async function DashboardLayout({
   if (admin.role === "rep") {
     return (
       <QueryProvider>
-        <RepFrame email={admin.email} agentId={admin.agent_id ?? null}>{children}</RepFrame>
+        <RepFrame email={admin.email}>{children}</RepFrame>
       </QueryProvider>
     );
   }

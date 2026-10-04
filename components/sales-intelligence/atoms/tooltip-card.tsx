@@ -1,10 +1,7 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
-import { copy } from "../sales-intelligence-copy";
-import { guideHref, type GuideTopic } from "../sales-intelligence-tabs";
 import { cx } from "../lib/format";
 
 type Place = { top: number; left: number };
@@ -26,14 +23,6 @@ export function placeCard(anchor: DOMRect, card: { width: number; height: number
   return { top, left };
 }
 
-const TABBABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-function nextTabbableAfter(from: HTMLElement, skip: HTMLElement | null): HTMLElement | null {
-  const all = [...document.querySelectorAll<HTMLElement>(TABBABLE)].filter((el) => !skip?.contains(el) && el.offsetParent !== null);
-  const at = all.indexOf(from);
-  return at >= 0 ? all[at + 1] ?? null : null;
-}
-
 /**
  * The card renders in a portal (the open `<dialog>` it sits in, else `<body>`): cards and rows set `z-index` on their
  * parts, which trapped an inline card under the next card in the list.
@@ -42,13 +31,11 @@ export function TooltipCard({
   title,
   label,
   children,
-  guideTopic,
   className,
 }: {
   title: string;
   label: ReactNode;
   children: ReactNode;
-  guideTopic?: GuideTopic;
   className?: string;
 }) {
   const id = useId();
@@ -59,7 +46,6 @@ export function TooltipCard({
   const [open, setOpen] = useState(false);
   const [place, setPlace] = useState<Place | null>(null);
   const [host, setHost] = useState<HTMLElement | null>(null);
-  const role = guideTopic ? "dialog" : "tooltip";
 
   const clearTimers = () => {
     if (openTimer.current) window.clearTimeout(openTimer.current);
@@ -103,28 +89,6 @@ export function TooltipCard({
   };
 
   useEffect(() => clearTimers, []);
-
-  // The portal puts the guide link outside the anchor's tab order: Tab from the anchor reaches it, and Tab or
-  // Shift+Tab from it returns to the anchor (the next Tab then leaves the tip as before).
-  const onAnchorKey = (event: ReactKeyboardEvent) => {
-    if (event.key !== "Tab" || event.shiftKey || !open) return;
-    const link = cardRef.current?.querySelector<HTMLElement>(".si-tip__guide");
-    if (!link) return;
-    event.preventDefault();
-    link.focus();
-  };
-  const onLinkKey = (event: ReactKeyboardEvent) => {
-    if (event.key !== "Tab") return;
-    const anchor = wrapRef.current?.querySelector<HTMLElement>(".si-tip__anchor");
-    if (!anchor) return;
-    event.preventDefault();
-    if (event.shiftKey) {
-      anchor.focus();
-      return;
-    }
-    setOpen(false);
-    nextTabbableAfter(anchor, cardRef.current)?.focus();
-  };
 
   useEffect(() => {
     if (!open) return;
@@ -180,7 +144,6 @@ export function TooltipCard({
         tabIndex={0}
         aria-describedby={open ? id : undefined}
         aria-expanded={open}
-        onKeyDown={onAnchorKey}
         // UI2-PHONE: every tip also opens on tap (iOS Safari doesn't focus a tabbable span on tap); a second tap closes it.
         onClick={onAnchorClick}
       >
@@ -191,7 +154,7 @@ export function TooltipCard({
           <span
             ref={cardRef}
             id={id}
-            role={role}
+            role="tooltip"
             className="si-tip__card"
             style={place ? { top: place.top, left: place.left } : { top: 0, left: 0, visibility: "hidden" }}
             onMouseEnter={showNow}
@@ -199,11 +162,6 @@ export function TooltipCard({
           >
             <strong className="si-tip__title">{title}</strong>
             <span className="si-tip__body">{children}</span>
-            {guideTopic && (
-              <Link className="si-tip__guide" href={guideHref(guideTopic)} onClick={() => setOpen(false)} onKeyDown={onLinkKey}>
-                See {copy.guide.title}
-              </Link>
-            )}
           </span>
         </span>,
         host,

@@ -121,7 +121,8 @@ test("a verified rep still loads /_next/ files and the real public assets", () =
     assert.equal(guard(pathname, rep), null, pathname);
   }
   assert.equal(guard("/sales-intelligence", rep), null);
-  assert.equal(guard("/sales-intelligence/outreach/65f0000000000000000000aa", rep), null);
+  // The retired Outreach record page is not a rep page any more: it redirects to the rep's home.
+  assert.equal(guard("/sales-intelligence/outreach/65f0000000000000000000aa", rep)?.status, 307);
 });
 
 test("an expired or unverifiable access token is no session: protected pages redirect to /login", () => {

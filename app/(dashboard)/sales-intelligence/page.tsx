@@ -1,26 +1,26 @@
-import { permanentRedirect, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { DeskRouteSkeleton, deskRouteDecision } from "@/components/sales-intelligence/desk";
+import { DeskRouteSkeleton, siRouteDecision } from "@/components/sales-intelligence/desk";
+import { RepUnavailable } from "@/components/sales-intelligence/rep-unavailable";
 import { DeskClient } from "./desk-client";
-import { LeadDeepLinkClient } from "./lead-deep-link-client";
 import { routeViewer } from "./route-viewer";
+import "@/components/sales-intelligence/styles/sales-intelligence.css";
 
 /**
- * UI-1 §1: the Owner's Sales Intelligence desk. Old `outreach=&panel=` links redirect to the Outreach route; an old
- * Lead-only analysis link (`lead=&lead_model=&panel=`) resolves in the browser through `outreach/by-lead` (ADMIN-REBUILD trap 5).
- * UI2-SHELL (UI-2 §1–§2): a rep gets the same page under its forced scope, landing on My Outreach. The Lead-only link needs the
- * Owner-only `outreach/by-lead` read, so a rep's desk ignores it.
+ * The interim Sales Intelligence page: Numbers (default) and RingCentral Accounts, Owner only. A Rep account gets the
+ * truthful not-available page and no read. Any query that isn't the canonical Numbers/Accounts query (an old Outreach,
+ * Attention, Closed, Overview, Coverage or Guide link, an `outreach=`/`lead=` deep link) redirects to Numbers.
  */
 export default async function SalesIntelligencePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const session = await routeViewer();
-  if (!session) redirect("/login");
-  if (session === "admin") redirect("/");
-  const role = session.viewer.role;
-  const decision = deskRouteDecision(await searchParams);
-  if (decision.kind === "redirect") permanentRedirect(decision.href);
+  const viewer = await routeViewer();
+  if (!viewer) redirect("/login");
+  if (viewer === "admin") redirect("/");
+  if (viewer === "rep") return <RepUnavailable />;
+  const decision = siRouteDecision(await searchParams);
+  if (decision.kind === "redirect") redirect(decision.href);
   return (
-    <Suspense fallback={<DeskRouteSkeleton role={role} />}>
-      {decision.kind === "resolve-lead" && role === "owner" ? <LeadDeepLinkClient target={decision.target} /> : <DeskClient userId={session.id} viewer={session.viewer} />}
+    <Suspense fallback={<DeskRouteSkeleton />}>
+      <DeskClient />
     </Suspense>
   );
 }

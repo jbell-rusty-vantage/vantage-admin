@@ -32,7 +32,15 @@ export function RegionError({ error, onRetry }: { error: unknown; onRetry: () =>
   );
 }
 
-type BoundaryProps = { name: string; onRetry?: () => void; children: ReactNode };
+type BoundaryProps = {
+  name: string;
+  onRetry?: () => void;
+  /** Called once per caught error (for example to drop a stale cursor from the URL). */
+  onError?: (error: unknown) => void;
+  /** A failed region resets itself when this changes (a new request replaces the one that failed). */
+  resetKey?: string;
+  children: ReactNode;
+};
 type BoundaryState = { error: unknown; failed: boolean };
 
 export class RegionBoundary extends Component<BoundaryProps, BoundaryState> {
@@ -44,6 +52,11 @@ export class RegionBoundary extends Component<BoundaryProps, BoundaryState> {
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
     if (process.env.NODE_ENV !== "production") console.error(`[si-region:${this.props.name}]`, error, info.componentStack);
+    this.props.onError?.(error);
+  }
+
+  componentDidUpdate(previous: BoundaryProps) {
+    if (this.state.failed && previous.resetKey !== this.props.resetKey) this.setState({ error: null, failed: false });
   }
 
   reset = () => {
@@ -61,10 +74,10 @@ export class RegionBoundary extends Component<BoundaryProps, BoundaryState> {
  * UI-0 §2.4 region: its own error boundary + Suspense. The skeleton shows only after 150 ms.
  * `onRetry` runs before the boundary resets (for example `queryClient.resetQueries({ queryKey })`).
  */
-export function Region({ name, children, skeleton, onRetry, className }: { name: string; children: ReactNode; skeleton: ReactNode; onRetry?: () => void; className?: string }) {
+export function Region({ name, children, skeleton, onRetry, onError, resetKey, className }: { name: string; children: ReactNode; skeleton: ReactNode; onRetry?: () => void; onError?: (error: unknown) => void; resetKey?: string; className?: string }) {
   return (
     <div className={cx("si-region", className)} data-region={name}>
-      <RegionBoundary name={name} onRetry={onRetry}>
+      <RegionBoundary name={name} onRetry={onRetry} onError={onError} resetKey={resetKey}>
         <Suspense fallback={<DelayedSkeleton>{skeleton}</DelayedSkeleton>}>{children}</Suspense>
       </RegionBoundary>
     </div>

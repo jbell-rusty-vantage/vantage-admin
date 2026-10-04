@@ -19,6 +19,7 @@ const DASHBOARD_PATHS = [
   "/sales-intelligence/numbers/65f0000000000000000000aa",
   "/sales-intelligence/legacy",
   "/sales-intelligence/outreach",
+  "/sales-intelligence/outreach/65f0000000000000000000aa",
   "/sales-intelligence/outreach/65f0000000000000000000aa/messages",
   "/operations-registry?tab=agents",
   "/granot-lifecycle/health",
@@ -35,6 +36,8 @@ const API_PATHS = [
   "api/v1/admin/sales-intelligence/numbers?scope=production",
   "api/v1/admin/sales-intelligence/settings",
   "api/v1/admin/sales-intelligence/outreach/65f0000000000000000000aa/commands",
+  "api/v1/admin/sales-intelligence/outreach/65f0000000000000000000aa",
+  "api/v1/admin/sales-intelligence/attention",
   "api/v1/internal/sales-intelligence/history/story",
   "api/v1/admin/catalog/agents",
   "api/v1/admin/form-leads",
@@ -111,7 +114,7 @@ test("the request-boundary role guard redirects a rep to /sales-intelligence fro
   assert.equal(new URL(redirected!.headers.get("location")!).pathname, "/login");
 });
 
-test("the Sales Intelligence live BFF refuses a rep without a linked Agent", async () => {
+test("the Sales Intelligence live BFF refuses a rep (Owner-only stream)", async () => {
   setTestEnv();
   const response = await salesIntelligenceLive(new Request("http://localhost/api/sales-intelligence-live?scope=production"), {
     admin: { id: "65f0000000000000000000a1", email: "rep@example.invalid", role: "rep" },

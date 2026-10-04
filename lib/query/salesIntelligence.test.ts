@@ -14,11 +14,11 @@ const change = (topics: string[]) => ({ version: 2, reason: "change", topics, as
 const segments = (keys: readonly (readonly string[])[]) => keys.map((key) => key[1] ?? "*").sort();
 
 test("a change frame invalidates only the query keys its topics can change", () => {
-  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention", "attention-capabilities", "closed-history", "overview", "roster"]);
-  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["rep"]))), ["nudge-destinations", "reps", "roster"]);
-  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["outreach"]))), [
-    "assessment", "closed-history", "number", "outreach", "outreach-by-lead", "overview", "timeline",
-  ]);
+  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attachment"]))), ["attachment-pair", "attachments", "number", "numbers"]);
+  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["number"]))), ["coverage", "number", "numbers", "timeline"]);
+  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["restriction"]))), ["number"]);
+  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["rep"]))), ["reps", "timeline"]);
+  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["nudge"]))), ["reps"]);
   // Every mapped topic stays inside the Sales Intelligence tree and narrower than the whole tree.
   for (const [topic, keys] of Object.entries(salesIntelligenceTopicKeys)) {
     assert.ok(keys.length, topic);
@@ -29,28 +29,25 @@ test("a change frame invalidates only the query keys its topics can change", () 
   }
 });
 
-test("two topics in one frame merge without repeating a key", () => {
-  const keys = salesIntelligenceInvalidationKeys(change(["analysis", "outreach"]));
-  assert.deepEqual(segments(keys), [
-    "analysis-evidence", "analysis-evidence-content", "analysis-output", "analysis-presentation", "analysis-run", "analysis-runs",
-    "assessment", "assessment-artifact", "assessment-evidence", "assessment-output", "closed-history", "conversations", "coverage", "findings",
-    "number", "outreach", "outreach-by-lead", "overview", "timeline", "transcript",
-  ]);
-  assert.equal(new Set(keys.map((key) => key.join("/"))).size, keys.length);
+test("only the retained Numbers and RingCentral Accounts topics are narrowed", () => {
+  assert.deepEqual(Object.keys(salesIntelligenceTopicKeys).sort(), ["attachment", "nudge", "number", "rep", "restriction"]);
+  // A retired topic (an older server still publishing it) is not narrowed: it resyncs the whole tree.
+  for (const topic of ["outreach", "analysis", "attention", "review"]) {
+    assert.deepEqual(salesIntelligenceInvalidationKeys(change([topic])), [[...salesIntelligenceKeys.all]], topic);
+  }
 });
 
-test("record writes do not restart the published attention list", () => {
-  for (const topic of ["outreach", "attachment", "number", "review", "restriction", "analysis", "rep", "nudge"]) {
-    assert.equal(segments(salesIntelligenceInvalidationKeys(change([topic]))).includes("attention"), false, topic);
-  }
-  assert.deepEqual(segments(salesIntelligenceInvalidationKeys(change(["attention"]))), ["attention", "attention-capabilities", "closed-history", "overview", "roster"]);
+test("two topics in one frame merge without repeating a key", () => {
+  const keys = salesIntelligenceInvalidationKeys(change(["attachment", "number"]));
+  assert.deepEqual(segments(keys), ["attachment-pair", "attachments", "coverage", "number", "numbers", "timeline"]);
+  assert.equal(new Set(keys.map((key) => key.join("/"))).size, keys.length);
 });
 
 test("anything we cannot narrow honestly resyncs the whole tree", () => {
   const whole = [[...salesIntelligenceKeys.all]];
   // A server that grows a topic, or an unmapped collection, must not silently skip a refetch.
   assert.deepEqual(salesIntelligenceInvalidationKeys(change(["other"])), whole);
-  assert.deepEqual(salesIntelligenceInvalidationKeys(change(["outreach", "a_topic_from_a_newer_server"])), whole);
+  assert.deepEqual(salesIntelligenceInvalidationKeys(change(["number", "a_topic_from_a_newer_server"])), whole);
   // A reconnect resyncs everything: the drop itself is the gap.
   assert.deepEqual(salesIntelligenceInvalidationKeys({ version: 2, reason: "reconnect", topics: [] }), whole);
   assert.deepEqual(salesIntelligenceInvalidationKeys({ version: 2, reason: "connect", topics: [] }), whole);
@@ -66,11 +63,11 @@ test("the pulse reports the last change and settles back on its own", (t) => {
   t.after(() => mock.timers.reset());
   let notified = 0;
   const unsubscribe = subscribeSalesIntelligencePulse(() => { notified += 1; });
-  publishSalesIntelligencePulse(["outreach", "attention", "outreach"], "2026-09-21T04:00:00.000Z");
-  assert.deepEqual(readSalesIntelligencePulse(), { topics: ["attention", "outreach"], at: "2026-09-21T04:00:00.000Z" });
+  publishSalesIntelligencePulse(["number", "attachment", "number"], "2026-09-21T04:00:00.000Z");
+  assert.deepEqual(readSalesIntelligencePulse(), { topics: ["attachment", "number"], at: "2026-09-21T04:00:00.000Z" });
   assert.equal(notified, 1);
   t.mock.timers.tick(SALES_INTELLIGENCE_PULSE_MS - 1);
-  assert.deepEqual(readSalesIntelligencePulse().topics, ["attention", "outreach"]);
+  assert.deepEqual(readSalesIntelligencePulse().topics, ["attachment", "number"]);
   t.mock.timers.tick(1);
   assert.deepEqual(readSalesIntelligencePulse(), { topics: [], at: "2026-09-21T04:00:00.000Z" });
   assert.equal(notified, 2);
@@ -84,6 +81,6 @@ test("the pulse reports the last change and settles back on its own", (t) => {
   publishSalesIntelligencePulse([], "2026-09-21T04:00:20.000Z");
   assert.deepEqual(readSalesIntelligencePulse(), { topics: [], at: "2026-09-21T04:00:10.000Z" });
   unsubscribe();
-  publishSalesIntelligencePulse(["review"], "2026-09-21T04:00:30.000Z");
+  publishSalesIntelligencePulse(["rep"], "2026-09-21T04:00:30.000Z");
   assert.equal(notified, 4);
 });

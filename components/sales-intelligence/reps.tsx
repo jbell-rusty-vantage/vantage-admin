@@ -2,24 +2,26 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { readSalesIntelligence, repsSchema, reviewedNudgeChannels, type DirectoryUser } from "@/lib/api/salesIntelligence";
-import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
+import { siKeys } from "./data/query-keys";
+import { useReportAsOf } from "./data/live";
 import { Button } from "./atoms/button";
 import { EvidenceCommand } from "./evidence-command";
 import { MessageAccountPanel } from "./message-account-panel";
 import { copy } from "./sales-intelligence-copy";
 import { formatDateTime, label } from "./lib/format";
 
-export function Reps({ params, update }: { params: URLSearchParams; update: (values: Record<string, string | boolean | null | undefined>) => void }) {
+/** RingCentral Accounts: the stored directory, reviewed Agent identity and directory `review_context` messages. */
+export function Reps({ directoryCursor, onDirectoryCursor }: { directoryCursor: string | null; onDirectoryCursor: (cursor: string | null) => void }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messageUser, setMessageUser] = useState<DirectoryUser | null>(null);
   const query = new URLSearchParams({ limit: "50" });
-  if (params.get("rep_cursor")) query.set("cursor", params.get("rep_cursor")!);
-  if (params.get("directory_cursor")) query.set("directory_cursor", params.get("directory_cursor")!);
+  if (directoryCursor) query.set("directory_cursor", directoryCursor);
   const list = useQuery({
-    queryKey: [...salesIntelligenceKeys.all, "reps", query.toString()],
+    queryKey: siKeys.reps(query.toString()),
     queryFn: ({ signal }) => readSalesIntelligence(`reps?${query}`, repsSchema, signal),
     retry: false,
   });
+  useReportAsOf(list.data?.as_of);
   const selected = list.data?.data.items.find(row => row.id === selectedId);
   const users = list.data?.data.directory.users ?? [];
   const reviewedFor = (user: DirectoryUser) =>
@@ -92,9 +94,9 @@ export function Reps({ params, update }: { params: URLSearchParams; update: (val
             </article>
           ))}
           <div className="si-local-filters">
-            {params.get("directory_cursor") && <Button onClick={() => update({ directory_cursor: null })}>First directory page</Button>}
+            {directoryCursor && <Button onClick={() => onDirectoryCursor(null)}>First directory page</Button>}
             {list.data.data.directory.next_cursor && (
-              <Button disabled={list.isFetching} onClick={() => update({ directory_cursor: list.data!.data.directory.next_cursor })}>Next directory entries</Button>
+              <Button disabled={list.isFetching} onClick={() => onDirectoryCursor(list.data!.data.directory.next_cursor)}>Next directory entries</Button>
             )}
           </div>
         </>

@@ -1,12 +1,12 @@
 "use client";
 /**
- * UI1-COVER (UI-1 §6, COPY-UI1 §11): the capture health block at the top of Coverage. Every state is the server's
+ * UI1-COVER (UI-1 §6, COPY-UI1 §11): the capture health block on Numbers. Every state is the server's
  * (`capture_health.status`, `reasons[]`, the counts); the browser only words them. Times go through `TimeText`
  * against the response `as_of`. Red is used only for `broken` (UI-0 §2).
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, CircleCheck, OctagonAlert, type LucideIcon } from "lucide-react";
-import type { CaptureHealth as CaptureHealthDto } from "@/lib/api/salesIntelligence";
+import type { CaptureHealth as CaptureHealthDto, OwnerCoverage } from "@/lib/api/salesIntelligence";
 import { copy } from "./sales-intelligence-copy";
 import { cx } from "./lib/format";
 import { useCoverage } from "./data/use-coverage";
@@ -136,13 +136,33 @@ function CaptureHealthSkeleton() {
 }
 CaptureHealth.Skeleton = CaptureHealthSkeleton;
 
+/** Known gaps and directory mapping hygiene: what the Numbers counts may be missing. */
+export function CaptureCompleteness({ coverage, asOf }: { coverage: Pick<OwnerCoverage, "gaps" | "mapping_hygiene">; asOf: string | null }) {
+  const h = coverage.mapping_hygiene;
+  return (
+    <p className="si-caphealth__line si-text--sm" data-caphealth="completeness">
+      <span>{copy.numbers.gaps(coverage.gaps.length)}</span>
+      <Dot />
+      <span>{c.unmappedNumbers(h.unmapped_inbound_numbers)}</span>
+      {h.unmapped_directory_users !== null && (
+        <>
+          <Dot />
+          <span>{c.unmappedUsers(h.unmapped_directory_users)}</span>
+        </>
+      )}
+      <Dot />
+      <TimeText t={h.last_directory_sync_at} asOf={asOf} mode="relative" prefix={c.directorySync} nullText={c.directoryMissing} />
+    </p>
+  );
+}
+
 function CaptureHealthRead() {
-  const { captureHealth, asOf, isFetching } = useCoverage();
-  if (!captureHealth) return null; // a server before S5c-HEALTH: Coverage shows the rest unchanged
+  const { coverage, captureHealth, asOf, isFetching } = useCoverage();
   return (
     <>
       <RegionProgress active={isFetching} />
       <CaptureHealth health={captureHealth} asOf={asOf} />
+      <CaptureCompleteness coverage={coverage} asOf={asOf} />
     </>
   );
 }

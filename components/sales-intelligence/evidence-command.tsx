@@ -14,7 +14,7 @@ export function EvidenceCommand({title,revision,enabled,context,build,onClose}:{
   if(lock.current)return;lock.current=true;setPending(true);setError('');
   try {intent.current??={...build(reason.trim(),base),key:crypto.randomUUID()};const result=await sendSalesIntelligence(intent.current);
    intent.current=null;setUnknown(false);await client.invalidateQueries({queryKey:salesIntelligenceKeys.all});
-   if(result.response.blocked)setError(`The action was blocked: ${result.response.reason??result.response.blocked}.`);else onClose();
+   if(result.response?.blocked)setError(`The action was blocked: ${result.response.reason??result.response.blocked}.`);else onClose();
   }catch(error){const uncertain=!(error instanceof SalesIntelligenceError)||error.status>=500;setUnknown(uncertain);if(!uncertain)intent.current=null;
    setError(uncertain?'Outcome unknown. Retry the same request to recover the saved result.':`Request rejected: ${(error as SalesIntelligenceError).code}. Your reason is preserved.`);await client.invalidateQueries({queryKey:salesIntelligenceKeys.all});
   }finally{lock.current=false;setPending(false);}

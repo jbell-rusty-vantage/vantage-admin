@@ -8,22 +8,13 @@ const prefixes = (...segments:string[]):readonly (readonly string[])[] => segmen
 /** Topic slug to the query-key prefixes that topic can change. The server sends slugs derived from
  *  the changed collection only, so this stays a display-layer routing table, never domain truth. */
 export const salesIntelligenceTopicKeys:Readonly<Record<string, readonly (readonly string[])[]>> = {
- // The attention list is one published snapshot. Outreach, number, attachment,
- // review and restriction writes do not change it; only a new snapshot does.
- // Routing those writes here cancelled the in-flight list read, so Load more
- // stayed disabled for as long as production kept writing.
- // UI1-DATA: 'overview' and 'closed-history' read Outreach records directly (not the snapshot), so record writes refresh them.
- outreach: prefixes('outreach','outreach-by-lead','number','timeline','assessment','overview','closed-history'),
- attachment: prefixes('attachments','attachment-pair','number','outreach','outreach-by-lead'),
- analysis: prefixes('analysis-runs','analysis-run','analysis-evidence','analysis-evidence-content','analysis-presentation','analysis-output','assessment','assessment-artifact','assessment-evidence','assessment-output','number','coverage','findings','conversations','transcript'),
- number: prefixes('number','numbers','timeline','outreach','outreach-by-lead','coverage','conversations','transcript'),
- // A new snapshot also moves the Overview's Now block (C8) and can move rows out of the 90-day Closed partition.
- attention: prefixes('attention','attention-capabilities','overview','closed-history','roster'),
- review: prefixes('reviews','number','outreach','outreach-by-lead','timeline','findings'),
- restriction: prefixes('number','outreach','outreach-by-lead','timeline'),
- rep: prefixes('reps','roster','nudge-destinations'),
- // The Outreach detail read carries `nudges.items` (Work tab), so a nudge refreshes it too.
- nudge: prefixes('nudges','timeline','outreach'),
+ // An attachment write moves the Number's attached Lead, its search terms and its counts.
+ attachment: prefixes('attachments','attachment-pair','number','numbers'),
+ number: prefixes('number','numbers','timeline','coverage'),
+ restriction: prefixes('number'),
+ // Call attribution is resolved from the Rep Identity Link at read time, so a link change moves the timeline too.
+ rep: prefixes('reps','timeline'),
+ nudge: prefixes('reps'),
 };
 export type SalesIntelligenceFrame = { version?:unknown; reason?:unknown; topics?:unknown; as_of?:unknown };
 /** Anything we cannot narrow honestly resyncs the whole tree: a version 1 payload, an "other" or
@@ -65,17 +56,12 @@ export const SALES_INTELLIGENCE_OFFLINE_MS = 30000;
 /** UI1-LIVE (UI-0 §2.5): while the stream is down, active reads poll this often. */
 export const SALES_INTELLIGENCE_FALLBACK_POLL_MS = 60000;
 /**
- * UI1-LIVE, additive. With no options the hook behaves exactly as before (`_legacy/`): a full resync every 30 s
- * while the tab is visible, live or not. The new header passes `{ fallbackMs: 60000, fallbackWhileLive: false }`:
- * the timed resync then runs only while the stream is not open (the 60 s fallback poll).
+ * Opens the one Sales Intelligence invalidation stream. Every connect and reconnect refetches every active read; while
+ * the stream is not open, active reads are refetched every `SALES_INTELLIGENCE_FALLBACK_POLL_MS`.
  */
-export type SalesIntelligenceLiveOptions = { fallbackMs?:number; fallbackWhileLive?:boolean };
-
-export function useSalesIntelligenceLive(options:SalesIntelligenceLiveOptions = {}) {
+export function useSalesIntelligenceLive() {
   const client = useQueryClient();
   const [status,setStatus] = useState<SalesIntelligenceLiveStatus>("connecting");
-  const fallbackMs = options.fallbackMs ?? 30000;
-  const fallbackWhileLive = options.fallbackWhileLive ?? true;
   useEffect(() => {
     let connected = false;
     let timer:ReturnType<typeof setTimeout>|undefined;
@@ -96,8 +82,8 @@ export function useSalesIntelligenceLive(options:SalesIntelligenceLiveOptions = 
     const online = () => refresh();
     document.addEventListener('visibilitychange',restore);
     window.addEventListener('online',online);
-    const fallback = setInterval(() => { if (fallbackWhileLive || !connected) restore(); },fallbackMs);
+    const fallback = setInterval(() => { if (!connected) restore(); },SALES_INTELLIGENCE_FALLBACK_POLL_MS);
     return () => { live.close(); clearTimeout(timer); clearInterval(fallback); document.removeEventListener('visibilitychange',restore); window.removeEventListener('online',online); };
-  },[client,fallbackMs,fallbackWhileLive]);
+  },[client]);
   return status;
 }

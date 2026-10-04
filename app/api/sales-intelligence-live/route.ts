@@ -7,7 +7,7 @@ import { salesIntelligenceLive, CSI_LIVE_PATH } from "@/server/sales-intelligenc
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-/** S8-REP: any signed-in user; `salesIntelligenceLive` admits the Owner and a rep with a linked Agent. */
+/** Any signed-in user; `salesIntelligenceLive` admits only the Owner. */
 async function requireSessionUser() {
   const cookieStore = await cookies();
   const accessToken = getAccessTokenCookie(cookieStore);

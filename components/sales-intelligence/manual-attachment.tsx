@@ -3,21 +3,22 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { fetchGlobalSearch } from '@/lib/api/admin';
-import { attachmentsSchema,readSalesIntelligence,type NumberRead } from '@/lib/api/salesIntelligence';
+import { attachmentsSchema,readSalesIntelligence,type NumberDetail } from '@/lib/api/salesIntelligence';
 import { salesIntelligenceKeys } from '@/lib/query/salesIntelligence';
+import { siKeys } from './data/query-keys';
 import { officialRecordHref } from './lib/official-record';
 import { EvidenceCommand } from './evidence-command';
 import { Button } from './atoms/button';
 
 type Choice={id:string;model:'FormLead'|'CallLead';name:string;detail?:string};
-export function ManualAttachment({number}:{number:NumberRead['data']}) {
+export function ManualAttachment({number}:{number:NumberDetail}) {
  const [query,setQuery]=useState(''),[choice,setChoice]=useState<Choice|null>(null);
  const search=useQuery({queryKey:[...salesIntelligenceKeys.all,'official-lead-search',query],enabled:query.length>=2,queryFn:()=>fetchGlobalSearch({q:query,limit:10}),retry:false});
  const candidates=search.data?.groups.flatMap(group=>{
   const model=['form_lead','form-leads'].includes(group.record_type)?'FormLead' as const:['call_lead','call-leads'].includes(group.record_type)?'CallLead' as const:null;
   return model?group.items.map(item=>({id:item.id,model,name:item.primary_label,detail:item.secondary_label})):[];
  })??[];
- const pair=useQuery({queryKey:[...salesIntelligenceKeys.all,'attachment-pair',number.id,choice?.model,choice?.id],enabled:!!choice,queryFn:({signal})=>readSalesIntelligence(`attachments?contact_number_id=${number.id}&lead_model=${choice!.model}&lead_id=${choice!.id}&limit=1`,attachmentsSchema,signal),retry:false});
+ const pair=useQuery({queryKey:siKeys.attachmentPair(number.id,choice?.model??'',choice?.id??''),enabled:!!choice,queryFn:({signal})=>readSalesIntelligence(`attachments?contact_number_id=${number.id}&lead_model=${choice!.model}&lead_id=${choice!.id}&limit=1`,attachmentsSchema,signal),retry:false});
  const edge=pair.data?.data.items[0],availability=(edge?.allowed_actions??number.allowed_actions).find(action=>action.action==='attach_lead');
  return <details><summary>Find another Lead to attach</summary><div className="si-local-stack">
  <p>Search Current Form Leads and Call Leads. Search results are evidence to review; searching does not attach a Lead.</p>

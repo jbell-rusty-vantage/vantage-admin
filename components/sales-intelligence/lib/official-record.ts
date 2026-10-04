@@ -17,10 +17,6 @@ export function officialRecordHref(
   return `${href}&si_return=${encodeURIComponent(returnTo)}`;
 }
 
-export function salesIntelligenceLeadHref(model: "FormLead" | "CallLead", id: string) {
-  return `/sales-intelligence?view=all_outreach&lead=${encodeURIComponent(id)}&lead_model=${model}`;
-}
-
 export function salesIntelligenceReturnHref(search: string | URLSearchParams | null | undefined) {
   const params = typeof search === "string" ? new URLSearchParams(search.startsWith("?") ? search.slice(1) : search) : search;
   const value = params?.get("si_return");

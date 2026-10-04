@@ -12,24 +12,11 @@ import { captureHealthProp, useLiveHealth } from "./use-live-health";
 import { useLive } from "./use-live";
 import { useNewestAsOf } from "./use-newest-as-of";
 
-export const COVERAGE_HREF = "/sales-intelligence?view=coverage";
-
-/** UI2-SHELL: a rep passes `healthEnabled={false}` and `coverageHref={null}` (both reads and the page are Owner-only). */
-export function HeaderLive({ coverageHref = COVERAGE_HREF, healthEnabled = true, className }: { coverageHref?: string | null; healthEnabled?: boolean; className?: string }) {
+export function HeaderLive({ className }: { className?: string }) {
   const { status } = useLive();
-  const health = useLiveHealth({ enabled: healthEnabled });
+  const health = useLiveHealth();
   const newest = useNewestAsOf();
   const client = useQueryClient();
   const refresh = useCallback(() => void client.invalidateQueries({ queryKey: salesIntelligenceKeys.all }), [client]);
-  return (
-    <LiveIndicator
-      status={status}
-      updatedAt={newest}
-      asOf={newest}
-      health={captureHealthProp(health)}
-      coverageHref={coverageHref}
-      onRefresh={refresh}
-      className={className}
-    />
-  );
+  return <LiveIndicator status={status} updatedAt={newest} asOf={newest} health={captureHealthProp(health)} onRefresh={refresh} className={className} />;
 }

@@ -6,7 +6,7 @@ import {
   attachmentsSchema,
   readSalesIntelligence,
 } from "@/lib/api/salesIntelligence";
-import { salesIntelligenceKeys } from "@/lib/query/salesIntelligence";
+import { siKeys } from "./data/query-keys";
 import { officialRecordHref } from "./lib/official-record";
 import { Button } from "./atoms/button";
 import { Badge } from "./atoms/badge";
@@ -32,32 +32,15 @@ const explains: Record<string, string> = {
   find_lead: copy.commandExplain.find_lead,
 };
 
-export function Attachments({
-  numberId,
-  lead,
-  onNumber,
-  returnTo,
-  readOnly = false,
-  numberHref,
-}: {
-  numberId?: string;
-  lead?: { model: string; id: string };
-  onNumber?: (id: string) => void;
-  returnTo?: string;
-  /** UI1-SHELL Work tab (UI-1 §5.4): the evidence and history only, no attachment commands. */
-  readOnly?: boolean;
-  /** A link to the connected Number (the legacy Numbers view until UI-3, `legacyNumberHref`). */
-  numberHref?: (numberId: string) => string;
-}) {
+/** One Number's Lead attachments: evidence, Owner decision history and the attach/reject/detach commands the server allows. */
+export function Attachments({ numberId, returnTo }: { numberId: string; returnTo?: string }) {
   const [editing, setEditing] = useState<{
     id: string;
     command: string;
   } | null>(null);
-  const filter = numberId
-    ? `contact_number_id=${encodeURIComponent(numberId)}`
-    : `lead_model=${encodeURIComponent(lead!.model)}&lead_id=${encodeURIComponent(lead!.id)}`;
+  const filter = `contact_number_id=${encodeURIComponent(numberId)}`;
   const list = useInfiniteQuery({
-    queryKey: [...salesIntelligenceKeys.all, "attachments", filter],
+    queryKey: siKeys.attachments(filter),
     initialPageParam: null as string | null,
     queryFn: ({ pageParam, signal }) =>
       readSalesIntelligence(
@@ -100,7 +83,6 @@ export function Attachments({
           {edge.decision_reason === AUTOMATIC && (
             <TooltipCard
               title={copy.provenance.state.attached_automatically}
-              guideTopic="provenance"
               label={<Badge tone="blue">{copy.provenance.state.attached_automatically}</Badge>}
             >
               {copy.provenance.soWhat.attached_automatically}
@@ -126,16 +108,6 @@ export function Attachments({
           >
             Open official Lead
           </Link>
-          {onNumber && (
-            <Button onClick={() => onNumber(edge.contact_number_id)}>
-              Open connected Number Activity
-            </Button>
-          )}
-          {numberHref && !onNumber && (
-            <Link href={numberHref(edge.contact_number_id)}>
-              Open connected Number Activity
-            </Link>
-          )}
           <details>
             <summary>Evidence and decision history</summary>
             {edge.evidence.map((e, index) => (
@@ -151,7 +123,7 @@ export function Attachments({
               </p>
             ))}
           </details>
-          {!readOnly && <div className="si-local-filters">
+          <div className="si-local-filters">
             {edge.allowed_actions?.map((action) => {
               const title = titles[action.action] ?? label(action.action);
               const explain = explains[action.action];
@@ -177,7 +149,7 @@ export function Attachments({
                 </TooltipCard>
               );
             })}
-          </div>}
+          </div>
         </article>
       ))}
       {list.hasNextPage && (
@@ -188,7 +160,7 @@ export function Attachments({
           More attachments
         </Button>
       )}
-      {!readOnly && editing && selected && (
+      {editing && selected && (
         <EvidenceCommand
           key={`${editing.id}:${editing.command}`}
           title={titles[editing.command]}

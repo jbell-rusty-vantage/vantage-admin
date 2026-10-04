@@ -2,14 +2,12 @@ import { setTrustedAdminHeaders, type TrustedAdminIdentity } from './trustedProx
 
 export const isCsiPath = (path: string) => /^\/?api\/v1\/admin\/sales-intelligence(?:\/|\?|$)/.test(path);
 
+/** Sales Intelligence serves production only: an explicit `scope` other than `production` (query or body) is refused. */
 export function currentCsiScope(path: string, body?: unknown): boolean {
   if (!isCsiPath(path)) return true;
   const query = new URL(path.replace(/^\//, ''), 'https://proxy.local/').searchParams;
-  const scopes: unknown[] = [...query.getAll('scope'), ...query.getAll('database_scope')];
-  if (body && typeof body === 'object') {
-    if ('scope' in body) scopes.push(body.scope);
-    if ('database_scope' in body) scopes.push(body.database_scope);
-  }
+  const scopes: unknown[] = query.getAll('scope');
+  if (body && typeof body === 'object' && 'scope' in body) scopes.push(body.scope);
   return scopes.every(scope => scope === undefined || scope === 'production');
 }
 

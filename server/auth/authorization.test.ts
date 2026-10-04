@@ -652,18 +652,6 @@ test("Extension User proxy routes are Owner-only", () => {
   }
 });
 
-test("conversation proxy reads are Owner-only", () => {
-  for (const path of [
-    "api/v1/admin/conversations",
-    "api/v1/admin/conversations/abc",
-    "api/v1/admin/conversations/abc/audio-url",
-    "api/v1/admin/conversations/by-lead/CallLead/abc",
-  ]) {
-    assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path }), false);
-    assert.equal(canProxyVantagePath({ role: "owner", method: "GET", path }), true);
-  }
-});
-
 test("Job Number timeline proxy read is Owner-only", () => {
   assert.equal(canProxyVantagePath({
     role: "owner",
@@ -718,25 +706,35 @@ test("Granot lifecycle health GET is readable by Admin; receipt requeue stays Ow
   }), true);
 });
 
-test("V-T3 m13: the rep allowlists are case-sensitive; an uppercase path is refused", () => {
+test("interim Sales Intelligence: a rep reaches no API and only the /sales-intelligence page", () => {
   const id = "65f0000000000000000000cd";
-  assert.equal(canProxyVantagePath({ role: "rep", method: "GET", path: `api/v1/admin/sales-intelligence/outreach/${id}` }), true);
-  for (const path of [
-    `api/v1/admin/sales-intelligence/outreach/${id.toUpperCase()}`,
-    `API/V1/ADMIN/SALES-INTELLIGENCE/OUTREACH/${id}`,
-    "api/v1/admin/Sales-Intelligence/attention",
-    `api/v1/admin/sales-intelligence/outreach/${id}/TIMELINE`,
-    `api/v1/admin/sales-intelligence/followups/${id}/COMPLETE`,
-  ]) {
-    assert.equal(canProxyVantagePath({ role: "rep", method: path.includes("COMPLETE") ? "POST" : "GET", path }), false, path);
+  for (const [method, path] of [
+    ["GET", "api/v1/admin/sales-intelligence/numbers?scope=production"],
+    ["GET", `api/v1/admin/sales-intelligence/numbers/${id}`],
+    ["GET", `api/v1/admin/sales-intelligence/numbers/${id}/timeline`],
+    ["GET", "api/v1/admin/sales-intelligence/reps"],
+    ["GET", "api/v1/admin/sales-intelligence/coverage"],
+    ["POST", "api/v1/admin/sales-intelligence/nudges"],
+    // The retired rep allowlist (Attention, Outreach, conversations, follow-ups) is gone with its server routes.
+    ["GET", "api/v1/admin/sales-intelligence/attention"],
+    ["GET", `api/v1/admin/sales-intelligence/outreach/${id}`],
+    ["GET", `api/v1/admin/sales-intelligence/numbers/${id}/conversations`],
+    ["POST", `api/v1/admin/sales-intelligence/followups/${id}/complete`],
+    ["PATCH", `api/v1/admin/sales-intelligence/followups/${id}`],
+    ["GET", "api/v1/admin/form-leads"],
+  ] as const) {
+    assert.equal(canProxyVantagePath({ role: "rep", method, path }), false, `${method} ${path}`);
   }
-  // The page allowlist keeps S8-REP's case-insensitive Outreach page pattern (a page, not an API;
-  // its data calls go through the case-sensitive proxy list above).
-  assert.equal(canAccessDashboardPath("rep", "/Sales-Intelligence"), false);
+  assert.equal(canAccessDashboardPath("rep", "/sales-intelligence"), true);
+  for (const path of [`/sales-intelligence/outreach/${id}`, "/sales-intelligence/legacy", "/Sales-Intelligence", "/form-leads", "/"]) {
+    assert.equal(canAccessDashboardPath("rep", path), false, path);
+  }
+  // The interim reads stay Owner-only for the Admin role too.
+  assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path: "api/v1/admin/sales-intelligence/numbers" }), false);
+  assert.equal(canProxyVantagePath({ role: "owner", method: "GET", path: "api/v1/admin/sales-intelligence/numbers" }), true);
 });
 
 test("V-T3 m14: the proxy allowlist judges the resolved path, so encoded dot segments can't reach another route", () => {
-  const id = "65f0000000000000000000cd";
   // Admin: extension-users is denied; an encoded traversal from an allowed prefix resolves to it.
   for (const path of [
     "api/v1/customers/%2e%2e/admin/extension-users",
@@ -750,18 +748,6 @@ test("V-T3 m14: the proxy allowlist judges the resolved path, so encoded dot seg
   assert.equal(
     canProxyVantagePath({ role: "admin", method: "PATCH", path: "api/v1/form-leads/%2e%2e/%2e%2e/v1/admin/agents/x" }),
     false,
-  );
-  // Rep: an allowed prefix can't be walked back to a Number or settings route.
-  for (const path of [
-    `api/v1/admin/sales-intelligence/outreach/${id}/%2e%2e/%2e%2e/settings`,
-    `api/v1/admin/sales-intelligence/outreach/${id}/timeline/%2e%2e/%2e%2e/%2e%2e/numbers`,
-  ]) {
-    assert.equal(canProxyVantagePath({ role: "rep", method: "GET", path }), false, path);
-  }
-  // A traversal that resolves to an allowed route is judged as that route.
-  assert.equal(
-    canProxyVantagePath({ role: "rep", method: "GET", path: `api/v1/admin/sales-intelligence/numbers/%2e%2e/outreach/${id}` }),
-    true,
   );
   // Ordinary paths keep their answers; Owner is unchanged.
   assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path: "api/v1/admin/form-leads?page=2" }), true);

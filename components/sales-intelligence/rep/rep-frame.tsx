@@ -1,15 +1,14 @@
 "use client";
 /**
- * UI2-SHELL (UI-2 §1): the dashboard frame for a rep. No sidebar and no page links: a rep reaches only its two Sales
- * Intelligence pages, so the frame is the brand, who is signed in, and Sign out. The page below scrolls inside its own
- * `.si-route` wrapper, as the Owner's Sales Intelligence routes do in `DashboardShell`.
+ * UI2-SHELL (UI-2 §1): the dashboard frame for a rep. No sidebar and no page links: a rep reaches only the interim
+ * Sales Intelligence page (which says it is not available for Rep accounts yet), so the frame is the brand, who is
+ * signed in, and Sign out. It makes no server read.
  */
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { DASHBOARD_MAIN_ID } from "@/components/layout/dashboard-ids";
 import { copy } from "../sales-intelligence-copy";
-import { RepDeskTitle } from "./rep-desk-title";
 
 /** Sign out, at the 44 px rep target (the shared `LogoutButton` is 36 px). */
 function RepSignOut() {
@@ -30,7 +29,7 @@ function RepSignOut() {
   );
 }
 
-export function RepFrame({ email, agentId = null, children }: { email: string; agentId?: string | null; children: ReactNode }) {
+export function RepFrame({ email, children }: { email: string; children: ReactNode }) {
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
@@ -46,7 +45,7 @@ export function RepFrame({ email, agentId = null, children }: { email: string; a
       <header className="z-30 flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-steel-200 bg-white/95 px-4 py-2 shadow-sm">
         <div className="flex min-w-0 items-center gap-4">
           <BrandLogo size="sm" subtitle={copy.ui2.shell.title} showText={false} />
-          <RepDeskTitle agentId={agentId} email={email} />
+          <span className="truncate text-sm text-steel" data-rep-email>{copy.ui2.shell.signedInAs(email)}</span>
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <RepSignOut />
