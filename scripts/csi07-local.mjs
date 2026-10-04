@@ -15,8 +15,9 @@ const env={};for(const name of ['PATH','Path','SystemRoot','SYSTEMROOT','WINDIR'
 Object.assign(env,{__NEXT_PROCESSED_ENV:'true',NODE_ENV:'development',TEST_MODE:'true',TEST_MONGO_DATABASE_NAME:'testvantagemovers_csi07preview',MONGO_URI:'mongodb://127.0.0.1:27189/?replicaSet=csi01',
  MONGODB_URI:'mongodb://127.0.0.1:27189/?replicaSet=csi01',ADMIN_AUTH_DB_NAME:'vantage_admin_csi07_preview',ADMIN_ACCESS_TOKEN_SECRET:key(),ADMIN_REFRESH_TOKEN_SECRET:key(),
  VANTAGE_API_BASE_URL:'http://127.0.0.1:3107',VANTAGE_API_SECRET:key(),VANTAGE_ADMIN_PROXY_SIGNING_SECRET:key(),SALES_INTELLIGENCE_DEPLOYMENT_ID:'csi07-local-preview',
- SALES_INTELLIGENCE_ENABLED:'true',SALES_INTELLIGENCE_OUTREACH_ENSURE:'true',SHEET_SYNC_MODE:'disabled',OBSERVABILITY_ENABLED:'false',OBSERVABILITY_WRITE_MODE:'disabled',EMAIL_NOTIFICATIONS_ENABLED:'false',EMAIL_NOTIFICATIONS_MODE:'disabled',NEXT_TELEMETRY_DISABLED:'1'});
-for(const name of ['CAPTURE_CALL_LOG','CAPTURE_WEBHOOK','DIRECTORY_SYNC','MEDIA_ENABLED','ATTACHMENT_REFRESH','STT_ENABLED','EXTRACTION_ENABLED','NUDGE_ENABLED']) env[`SALES_INTELLIGENCE_${name}`]='false';
+ SALES_INTELLIGENCE_ENABLED:'true',SHEET_SYNC_MODE:'disabled',NEXT_TELEMETRY_DISABLED:'1'});
+// The 2026-10 slimming retired OperationalEvents/alert email and the AI/media/Outreach flags; none of their names is set here.
+for(const name of ['CAPTURE_CALL_LOG','CAPTURE_WEBHOOK','DIRECTORY_SYNC','ATTACHMENT_REFRESH','NUDGE_ENABLED']) env[`SALES_INTELLIGENCE_${name}`]='false';
 env.SALES_INTELLIGENCE_ATTACHMENT_REFRESH='true'; // CSI-08 Owner attachment commands, isolated preview only; no capture/provider worker.
 const password=key();
 await mongoose.connect(env.MONGODB_URI,{dbName:env.ADMIN_AUTH_DB_NAME});
@@ -27,7 +28,8 @@ await mongoose.disconnect();
 await writeFile(path.join(local,'session.json'),JSON.stringify({password,env}),{mode:0o600});
 const output=await import('node:fs');
 const apiLog=output.openSync(path.join(local,'api.log'),'a');
-const children=[spawn(process.execPath,['--import','tsx','scripts/csi07-local.ts'],{cwd:server,env,stdio:['ignore',apiLog,apiLog],windowsHide:true}),
+const children=[// The server's local entry point is ops/dev-server.ts (scripts/ was retired); no .env is loaded (dotenv/config reads a path that does not exist).
+ spawn(process.execPath,['--import','tsx','ops/dev-server.ts'],{cwd:server,env:{...env,PORT:'3107',DOTENV_CONFIG_PATH:path.join(local,'no-dotenv.env')},stdio:['ignore',apiLog,apiLog],windowsHide:true}),
  spawn(process.execPath,['node_modules/next/dist/bin/next','dev','--hostname','127.0.0.1','--port','3108'],{cwd:admin,env,stdio:'inherit',windowsHide:true})];
 console.log('Local preview: http://127.0.0.1:3108/sales-intelligence');
 console.log('Disposable login details and API log are in the OS temp directory / vantage-csi07-local. No production configuration loaded.');
