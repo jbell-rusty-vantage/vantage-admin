@@ -8,7 +8,6 @@ import {
   type AdminUserView,
   type InviteDeliveryStatus,
   type UsersActor,
-  type UsersAuditEntry,
   type UsersDeps,
 } from "./types";
 import {
@@ -32,8 +31,7 @@ import {
  *   active reps share one (service guard + partial unique index);
  * - a password set, a deactivation or a role change increments
  *   `token_version`, which ends the user's existing sessions;
- * - invite tokens are stored only as SHA-256, work once, expire after 72 h;
- * - audit rows carry allowlisted fields only: never a password, token or hash.
+ * - invite tokens are stored only as SHA-256, work once, expire after 72 h.
  */
 
 export const INVITE_TTL_MS = 72 * 60 * 60 * 1000;
@@ -87,25 +85,6 @@ async function assertRepAgent(deps: UsersDeps, actor: UsersActor, agentId: strin
   }
 }
 
-async function audit(deps: UsersDeps, entry: UsersAuditEntry): Promise<void> {
-  await deps.audit(entry);
-}
-
-async function withFailureAudit<T>(
-  deps: UsersDeps,
-  base: Omit<UsersAuditEntry, "ok" | "status" | "error_code">,
-  run: () => Promise<T>,
-): Promise<T> {
-  try {
-    return await run();
-  } catch (error) {
-    if (error instanceof UsersError && error.code !== "unauthorized" && error.code !== "forbidden") {
-      await audit(deps, { ...base, ok: false, status: error.status, error_code: error.code });
-    }
-    throw error;
-  }
-}
-
 /**
  * UI2-USERS: the state of a user's newest invite at `now`. Accepted (`used_at`) and revoked win over the
  * clock; an unused, unrevoked invite past `expires_at` is expired; otherwise it is pending.
@@ -139,38 +118,29 @@ export async function createAdminUser(
   const input = parseOrThrow(createUserSchema, body);
   const active = input.active ?? true;
   const agentId = input.role === "rep" ? (input.agent_id ?? null) : null;
-  const base = {
-    actor: { id: actor.id, email: actor.email },
-    action: "admin_user_create",
-    payload: { email: input.email, role: input.role, agent_id: agentId, active },
-  };
-
-  return withFailureAudit(deps, base, async () => {
-    if (input.role !== "rep" && input.agent_id) {
-      throw new UsersError("agent_not_allowed", "Only a rep is linked to an Agent.");
-    }
-    if (input.role === "rep" && !agentId) {
-      throw new UsersError("agent_required", "A rep must be linked to an Agent.");
-    }
-    await assertEmailFree(deps, input.email);
-    if (agentId && active) {
-      await assertRepAgent(deps, actor, agentId);
-    }
-    const now = deps.now();
-    const created = await deps.users.insert({
-      email: input.email,
-      password_hash: await deps.hashPassword(input.password),
-      role: input.role,
-      agent_id: agentId,
-      active,
-      token_version: 0,
-      created_at: now,
-      updated_at: now,
-      password_changed_at: now,
-    });
-    await audit(deps, { ...base, entity_id: created.id, ok: true, status: 201 });
-    return toAdminUserView(created);
+  if (input.role !== "rep" && input.agent_id) {
+    throw new UsersError("agent_not_allowed", "Only a rep is linked to an Agent.");
+  }
+  if (input.role === "rep" && !agentId) {
+    throw new UsersError("agent_required", "A rep must be linked to an Agent.");
+  }
+  await assertEmailFree(deps, input.email);
+  if (agentId && active) {
+    await assertRepAgent(deps, actor, agentId);
+  }
+  const now = deps.now();
+  const created = await deps.users.insert({
+    email: input.email,
+    password_hash: await deps.hashPassword(input.password),
+    role: input.role,
+    agent_id: agentId,
+    active,
+    token_version: 0,
+    created_at: now,
+    updated_at: now,
+    password_changed_at: now,
   });
+  return toAdminUserView(created);
 }
 
 export async function updateAdminUser(
@@ -178,92 +148,65 @@ export async function updateAdminUser(
   actor: UsersActor | null,
   id: string,
   body: unknown,
-  action = "admin_user_update",
 ): Promise<AdminUserView> {
   assertOwner(actor);
   const patch = parseOrThrow(updateUserSchema, body);
   const current = await loadUser(deps, id);
-  const base = {
-    actor: { id: actor.id, email: actor.email },
-    action,
-    entity_id: current.id,
-    payload: { ...patch } as Record<string, unknown>,
+  const next = {
+    email: patch.email ?? current.email,
+    role: patch.role ?? current.role,
+    active: patch.active ?? current.active,
+    agent_id: current.agent_id,
   };
+  if (next.role === "rep") {
+    next.agent_id = patch.agent_id !== undefined ? patch.agent_id : current.agent_id;
+    if (!next.agent_id) throw new UsersError("agent_required", "A rep must be linked to an Agent.");
+  } else {
+    if (patch.agent_id) throw new UsersError("agent_not_allowed", "Only a rep is linked to an Agent.");
+    next.agent_id = null;
+  }
 
-  return withFailureAudit(deps, base, async () => {
-    const next = {
-      email: patch.email ?? current.email,
-      role: patch.role ?? current.role,
-      active: patch.active ?? current.active,
-      agent_id: current.agent_id,
-    };
-    if (next.role === "rep") {
-      next.agent_id = patch.agent_id !== undefined ? patch.agent_id : current.agent_id;
-      if (!next.agent_id) throw new UsersError("agent_required", "A rep must be linked to an Agent.");
-    } else {
-      if (patch.agent_id) throw new UsersError("agent_not_allowed", "Only a rep is linked to an Agent.");
-      next.agent_id = null;
-    }
+  const leavesOwners = current.role === "owner" && current.active && (next.role !== "owner" || !next.active);
+  if (leavesOwners && (await deps.users.countActiveOwners()) <= 1) {
+    throw new UsersError("last_owner", "The last active Owner can't be demoted or deactivated.");
+  }
 
-    const leavesOwners = current.role === "owner" && current.active && (next.role !== "owner" || !next.active);
-    if (leavesOwners && (await deps.users.countActiveOwners()) <= 1) {
-      throw new UsersError("last_owner", "The last active Owner can't be demoted or deactivated.");
-    }
+  const emailChanged = next.email !== current.email;
+  const roleChanged = next.role !== current.role;
+  const agentChanged = next.agent_id !== current.agent_id;
+  const activeChanged = next.active !== current.active;
+  if (!emailChanged && !roleChanged && !agentChanged && !activeChanged) {
+    return toAdminUserView(current);
+  }
+  if (emailChanged) await assertEmailFree(deps, next.email, current.id);
+  if (next.role === "rep" && next.active && next.agent_id && (roleChanged || agentChanged || activeChanged)) {
+    await assertRepAgent(deps, actor, next.agent_id, current.id);
+  }
 
-    const emailChanged = next.email !== current.email;
-    const roleChanged = next.role !== current.role;
-    const agentChanged = next.agent_id !== current.agent_id;
-    const activeChanged = next.active !== current.active;
-    if (!emailChanged && !roleChanged && !agentChanged && !activeChanged) {
-      return toAdminUserView(current);
-    }
-    if (emailChanged) await assertEmailFree(deps, next.email, current.id);
-    if (next.role === "rep" && next.active && next.agent_id && (roleChanged || agentChanged || activeChanged)) {
-      await assertRepAgent(deps, actor, next.agent_id, current.id);
-    }
-
-    const deactivated = current.active && !next.active;
-    const now = deps.now();
-    const updated = await deps.users.update(current.id, {
-      set: {
-        ...(emailChanged ? { email: next.email } : {}),
-        ...(roleChanged ? { role: next.role } : {}),
-        ...(agentChanged ? { agent_id: next.agent_id } : {}),
-        ...(activeChanged ? { active: next.active } : {}),
-      },
-      // Role changes and deactivation end existing sessions.
-      incrementTokenVersion: roleChanged || deactivated,
-      now,
-      // V-T3 M10: an Owner step-down applies only to the state the guard read, so a racer can't
-      // write over (or later revert) a change that another caller already made and reported.
-      ...(leavesOwners ? { expect: { role: current.role, active: current.active } } : {}),
-    });
-    if (!updated && leavesOwners && (await deps.users.findById(current.id))) {
-      throw new UsersError("user_changed", "This user was changed by someone else. Reload and try again.");
-    }
-    if (!updated) throw new UsersError("not_found", "User not found.");
-    if (leavesOwners) await compensateIfNoOwnerLeft(deps, current, updated, now);
-    if (deactivated) await deps.invites.revokeOutstanding(current.id, now);
-
-    const changed = [
-      ...(emailChanged ? ["email"] : []),
-      ...(roleChanged ? ["role"] : []),
-      ...(agentChanged ? ["agent_id"] : []),
-      ...(activeChanged ? ["active"] : []),
-    ];
-    await audit(deps, {
-      ...base,
-      payload: {
-        changed_fields: changed,
-        before: pickChanged(current, changed),
-        after: pickChanged(updated, changed),
-        sessions_ended: roleChanged || deactivated,
-      },
-      ok: true,
-      status: 200,
-    });
-    return toAdminUserView(updated);
+  const deactivated = current.active && !next.active;
+  const now = deps.now();
+  const updated = await deps.users.update(current.id, {
+    set: {
+      ...(emailChanged ? { email: next.email } : {}),
+      ...(roleChanged ? { role: next.role } : {}),
+      ...(agentChanged ? { agent_id: next.agent_id } : {}),
+      ...(activeChanged ? { active: next.active } : {}),
+    },
+    // Role changes and deactivation end existing sessions.
+    incrementTokenVersion: roleChanged || deactivated,
+    now,
+    // V-T3 M10: an Owner step-down applies only to the state the guard read, so a racer can't
+    // write over (or later revert) a change that another caller already made and reported.
+    ...(leavesOwners ? { expect: { role: current.role, active: current.active } } : {}),
   });
+  if (!updated && leavesOwners && (await deps.users.findById(current.id))) {
+    throw new UsersError("user_changed", "This user was changed by someone else. Reload and try again.");
+  }
+  if (!updated) throw new UsersError("not_found", "User not found.");
+  if (leavesOwners) await compensateIfNoOwnerLeft(deps, current, updated, now);
+  if (deactivated) await deps.invites.revokeOutstanding(current.id, now);
+
+  return toAdminUserView(updated);
 }
 
 /**
@@ -296,22 +239,12 @@ async function compensateIfNoOwnerLeft(
   throw new UsersError("last_owner", "The last active Owner can't be demoted or deactivated.");
 }
 
-function pickChanged(user: AdminUserRecord, fields: string[]): Record<string, unknown> {
-  const allowed: Record<string, unknown> = {
-    email: user.email,
-    role: user.role,
-    agent_id: user.agent_id,
-    active: user.active,
-  };
-  return Object.fromEntries(fields.map((field) => [field, allowed[field]]));
-}
-
 export async function deactivateAdminUser(
   deps: UsersDeps,
   actor: UsersActor | null,
   id: string,
 ): Promise<AdminUserView> {
-  return updateAdminUser(deps, actor, id, { active: false }, "admin_user_deactivate");
+  return updateAdminUser(deps, actor, id, { active: false });
 }
 
 export async function setAdminUserPassword(
@@ -331,14 +264,6 @@ export async function setAdminUserPassword(
   });
   if (!updated) throw new UsersError("not_found", "User not found.");
   await deps.invites.revokeOutstanding(current.id, now);
-  await audit(deps, {
-    actor: { id: actor.id, email: actor.email },
-    action: "admin_user_set_password",
-    entity_id: current.id,
-    payload: { email: current.email, sessions_ended: true },
-    ok: true,
-    status: 200,
-  });
   return toAdminUserView(updated);
 }
 
@@ -358,51 +283,37 @@ export async function sendAdminUserInvite(
 ): Promise<InviteResult> {
   assertOwner(actor);
   const user = await loadUser(deps, id);
-  const base = {
-    actor: { id: actor.id, email: actor.email },
-    action: "admin_user_invite",
-    entity_id: user.id,
-    payload: { email: user.email } as Record<string, unknown>,
-  };
-  return withFailureAudit(deps, base, async () => {
-    // V-T3 m16: no configured origin, no link (never the request's Host).
-    const baseUrl = options.baseUrl;
-    if (!baseUrl) {
-      throw new UsersError(
-        "not_configured",
-        "Invite links are not configured. Set ADMIN_PUBLIC_BASE_URL to the admin's public origin (for example https://admin.example.com).",
-        [{ path: "ADMIN_PUBLIC_BASE_URL", code: "missing_env" }],
-      );
-    }
-    if (!user.active) throw new UsersError("user_inactive", "Reactivate the user before inviting them.");
-    const now = deps.now();
-    const token = deps.randomToken();
-    const expiresAt = new Date(now.getTime() + INVITE_TTL_MS);
-    await deps.invites.revokeOutstanding(user.id, now);
-    await deps.invites.insert({
-      user_id: user.id,
-      token_sha256: sha256Hex(token),
-      expires_at: expiresAt,
-      created_by: actor.id,
-      created_at: now,
-    });
-    // The token rides in the fragment so it never reaches request logs or Referer headers.
-    const link = `${baseUrl.replace(/\/+$/, "")}${ACCEPT_INVITE_PATH}#token=${token}`;
-    let delivery: InviteDeliveryStatus;
-    try {
-      delivery = await deps.mailer.sendInvite({ actor, to: user.email, link, expiresAt });
-    } catch {
-      delivery = "unreachable";
-    }
-    const emailed = delivery === "sent";
-    await audit(deps, {
-      ...base,
-      payload: { email: user.email, emailed, delivery, expires_at: expiresAt.toISOString() },
-      ok: true,
-      status: 200,
-    });
-    return { emailed, delivery, expires_at: expiresAt.toISOString(), ...(emailed ? {} : { link }) };
+  // V-T3 m16: no configured origin, no link (never the request's Host).
+  const baseUrl = options.baseUrl;
+  if (!baseUrl) {
+    throw new UsersError(
+      "not_configured",
+      "Invite links are not configured. Set ADMIN_PUBLIC_BASE_URL to the admin's public origin (for example https://admin.example.com).",
+      [{ path: "ADMIN_PUBLIC_BASE_URL", code: "missing_env" }],
+    );
+  }
+  if (!user.active) throw new UsersError("user_inactive", "Reactivate the user before inviting them.");
+  const now = deps.now();
+  const token = deps.randomToken();
+  const expiresAt = new Date(now.getTime() + INVITE_TTL_MS);
+  await deps.invites.revokeOutstanding(user.id, now);
+  await deps.invites.insert({
+    user_id: user.id,
+    token_sha256: sha256Hex(token),
+    expires_at: expiresAt,
+    created_by: actor.id,
+    created_at: now,
   });
+  // The token rides in the fragment so it never reaches request logs or Referer headers.
+  const link = `${baseUrl.replace(/\/+$/, "")}${ACCEPT_INVITE_PATH}#token=${token}`;
+  let delivery: InviteDeliveryStatus;
+  try {
+    delivery = await deps.mailer.sendInvite({ actor, to: user.email, link, expiresAt });
+  } catch {
+    delivery = "unreachable";
+  }
+  const emailed = delivery === "sent";
+  return { emailed, delivery, expires_at: expiresAt.toISOString(), ...(emailed ? {} : { link }) };
 }
 
 /**
@@ -431,12 +342,4 @@ export async function acceptAdminUserInvite(deps: UsersDeps, body: unknown): Pro
   });
   if (!updated) throw invalid();
   await deps.invites.revokeOutstanding(user.id, now);
-  await audit(deps, {
-    actor: { id: user.id, email: user.email },
-    action: "admin_user_invite_accept",
-    entity_id: user.id,
-    payload: { email: user.email, sessions_ended: true },
-    ok: true,
-    status: 200,
-  });
 }

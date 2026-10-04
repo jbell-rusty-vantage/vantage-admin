@@ -372,6 +372,5 @@ function CarrierRow({
 async function invalidateCarriers(queryClient: QueryClient) {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: queryKeys.carriers.all }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.auditLog.all }),
   ]);
 }

@@ -12,7 +12,7 @@ function hrefs(items: { href: string }[]): string[] {
   return items.map((item) => item.href);
 }
 
-test("owner flat nav keeps Overview, Daily Operations, Live Events, Lead Conversations, Sales Intelligence, then Intakes, Manual, and Form Leads", () => {
+test("owner flat nav keeps Overview, Daily Operations, Sales Intelligence, then Intakes, Manual, and Form Leads", () => {
   const owner = visibleDashboardNav("owner");
 
   assert.equal(owner[0]?.label, "Overview");
@@ -20,22 +20,17 @@ test("owner flat nav keeps Overview, Daily Operations, Live Events, Lead Convers
   assert.equal(owner[1]?.label, "Daily Operations");
   assert.equal(owner[1]?.href, "/daily");
   assert.equal(owner[1]?.ownerOnly, true);
-  assert.equal(owner[2]?.label, "Live Events");
-  assert.equal(owner[2]?.href, "/live-events");
+  assert.equal(owner[2]?.label, "Sales Intelligence");
+  assert.equal(owner[2]?.href, "/sales-intelligence");
   assert.equal(owner[2]?.ownerOnly, true);
-  assert.equal(owner[3]?.label, "Lead Conversations");
-  assert.equal(owner[3]?.href, "/conversations");
+  assert.equal(owner[3]?.label, "Intakes");
+  assert.equal(owner[3]?.href, "/intakes");
   assert.equal(owner[3]?.ownerOnly, true);
-  assert.equal(owner[4]?.label, "Sales Intelligence");
+  assert.equal(owner[4]?.label, "Manual");
+  assert.equal(owner[4]?.href, "/manual");
   assert.equal(owner[4]?.ownerOnly, true);
-  assert.equal(owner[5]?.label, "Intakes");
-  assert.equal(owner[5]?.href, "/intakes");
-  assert.equal(owner[5]?.ownerOnly, true);
-  assert.equal(owner[6]?.label, "Manual");
-  assert.equal(owner[6]?.href, "/manual");
-  assert.equal(owner[6]?.ownerOnly, true);
-  assert.equal(owner[7]?.label, "Form Leads");
-  assert.equal(owner[7]?.href, "/form-leads");
+  assert.equal(owner[5]?.label, "Form Leads");
+  assert.equal(owner[5]?.href, "/form-leads");
   assert.equal(
     owner.some((item) => "isNew" in item && item.isNew),
     false,
@@ -58,15 +53,11 @@ test("admin flat nav omits owner-only destinations", () => {
 
   for (const href of [
     "/daily",
-    "/live-events",
-    "/conversations",
     "/sales-intelligence",
     "/intakes",
     "/manual",
     "/job-timeline",
-    "/granot-lifecycle",
     "/extension",
-    "/audit-log",
   ]) {
     assert.equal(adminHrefs.includes(href), false, href);
   }
@@ -88,8 +79,6 @@ test("owner sections keep the five groups and admin Today and System shrink", ()
   assert.deepEqual(hrefs(owner.find((section) => section.id === "today")!.items), [
     "/",
     "/daily",
-    "/live-events",
-    "/conversations",
     "/sales-intelligence",
     "/intakes",
     "/manual",
@@ -100,29 +89,23 @@ test("owner sections keep the five groups and admin Today and System shrink", ()
     "/bookings",
     "/cancellations",
     "/job-timeline",
-    "/customers",
   ]);
   assert.deepEqual(hrefs(owner.find((section) => section.id === "people")!.items), [
-    "/agents",
     "/testimonials",
   ]);
   assert.deepEqual(hrefs(owner.find((section) => section.id === "insight")!.items), [
     "/analytics",
-    "/reports/agent-sales",
     "/reporting",
-    "/exports",
   ]);
   assert.deepEqual(hrefs(owner.find((section) => section.id === "system")!.items), [
-    "/observational",
     "/operations-registry",
-    "/granot-lifecycle",
+    "/granot-lifecycle/health",
     "/ingestion",
     "/extension",
-    "/audit-log",
   ]);
   assert.deepEqual(
     owner.find((section) => section.id === "system")!.items.map((item) => item.label),
-    ["Observational", "Operations Registry", "Granot Lifecycle", "Ingestion", "Extension", "Audit Log"],
+    ["Operations Registry", "Granot Lifecycle", "Ingestion", "Extension"],
   );
 
   const admin = visibleDashboardNavSections("admin");
@@ -136,23 +119,17 @@ test("owner sections keep the five groups and admin Today and System shrink", ()
     "/call-leads",
     "/bookings",
     "/cancellations",
-    "/customers",
   ]);
   assert.deepEqual(hrefs(admin.find((section) => section.id === "insight")!.items), [
     "/analytics",
-    "/reports/agent-sales",
     "/reporting",
-    "/exports",
   ]);
+  // Health is the only Granot Lifecycle page and Admin may read it.
   assert.deepEqual(hrefs(admin.find((section) => section.id === "system")!.items), [
-    "/observational",
     "/operations-registry",
+    "/granot-lifecycle/health",
     "/ingestion",
   ]);
-  assert.equal(
-    admin.find((section) => section.id === "system")!.items.some((item) => item.label === "Granot Lifecycle"),
-    false,
-  );
   assert.equal(
     admin.find((section) => section.id === "system")!.items.some((item) => item.label === "Extension"),
     false,
@@ -169,16 +146,23 @@ test("Job Timeline sidebar label is title case", () => {
   );
 });
 
-test("Audit Log uses a distinct icon from nested duplicate destinations", () => {
-  const owner = visibleDashboardNavSections("owner");
-  const formLeads = owner.flatMap((section) => section.items).find((item) => item.href === "/form-leads");
-  const auditLog = owner.flatMap((section) => section.items).find((item) => item.href === "/audit-log");
-  const duplicateIcon = formLeads?.children?.[0]?.icon;
-
-  assert.equal(formLeads?.children?.[0]?.href, "/duplicate-form-leads");
-  assert.ok(auditLog?.icon);
-  assert.ok(duplicateIcon);
-  assert.notEqual(auditLog.icon, duplicateIcon);
+test("retired destinations are not in the sidebar for any role", () => {
+  for (const role of ["owner", "admin"] as const) {
+    const navHrefs = hrefs(visibleDashboardNav(role));
+    for (const href of [
+      "/customers",
+      "/agents",
+      "/observational",
+      "/exports",
+      "/audit-log",
+      "/reports/agent-sales",
+      "/conversations",
+      "/live-events",
+      "/granot-lifecycle/receipts",
+    ]) {
+      assert.equal(navHrefs.includes(href), false, `${role} ${href}`);
+    }
+  }
 });
 
 test("pageTitleForPath uses nav labels, then longer special prefixes", () => {
@@ -191,11 +175,8 @@ test("pageTitleForPath uses nav labels, then longer special prefixes", () => {
   assert.equal(pageTitleForPath("/job-timeline"), "Job Timeline");
   assert.equal(pageTitleForPath("/search"), "Search");
   assert.equal(pageTitleForPath("/ingestion/granot/lifecycle"), "Ingestion");
-  assert.equal(pageTitleForPath("/granot-lifecycle"), "Granot Lifecycle");
-  assert.equal(pageTitleForPath("/granot-lifecycle/receipts"), "Granot Lifecycle");
   assert.equal(pageTitleForPath("/granot-lifecycle/health"), "Granot Lifecycle");
   assert.equal(pageTitleForPath("/daily"), "Daily Operations");
-  assert.equal(pageTitleForPath("/live-events"), "Live Events");
   assert.equal(pageTitleForPath("/manual"), "Manual");
   assert.equal(pageTitleForPath("/extension"), "Extension");
   assert.equal(pageTitleForPath("/cancellations/new"), "New Cancellation");

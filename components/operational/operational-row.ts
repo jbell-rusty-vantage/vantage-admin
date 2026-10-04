@@ -24,7 +24,6 @@ export type RowStatusChip = {
 };
 
 export type RowActionClusterContext = {
-  isProduction: boolean;
   readOnly: boolean;
   canDelete: boolean;
 };
@@ -90,18 +89,6 @@ export function rowIdentity(resource: UiResource, record: AdminRecord): RowIdent
       secondary: customerPhone(record),
     };
   }
-  if (resource === "customers") {
-    return {
-      primary: stringValue(getValue(record, "full_name")) ?? "-",
-      secondary: stringValue(getValue(record, "phone_number")),
-    };
-  }
-  if (resource === "agents") {
-    return {
-      primary: stringValue(getValue(record, "name")) ?? "-",
-      secondary: stringValue(getValue(record, "role")),
-    };
-  }
   return { primary: "-" };
 }
 
@@ -137,14 +124,14 @@ export function rowActionCluster(
   ctx: RowActionClusterContext,
 ): RowActionCluster {
   const related = relatedNavLinksFor(resource, record);
-  const mutationsOpen = ctx.isProduction && !ctx.readOnly;
+  const mutationsOpen = !ctx.readOnly;
   const bookable = resource === "form-leads" || resource === "call-leads";
 
   return {
     book: mutationsOpen && bookable && !isPresent(record.booked),
     badLead: mutationsOpen && resource === "form-leads",
     cancel: mutationsOpen && resource === "bookings" && !isReferralBooking(record),
-    delete: ctx.canDelete && ctx.isProduction && isDeleteResource(resource),
+    delete: ctx.canDelete && isDeleteResource(resource),
     related,
   };
 }

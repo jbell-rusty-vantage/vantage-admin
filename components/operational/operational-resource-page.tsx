@@ -41,7 +41,6 @@ import {
   checkSheetContains,
   fetchAdminList,
   getRecordId,
-  resourceLabels,
   uiToAdminResource,
   type AdminRecord,
   type SheetContainsResult,
@@ -56,9 +55,8 @@ import { downloadCsvFromProxy } from "@/lib/api/csv";
 import { useFacetOptions } from "@/lib/api/facets";
 import type { SerializableFilters } from "@/lib/api/filters";
 import { useUrlTableState } from "@/lib/api/url-state";
-import { useDatabaseScope } from "@/lib/state/database-scope";
 import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-local-storage-boolean";
-import type { DatabaseScope, TableQueryParams } from "@/lib/api/types";
+import type { TableQueryParams } from "@/lib/api/types";
 import { queryKeys } from "@/lib/query/keys";
 import { cn } from "@/lib/utils";
 
@@ -137,20 +135,18 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
   const adminResource = uiToAdminResource[resource];
   const dashboardRole = useDashboardRole();
   const queryClient = useQueryClient();
-  const { scope } = useDatabaseScope();
-  const facetOptions = useFacetOptions(scope);
+  const facetOptions = useFacetOptions();
   const config = useMemo(
-    () => withFacetOptions(baseConfig, { ...facetOptions, scope }),
-    [baseConfig, facetOptions, scope],
+    () => withFacetOptions(baseConfig, facetOptions),
+    [baseConfig, facetOptions],
   );
   const urlDefaults = useMemo(
     () => ({
-      database_scope: scope,
       sort: config.defaultSort,
       direction: config.defaultDirection,
       date_field: config.dateField,
     }),
-    [config.dateField, config.defaultDirection, config.defaultSort, scope],
+    [config.dateField, config.defaultDirection, config.defaultSort],
   );
   const [selected, setSelected] = useState<AdminRecord | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
@@ -175,17 +171,10 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
     }
   }, [hasInvalidSearchQuery, update]);
 
-  useEffect(() => {
-    if (scope === "historical" && filters.receiver_agent) {
-      update({ receiver_agent: null });
-    }
-  }, [filters.receiver_agent, scope, update]);
-
   const effectiveFilters: SerializableFilters = {
     ...apiFiltersFromUrlState(filters),
     ...config.fixedListFilters,
     q: hasInvalidSearchQuery ? undefined : committedSearchQuery || undefined,
-    database_scope: filters.database_scope === "combined" ? "production" : filters.database_scope,
     sort: filters.sort ?? config.defaultSort,
     direction: filters.direction ?? config.defaultDirection,
     date_field: filters.date_field ?? config.dateField,
@@ -194,7 +183,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
     ...effectiveFilters,
     page: 1,
   };
-  const readOnly = Boolean(config.readOnly) || effectiveFilters.database_scope === "historical";
+  const readOnly = Boolean(config.readOnly);
   const query = useInfiniteQuery({
     queryKey: queryKeys.lists.resource(adminResource, listFilters),
     initialPageParam: 1,
@@ -221,15 +210,12 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
     return (
       items.find((item) => getRecordId(item) === requestedRecordId) ?? {
         _id: requestedRecordId,
-        database_scope: effectiveFilters.database_scope as DatabaseScope,
         __url_placeholder: true,
       }
     );
-  }, [effectiveFilters.database_scope, items, requestedRecordId, selected]);
-  const isProduction = effectiveFilters.database_scope === "production";
-  const canDelete = dashboardRole === "owner" && isProduction && !readOnly && isDeleteResource(resource);
-  const canCheckSheets =
-    dashboardRole === "owner" && isProduction && isSheetContainsResource(resource);
+  }, [items, requestedRecordId, selected]);
+  const canDelete = dashboardRole === "owner" && !readOnly && isDeleteResource(resource);
+  const canCheckSheets = dashboardRole === "owner" && isSheetContainsResource(resource);
   const loadedIds = useMemo(() => items.map(getRecordId).filter(Boolean), [items]);
   const selectedCount = selectedIds.size;
   const allLoadedSelected =
@@ -240,7 +226,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
     setSheetContainsOpen(false);
     setSheetContainsResult(null);
     setSheetContainsError(null);
-  }, [resource, scope]);
+  }, [resource]);
   const requestDelete = useCallback((target: DeleteTarget) => {
     setDeleteError(null);
     setDeleteTarget(target);
@@ -359,7 +345,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
 
   const columns = useMemo(
     () =>
-      buildColumns(config, filters, setSort, resource, isProduction, {
+      buildColumns(config, filters, setSort, resource, {
         canDelete,
         onRequestDelete: requestDelete,
         granularityLabelByKey: facetOptions.granularityLabelByKey,
@@ -377,7 +363,6 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
       filters,
       setSort,
       resource,
-      isProduction,
       canDelete,
       requestDelete,
       canCheckSheets,
@@ -416,7 +401,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
     setExportMessage(null);
     try {
       await downloadCsvFromProxy(adminExportUrl(adminResource, effectiveFilters), `${adminResource}.csv`);
-      setExportMessage("CSV export downloaded and audit logged.");
+      setExportMessage(OPERATIONAL_COPY.exportDownloaded);
     } catch (error) {
       setExportMessage(error instanceof Error ? error.message : "CSV export failed.");
     }
@@ -457,9 +442,6 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
 
       {exportMessage ? <FeedbackMessage>{exportMessage}</FeedbackMessage> : null}
       {deleteMessage ? <FeedbackMessage tone="success">{deleteMessage}</FeedbackMessage> : null}
-      {effectiveFilters.database_scope === "historical" ? (
-        <FeedbackMessage tone="warning">Historical mode is read-only. Edit and workflow actions are hidden.</FeedbackMessage>
-      ) : null}
       {config.readOnly ? (
         <FeedbackMessage tone="warning">
           {duplicateReadOnlyBannerCopy(resource)}
@@ -487,7 +469,7 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
             <ActiveFilterChips config={config} filters={filters} update={update} reset={reset} />
           </div>
 
-          {isProduction && !readOnly && (resource === "form-leads" || resource === "call-leads" || resource === "bookings") ? (
+          {!readOnly && (resource === "form-leads" || resource === "call-leads" || resource === "bookings") ? (
             <div className="rounded-lg border bg-background p-3 text-sm">
               {resource === "bookings"
                 ? "Click a booking row to inspect it, or use the row detail to start a cancellation."
@@ -564,7 +546,6 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
         resource={adminResource}
         uiResource={resource}
         selected={selectedRecord}
-        scope={effectiveFilters.database_scope as DatabaseScope}
         filters={effectiveFilters}
         startConnect={connectFromUrl(filters)}
         requestedPanel={requestedPanelFromUrl(filters)}
@@ -601,5 +582,3 @@ export function OperationalResourcePage({ resource }: { resource: UiResource }) 
     </div>
   );
 }
-
-export { resourceLabels };

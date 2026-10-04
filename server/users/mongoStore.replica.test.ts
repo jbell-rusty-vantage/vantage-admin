@@ -22,7 +22,7 @@ import {
   setAdminUserPassword,
   updateAdminUser,
 } from "./service";
-import { UsersError, type UsersActor, type UsersAuditEntry, type UsersDeps } from "./types";
+import { UsersError, type UsersActor, type UsersDeps } from "./types";
 
 /**
  * Replica proof for the Mongo stores and the real session layer (S8-USERS, C15).
@@ -38,7 +38,6 @@ const skip = !REPLICA_URI;
 const AGENT_A = "65f0000000000000000000aa";
 const REP_PASSWORD = "replica-rep-password-1";
 
-const audits: UsersAuditEntry[] = [];
 const tokens: string[] = [];
 let owner: UsersActor;
 let now = new Date();
@@ -49,9 +48,6 @@ function deps(): UsersDeps {
     invites: createMongoAdminUserInvitesStore(),
     agents: { isActiveAgent: async (agentId) => agentId === AGENT_A },
     mailer: { sendInvite: async () => "not_configured" },
-    audit: async (entry) => {
-      audits.push(entry);
-    },
     hashPassword,
     now: () => now,
     randomToken: () => {
@@ -202,11 +198,6 @@ test("replica: an invite is single use under a race, stored only as a hash, and 
   const late = tokens.at(-1)!;
   now = new Date(now.getTime() + 72 * 60 * 60 * 1000);
   await assert.rejects(acceptAdminUserInvite(deps(), { token: late, password: "too-late-password-1" }), UsersError);
-
-  const serialized = JSON.stringify(audits);
-  for (const secret of [REP_PASSWORD, "race-password", token, late, "$2"]) {
-    assert.equal(serialized.includes(secret), false);
-  }
 });
 
 test("replica: Owners demoting or deactivating each other concurrently never leave zero active Owners (V-T3 M10)", { skip }, async () => {

@@ -52,7 +52,6 @@ function harness() {
     invites,
     agents: { isActiveAgent: async (id) => id === AGENT_A },
     mailer: { sendInvite: async () => "not_configured" },
-    audit: async () => {},
     hashPassword: async (password) => `fake$${password}`,
     now: () => now,
     randomToken: () => {

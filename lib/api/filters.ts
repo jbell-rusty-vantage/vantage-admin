@@ -1,5 +1,5 @@
 import { floridaCalendarToday } from "@/lib/floridaTime";
-import type { DatabaseScope, SortDirection, TableQueryParams } from "./types";
+import type { SortDirection, TableQueryParams } from "./types";
 
 export const DEFAULT_PAGE = 1;
 export const DEFAULT_PAGE_SIZE = 50;
@@ -147,8 +147,28 @@ export function parseSortDirection(value: string | null): SortDirection | undefi
   return value === "asc" || value === "desc" ? value : undefined;
 }
 
-export function parseDatabaseScope(value: string | null): DatabaseScope {
-  return value === "historical" || value === "combined" ? value : "production";
+const RETIRED_DATABASE_SCOPE_PARAM = "database_scope";
+const RECORD_SELECTION_PARAMS = ["record", "panel", "connect"] as const;
+
+/**
+ * The historical database was retired, so every dashboard read is production. Old links and
+ * bookmarks can still carry `database_scope`. Returns the params without it, or null when there is
+ * nothing to drop. A link that named another scope also loses its record selection: a historical
+ * record id must never open as a production record.
+ */
+export function withoutRetiredDatabaseScope(params: URLSearchParams): URLSearchParams | null {
+  const scopes = params.getAll(RETIRED_DATABASE_SCOPE_PARAM);
+  if (scopes.length === 0) {
+    return null;
+  }
+  const next = new URLSearchParams(params);
+  next.delete(RETIRED_DATABASE_SCOPE_PARAM);
+  if (scopes.some((scope) => scope !== "production")) {
+    for (const key of RECORD_SELECTION_PARAMS) {
+      next.delete(key);
+    }
+  }
+  return next;
 }
 
 export function parseTableQueryParams(searchParams: URLSearchParams): TableQueryParams {
@@ -157,7 +177,6 @@ export function parseTableQueryParams(searchParams: URLSearchParams): TableQuery
     limit: parsePageSize(searchParams.get("limit")),
     sort: searchParams.get("sort") ?? undefined,
     direction: parseSortDirection(searchParams.get("direction")),
-    database_scope: parseDatabaseScope(searchParams.get("database_scope")),
     q: searchParams.get("q") ?? undefined,
     from: searchParams.get("from") ?? undefined,
     to: searchParams.get("to") ?? undefined,

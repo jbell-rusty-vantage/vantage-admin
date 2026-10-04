@@ -12,10 +12,10 @@ import { Button } from './atoms/button';
 type Choice={id:string;model:'FormLead'|'CallLead';name:string;detail?:string};
 export function ManualAttachment({number}:{number:NumberRead['data']}) {
  const [query,setQuery]=useState(''),[choice,setChoice]=useState<Choice|null>(null);
- const search=useQuery({queryKey:[...salesIntelligenceKeys.all,'official-lead-search',query],enabled:query.length>=2,queryFn:()=>fetchGlobalSearch({q:query,database_scope:'production',limit:10}),retry:false});
+ const search=useQuery({queryKey:[...salesIntelligenceKeys.all,'official-lead-search',query],enabled:query.length>=2,queryFn:()=>fetchGlobalSearch({q:query,limit:10}),retry:false});
  const candidates=search.data?.groups.flatMap(group=>{
   const model=['form_lead','form-leads'].includes(group.record_type)?'FormLead' as const:['call_lead','call-leads'].includes(group.record_type)?'CallLead' as const:null;
-  return model?group.items.filter(item=>item.database_scope==='production').map(item=>({id:item.id,model,name:item.primary_label,detail:item.secondary_label})):[];
+  return model?group.items.map(item=>({id:item.id,model,name:item.primary_label,detail:item.secondary_label})):[];
  })??[];
  const pair=useQuery({queryKey:[...salesIntelligenceKeys.all,'attachment-pair',number.id,choice?.model,choice?.id],enabled:!!choice,queryFn:({signal})=>readSalesIntelligence(`attachments?contact_number_id=${number.id}&lead_model=${choice!.model}&lead_id=${choice!.id}&limit=1`,attachmentsSchema,signal),retry:false});
  const edge=pair.data?.data.items[0],availability=(edge?.allowed_actions??number.allowed_actions).find(action=>action.action==='attach_lead');

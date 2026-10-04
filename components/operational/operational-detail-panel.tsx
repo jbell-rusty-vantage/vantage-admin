@@ -11,7 +11,6 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { SidePanel } from "@/components/ui/side-panel";
 import { Textarea } from "@/components/ui/textarea";
-import { StatusBadge } from "@/components/data-table/status-badge";
 import { TableErrorState, TableLoadingState } from "@/components/data-table/table-states";
 import { DetailGrid, DetailItem } from "@/components/record-detail/detail-section";
 import {
@@ -25,14 +24,13 @@ import {
   RelatedRecordsActions,
   WorkflowActions,
 } from "@/components/operational/operational-actions";
-import { formatCell, formatSourceDisplay, relationCount } from "@/components/operational/operational-columns";
+import { formatCell, formatSourceDisplay } from "@/components/operational/operational-columns";
 import type { DeleteTarget, EditFieldConfig, FieldType, ResourceConfig } from "@/components/operational/operational-configs";
 import {
   OPERATIONAL_COPY,
   productionDeleteLabel,
 } from "@/components/operational/operational-copy";
 import {
-  formatDate,
   formatPlain,
   getValue,
   hasAttachedCancellation,
@@ -52,33 +50,17 @@ import {
 import { salesIntelligenceReturnHref } from "@/components/sales-intelligence/lib/official-record";
 import { copy } from "@/components/sales-intelligence/sales-intelligence-copy";
 import {
-  fetchCustomerTestimonials,
   fetchAdminDetail,
   getRecordId,
   updateProductionRecord,
-  type AdminTestimonial,
   type AdminRecord,
   type AdminResource,
   type UiResource,
 } from "@/lib/api/admin";
 import { useFacetOptions } from "@/lib/api/facets";
 import type { SerializableFilters } from "@/lib/api/filters";
-import { useDatabaseScope } from "@/lib/state/database-scope";
-import type { DatabaseScope } from "@/lib/api/types";
 import { floridaCalendarDateInputValue } from "@/lib/floridaTime";
 import { queryKeys } from "@/lib/query/keys";
-
-function customerName(record: AdminRecord): string {
-  return stringValue(getValue(record, "full_name")) ?? stringValue(getValue(record, "name")) ?? "";
-}
-
-function formatLinkedCount(count: number): React.ReactNode {
-  return count > 0 ? (
-    <StatusBadge tone="success">Linked ({count})</StatusBadge>
-  ) : (
-    <StatusBadge tone="muted">None</StatusBadge>
-  );
-}
 
 function LinkedRecordValue({ href, label }: { href: string; label: string }) {
   return (
@@ -118,15 +100,6 @@ function summaryLinkedFacts(
       label: OPERATIONAL_COPY.linked.cancellation,
       href: cancellationHref,
       linkLabel: OPERATIONAL_COPY.linked.cancellation,
-    });
-  }
-  const customerHref = linkedContextHref(uiResource, "customer", record);
-  if (customerHref) {
-    facts.push({
-      key: "customer",
-      label: OPERATIONAL_COPY.linked.customer,
-      href: customerHref,
-      linkLabel: OPERATIONAL_COPY.linked.customer,
     });
   }
   const leadHref = linkedContextHref(uiResource, "lead_ref", record);
@@ -238,13 +211,12 @@ function EditForm({
 }: {
   config: ResourceConfig;
   record: AdminRecord;
-  resource: Exclude<AdminResource, "agents">;
+  resource: AdminResource;
   uiResource: UiResource;
   onSaved: () => void;
 }) {
   const queryClient = useQueryClient();
-  const { scope } = useDatabaseScope();
-  const facetOptions = useFacetOptions(scope);
+  const facetOptions = useFacetOptions();
   const [message, setMessage] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
@@ -318,86 +290,17 @@ function EditForm({
   );
 }
 
-function CustomerTestimonialsSection({
-  customerId,
-  customerName,
-}: {
-  customerId: string;
-  customerName: string;
-}) {
-  const query = useQuery({
-    queryKey: queryKeys.testimonials.customer(customerId),
-    queryFn: () => fetchCustomerTestimonials(customerId),
-    enabled: Boolean(customerId),
-  });
-  const items = query.data?.items ?? [];
-  const searchHref = customerName
-    ? `/testimonials?q=${encodeURIComponent(customerName)}`
-    : "/testimonials";
-
-  return (
-    <div className="space-y-3">
-      {query.isLoading ? <TableLoadingState label="Loading linked testimonials..." /> : null}
-      {query.isError ? (
-        <TableErrorState
-          error={query.error instanceof Error ? query.error.message : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : null}
-      {query.data && items.length === 0 ? (
-        <div className="space-y-3 rounded-md border bg-muted/30 p-3 text-sm">
-          <p className="text-muted-foreground">
-            No testimonials are linked to this customer record.
-          </p>
-          <Link className="font-medium text-navy underline-offset-4 hover:underline" href={searchHref}>
-            Search testimonials for this customer name
-          </Link>
-        </div>
-      ) : null}
-      {items.length > 0 ? (
-        <div className="space-y-3">
-          {items.map((item) => (
-            <CustomerTestimonialCard key={item.id} item={item} />
-          ))}
-          <Link
-            className="inline-flex text-sm font-medium text-navy underline-offset-4 hover:underline"
-            href={`/testimonials?customer=${encodeURIComponent(customerId)}`}
-          >
-            View all linked testimonials
-          </Link>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function CustomerTestimonialCard({ item }: { item: AdminTestimonial }) {
-  return (
-    <div className="rounded-md border bg-background p-3 text-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="font-medium">{item.reviewer_name}</div>
-        <div className="text-xs text-muted-foreground">
-          {formatDate(item.review_date)} - {item.rating} star{item.rating === 1 ? "" : "s"}
-        </div>
-      </div>
-      <p className="mt-2 line-clamp-4 text-muted-foreground">{item.review_text}</p>
-    </div>
-  );
-}
-
 function SummaryTab({
   config,
   uiResource,
   record,
   id,
-  effectiveScope,
   granularityLabelByKey,
 }: {
   config: ResourceConfig;
   uiResource: UiResource;
   record: AdminRecord;
   id: string;
-  effectiveScope: DatabaseScope;
   granularityLabelByKey?: ReadonlyMap<string, string>;
 }) {
   const linked = summaryLinkedFacts(uiResource, record);
@@ -413,7 +316,6 @@ function SummaryTab({
       {isLeadResource(uiResource) ? (
         <DetailItem label="Sales Rep" value={formatSalesRep(record)} />
       ) : null}
-      <DetailItem label="Database scope" value={record.database_scope ?? effectiveScope} />
       <DetailItem label="Mongo ID" value={id} />
       {linked.map((fact) => (
         <DetailItem
@@ -479,27 +381,6 @@ function ContactTab({
       </DetailGrid>
     );
   }
-  if (uiResource === "customers") {
-    const id = getRecordId(record);
-    return (
-      <div className="space-y-4">
-        <DetailGrid>
-          <DetailItem label="Name" value={formatPlain(getValue(record, "full_name") ?? getValue(record, "name"))} />
-          <DetailItem label="Phone" value={formatPlain(getValue(record, "phone_number"))} />
-          <DetailItem label="Email" value={formatPlain(getValue(record, "email"))} />
-          <DetailItem
-            label={OPERATIONAL_COPY.linked.booking}
-            value={formatLinkedCount(relationCount(record, "related_bookings", "booking_count"))}
-          />
-          <DetailItem
-            label={OPERATIONAL_COPY.linked.cancellation}
-            value={formatLinkedCount(relationCount(record, "related_cancellations", "cancellation_count"))}
-          />
-        </DetailGrid>
-        <CustomerTestimonialsSection customerId={id} customerName={customerName(record)} />
-      </div>
-    );
-  }
   return null;
 }
 
@@ -560,7 +441,6 @@ export function DetailPanel({
   resource,
   uiResource,
   selected,
-  scope,
   filters,
   startConnect = false,
   requestedPanel,
@@ -574,7 +454,6 @@ export function DetailPanel({
   resource: AdminResource;
   uiResource: UiResource;
   selected: AdminRecord | null;
-  scope: DatabaseScope;
   filters: SerializableFilters;
   startConnect?: boolean;
   requestedPanel?: string;
@@ -588,22 +467,17 @@ export function DetailPanel({
   const returnHref = salesIntelligenceReturnHref(searchParams);
   const id = selected ? getRecordId(selected) : "";
   const selectedIsUrlPlaceholder = selected?.__url_placeholder === true;
-  const effectiveScope = scope === "combined" ? "production" : scope;
   const detailQuery = useQuery({
-    queryKey: queryKeys.details.resource(resource, id, effectiveScope, filters),
-    queryFn: () => fetchAdminDetail<AdminRecord>(resource, id, effectiveScope, filters),
+    queryKey: queryKeys.details.resource(resource, id, filters),
+    queryFn: () => fetchAdminDetail<AdminRecord>(resource, id, filters),
     enabled: Boolean(id),
   });
   const record = detailQuery.data ?? (selectedIsUrlPlaceholder ? null : selected);
-  const facetOptions = useFacetOptions(scope);
-  const productionEditAllowed = productionEditAllowedFor(uiResource, record, {
-    readOnly,
-    database_scope: effectiveScope,
-  });
+  const facetOptions = useFacetOptions();
+  const productionEditAllowed = productionEditAllowedFor(uiResource, record, { readOnly });
   const visibleTabs = record
     ? visibleDetailTabs(uiResource, record, {
         readOnly: Boolean(readOnly),
-        database_scope: effectiveScope,
         canDelete,
         productionEditAllowed,
       })
@@ -612,8 +486,7 @@ export function DetailPanel({
     connect: startConnect,
     uiResource,
   });
-  const editableResource =
-    productionEditAllowed && resource !== "agents" ? resource : null;
+  const editableResource = productionEditAllowed ? resource : null;
 
   useEffect(() => {
     if (!record || !onPanelChange || !requestedPanel) {
@@ -666,16 +539,12 @@ export function DetailPanel({
           aria-labelledby={`operational-tab-${activePanel}`}
           className="space-y-4"
         >
-          {effectiveScope === "historical" ? (
-            <FeedbackMessage tone="warning">{OPERATIONAL_COPY.historicalDetail}</FeedbackMessage>
-          ) : null}
           {activePanel === "summary" ? (
             <SummaryTab
               config={config}
               uiResource={uiResource}
               record={record}
               id={id}
-              effectiveScope={effectiveScope}
               granularityLabelByKey={facetOptions.granularityLabelByKey}
             />
           ) : null}

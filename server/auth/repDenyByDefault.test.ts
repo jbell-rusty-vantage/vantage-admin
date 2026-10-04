@@ -67,7 +67,7 @@ test("canProxyVantagePath denies a rep every API outside its Sales Intelligence 
   }
   // Paths an Admin may use stay open to Admin (the rep denial is not "not owner").
   assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path: "api/v1/admin/form-leads" }), true);
-  assert.equal(canProxyVantagePath({ role: "admin", method: "POST", path: "api/v1/admin/sheet-sync/retry" }), true);
+  assert.equal(canProxyVantagePath({ role: "admin", method: "POST", path: "api/v1/booked-leads/from-source" }), true);
 });
 
 test("an unknown role string is denied everywhere (no role inherits Admin allowances)", () => {

@@ -180,8 +180,7 @@ export function RegistryOverview() {
               Registry Health
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Configuration and resolution integrity for the Operations Registry. Distinct from
-              Workflow Observational events.
+              Configuration and resolution integrity for the Operations Registry.
               {health.findings.length > 0
                 ? ` ${errorCount} error · ${warnCount} warning · ${health.findings.length} total.`
                 : ""}

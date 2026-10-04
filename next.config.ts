@@ -6,11 +6,6 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: "/ingestion/granot/live",
-        destination: "/live-events",
-        permanent: true,
-      },
-      {
         source: "/ingestion/granot/lifecycle/health/:path*",
         destination: "/granot-lifecycle/health",
         permanent: true,

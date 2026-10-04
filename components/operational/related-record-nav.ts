@@ -3,7 +3,7 @@
  * cancellations for the operational list/detail views.
  */
 
-import { entityHref } from "@/components/observational/entity-link";
+import { recordHref } from "@/components/operational/record-href";
 
 export type RelatedNavLink = {
   href: string;
@@ -66,14 +66,14 @@ export function getRelatedNavLinks(
   const links: RelatedNavLink[] = [];
 
   if (isLeadResource(resource)) {
-    const href = entityHref("booked_lead", relatedRecordId(record.booked));
+    const href = recordHref("booked_lead", relatedRecordId(record.booked));
     if (href) {
       links.push({ href, label: "View booking" });
     }
   }
 
   if (resource === "bookings") {
-    const href = entityHref(
+    const href = recordHref(
       leadModelToEntityType(record.lead_model),
       relatedRecordId(record.lead_ref),
     );
@@ -83,7 +83,7 @@ export function getRelatedNavLinks(
   }
 
   if (resource === "cancellations") {
-    const href = entityHref("booked_lead", relatedRecordId(record.booked_lead));
+    const href = recordHref("booked_lead", relatedRecordId(record.booked_lead));
     if (href) {
       links.push({ href, label: "View booking" });
     }
@@ -99,22 +99,19 @@ export function linkedContextHref(
   record: Record<string, unknown>,
 ): string | null {
   if (key === "booked" && isLeadResource(resource)) {
-    return entityHref("booked_lead", relatedRecordId(record.booked));
+    return recordHref("booked_lead", relatedRecordId(record.booked));
   }
   if (key === "lead_ref" && (resource === "bookings" || resource === "cancellations")) {
-    return entityHref(
+    return recordHref(
       leadModelToEntityType(record.lead_model),
       relatedRecordId(record.lead_ref),
     );
   }
   if (key === "booked_lead" && resource === "cancellations") {
-    return entityHref("booked_lead", relatedRecordId(record.booked_lead));
-  }
-  if (key === "customer") {
-    return entityHref("customer", relatedRecordId(record.customer));
+    return recordHref("booked_lead", relatedRecordId(record.booked_lead));
   }
   if (key === "cancelled" && (isLeadResource(resource) || resource === "bookings")) {
-    return entityHref("cancelled_lead", relatedRecordId(record.cancelled));
+    return recordHref("cancelled_lead", relatedRecordId(record.cancelled));
   }
   return null;
 }

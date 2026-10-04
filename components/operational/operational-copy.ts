@@ -31,7 +31,6 @@ export const OPERATIONAL_COPY = {
     sentLabel: "Lead Message sent",
     sentTrue: "True",
     sentFalse: "False",
-    viewEvents: "View messaging events",
     bodyLabel: "Message body",
   },
   production: {
@@ -58,11 +57,10 @@ export const OPERATIONAL_COPY = {
   linked: {
     booking: "Booking",
     cancellation: "Cancellation",
-    customer: "Customer",
     lead: "Lead",
     viewBooking: "View booking",
   },
-  historicalDetail: "Historical records are read-only. Mutation actions are hidden.",
+  exportDownloaded: "CSV export downloaded.",
   emptyEnterField: "Enter at least one field to update.",
   updateFailed: "Update failed.",
   filterGroups: {

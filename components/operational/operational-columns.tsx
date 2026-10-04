@@ -17,12 +17,11 @@ import {
 } from "@/components/operational/operational-actions";
 import type { ColumnConfig, DeleteTarget, ResourceConfig } from "@/components/operational/operational-configs";
 import { OPERATIONAL_COPY } from "@/components/operational/operational-copy";
-import { SelectionCheckbox } from "@/components/observational/observational-delete-controls";
+import { SelectionCheckbox } from "@/components/operational/selection-checkbox";
 import {
   formatDate,
   formatMoney,
   formatPlain,
-  formatRate,
   getValue,
   isLeadRecordWithSourceMetadata,
   stringValue,
@@ -37,28 +36,6 @@ import {
 } from "@/components/operational/operational-row";
 import { getRecordId, type AdminRecord, type UiResource } from "@/lib/api/admin";
 import type { SortDirection, TableQueryParams } from "@/lib/api/types";
-
-function optionalRelationCount(
-  record: AdminRecord,
-  relationPath: string,
-  countPath: string,
-): number | undefined {
-  const aggregateValue = getValue(record, `aggregates.${countPath}`) ?? getValue(record, countPath);
-  const count = typeof aggregateValue === "number" ? aggregateValue : Number(aggregateValue);
-  if (Number.isFinite(count)) {
-    return count;
-  }
-
-  const relation = getValue(record, relationPath);
-  if (Array.isArray(relation)) {
-    return relation.length;
-  }
-  return undefined;
-}
-
-export function relationCount(record: AdminRecord, relationPath: string, countPath: string): number {
-  return optionalRelationCount(record, relationPath, countPath) ?? 0;
-}
 
 export function formatSourceDisplay(
   record: AdminRecord,
@@ -82,12 +59,6 @@ export function formatCell(
   granularityLabelByKey?: ReadonlyMap<string, string>,
 ) {
   let value = getValue(record, column.path);
-  if (column.path === "booking_count") {
-    value = optionalRelationCount(record, "related_bookings", "booking_count");
-  }
-  if (column.path === "cancellation_count") {
-    value = optionalRelationCount(record, "related_cancellations", "cancellation_count");
-  }
   if ((value === null || value === undefined || value === "") && column.path === "customer.full_name") {
     value = getValue(record, "customer_name");
   }
@@ -113,9 +84,6 @@ export function formatCell(
   if (column.format === "money") {
     return formatMoney(value);
   }
-  if (column.format === "rate") {
-    return formatRate(value);
-  }
   return formatPlain(value);
 }
 
@@ -125,8 +93,6 @@ const hiddenTableColumnsByResource: Partial<Record<UiResource, Set<string>>> = {
   "call-leads": new Set(["first_name", "last_name", "email", "phone", "booked", "cancelled"]),
   "duplicate-call-leads": new Set(["first_name", "last_name", "email", "phone", "booked", "cancelled"]),
   bookings: new Set(["phone", "cancelled"]),
-  customers: new Set(["phone"]),
-  agents: new Set(["role"]),
 };
 
 const truncateTableColumns = new Set([
@@ -149,7 +115,6 @@ function getTableColumnClassName(column: ColumnConfig): string | undefined {
     case "timestamp":
     case "book_date":
     case "cancel_date":
-    case "activity":
       return "min-w-28";
     case "name":
     case "customer":
@@ -208,19 +173,17 @@ const clusterControlClass =
 function ActionsClusterCell({
   record,
   resource,
-  isProduction,
   readOnly,
   canDelete,
   onRequestDelete,
 }: {
   record: AdminRecord;
   resource: UiResource;
-  isProduction: boolean;
   readOnly: boolean;
   canDelete: boolean;
   onRequestDelete: (target: DeleteTarget) => void;
 }) {
-  const cluster = rowActionCluster(resource, record, { isProduction, readOnly, canDelete });
+  const cluster = rowActionCluster(resource, record, { readOnly, canDelete });
   const copy = OPERATIONAL_COPY.row;
 
   return (
@@ -271,7 +234,6 @@ export function buildColumns(
   filters: TableQueryParams,
   setSort: (field: string, direction: SortDirection) => void,
   resource: UiResource,
-  isProduction: boolean,
   options: {
     canDelete: boolean;
     onRequestDelete: (target: DeleteTarget) => void;
@@ -375,7 +337,6 @@ export function buildColumns(
         <ActionsClusterCell
           record={item}
           resource={resource}
-          isProduction={isProduction}
           readOnly={readOnly}
           canDelete={options.canDelete}
           onRequestDelete={options.onRequestDelete}

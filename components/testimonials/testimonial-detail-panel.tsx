@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { StatusBadge } from "@/components/data-table/status-badge";
 import { formatDate } from "@/components/data-table/formatters";
 import { DetailGrid, DetailItem, DetailSection } from "@/components/record-detail/detail-section";
@@ -64,12 +63,9 @@ export function TestimonialDetailPanel({
               label="Customer"
               value={
                 testimonial.customer?.id ? (
-                  <Link
-                    className="font-medium text-navy underline-offset-4 hover:underline"
-                    href={`/customers?record=${testimonial.customer.id}`}
-                  >
+                  <span className="font-medium text-navy">
                     {testimonial.customer.full_name || "Linked customer"}
-                  </Link>
+                  </span>
                 ) : (
                   "Not linked"
                 )

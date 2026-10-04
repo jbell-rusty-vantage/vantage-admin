@@ -22,8 +22,15 @@ test("contains reason helper recognizes the No-Sync skip", () => {
   assert.equal(isHiddenFromMasterLeadsContainsReason(undefined), false);
 });
 
-test("customers and agents are not sheet-contains resources", () => {
-  assert.equal(isSheetContainsResource("customers"), false);
-  assert.equal(isSheetContainsResource("agents"), false);
-  assert.equal(isSheetContainsResource("form-leads"), true);
+test("every official list is a sheet-contains resource", () => {
+  for (const resource of [
+    "form-leads",
+    "duplicate-form-leads",
+    "call-leads",
+    "duplicate-call-leads",
+    "bookings",
+    "cancellations",
+  ] as const) {
+    assert.equal(isSheetContainsResource(resource), true, resource);
+  }
 });

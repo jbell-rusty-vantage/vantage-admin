@@ -28,12 +28,10 @@ const OPERATIONAL_PAGE_FILES = [
   "app/(dashboard)/cancellations/page.tsx",
   "app/(dashboard)/duplicate-form-leads/page.tsx",
   "app/(dashboard)/duplicate-call-leads/page.tsx",
-  "app/(dashboard)/customers/page.tsx",
-  "app/(dashboard)/agents/page.tsx",
 ];
 
 function emptyFilters(): TableQueryParams {
-  return { page: 1, limit: 25, database_scope: "production" };
+  return { page: 1, limit: 25 };
 }
 
 test("every FilterConfig.key is in exactly one group; unknown keys fail", () => {
@@ -84,8 +82,17 @@ test("visible groups omit empty Status, Attribution, and Record headers", () => 
     "attribution",
     "record",
   ]);
-  assert.deepEqual(visibleFilterGroups(operationalConfigs.customers.filters), ["find", "record"]);
-  assert.deepEqual(visibleFilterGroups(operationalConfigs.agents.filters), ["find", "record"]);
+});
+
+test("operational configs cover only the official Lead, Booking and Cancellation lists", () => {
+  assert.deepEqual(Object.keys(operationalConfigs).sort(), [
+    "bookings",
+    "call-leads",
+    "cancellations",
+    "duplicate-call-leads",
+    "duplicate-form-leads",
+    "form-leads",
+  ]);
 });
 
 test("an active Attribution URL value forces Attribution open", () => {
@@ -107,19 +114,16 @@ test("an active Attribution URL value forces Attribution open", () => {
   );
 });
 
-test("Reset rebuilds the URL with only database_scope and chips call that reset", () => {
+test("Reset rebuilds the URL with no query and chips call that reset", () => {
   const urlState = readFileSync(path.join(root, "lib/api/url-state.ts"), "utf8");
   const resetStart = urlState.indexOf("const reset = useCallback");
   const resetEnd = urlState.indexOf("return {", resetStart);
   assert.notEqual(resetStart, -1);
   assert.notEqual(resetEnd, -1);
   const reset = urlState.slice(resetStart, resetEnd);
-  assert.match(reset, /new URLSearchParams\(\)/);
-  assert.match(reset, /database_scope/);
-  assert.doesNotMatch(reset, /params\.set\("panel"/);
-  assert.doesNotMatch(reset, /params\.set\("record"/);
-  assert.doesNotMatch(reset, /params\.set\("connect"/);
-  assert.doesNotMatch(reset, /params\.set\("q"/);
+  assert.match(reset, /router\.push\(pathname\)/);
+  assert.doesNotMatch(reset, /database_scope/);
+  assert.doesNotMatch(reset, /params\.set\(/);
 
   const panel = readFileSync(path.join(root, "components/operational/operational-filter-panel.tsx"), "utf8");
   assert.match(panel, /function ActiveFilterChips/);

@@ -1,6 +1,6 @@
 import type { AdminRecord, UiResource } from "@/lib/api/admin";
 import type { SerializableFilters } from "@/lib/api/filters";
-import type { DatabaseScope, SelectOption, SortDirection } from "@/lib/api/types";
+import type { SelectOption, SortDirection } from "@/lib/api/types";
 import { OPERATIONAL_COPY } from "@/components/operational/operational-copy";
 import {
   CANCELLATION_REASON_OPTIONS,
@@ -17,7 +17,7 @@ export type ColumnConfig = {
   label: string;
   path: string;
   sort?: string;
-  format?: "date" | "money" | "boolean" | "scope" | "badges" | "rate";
+  format?: "date" | "money" | "boolean" | "badges";
 };
 
 export type FilterConfig = {
@@ -354,58 +354,6 @@ export const operationalConfigs: Record<UiResource, ResourceConfig> = {
       { key: "cancelled_by", label: "Cancelled by", type: "text" },
     ],
   },
-  customers: {
-    uiResource: "customers",
-    title: "Customers",
-    description: "Browse customers, inspect their linked work, and update contact details.",
-    defaultSort: "updatedAt",
-    defaultDirection: "desc",
-    dateField: "updatedAt",
-    columns: [
-      { key: "name", label: "Name", path: "full_name", sort: "full_name" },
-      { key: "phone", label: "Phone", path: "phone_number" },
-      { key: "email", label: "Email", path: "email" },
-      { key: "bookings", label: "Bookings", path: "booking_count" },
-      { key: "cancellations", label: "Cancellations", path: "cancellation_count" },
-      { key: "deposit", label: "Deposit", path: "deposit_total", format: "money" },
-      { key: "activity", label: "Last Activity", path: "updatedAt", sort: "updatedAt", format: "date" },
-    ],
-    filters: [
-      { key: "name", label: "Name", type: "text" },
-      { key: "phone_number", label: "Phone", type: "text" },
-      { key: "email", label: "Email", type: "text" },
-    ],
-    editFields: [
-      { key: "full_name", label: "Full name", type: "text" },
-      { key: "phone_number", label: "Phone", type: "text" },
-      { key: "email", label: "Email", type: "text" },
-    ],
-  },
-  agents: {
-    uiResource: "agents",
-    title: "Agents",
-    description:
-      "Booking performance for the selected date range (book date), not Agent created-at.",
-    defaultSort: "name",
-    defaultDirection: "asc",
-    dateField: "createdAt",
-    columns: [
-      { key: "name", label: "Name", path: "name", sort: "name" },
-      { key: "active", label: "Active", path: "active", format: "boolean" },
-      { key: "role", label: "Role", path: "role" },
-      { key: "bookings", label: "Bookings", path: "booking_count" },
-      { key: "binder", label: "Binder", path: "total_binder_amount", format: "money" },
-      { key: "deposit", label: "Deposit", path: "total_deposit_amount", format: "money" },
-      { key: "cancellations", label: "Cancellations", path: "cancellation_count" },
-      { key: "rate", label: "Cancel Rate", path: "cancellation_rate", format: "rate" },
-    ],
-    filters: [
-      { key: "name", label: "Name", type: "text" },
-      { key: "active", label: "Active", type: "select", options: yesNoOptions },
-      { key: "role", label: "Role", type: "text" },
-    ],
-    editFields: [],
-  },
 };
 
 export function withFacetOptions(config: ResourceConfig, options: {
@@ -417,7 +365,6 @@ export function withFacetOptions(config: ResourceConfig, options: {
   formSourceOptions: readonly SelectOption[];
   callSourceOptions: readonly SelectOption[];
   sourceGranularityOptions: readonly SelectOption[];
-  scope: DatabaseScope;
 }): ResourceConfig {
   const applyOptions = <TField extends FilterConfig | EditFieldConfig>(field: TField): TField => {
     if (field.key === "agent") {
@@ -440,9 +387,7 @@ export function withFacetOptions(config: ResourceConfig, options: {
   };
   return {
     ...config,
-    filters: config.filters
-      .filter((field) => !(options.scope === "historical" && field.key === "receiver_agent"))
-      .map(applyOptions),
+    filters: config.filters.map(applyOptions),
     editFields: config.editFields.map(applyOptions),
   };
 }

@@ -18,7 +18,6 @@ import { FeedbackMessage } from "@/components/ui/feedback";
 import { TableErrorState, TableLoadingState } from "@/components/data-table/table-states";
 import { fetchAnalyticsReport } from "@/lib/api/admin";
 import {
-  analyticsMetadataMessage,
   chartTooltipTitle,
   textToBookedOriginRows,
   textToBookedSlices,
@@ -79,12 +78,6 @@ export function TextToBookedPanel({ filters }: { filters: SerializableFilters })
   const overall = rows.find((row) => row.origin === "all") ?? rows[0];
   const originRows = textToBookedOriginRows(rows);
   const slices = textToBookedSlices(rows);
-  const metadata = isRecord(query.data?.data?.metadata) ? query.data.data.metadata : undefined;
-  const metadataMessage = analyticsMetadataMessage(
-    "sms-successfully-sent-then-booked",
-    typeof filters.database_scope === "string" ? filters.database_scope : undefined,
-    metadata,
-  );
   const texted = Number(overall?.texted_leads ?? 0);
   const booked = Number(overall?.booked_leads ?? 0);
   const bookingRate = Number(overall?.booking_rate ?? 0);
@@ -97,7 +90,6 @@ export function TextToBookedPanel({ filters }: { filters: SerializableFilters })
           Only Leads whose confirmation text was accepted, sent, or delivered. Failed, undelivered, and skipped messages are excluded.
         </p>
       </div>
-      {metadataMessage ? <FeedbackMessage>{metadataMessage}</FeedbackMessage> : null}
       {query.isLoading ? <TableLoadingState label="Loading texted-lead booking rate..." /> : null}
       {query.isError ? (
         <TableErrorState error={query.error instanceof Error ? query.error.message : undefined} />

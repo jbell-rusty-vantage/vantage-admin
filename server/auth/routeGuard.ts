@@ -18,21 +18,14 @@ export const DASHBOARD_PATH_PREFIXES = [
   "/cancellations",
   "/intakes",
   "/sales-intelligence",
-  "/conversations",
   "/manual",
   "/extension",
   "/job-timeline",
-  "/customers",
-  "/agents",
   "/search",
   "/analytics",
-  "/observational",
   "/operations-registry",
-  "/audit-log",
-  "/exports",
   "/settings",
   "/testimonials",
-  "/reports",
   "/reporting",
   "/ingestion",
 ] as const;
@@ -46,7 +39,7 @@ export const ACCEPT_INVITE_PAGE = "/accept-invite";
 /**
  * The files in `public/` (served at the site root) plus the App Router icon.
  * Exact paths, not an extension pattern: a dynamic page segment such as
- * `/customers/x.png` must not pass as an asset (V-T3 M11).
+ * `/form-leads/x.png` must not pass as an asset (V-T3 M11).
  * `routeGuard.test.ts` keeps this list equal to the `public/` folder.
  */
 export const PUBLIC_ASSET_PATHS: ReadonlySet<string> = new Set([

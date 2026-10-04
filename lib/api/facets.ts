@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import { fetchAdminFacets, type FilterCatalog, type FilterCatalogGranularity } from "./admin";
-import type { DatabaseScope, SelectOption } from "./types";
+import type { SelectOption } from "./types";
 
 function toOptions(values: string[] | undefined): SelectOption[] {
   return (values ?? []).map((value) => ({ value, label: value }));
@@ -82,10 +82,10 @@ export type FacetOptions = {
   isError: boolean;
 };
 
-export function useFacetOptions(scope: DatabaseScope): FacetOptions {
+export function useFacetOptions(): FacetOptions {
   const query = useQuery({
-    queryKey: queryKeys.facets.scope(scope),
-    queryFn: () => fetchAdminFacets(scope),
+    queryKey: queryKeys.facets.all,
+    queryFn: fetchAdminFacets,
     staleTime: 5 * 60 * 1000,
   });
   const catalog = query.data?.catalog;

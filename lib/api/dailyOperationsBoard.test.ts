@@ -325,8 +325,8 @@ test("card links use existing desks and never open Confirm on /daily", () => {
   });
   const hrefs = dailyOperationsEventLinks(booked);
   assert.equal(
-    hrefs.some((link) => link.href === "/live-events" && link.label === DAILY_COPY.openInLiveEvents),
-    true,
+    hrefs.some((link) => link.href === "/live-events"),
+    false,
   );
   assert.equal(
     hrefs.some((link) => link.href === "/intakes?case=case1"),

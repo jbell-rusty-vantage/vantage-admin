@@ -22,7 +22,6 @@ function granularity(
     company_owner_label: "Top 10 Forms",
     channel: "form",
     active: true,
-    origin: "registry",
     ...overrides,
   };
 }

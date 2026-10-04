@@ -109,7 +109,6 @@ export function BookingForm() {
         queryClient.invalidateQueries({ queryKey: queryKeys.details.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.search.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.auditLog.all }),
       ]);
       const caseId = readOwnerCreateReconciliationCaseId(data);
       if (caseId || variables.bookingMode === "leadless") {

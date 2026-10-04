@@ -41,8 +41,6 @@ export const OWNER_LANGUAGE_DECK_AVOID_PHRASES = [
 
 export const OWNER_LANGUAGE_DECK_OBJECT_ID = /^[a-f0-9]{24}$/i;
 
-export const COMPATIBILITY_OBSERVATION_WINDOW_STARTED_AT = "2026-09-01";
-
 const ALLOWED_EXCEPTIONS = [
   "source company column",
   "ringcentral verified queue",

@@ -1,12 +1,18 @@
-import { entityHref } from "@/components/observational/entity-link";
+import { recordHref, type OfficialRecordType } from "@/components/operational/record-href";
+
+const RECORD_TYPE_BY_MODEL = {
+  FormLead: "form_lead",
+  CallLead: "call_lead",
+  BookedLead: "booked_lead",
+  CancelledLead: "cancelled_lead",
+} as const satisfies Record<string, OfficialRecordType>;
 
 export function officialRecordHref(
-  model: "FormLead" | "CallLead" | "BookedLead" | "CancelledLead",
+  model: keyof typeof RECORD_TYPE_BY_MODEL,
   id: string,
   returnTo?: string | null,
 ) {
-  const type = { FormLead: "form_lead", CallLead: "call_lead", BookedLead: "booked_lead", CancelledLead: "cancelled_lead" }[model];
-  const href = `${entityHref(type, id)}&database_scope=production&panel=summary`;
+  const href = `${recordHref(RECORD_TYPE_BY_MODEL[model], id)}&panel=summary`;
   if (!returnTo) return href;
   return `${href}&si_return=${encodeURIComponent(returnTo)}`;
 }

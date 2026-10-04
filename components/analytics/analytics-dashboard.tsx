@@ -20,7 +20,6 @@ import {
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
-import { StatusBadge } from "@/components/data-table/status-badge";
 import {
   isSourceCompanyHierarchyReport,
   shouldUseSourceCompanyHierarchy,
@@ -42,7 +41,6 @@ import {
 } from "@/lib/api/admin";
 import { downloadCsvFromProxy } from "@/lib/api/csv";
 import {
-  analyticsMetadataMessage,
   chartTooltipTitle,
   analyticsTableRowKey,
   columnsForReport,
@@ -63,10 +61,9 @@ import {
 } from "@/lib/api/facets";
 import type { SerializableFilters } from "@/lib/api/filters";
 import { useUrlTableState } from "@/lib/api/url-state";
-import type { DatabaseScope, SelectOption } from "@/lib/api/types";
-import { DATABASE_SCOPE_LABELS, LOCAL_TYPE_OPTIONS } from "@/lib/constants/domain";
+import type { SelectOption } from "@/lib/api/types";
+import { LOCAL_TYPE_OPTIONS } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
-import { useDatabaseScope } from "@/lib/state/database-scope";
 import { cn } from "@/lib/utils";
 import { TextToBookedPanel } from "@/components/analytics/text-to-booked-panel";
 
@@ -126,7 +123,7 @@ const TAB_CONFIGS: TabConfig[] = [
     reports: [
       { id: "summary", label: "Executive Summary", description: "Top-level business totals for the selected period.", kind: "bar" },
       { id: "source-company-performance", label: "Deposit Mix", description: "Deposit amount by source company.", kind: "pie" },
-      { id: "receiver-agent-performance", label: "Receiver Attribution Health", description: "Production receiver-agent coverage signal.", kind: "bar" },
+      { id: "receiver-agent-performance", label: "Receiver Attribution Health", description: "Receiver-agent coverage signal.", kind: "bar" },
     ],
   },
   {
@@ -364,10 +361,9 @@ function str(value: unknown): string | undefined {
   return typeof value === "string" && value !== "" ? value : undefined;
 }
 
-function buildFilters(filters: Record<string, unknown>, scope: DatabaseScope, tab: TabConfig): SerializableFilters {
+function buildFilters(filters: Record<string, unknown>, tab: TabConfig): SerializableFilters {
   const supported = new Set<FilterControl>(tab.filters);
   const next: SerializableFilters = {
-    database_scope: scope,
     from: str(filters.from),
     to: str(filters.to),
   };
@@ -430,18 +426,9 @@ function parentCompanyChartRows(
     : rows;
 }
 
-function tableReportDescription(
-  report: ReportConfig,
-  scope: SerializableFilters["database_scope"],
-): string {
+function tableReportDescription(report: ReportConfig): string {
   if (!isSourceCompanyHierarchyReport(report.id)) return report.description;
-  if (scope === "historical") {
-    return `${report.description} Historical data is shown at company level.`;
-  }
-  if (scope === "combined") {
-    return `${report.description} Expanded child rows contain production metrics only.`;
-  }
-  return `${report.description} Expanded rows show registered production child granularities.`;
+  return `${report.description} Expanded rows show registered child granularities.`;
 }
 
 function KpiCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -462,7 +449,6 @@ function SummaryKpis({ filters }: { filters: SerializableFilters }) {
   const receiver = useQuery({
     queryKey: queryKeys.analytics.report("receiver-agent-performance", filters),
     queryFn: () => fetchAnalyticsReport("receiver-agent-performance", filters),
-    enabled: filters.database_scope !== "historical",
   });
   const totals = (summary.data?.data as { totals?: Record<string, number> } | undefined)?.totals;
   const receiverRows = flattenRows(receiver.data?.data);
@@ -485,8 +471,8 @@ function SummaryKpis({ filters }: { filters: SerializableFilters }) {
       <KpiCard label="Refunds" value={formatMoney(num("total_refund_amount"))} />
       <KpiCard
         label="Receiver Attribution"
-        value={filters.database_scope === "historical" ? "N/A" : `${(receiverCoverage * 100).toFixed(1)}%`}
-        hint={filters.database_scope === "combined" ? "Production coverage; historical unavailable" : "Production received leads"}
+        value={`${(receiverCoverage * 100).toFixed(1)}%`}
+        hint="Received leads"
       />
     </div>
   );
@@ -556,15 +542,12 @@ function ReportPanel({ report, filters }: { report: ReportConfig; filters: Seria
   });
   const rows = flattenRows(query.data?.data);
   const chartRows = parentCompanyChartRows(rows, report.id);
-  const metadata = isRecord(query.data?.data?.metadata) ? query.data.data.metadata : undefined;
-  const metadataMessage = analyticsMetadataMessage(report.id, str(filters.database_scope), metadata);
   return (
     <section className="rounded-lg border bg-background p-4">
       <div className="mb-3">
         <h2 className="text-sm font-semibold">{report.label}</h2>
         <p className="text-xs text-muted-foreground">{report.description}</p>
       </div>
-      {metadataMessage ? <FeedbackMessage className="mb-3">{metadataMessage}</FeedbackMessage> : null}
       {query.isLoading ? <TableLoadingState label="Loading analytics..." /> : null}
       {query.isError ? <TableErrorState error={query.error instanceof Error ? query.error.message : undefined} /> : null}
       {chartRows.length ? <ReportChart rows={chartRows} report={report} /> : query.data ? <FeedbackMessage>No analytics data for these filters.</FeedbackMessage> : null}
@@ -630,18 +613,13 @@ function TableView({ report, filters }: { report: ReportConfig; filters: Seriali
     ? sourceCompanyRows(rows)
     : [];
   const showHierarchy = shouldUseSourceCompanyHierarchy(report.id, hierarchyRows);
-  const metadata = isRecord(query.data?.data?.metadata) ? query.data.data.metadata : undefined;
-  const metadataMessage = analyticsMetadataMessage(report.id, str(filters.database_scope), metadata);
   return (
     <section className="space-y-3 rounded-lg border bg-background p-4">
       <div>
         <h2 className="text-sm font-semibold">{report.label} Table</h2>
-        <p className="text-xs text-muted-foreground">
-          {tableReportDescription(report, filters.database_scope)}
-        </p>
+        <p className="text-xs text-muted-foreground">{tableReportDescription(report)}</p>
       </div>
       {query.data?.generated_at ? <p className="text-xs text-muted-foreground">Last generated {new Date(query.data.generated_at).toLocaleString()}</p> : null}
-      {metadataMessage ? <FeedbackMessage>{metadataMessage}</FeedbackMessage> : null}
       {query.isLoading ? <TableLoadingState label="Loading table..." /> : null}
       {query.isError ? <TableErrorState error={query.error instanceof Error ? query.error.message : undefined} /> : null}
       {showHierarchy ? (
@@ -784,19 +762,14 @@ function AnalyticsFilterPanel({
 }
 
 export function AnalyticsDashboard() {
-  const { scope } = useDatabaseScope();
   const defaultRange = useMemo(() => defaultDateRange(), []);
-  const defaults = useMemo(() => ({ database_scope: scope, view: "visualization", ...defaultRange }), [defaultRange, scope]);
+  const defaults = useMemo(() => ({ view: "visualization", ...defaultRange }), [defaultRange]);
   const { filters, update, reset } = useUrlTableState(defaults);
   const activeTab = TAB_CONFIGS.find((tab) => tab.id === parseTab(filters.tab)) ?? TAB_CONFIGS[0];
   const view = parseView(filters.view);
-  const effectiveScope = (filters.database_scope ?? scope) as DatabaseScope;
-  const facetOptions = useFacetOptions(effectiveScope);
+  const facetOptions = useFacetOptions();
   const activeReport = activeTab.reports.find((report) => report.id === filters.report) ?? activeTab.reports.find((report) => report.id === activeTab.primaryReport) ?? activeTab.reports[0];
-  const reportFilters = useMemo(() => buildFilters(filters, effectiveScope, activeTab), [activeTab, effectiveScope, filters]);
-  const productionOnlyHistoricalUnsupported =
-    (activeTab.id === "receiver-agents" || activeTab.id === "text-to-booked") &&
-    effectiveScope === "historical";
+  const reportFilters = useMemo(() => buildFilters(filters, activeTab), [activeTab, filters]);
 
   useEffect(() => {
     if (!activeTab.reports.some((report) => report.id === filters.report) && filters.report) {
@@ -838,9 +811,6 @@ export function AnalyticsDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge tone={effectiveScope === "historical" ? "warning" : effectiveScope === "combined" ? "muted" : "success"}>
-            Scope: {DATABASE_SCOPE_LABELS[effectiveScope]}
-          </StatusBadge>
           <Button variant="outline" onClick={() => downloadCsvFromProxy(analyticsExportUrl(activeReport.id, reportFilters), `${activeReport.id}.csv`)}>
             <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             CSV
@@ -876,14 +846,6 @@ export function AnalyticsDashboard() {
 
       <AnalyticsFilterPanel tab={activeTab} filters={filters} update={update} reset={resetFilters} facetOptions={facetOptions} />
 
-      {productionOnlyHistoricalUnsupported ? (
-        <FeedbackMessage>
-          {activeTab.id === "text-to-booked"
-            ? "Lead Messages live on production only. Switch to Production or Combined to view the texted-lead booking rate."
-            : "Historical lead records do not include receiver_agent attribution. Switch to Production or Combined to view receiver-agent analytics."}
-        </FeedbackMessage>
-      ) : null}
-
       {activeTab.id === "overview" && view === "visualization" ? (
         <div className="space-y-5">
           <SummaryKpis filters={reportFilters} />
@@ -911,14 +873,11 @@ export function AnalyticsDashboard() {
         </div>
       ) : null}
 
-      {activeTab.id === "text-to-booked" && view === "visualization" && !productionOnlyHistoricalUnsupported ? (
+      {activeTab.id === "text-to-booked" && view === "visualization" ? (
         <TextToBookedPanel filters={reportFilters} />
       ) : null}
 
-      {activeTab.id !== "overview" &&
-      activeTab.id !== "text-to-booked" &&
-      view === "visualization" &&
-      !productionOnlyHistoricalUnsupported ? (
+      {activeTab.id !== "overview" && activeTab.id !== "text-to-booked" && view === "visualization" ? (
         <div className="grid gap-5 xl:grid-cols-2">
           {activeTab.reports.map((report) => (
             <ReportPanel key={report.id} report={report} filters={reportFilters} />
@@ -926,7 +885,7 @@ export function AnalyticsDashboard() {
         </div>
       ) : null}
 
-      {activeTab.id !== "overview" && view === "table" && !productionOnlyHistoricalUnsupported ? (
+      {activeTab.id !== "overview" && view === "table" ? (
         <div className="space-y-3">
           <TableReportSelector
             reports={activeTab.reports}

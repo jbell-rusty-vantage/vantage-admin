@@ -30,7 +30,6 @@ export function CancellationForm() {
         queryClient.invalidateQueries({ queryKey: queryKeys.details.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.search.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.auditLog.all }),
       ]);
       setMessage("Cancellation created. The backend resolved the linked booking/lead and handled sheet sync.");
     },

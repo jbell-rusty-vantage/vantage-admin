@@ -47,7 +47,6 @@ export type RegistryRemediationAction =
   | "set_source_default"
   | "resolve_exact_identifier_conflict"
   | "resolve_fallback_priority_conflict"
-  | "review_source_resolution"
   | "edit_cpl_schedule"
   | "preview_cpl_correction"
   | "review_cpl_correction_jobs"
@@ -222,7 +221,6 @@ export function remediationTarget(
         reviewGuidance: null,
       };
     case "review_source_lifecycle":
-    case "review_source_resolution":
     case "resolve_exact_identifier_conflict":
     case "resolve_fallback_priority_conflict":
       return {
@@ -273,14 +271,6 @@ export function remediationTarget(
           : "No typed remediation action. Owner review of evidence is required.",
       };
   }
-}
-
-/** Admin Audit deep link filtered by correlated request_id (Owner-only page). */
-export function adminAuditRequestHref(requestId?: string | null): string | null {
-  if (!requestId) {
-    return null;
-  }
-  return `/audit-log?request_id=${encode(requestId)}`;
 }
 
 export function humanizeRegistryKey(value?: string | null): string {

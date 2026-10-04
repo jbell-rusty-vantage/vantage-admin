@@ -10,25 +10,22 @@ import { cn } from "@/lib/utils";
 import { DASHBOARD_MAIN_ID } from "./dashboard-ids";
 import { DashboardRoleProvider } from "./dashboard-role-context";
 import { DashboardNav, pageTitleForPath } from "./dashboard-nav";
-import { ScopeAwareHeaderControls } from "./scope-aware-header-controls";
+import { GlobalSearch } from "./global-search";
 import { UserMenu } from "./user-menu";
 
 const sidebarStorageKey = "vantage-admin-sidebar-collapsed";
 const ownerOnlyPagePrefixes = [
-  "/audit-log",
   "/bookings/reconciliation",
   "/granot-lifecycle",
   "/ingestion/granot",
   "/intakes",
   "/daily",
-  "/live-events",
-  "/conversations",
   "/sales-intelligence",
   "/manual",
   "/extension",
 ] as const;
 // /operations-registry is intentionally readable by admin roles (mutations gated in UI/proxy).
-// /granot-lifecycle is Owner-only except Health, which Admin reaches via Observational.
+// /granot-lifecycle is Owner-only except Health, which Admin reaches from the sidebar.
 
 export function DashboardShell({
   adminEmail,
@@ -107,7 +104,7 @@ export function DashboardShell({
             <h1 className="hidden min-w-0 max-w-xs truncate font-heading text-base font-extrabold text-navy lg:block">
               {pageTitleForPath(pathname)}
             </h1>
-            <ScopeAwareHeaderControls />
+            <GlobalSearch />
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <UserMenu email={adminEmail} role={adminRole} />

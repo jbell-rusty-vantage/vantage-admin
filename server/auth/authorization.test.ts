@@ -7,7 +7,7 @@ test("owner can proxy any Vantage path", () => {
     canProxyVantagePath({
       role: "owner",
       method: "DELETE",
-      path: "api/v1/admin/observability/events/abc",
+      path: "api/v1/booked-leads/507f1f77bcf86cd799439011",
     }),
     true,
   );
@@ -40,25 +40,6 @@ test("admin can read proxy resources and use expected operational writes", () =>
   );
 });
 
-test("admin cannot proxy destructive observability requests", () => {
-  assert.equal(
-    canProxyVantagePath({
-      role: "admin",
-      method: "DELETE",
-      path: "api/v1/admin/observability/events/abc",
-    }),
-    false,
-  );
-  assert.equal(
-    canProxyVantagePath({
-      role: "admin",
-      method: "POST",
-      path: "api/v1/admin/observability/events/delete",
-    }),
-    false,
-  );
-});
-
 test("admin cannot delete operational bookings or cancellations", () => {
   assert.equal(
     canProxyVantagePath({
@@ -80,13 +61,11 @@ test("admin cannot delete operational bookings or cancellations", () => {
 
 test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/settings"), true);
-  assert.equal(canAccessDashboardPath("admin", "/audit-log"), false);
   assert.equal(canAccessDashboardPath("admin", "/bookings/reconciliation"), false);
   assert.equal(canAccessDashboardPath("admin", "/intakes"), false);
   assert.equal(canAccessDashboardPath("admin", "/manual"), false);
   assert.equal(canAccessDashboardPath("admin", "/extension"), false);
   assert.equal(canAccessDashboardPath("admin", "/job-timeline"), false);
-  assert.equal(canAccessDashboardPath("admin", "/live-events"), false);
   assert.equal(canAccessDashboardPath("admin", "/daily"), false);
   assert.equal(canAccessDashboardPath("admin", "/form-leads"), true);
   assert.equal(canAccessDashboardPath("admin", "/operations-registry"), true);
@@ -463,12 +442,15 @@ test("admin cannot proxy owner-only sheet contains check", () => {
     }),
     true,
   );
+});
+
+test("SLIM-02: the retired Observational Sheet Sync retry is Owner-only at the proxy", () => {
   assert.equal(
-    canProxyVantagePath({
-      role: "admin",
-      method: "POST",
-      path: "api/v1/admin/sheet-sync/retry",
-    }),
+    canProxyVantagePath({ role: "admin", method: "POST", path: "api/v1/admin/sheet-sync/retry" }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({ role: "owner", method: "POST", path: "api/v1/admin/sheet-sync/retry" }),
     true,
   );
 });
@@ -558,22 +540,6 @@ test("Granot lifecycle standard reads allow admin while candidates and all write
   );
   assert.equal(
     canProxyVantagePath({
-      role: "admin",
-      method: "GET",
-      path: "api/v1/admin/granot-lifecycle/receipts/live",
-    }),
-    false,
-  );
-  assert.equal(
-    canProxyVantagePath({
-      role: "owner",
-      method: "GET",
-      path: "api/v1/admin/granot-lifecycle/receipts/live",
-    }),
-    true,
-  );
-  assert.equal(
-    canProxyVantagePath({
       role: "owner",
       method: "GET",
       path: "api/v1/admin/granot-lifecycle/cases/case-1/creating-observation",
@@ -654,10 +620,6 @@ test("Granot lifecycle pages remain owner-only in the Admin UI except health", (
   assert.equal(canAccessDashboardPath("owner", "/extension"), true);
   assert.equal(canAccessDashboardPath("admin", "/job-timeline"), false);
   assert.equal(canAccessDashboardPath("owner", "/job-timeline"), true);
-  assert.equal(canAccessDashboardPath("admin", "/conversations"), false);
-  assert.equal(canAccessDashboardPath("owner", "/conversations"), true);
-  assert.equal(canAccessDashboardPath("admin", "/live-events"), false);
-  assert.equal(canAccessDashboardPath("owner", "/live-events"), true);
   assert.equal(canAccessDashboardPath("admin", "/daily"), false);
   assert.equal(canAccessDashboardPath("owner", "/daily"), true);
 });
@@ -738,22 +700,17 @@ test("[AC-31][AC-35] health GET is Owner/Admin at the proxy and remains read-onl
   }), false);
 });
 
-test("Granot Observation Receipt list GET is Owner-only at the proxy", () => {
+test("Granot lifecycle health GET is readable by Admin; receipt requeue stays Owner-only", () => {
   assert.equal(canProxyVantagePath({
     role: "admin",
-    method: "GET",
-    path: "api/v1/admin/granot-lifecycle/receipts",
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/receipts/64aaaaaaaaaaaaaaaaaaaaaa/requeue",
   }), false);
   assert.equal(canProxyVantagePath({
     role: "owner",
-    method: "GET",
-    path: "api/v1/admin/granot-lifecycle/receipts",
+    method: "POST",
+    path: "api/v1/admin/granot-lifecycle/receipts/64aaaaaaaaaaaaaaaaaaaaaa/requeue",
   }), true);
-  assert.equal(canProxyVantagePath({
-    role: "admin",
-    method: "GET",
-    path: "api/v1/admin/granot-lifecycle/receipts/live",
-  }), false);
   assert.equal(canProxyVantagePath({
     role: "admin",
     method: "GET",
@@ -810,4 +767,15 @@ test("V-T3 m14: the proxy allowlist judges the resolved path, so encoded dot seg
   assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path: "api/v1/admin/form-leads?page=2" }), true);
   assert.equal(canProxyVantagePath({ role: "admin", method: "GET", path: "api/v1/admin/extension-users" }), false);
   assert.equal(canProxyVantagePath({ role: "owner", method: "GET", path: "api/v1/customers/%2e%2e/admin/extension-users" }), true);
+});
+
+test("SLIM-08: the retired Customers tab leaves no Admin-role Customer PATCH", () => {
+  assert.equal(
+    canProxyVantagePath({ role: "admin", method: "PATCH", path: "api/v1/customers/65f0000000000000000000cd" }),
+    false,
+  );
+  assert.equal(
+    canProxyVantagePath({ role: "admin", method: "PATCH", path: "api/v1/booked-leads/65f0000000000000000000cd" }),
+    true,
+  );
 });

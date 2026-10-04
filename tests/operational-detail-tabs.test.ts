@@ -23,7 +23,6 @@ const root = process.cwd();
 function ctx(overrides: Partial<VisibleDetailTabsContext> = {}): VisibleDetailTabsContext {
   return {
     readOnly: false,
-    database_scope: "production",
     canDelete: false,
     productionEditAllowed: true,
     ...overrides,
@@ -67,24 +66,15 @@ test("visibleDetailTabs matches the §6.2 matrix for each resource", () => {
     visibleDetailTabs("cancellations", record(), ctx()),
     ["summary", "contact", "production", "source"],
   );
-  assert.deepEqual(
-    visibleDetailTabs("customers", record(), ctx()),
-    ["summary", "contact", "production"],
-  );
-  assert.deepEqual(
-    visibleDetailTabs("agents", record(), ctx({ productionEditAllowed: false })),
-    ["summary"],
-  );
 });
 
-test("visibleDetailTabs hides Actions and Production record for historical leads", () => {
+test("visibleDetailTabs hides Actions and Production record for read-only leads", () => {
   assert.deepEqual(
     visibleDetailTabs(
       "form-leads",
       record(),
       ctx({
         readOnly: true,
-        database_scope: "historical",
         productionEditAllowed: false,
         canDelete: false,
       }),
@@ -143,31 +133,14 @@ test("visibleDetailTabs shows Production record for owner-delete when the bookin
   );
 });
 
-test("productionEditAllowedFor is false for Referral, historical, and duplicate records", () => {
+test("productionEditAllowedFor is false for Referral, read-only, and duplicate records", () => {
   assert.equal(
-    productionEditAllowedFor("bookings", record({ is_referral_booking: true }), {
-      database_scope: "production",
-    }),
+    productionEditAllowedFor("bookings", record({ is_referral_booking: true }), {}),
     false,
   );
-  assert.equal(
-    productionEditAllowedFor("form-leads", record(), {
-      database_scope: "historical",
-    }),
-    false,
-  );
-  assert.equal(
-    productionEditAllowedFor("duplicate-form-leads", record(), {
-      database_scope: "production",
-    }),
-    false,
-  );
-  assert.equal(
-    productionEditAllowedFor("form-leads", record(), {
-      database_scope: "production",
-    }),
-    true,
-  );
+  assert.equal(productionEditAllowedFor("form-leads", record(), { readOnly: true }), false);
+  assert.equal(productionEditAllowedFor("duplicate-form-leads", record(), {}), false);
+  assert.equal(productionEditAllowedFor("form-leads", record(), {}), true);
 });
 
 test("resolveActivePanel keeps a visible tab and falls back to Summary when hidden", () => {
@@ -222,7 +195,6 @@ test("?record= + ?panel=message on a Form Lead selects Lead Message", () => {
 
 test("apiFiltersFromUrlState strips record, connect, and panel from list and export URLs", () => {
   const filters = {
-    database_scope: "production",
     page: 1,
     limit: 50,
     q: "smith",

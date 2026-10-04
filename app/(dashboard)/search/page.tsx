@@ -8,48 +8,26 @@ import { TableEmptyState, TableErrorState, TableLoadingState } from "@/component
 import { MIN_SEARCH_QUERY_LENGTH, getCommittedSearchQuery } from "@/components/filters/debounced-search-input";
 import { Button } from "@/components/ui/button";
 import { fetchGlobalSearch } from "@/lib/api/admin";
-import { parseDatabaseScope } from "@/lib/api/filters";
 import type { GlobalSearchResultItem } from "@/lib/api/types";
 import { queryKeys } from "@/lib/query/keys";
 
-const labels: Record<string, string> = {
-  "form-leads": "Form Leads",
-  form_lead: "Form Leads",
-  "call-leads": "Call Leads",
-  call_lead: "Call Leads",
-  "booked-leads": "Bookings",
-  booked_lead: "Bookings",
-  "cancelled-leads": "Cancellations",
-  cancelled_lead: "Cancellations",
-  customers: "Customers",
-  customer: "Customers",
-  agents: "Agents",
-  agent: "Agents",
+const routes: Record<string, { label: string; href: string }> = {
+  "form-leads": { label: "Form Leads", href: "/form-leads" },
+  form_lead: { label: "Form Leads", href: "/form-leads" },
+  "call-leads": { label: "Call Leads", href: "/call-leads" },
+  call_lead: { label: "Call Leads", href: "/call-leads" },
+  "booked-leads": { label: "Bookings", href: "/bookings" },
+  booked_lead: { label: "Bookings", href: "/bookings" },
+  "cancelled-leads": { label: "Cancellations", href: "/cancellations" },
+  cancelled_lead: { label: "Cancellations", href: "/cancellations" },
 };
 
-function normalizeHref(recordType: string, item: GlobalSearchResultItem) {
-  const route =
-    recordType === "form-leads" || recordType === "form_lead"
-      ? "/form-leads"
-      : recordType === "call-leads" || recordType === "call_lead"
-        ? "/call-leads"
-        : recordType === "booked-leads" || recordType === "booked_lead"
-          ? "/bookings"
-          : recordType === "cancelled-leads" || recordType === "cancelled_lead"
-            ? "/cancellations"
-            : recordType === "customers" || recordType === "customer"
-              ? "/customers"
-              : recordType === "agents" || recordType === "agent"
-                ? "/agents"
-                : "/";
-  const params = new URLSearchParams({ q: item.id, database_scope: item.database_scope });
+function resultHref(route: string, item: GlobalSearchResultItem) {
+  const params = new URLSearchParams({ q: item.id });
   return `${route}?${params.toString()}`;
 }
 
 function workflowActions(recordType: string, item: GlobalSearchResultItem) {
-  if (item.database_scope !== "production") {
-    return null;
-  }
   if (recordType === "form-leads" || recordType === "form_lead") {
     return (
       <Link className="text-sm font-medium text-primary" href={`/bookings/new?lead_type=FormLead&lead_id=${item.id}`}>
@@ -79,19 +57,20 @@ export default function SearchPage() {
   const q = searchParams.get("q") ?? "";
   const committedQuery = getCommittedSearchQuery(q);
   const canSearch = committedQuery !== null && committedQuery !== "";
-  const scope = parseDatabaseScope(searchParams.get("database_scope"));
   const query = useQuery({
-    queryKey: queryKeys.search.global(committedQuery ?? "", scope),
-    queryFn: () => fetchGlobalSearch({ q: committedQuery ?? "", database_scope: scope, limit: 10 }),
+    queryKey: queryKeys.search.global(committedQuery ?? ""),
+    queryFn: () => fetchGlobalSearch({ q: committedQuery ?? "", limit: 10 }),
     enabled: canSearch,
   });
+  // Only official Lead, Booking and Cancellation records have a dashboard destination.
+  const groups = query.data?.groups.filter((group) => routes[group.record_type]) ?? [];
 
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-semibold">Search Results</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Searching for <span className="font-medium text-foreground">{committedQuery || q || "nothing yet"}</span> in {scope}.
+          Searching for <span className="font-medium text-foreground">{committedQuery || q || "nothing yet"}</span>.
         </p>
       </div>
 
@@ -103,42 +82,42 @@ export default function SearchPage() {
       {query.isError ? (
         <TableErrorState error={query.error instanceof Error ? query.error.message : undefined} onRetry={() => query.refetch()} />
       ) : null}
-      {query.data && query.data.groups.length === 0 ? <TableEmptyState label="No records matched this search." /> : null}
+      {query.data && groups.length === 0 ? <TableEmptyState label="No records matched this search." /> : null}
       <div className="space-y-4">
-        {query.data?.groups.map((group) => (
-          <section key={group.record_type} className="rounded-lg border bg-background p-4">
-            <h2 className="text-sm font-semibold">{labels[group.record_type] ?? group.record_type}</h2>
-            <div className="mt-3 divide-y">
-              {group.items.map((item) => (
-                <div key={`${group.record_type}-${item.id}`} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Link className="font-medium hover:underline" href={normalizeHref(group.record_type, item)}>
-                        {item.primary_label}
-                      </Link>
-                      <StatusBadge tone={item.database_scope === "historical" ? "warning" : "success"}>
-                        {item.database_scope}
-                      </StatusBadge>
-                      {item.badges?.map((badge) => (
-                        <StatusBadge key={badge} tone="muted">
-                          {badge}
-                        </StatusBadge>
-                      ))}
+        {groups.map((group) => {
+          const route = routes[group.record_type];
+          return (
+            <section key={group.record_type} className="rounded-lg border bg-background p-4">
+              <h2 className="text-sm font-semibold">{route.label}</h2>
+              <div className="mt-3 divide-y">
+                {group.items.map((item) => (
+                  <div key={`${group.record_type}-${item.id}`} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link className="font-medium hover:underline" href={resultHref(route.href, item)}>
+                          {item.primary_label}
+                        </Link>
+                        {item.badges?.map((badge) => (
+                          <StatusBadge key={badge} tone="muted">
+                            {badge}
+                          </StatusBadge>
+                        ))}
+                      </div>
+                      {item.secondary_label ? <p className="mt-1 text-sm text-muted-foreground">{item.secondary_label}</p> : null}
+                      <p className="mt-1 text-xs text-muted-foreground">{item.id}</p>
                     </div>
-                    {item.secondary_label ? <p className="mt-1 text-sm text-muted-foreground">{item.secondary_label}</p> : null}
-                    <p className="mt-1 text-xs text-muted-foreground">{item.id}</p>
+                    <div className="flex gap-3">
+                      {workflowActions(group.record_type, item)}
+                      <Button variant="outline" onClick={() => window.location.assign(resultHref(route.href, item))}>
+                        View
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-3">
-                    {workflowActions(group.record_type, item)}
-                    <Button variant="outline" onClick={() => window.location.assign(normalizeHref(group.record_type, item))}>
-                      View
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </div>
   );

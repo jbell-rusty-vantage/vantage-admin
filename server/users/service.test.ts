@@ -21,7 +21,6 @@ import {
   type AdminUserRecord,
   type InviteDeliveryStatus,
   type UsersActor,
-  type UsersAuditEntry,
   type UsersDeps,
 } from "./types";
 
@@ -60,7 +59,6 @@ function harness(options: {
   let now = T0;
   let tokenCounter = 0;
   const tokens: string[] = [];
-  const audits: UsersAuditEntry[] = [];
   const mails: Array<{ to: string; link: string }> = [];
   const users = createMemoryUsersStore(options.seed ?? [ownerRecord()]);
   const invites = createMemoryInvitesStore();
@@ -80,9 +78,6 @@ function harness(options: {
         return options.delivery ?? "sent";
       },
     },
-    audit: async (entry) => {
-      audits.push(entry);
-    },
     hashPassword: options.realHash ? hashPassword : async (password) => `fake$${password}`,
     now: () => now,
     randomToken: () => {
@@ -96,7 +91,6 @@ function harness(options: {
     deps,
     users,
     invites,
-    audits,
     mails,
     tokens,
     setNow(value: Date) {
@@ -208,8 +202,6 @@ test("C15: the last active Owner can't be demoted or deactivated", async () => {
   const second = await createAdminUser(h.deps, OWNER, { email: "owner2@example.invalid", password: REP_PASSWORD, role: "owner" });
   await updateAdminUser(h.deps, OWNER, OWNER_ID, { role: "admin" });
   await rejectsWith(deactivateAdminUser(h.deps, OWNER, second.id), "last_owner");
-  const refused = h.audits.filter((entry) => entry.error_code === "last_owner");
-  assert.ok(refused.length >= 5, "refusals are audited");
 });
 
 test("V-T3 M10: two Owners stepping each other down concurrently never leave zero active Owners", async () => {
@@ -254,8 +246,6 @@ test("V-T3 M10: two Owners stepping each other down concurrently never leave zer
         name,
       );
     }
-    assert.equal(h.audits.filter((entry) => entry.error_code === "last_owner").length, 2 - fulfilled, `${name}: refusals audited`);
-    assert.equal(h.audits.filter((entry) => entry.ok).length, fulfilled, `${name}: only the winner is audited ok`);
   }
 
   // Sequentially, the first still succeeds and the second is refused, as before.
@@ -377,44 +367,6 @@ test("copy-link fallback: not configured, failed or unreachable return the link 
   await rejectsWith(sendAdminUserInvite(h.deps, OWNER, rep.id, { baseUrl: "https://a.invalid" }), "user_inactive");
 });
 
-test("C15: no password, token or hash appears in audit rows", async () => {
-  const h = harness({ delivery: "not_configured" });
-  const rep = await createRep(h.deps);
-  await updateAdminUser(h.deps, OWNER, rep.id, { email: "rep.renamed@example.invalid" });
-  await setAdminUserPassword(h.deps, OWNER, rep.id, { password: "set-by-owner-pass-9" });
-  await sendAdminUserInvite(h.deps, OWNER, rep.id, { baseUrl: "https://admin.example.invalid" });
-  await acceptAdminUserInvite(h.deps, { token: h.tokens[0]!, password: "chosen-by-rep-pass-7" });
-  await rejectsWith(createRep(h.deps, "rep.renamed@example.invalid"), "email_taken");
-  await rejectsWith(updateAdminUser(h.deps, OWNER, OWNER_ID, { active: false }), "last_owner");
-  await deactivateAdminUser(h.deps, OWNER, rep.id);
-
-  const actions = h.audits.map((entry) => entry.action);
-  for (const action of [
-    "admin_user_create",
-    "admin_user_update",
-    "admin_user_set_password",
-    "admin_user_invite",
-    "admin_user_invite_accept",
-    "admin_user_deactivate",
-  ]) {
-    assert.ok(actions.includes(action), `audited ${action}`);
-  }
-  const serialized = JSON.stringify(h.audits);
-  const secrets = [
-    REP_PASSWORD,
-    "set-by-owner-pass-9",
-    "chosen-by-rep-pass-7",
-    "fake$",
-    h.tokens[0]!,
-    createHash("sha256").update(h.tokens[0]!).digest("hex"),
-    "accept-invite#token",
-  ];
-  for (const secret of secrets) {
-    assert.equal(serialized.includes(secret), false, `audit rows must not contain ${secret.slice(0, 6)}…`);
-  }
-  assert.equal(/password|token_sha|hash/i.test(Object.keys(Object.assign({}, ...h.audits.map((a) => a.payload))).join(",")), false);
-});
-
 test("C15: non-Owner callers get 403 (and no session 401) on every user route", async () => {
   const h = harness();
   const rep = await createRep(h.deps);
@@ -487,9 +439,6 @@ test("V-T3 m16: with no configured base URL the invite is refused as not_configu
   assert.equal(JSON.stringify(body).includes("accept-invite"), false, "no link");
   assert.equal(h.invites.rows.length, 0, "no invite token minted");
   assert.equal(h.mails.length, 0, "nothing mailed");
-  const refusal = h.audits.find((entry) => entry.action === "admin_user_invite");
-  assert.equal(refusal?.ok, false);
-  assert.equal(refusal?.error_code, "not_configured");
   // Non-Owners are still refused first.
   const admin = await handleAdminUsersOperation({ id: rep.id, email: "a@example.invalid", role: "admin" }, { kind: "invite", id: rep.id, baseUrl: null }, h.deps);
   assert.equal(admin.status, 403);

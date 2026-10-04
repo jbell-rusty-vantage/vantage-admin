@@ -94,6 +94,9 @@ export function LifecycleHealthView({
 }
 
 function LifecycleHealthSections({ data }: { data: GranotLifecycleHealth }) {
+  // Unknown (null, or a window the server marks unknown) is never shown as "none".
+  const conflictsUnknown = data.command_conflicts_last_24h === null || data.counter_coverage?.window_24h === "unknown";
+  const coverage = data.counter_coverage;
   return (
     <>
       <Card>
@@ -178,7 +181,15 @@ function LifecycleHealthSections({ data }: { data: GranotLifecycleHealth }) {
       </Card>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <CountCard title="Command conflicts (24 hours)" empty="No command conflicts in the last 24 hours." rows={data.command_conflicts_last_24h.map((row) => [row.code, row.count])} />
+        <CountCard
+          title="Command conflicts (24 hours)"
+          empty={conflictsUnknown
+            ? "Unknown — warming up: the 24-hour count is still filling, so this does not mean there were no conflicts."
+            : "No command conflicts in the last 24 hours."}
+          rows={conflictsUnknown || !data.command_conflicts_last_24h
+            ? []
+            : data.command_conflicts_last_24h.map((row) => [row.code, row.count])}
+        />
         <Card>
           <CardHeader><CardTitle>Record links</CardTitle></CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -204,7 +215,7 @@ function LifecycleHealthSections({ data }: { data: GranotLifecycleHealth }) {
       <Card>
         <CardHeader>
           <CardTitle>Queue and cron</CardTitle>
-          <CardDescription>Last-run status comes from operational run events, not process memory.</CardDescription>
+          <CardDescription>Last-run status comes from the stored Health state, not process memory.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <Metric label="Last queue run" value={runLabel(data.last_queue_run)} />
@@ -240,6 +251,14 @@ function LifecycleHealthSections({ data }: { data: GranotLifecycleHealth }) {
           <CardDescription>Thresholds are server-authored. Admin does not recompute rates, p95, or due logic.</CardDescription>
         </CardHeader>
         <CardContent>
+          {coverage && (coverage.window_24h === "unknown" || coverage.window_1h === "unknown") ? (
+            <p className="mb-3 text-sm text-muted-foreground" data-counter-coverage="unknown">
+              Unknown — warming up: counting since {formatUtc(coverage.counters_since)}.
+              {coverage.window_24h === "unknown" ? " The 24-hour window is not fully counted yet." : ""}
+              {coverage.window_1h === "unknown" ? " The 1-hour window is not fully counted yet." : ""}
+              {" "}Alerts that depend on an unknown window read Insufficient data, not OK.
+            </p>
+          ) : null}
           {data.alerts.length === 0 ? (
             <p className="text-sm text-muted-foreground">No alert evaluations returned.</p>
           ) : (

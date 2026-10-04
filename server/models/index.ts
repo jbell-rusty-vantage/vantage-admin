@@ -1,4 +1,3 @@
-export { AdminAuditLog } from "./AdminAuditLog";
 export {
   AdminUser,
   ADMIN_ROLES,

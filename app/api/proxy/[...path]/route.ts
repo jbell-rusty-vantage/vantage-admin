@@ -4,13 +4,11 @@ import {
   getAccessTokenCookie,
   getSessionUserFromAccessToken,
   getRefreshTokenCookie,
-  getRequestMetadata,
   refreshAdminSession,
   setAuthCookies,
 } from "@/server/auth";
 import { proxyForwardHeaders, currentCsiScope } from "@/server/auth/proxyForwardHeaders";
 import { canProxyVantagePath } from "@/server/auth/authorization";
-import { writeAuditLog, buildProxyAuditRequestPayload, proxyAuditPathname } from "@/server/audit";
 import { requestVantageApi, type VantageApiMethod } from "@/server/vantage-api/client";
 import { VantageApiError } from "@/server/vantage-api/errors";
 import { publicProxyErrorMessage } from "@/server/vantage-api/publicError";
@@ -20,8 +18,6 @@ type ProxyContext = {
     path?: string[];
   }>;
 };
-
-const MUTATING_METHODS = new Set<VantageApiMethod>(["POST", "PATCH", "PUT", "DELETE"]);
 
 async function requireAdmin() {
   const cookieStore = await cookies();
@@ -70,25 +66,6 @@ function buildBackendPath(pathParts: string[] | undefined, request: NextRequest)
   return `${pathname}${request.nextUrl.search}`;
 }
 
-function isExportRequest(method: VantageApiMethod, path: string): boolean {
-  const normalized = path.toLowerCase();
-  return method === "GET" && (normalized.includes("/exports/") || normalized.includes(".csv"));
-}
-
-function getDatabaseScope(path: string, body: unknown): string | undefined {
-  const queryScope = new URL(`https://proxy.local/${path}`).searchParams.get("database_scope");
-  if (queryScope) {
-    return queryScope;
-  }
-
-  if (body && typeof body === "object" && "database_scope" in body) {
-    const value = (body as { database_scope?: unknown }).database_scope;
-    return typeof value === "string" ? value : undefined;
-  }
-
-  return undefined;
-}
-
 async function readRequestBody(request: NextRequest, method: VantageApiMethod): Promise<unknown> {
   if (method === "GET") {
     return undefined;
@@ -122,44 +99,6 @@ function responseFromCsv(body: ArrayBuffer, status: number, headers: Headers): N
   });
 }
 
-async function auditProxyRequest(input: {
-  admin: Awaited<ReturnType<typeof requireAdmin>>;
-  method: VantageApiMethod;
-  path: string;
-  body: unknown;
-  status: number;
-  ok: boolean;
-  errorMessage?: string;
-  requestId?: string;
-}) {
-  if (!input.admin) {
-    return;
-  }
-
-  try {
-    const metadata = await getRequestMetadata();
-    await writeAuditLog({
-      ...metadata,
-      admin_user_id: input.admin.id,
-      admin_email: input.admin.email,
-      action: isExportRequest(input.method, input.path) ? "proxy_export_request" : "proxy_mutation",
-      entity_type: proxyAuditPathname(input.path),
-      database_scope: getDatabaseScope(input.path, input.body),
-      request_payload: buildProxyAuditRequestPayload({
-        method: input.method,
-        path: input.path,
-        body: input.body,
-      }),
-      response_status: input.status,
-      ok: input.ok,
-      error_message: input.errorMessage,
-      request_id: input.requestId,
-    });
-  } catch (error) {
-    console.error("Failed to write proxy audit log", error);
-  }
-}
-
 async function handleProxyRequest(request: NextRequest, context: ProxyContext, method: VantageApiMethod) {
   const admin = await requireAdmin();
   if (!admin) {
@@ -178,7 +117,6 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 
-  const shouldAudit = MUTATING_METHODS.has(method) || isExportRequest(method, backendPath);
   const body = await readRequestBody(request, method);
   if (!currentCsiScope(backendPath, body)) return NextResponse.json({ ok: false, code: "UNSUPPORTED_SCOPE", error: "Current records only." }, { status: 403 });
   let forwarded: ReturnType<typeof proxyForwardHeaders>;
@@ -196,18 +134,6 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
       body,
       headers: forwardHeaders,
     });
-
-    if (shouldAudit) {
-      await auditProxyRequest({
-        admin,
-        method,
-        path: backendPath,
-        body,
-        status: vantageResponse.status,
-        ok: true,
-        requestId,
-      });
-    }
 
     if (vantageResponse.kind === "csv") {
       return responseFromCsv(vantageResponse.body, vantageResponse.status, vantageResponse.headers);
@@ -232,20 +158,6 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
     const status = error instanceof VantageApiError ? error.status : 500;
     const message =
       error instanceof Error ? error.message : "Unexpected Vantage API proxy failure.";
-
-    if (shouldAudit) {
-      await auditProxyRequest({
-        admin,
-        method,
-        path: backendPath,
-        body,
-        status,
-        ok: false,
-        errorMessage: message,
-        requestId:
-          requestId ?? (error instanceof VantageApiError ? error.requestId : undefined),
-      });
-    }
 
     return NextResponse.json(
       {

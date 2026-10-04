@@ -62,10 +62,10 @@ test('Lead detail enters Sales Intelligence with the official Lead identity',()=
   assert.equal(call.searchParams.get('lead_model'),'CallLead');
   assert.equal(form.searchParams.has('scope'),false);
 });
-test('official destinations pin the host database_scope, not the API scope parameter',()=>{
+test('official destinations carry no database scope and no API scope parameter',()=>{
  for(const model of ['FormLead','CallLead','BookedLead','CancelledLead'] as const){
   const url=new URL(officialRecordHref(model,'a'.repeat(24)),'http://localhost');
-  assert.equal(url.searchParams.get('database_scope'),'production');
+  assert.equal(url.searchParams.has('database_scope'),false);
   assert.equal(url.searchParams.get('record'),'a'.repeat(24));
   assert.equal(url.searchParams.has('scope'),false);
  }

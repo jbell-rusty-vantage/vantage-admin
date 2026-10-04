@@ -36,7 +36,6 @@ const bookingCase: GranotLifecycleCaseListItem = {
 };
 
 const productionOverview: OverviewReportResponse = {
-  database_scope: "production",
   generated_at: "2026-09-01T12:00:00.000Z",
   all_time: {
     totals: {
@@ -81,7 +80,6 @@ function renderOverview(
   return withQuery(
     createElement(HomeOverviewView, {
       role: "owner",
-      scope: "production",
       overview: productionOverview,
       ...props,
     }),
@@ -182,6 +180,7 @@ test("owner overview is a desk: waiting work, this week, then all time", () => {
   assert.match(markup, /href="\/analytics"/);
   assert.match(markup, /href="\/bookings\/new"/);
   assert.match(markup, /href="\/cancellations\/new"/);
+  assert.doesNotMatch(markup, /href="\/agents"/);
 });
 
 test("overview no longer launches shipped tabs or reprints Analytics tables", () => {
@@ -210,10 +209,9 @@ test("admin overview omits the waiting band and still starts a record", () => {
   assert.match(markup, /href="\/bookings\/new"/);
 });
 
-test("historical overview keeps all time and create actions without a this-week pulse", () => {
+test("overview without a last-7-days pulse keeps all time and create actions", () => {
   const markup = renderOverview({
-    scope: "historical",
-    overview: { ...productionOverview, database_scope: "historical", last_7_days: null },
+    overview: { ...productionOverview, last_7_days: null },
   });
 
   assert.doesNotMatch(markup, new RegExp(overviewCopy.thisWeek));
@@ -232,14 +230,10 @@ test("production overview keeps this week visible while metrics load", () => {
   assert.match(markup, new RegExp(overviewCopy.startARecord));
 });
 
-test("combined overview hides this week even if leftover last-7-days data is present", () => {
-  const markup = renderOverview({
-    scope: "combined",
-    overview: { ...productionOverview, database_scope: "combined" },
-  });
+test("overview shows all-time lead cost and no database scope label", () => {
+  const markup = renderOverview();
 
-  assert.doesNotMatch(markup, new RegExp(overviewCopy.thisWeek));
-  assert.doesNotMatch(markup, /Patrick/);
-  assert.match(markup, new RegExp(overviewCopy.allTime));
-  assert.match(markup, new RegExp(overviewCopy.startARecord));
+  assert.match(markup, /Lead Cost/);
+  assert.match(markup, /\$50,000/);
+  assert.doesNotMatch(markup, /Production totals|Historical|Combined/);
 });

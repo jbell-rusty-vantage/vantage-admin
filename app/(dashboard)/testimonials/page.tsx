@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, RotateCcw } from "lucide-react";
@@ -253,13 +252,7 @@ const columns: DataTableColumn<AdminTestimonial>[] = [
     header: "Customer",
     cell: (item) =>
       item.customer?.id ? (
-        <Link
-          className="font-medium text-navy underline-offset-4 hover:underline"
-          href={`/customers?record=${item.customer.id}`}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {item.customer.full_name || "Linked customer"}
-        </Link>
+        <span className="font-medium text-navy">{item.customer.full_name || "Linked customer"}</span>
       ) : (
         <StatusBadge tone="muted">Not linked</StatusBadge>
       ),

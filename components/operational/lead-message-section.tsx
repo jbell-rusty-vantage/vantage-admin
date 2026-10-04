@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { DetailGrid, DetailItem } from "@/components/record-detail/detail-section";
 import { OPERATIONAL_COPY, leadMessageSentValue } from "@/components/operational/operational-copy";
 import { formatDate, formatPlain, getValue } from "@/components/operational/operational-helpers";
-import { getRecordId, type AdminRecord } from "@/lib/api/admin";
+import type { AdminRecord } from "@/lib/api/admin";
 
 export function LeadMessageSection({ record }: { record: AdminRecord }) {
   const message = getValue(record, "sms_message");
@@ -37,14 +36,6 @@ export function LeadMessageSection({ record }: { record: AdminRecord }) {
         <DetailItem label="Sent" value={formatDate(smsMessage.sent_at)} />
         <DetailItem label="Delivered" value={formatDate(smsMessage.delivered_at)} />
       </DetailGrid>
-      <div>
-        <Link
-          className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-muted"
-          href={`/observational?tab=events&category=messaging&entity_type=form_lead&entity_id=${encodeURIComponent(getRecordId(record))}`}
-        >
-          {OPERATIONAL_COPY.leadMessage.viewEvents}
-        </Link>
-      </div>
       <div className="space-y-2">
         <p className="text-sm font-medium text-navy">{OPERATIONAL_COPY.leadMessage.bodyLabel}</p>
         <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">

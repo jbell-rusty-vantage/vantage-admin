@@ -2,8 +2,13 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, parseDatabaseScope, parseTableQueryParams } from "./filters";
-import type { DatabaseScope, SortDirection, TableQueryParams } from "./types";
+import {
+  DEFAULT_PAGE,
+  DEFAULT_PAGE_SIZE,
+  parseTableQueryParams,
+  withoutRetiredDatabaseScope,
+} from "./filters";
+import type { SortDirection, TableQueryParams } from "./types";
 import { applyUrlStateUpdate, type UrlStateUpdate } from "./url-state-update";
 
 export type { UrlStateUpdate };
@@ -28,14 +33,14 @@ export function useUrlTableState(defaults: Partial<TableQueryParams> = {}) {
   }, [searchParams]);
 
   const filters = useMemo(() => {
-    const params = new URLSearchParams(searchParams.toString());
+    const current = new URLSearchParams(searchParams.toString());
+    const params = withoutRetiredDatabaseScope(current) ?? current;
     return {
       ...defaults,
       ...Object.fromEntries(params.entries()),
       ...parseTableQueryParams(params),
       page: Number(params.get("page") ?? defaults.page ?? DEFAULT_PAGE),
       limit: Number(params.get("limit") ?? defaults.limit ?? DEFAULT_PAGE_SIZE),
-      database_scope: parseDatabaseScope(params.get("database_scope") ?? String(defaults.database_scope ?? "")),
     } as TableQueryParams;
   }, [defaults, searchParams]);
 
@@ -71,24 +76,11 @@ export function useUrlTableState(defaults: Partial<TableQueryParams> = {}) {
     [update],
   );
 
-  const setScope = useCallback(
-    (scope: DatabaseScope) => {
-      update({ database_scope: scope, page: 1 }, { resetPage: false });
-    },
-    [update],
-  );
-
   const reset = useCallback(() => {
-    const params = new URLSearchParams();
-    const scope = searchParams.get("database_scope") ?? defaults.database_scope;
-    if (scope) {
-      params.set("database_scope", String(scope));
-    }
-    const query = params.toString();
-    latestQueryRef.current = query;
+    latestQueryRef.current = "";
     pendingPushRef.current = true;
-    router.push(query ? `${pathname}?${query}` : pathname);
-  }, [defaults.database_scope, pathname, router, searchParams]);
+    router.push(pathname);
+  }, [pathname, router]);
 
   return {
     filters,
@@ -97,7 +89,6 @@ export function useUrlTableState(defaults: Partial<TableQueryParams> = {}) {
     setSort,
     setPage,
     setLimit,
-    setScope,
     reset,
   };
 }

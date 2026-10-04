@@ -85,3 +85,8 @@ test("linkedContextHref resolves relation keys for the side panel", () => {
   );
   assert.equal(linkedContextHref("bookings", "related_bookings", {}), null);
 });
+
+test("linkedContextHref never links a Customer to the retired Customers tab", () => {
+  assert.equal(linkedContextHref("bookings", "customer", { customer: { _id: "cust1" } }), null);
+  assert.equal(linkedContextHref("cancellations", "customer", { customer: "cust2" }), null);
+});

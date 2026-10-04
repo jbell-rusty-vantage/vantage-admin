@@ -18,39 +18,13 @@ test("list query keys sort filter object keys for stable cache keys", () => {
   assert.deepEqual(first[2], { page: 1, q: "smith" });
 });
 
-test("detail query keys include resource id and database scope", () => {
-  assert.deepEqual(queryKeys.details.resource("booked-leads", "abc", "historical"), [
+test("detail query keys include resource id and stable filters", () => {
+  assert.deepEqual(queryKeys.details.resource("booked-leads", "abc", { panel: "", q: "smith" }), [
     "details",
     "booked-leads",
     "abc",
-    "historical",
-    {},
+    { q: "smith" },
   ]);
-});
-
-test("observability query keys are stable across filter ordering", () => {
-  const first = queryKeys.observability.events({ level: "error", page: 2, q: "" });
-  const second = queryKeys.observability.events({ page: 2, q: "", level: "error" });
-
-  assert.deepEqual(first, second);
-  assert.deepEqual(first, ["observability", "events", { level: "error", page: 2 }]);
-});
-
-test("observability detail and sheet-sync keys nest under the observability root", () => {
-  assert.deepEqual(queryKeys.observability.incidentDetail("inc1"), [
-    "observability",
-    "incidents",
-    "detail",
-    "inc1",
-  ]);
-  assert.deepEqual(queryKeys.observability.sheetSync.jobs({ status: "failed" }), [
-    "observability",
-    "sheet-sync",
-    "jobs",
-    { status: "failed" },
-  ]);
-  // Invalidate-all on the observability root must cover sheet-sync keys too.
-  assert.equal(queryKeys.observability.sheetSync.all[0], queryKeys.observability.all[0]);
 });
 
 test("booking reconciliation query keys are stable across filter ordering", () => {
@@ -212,22 +186,7 @@ test("[AC-20] Granot lifecycle keys isolate stable case, candidate, Job, and Lea
     "granot-lifecycle", "discrepancies", {},
   ]);
   assert.deepEqual(queryKeys.granotLifecycle.health(), ["granot-lifecycle", "health"]);
-  const receiptsFirst = queryKeys.granotLifecycle.receipts({
-    job_no: "P5562401",
-    route_event_class: "booking_status_changed",
-    empty: "",
-  });
-  const receiptsSecond = queryKeys.granotLifecycle.receipts({
-    empty: "",
-    route_event_class: "booking_status_changed",
-    job_no: "P5562401",
-  });
-  assert.deepEqual(receiptsFirst, receiptsSecond);
-  assert.deepEqual(receiptsFirst, [
-    "granot-lifecycle",
-    "receipts",
-    { job_no: "P5562401", route_event_class: "booking_status_changed" },
-  ]);
+  assert.equal("receipts" in queryKeys.granotLifecycle, false);
 });
 
 test("Job Number timeline keys live in their own namespace", () => {
@@ -255,22 +214,16 @@ test("Job Number timeline keys live in their own namespace", () => {
   assert.equal(JSON.stringify(first).includes("view"), false);
 });
 
-test("Daily Operations snapshot key is isolated from Live Events", () => {
+test("Daily Operations snapshot key is isolated from Granot lifecycle", () => {
   assert.deepEqual(queryKeys.dailyOperations.snapshot(), ["daily-operations", "snapshot"]);
   assert.equal(queryKeys.dailyOperations.all[0], "daily-operations");
   assert.notEqual(queryKeys.dailyOperations.all[0], queryKeys.granotLifecycle.all[0]);
 });
 
-test("Lead Conversation keys isolate list and detail and never cache an audio URL", () => {
-  assert.deepEqual(queryKeys.conversations.list(), ["conversations", "list", {}]);
-  assert.deepEqual(queryKeys.conversations.list({ q: "P556" }), ["conversations", "list", { q: "P556" }]);
-  assert.deepEqual(queryKeys.conversations.detail("6a905b5cf7dda52cfacb721e"), [
-    "conversations",
-    "detail",
-    "6a905b5cf7dda52cfacb721e",
-  ]);
-  assert.equal(queryKeys.conversations.all[0], "conversations");
-  assert.equal("audio" in queryKeys.conversations, false);
+test("retired destinations have no query keys", () => {
+  for (const root of ["exports", "auditLog", "reports", "conversations", "observability"]) {
+    assert.equal(root in queryKeys, false, root);
+  }
 });
 
 test("Extension User keys isolate the list", () => {

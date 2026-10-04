@@ -159,7 +159,7 @@ test("Booked while open keeps the panel and offers Open Booking", () => {
   assert.equal(bookedClosure(outreach({ state: "closed", reason: "lost" })), null);
   const html = renderToStaticMarkup(createElement(BookedNotice, { record: booked }));
   assert.match(html, /Booked — removed from active Outreach/);
-  assert.match(html, /href="\/bookings\?record=B9&amp;database_scope=production/);
+  assert.match(html, /href="\/bookings\?record=B9&amp;panel=summary"/);
 });
 
 test("Number card: one resolved Lead, multiple Leads, no Lead, and an older server", () => {

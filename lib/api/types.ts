@@ -21,9 +21,6 @@ export type ApiFailure = {
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
 
-export type DatabaseScope = "production" | "historical" | "combined";
-export type OperationalDatabaseScope = Exclude<DatabaseScope, "combined">;
-
 export type SortDirection = "asc" | "desc";
 
 export type PaginationParams = {
@@ -45,7 +42,6 @@ export type DateRangeParams = {
 export type TableQueryParams = PaginationParams &
   SortParams &
   DateRangeParams & {
-    database_scope: DatabaseScope;
     q?: string;
     [key: string]: string | number | boolean | undefined;
   };
@@ -78,15 +74,10 @@ export type GlobalSearchRecordType =
   | "form-leads"
   | "call-leads"
   | "booked-leads"
-  | "cancelled-leads"
-  | "customers"
-  | "agents"
-  | "customer"
-  | "agent";
+  | "cancelled-leads";
 
 export type GlobalSearchResultItem = {
   id: string;
-  database_scope: DatabaseScope;
   primary_label: string;
   secondary_label?: string;
   badges?: string[];

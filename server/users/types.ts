@@ -96,23 +96,11 @@ export interface AgentDirectory {
 
 export type UsersActor = { id: string; email: string; role: AdminRole };
 
-export type UsersAuditEntry = {
-  actor: { id?: string; email?: string };
-  action: string;
-  entity_id?: string;
-  /** Allowlisted fields only (never a password, token or hash). */
-  payload: Record<string, unknown>;
-  ok: boolean;
-  status: number;
-  error_code?: string;
-};
-
 export type UsersDeps = {
   users: AdminUsersStore;
   invites: AdminUserInvitesStore;
   agents: AgentDirectory;
   mailer: InviteMailer;
-  audit: (entry: UsersAuditEntry) => Promise<void>;
   hashPassword: (password: string) => Promise<string>;
   now: () => Date;
   randomToken: () => string;

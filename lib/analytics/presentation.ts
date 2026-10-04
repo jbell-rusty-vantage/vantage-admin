@@ -361,22 +361,6 @@ export function isAnalyticsMoneyKey(key: string): boolean {
   );
 }
 
-export function analyticsMetadataMessage(
-  reportId: string,
-  scope: string | undefined,
-  metadata?: Record<string, unknown>,
-): string | undefined {
-  const message = usableText(metadata?.message);
-  if (!message) return undefined;
-  if (reportId.startsWith("receiver-agent") && scope === "production") {
-    return undefined;
-  }
-  if (reportId === "sms-successfully-sent-then-booked" && scope === "production") {
-    return undefined;
-  }
-  return message;
-}
-
 export function receiverAgentDisplayName(row: Record<string, unknown>): string {
   const name = usableText(row.receiver_agent_name);
   if (name) return name;

@@ -15,10 +15,7 @@ import {
   type OverviewTotals,
 } from "@/lib/api/admin";
 import { fetchGranotLifecycleCases, fetchGranotLifecycleHealth } from "@/lib/api/granotLifecycle";
-import type { DatabaseScope } from "@/lib/api/types";
-import { DATABASE_SCOPE_LABELS } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
-import { useDatabaseScope } from "@/lib/state/database-scope";
 import { overviewCopy } from "./overview-copy";
 import {
   emptyNeedsYouQueue,
@@ -224,12 +221,10 @@ function AllTimeSection({
   totals,
   leadCost,
   loading,
-  scope,
 }: {
   totals: OverviewTotals;
   leadCost?: OverviewLeadCost | null;
   loading?: boolean;
-  scope: DatabaseScope;
 }) {
   const gridClass = leadCost ? "sm:grid-cols-2 xl:grid-cols-5" : "sm:grid-cols-2 xl:grid-cols-4";
 
@@ -239,7 +234,7 @@ function AllTimeSection({
         <div>
           <h2 className="text-lg font-semibold">{overviewCopy.allTime}</h2>
           <p className="text-sm text-muted-foreground">
-            {DATABASE_SCOPE_LABELS[scope]} totals. {overviewCopy.allTimeHint}
+            {overviewCopy.allTimeHint}
           </p>
         </div>
         <Link href="/analytics" className="text-sm font-medium text-primary hover:underline">
@@ -291,7 +286,6 @@ function AllTimeSection({
 
 export function HomeOverviewView({
   role,
-  scope,
   overview,
   overviewLoading,
   overviewError,
@@ -299,7 +293,6 @@ export function HomeOverviewView({
   bookingCommandsEnabled = true,
 }: {
   role: "owner" | "admin" | null;
-  scope: DatabaseScope;
   overview?: OverviewReportResponse;
   overviewLoading?: boolean;
   overviewError?: string;
@@ -309,8 +302,7 @@ export function HomeOverviewView({
   const allTime = overview?.all_time;
   const last7Days = overview?.last_7_days;
   const totals = allTime?.totals ?? {};
-  const showThisWeek = scope === "production" && (Boolean(last7Days) || Boolean(overviewLoading));
-  const showLeadCost = scope === "production";
+  const showThisWeek = Boolean(last7Days) || Boolean(overviewLoading);
   const weekAgents = last7Days?.top_agents ?? [];
 
   return (
@@ -345,9 +337,6 @@ export function HomeOverviewView({
                 </CardTitle>
                 <CardDescription>{overviewCopy.topAgentsHint}</CardDescription>
               </div>
-              <Link href="/agents" className="whitespace-nowrap text-sm font-medium text-primary hover:underline">
-                View all
-              </Link>
             </CardHeader>
             <CardContent>
               <AgentRankingList
@@ -365,9 +354,8 @@ export function HomeOverviewView({
 
       <AllTimeSection
         totals={totals}
-        leadCost={showLeadCost ? allTime?.lead_cost : null}
+        leadCost={allTime?.lead_cost}
         loading={overviewLoading}
-        scope={scope}
       />
     </div>
   );
@@ -375,10 +363,9 @@ export function HomeOverviewView({
 
 export function HomeOverview() {
   const role = useDashboardRole();
-  const { scope } = useDatabaseScope();
   const overviewQuery = useQuery({
-    queryKey: queryKeys.dashboard.overview({ database_scope: scope }),
-    queryFn: () => fetchOverviewReport(scope),
+    queryKey: queryKeys.dashboard.overview(),
+    queryFn: fetchOverviewReport,
   });
 
   const bookingFilters = openIntakePreviewFilters("booking");
@@ -398,7 +385,6 @@ export function HomeOverview() {
   return (
     <HomeOverviewView
       role={role}
-      scope={scope}
       overview={overviewQuery.data}
       overviewLoading={overviewQuery.isLoading}
       overviewError={

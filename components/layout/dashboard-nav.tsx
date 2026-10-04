@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity,
   BarChart3,
   BookOpenCheck,
   Boxes,
@@ -11,9 +10,7 @@ import {
   ClipboardPen,
   ClipboardX,
   Copy,
-  Download,
   FileText,
-  Headphones,
   HeartPulse,
   History,
   Home,
@@ -24,15 +21,10 @@ import {
   PhoneForwarded,
   Presentation,
   Puzzle,
-  Radio,
   Radar,
-  ScrollText,
-  SearchCheck,
-  ShieldCheck,
-  Users,
   type LucideIcon,
 } from "lucide-react";
-import { GRANOT_LIFECYCLE_COPY, GRANOT_LIFECYCLE_HREF } from "@/components/granot-lifecycle/granot-lifecycle-copy";
+import { GRANOT_LIFECYCLE_COPY, GRANOT_LIFECYCLE_HEALTH_HREF } from "@/components/granot-lifecycle/granot-lifecycle-copy";
 import { cn } from "@/lib/utils";
 
 export type DashboardNavChild = {
@@ -71,8 +63,6 @@ export const dashboardNavSections: DashboardNavSection[] = [
     items: [
       { label: "Overview", href: "/", icon: Home },
       { label: "Daily Operations", href: "/daily", icon: Calendar, ownerOnly: true },
-      { label: "Live Events", href: "/live-events", icon: Radio, ownerOnly: true },
-      { label: "Lead Conversations", href: "/conversations", icon: Headphones, ownerOnly: true },
       { label: "Sales Intelligence", href: "/sales-intelligence", icon: Radar, ownerOnly: true },
       { label: "Intakes", href: "/intakes", icon: Inbox, ownerOnly: true },
       { label: "Manual", href: "/manual", icon: ClipboardPen, ownerOnly: true },
@@ -97,14 +87,12 @@ export const dashboardNavSections: DashboardNavSection[] = [
       { label: "Bookings", href: "/bookings", icon: BookOpenCheck },
       { label: "Cancellations", href: "/cancellations", icon: ClipboardX },
       { label: "Job Timeline", href: "/job-timeline", icon: History, ownerOnly: true },
-      { label: "Customers", href: "/customers", icon: Users },
     ],
   },
   {
     id: "people",
     label: "People",
     items: [
-      { label: "Agents", href: "/agents", icon: ShieldCheck },
       { label: "Testimonials", href: "/testimonials", icon: MessageSquareQuote },
     ],
   },
@@ -113,21 +101,17 @@ export const dashboardNavSections: DashboardNavSection[] = [
     label: "Insight",
     items: [
       { label: "Analytics", href: "/analytics", icon: BarChart3 },
-      { label: "Agent Sales Report", href: "/reports/agent-sales", icon: SearchCheck },
       { label: "Reporting", href: "/reporting", icon: Presentation },
-      { label: "Exports", href: "/exports", icon: Download },
     ],
   },
   {
     id: "system",
     label: "System",
     items: [
-      { label: "Observational", href: "/observational", icon: Activity },
       { label: "Operations Registry", href: "/operations-registry", icon: Boxes },
-      { label: GRANOT_LIFECYCLE_COPY.pageTitle, href: GRANOT_LIFECYCLE_HREF, icon: HeartPulse, ownerOnly: true },
+      { label: GRANOT_LIFECYCLE_COPY.pageTitle, href: GRANOT_LIFECYCLE_HEALTH_HREF, icon: HeartPulse },
       { label: "Ingestion", href: "/ingestion", icon: Import },
       { label: "Extension", href: "/extension", icon: Puzzle, ownerOnly: true },
-      { label: "Audit Log", href: "/audit-log", icon: ScrollText, ownerOnly: true },
     ],
   },
 ];

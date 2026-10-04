@@ -1,21 +1,16 @@
-import type { DatabaseScope } from "@/lib/api/types";
-
 export type PaletteDestination = {
   label: string;
   href: string;
 };
 
 /** Empty or whitespace-only query returns `""`. */
-export function buildSearchHref(query: string, scope: DatabaseScope): string {
+export function buildSearchHref(query: string): string {
   const trimmed = query.trim();
   if (!trimmed) {
     return "";
   }
 
-  const params = new URLSearchParams({
-    q: trimmed,
-    database_scope: scope,
-  });
+  const params = new URLSearchParams({ q: trimmed });
   return `/search?${params.toString()}`;
 }
 

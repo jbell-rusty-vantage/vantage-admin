@@ -16,7 +16,6 @@ test("route guard protects dashboard paths", () => {
   assert.equal(shouldProtectPath("/extension"), true);
   assert.equal(shouldProtectPath("/job-timeline"), true);
   assert.equal(shouldProtectPath("/duplicate-call-leads"), true);
-  assert.equal(shouldProtectPath("/audit-log"), true);
   assert.equal(shouldProtectPath("/operations-registry"), true);
   assert.equal(shouldProtectPath("/operations-registry/foo"), true);
   assert.equal(shouldProtectPath("/reporting"), true);
@@ -24,7 +23,21 @@ test("route guard protects dashboard paths", () => {
   assert.equal(shouldProtectPath("/ingestion"), true);
   assert.equal(shouldProtectPath("/ingestion/granot"), true);
   assert.equal(shouldProtectPath("/sales-intelligence"), true);
-  assert.equal(shouldProtectPath("/conversations"), true);
+});
+
+test("retired destinations are no longer dashboard paths", () => {
+  for (const pathname of [
+    "/customers",
+    "/agents",
+    "/observational",
+    "/exports",
+    "/audit-log",
+    "/reports/agent-sales",
+    "/conversations",
+    "/live-events",
+  ]) {
+    assert.equal(shouldProtectPath(pathname), false, pathname);
+  }
 });
 
 test("route guard skips auth, api, and static paths", () => {

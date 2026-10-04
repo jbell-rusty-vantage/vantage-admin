@@ -1023,7 +1023,17 @@ export type GranotLifecycleHealth = {
   }>;
   open_cases: Array<{ kind: "booking" | "release"; mode: string; count: number }>;
   open_discrepancies: Array<{ kind: "booking" | "release"; reason_code: string; count: number }>;
-  command_conflicts_last_24h: Array<{ code: string; count: number }>;
+  /**
+   * Null when the server cannot know the 24-hour count yet (the bounded counters are still warming
+   * up, are stale, or missed a write). Null is "unknown", never "no conflicts".
+   */
+  command_conflicts_last_24h: Array<{ code: string; count: number }> | null;
+  /**
+   * S-GRANOT (SLIM-04): coverage of the bounded Health counters. Optional so an older server still
+   * parses. `unknown` means the window is still filling (or missed a write), so its counts are not
+   * proof of zero.
+   */
+  counter_coverage?: GranotLifecycleCounterCoverage;
   record_links: { active: number; disputed: number };
   last_queue_run: { at: string; status: "completed" | "failed" } | null;
   last_cron_run: { at: string; status: "completed" | "failed" } | null;
@@ -1047,7 +1057,24 @@ export type GranotLifecycleHealth = {
   alerts: GranotLifecycleHealthAlert[];
 };
 
+export type GranotLifecycleCounterCoverage = {
+  counters_since: string | null;
+  window_24h: "covered" | "unknown";
+  window_1h: "covered" | "unknown";
+};
+
 const ALERT_STATES = new Set<GranotLifecycleAlertState>(["ok", "firing", "insufficient_data"]);
+
+function asCounterCoverage(value: unknown): GranotLifecycleCounterCoverage | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const item = value as Record<string, unknown>;
+  // Anything but an explicit "covered" reads as unknown: never claim a window is fully counted.
+  return {
+    counters_since: asString(item.counters_since) ?? null,
+    window_24h: item.window_24h === "covered" ? "covered" : "unknown",
+    window_1h: item.window_1h === "covered" ? "covered" : "unknown",
+  };
+}
 const ALERT_UNITS = new Set<GranotLifecycleAlertUnit>(["count", "milliseconds", "ratio"]);
 
 function asNumber(value: unknown, fallback = 0): number {
@@ -1069,9 +1096,11 @@ export function asGranotLifecycleHealth(data: unknown): GranotLifecycleHealth {
   for (const key of ["flags", "activation", "receipts", "record_links", "ringcentral"] as const) {
     if (!raw[key] || typeof raw[key] !== "object" || Array.isArray(raw[key])) throw invalidHealthProjection();
   }
-  for (const key of ["decisions_last_24h", "open_cases", "open_discrepancies", "command_conflicts_last_24h", "alerts"] as const) {
+  for (const key of ["decisions_last_24h", "open_cases", "open_discrepancies", "alerts"] as const) {
     if (!Array.isArray(raw[key])) throw invalidHealthProjection();
   }
+  // Null means the 24-hour count is unknown; anything else must be a list.
+  if (raw.command_conflicts_last_24h !== null && !Array.isArray(raw.command_conflicts_last_24h)) throw invalidHealthProjection();
   if (!asString(raw.generated_at) || Number.isNaN(Date.parse(String(raw.generated_at)))) throw invalidHealthProjection();
   const flagsRaw = raw.flags && typeof raw.flags === "object" ? raw.flags as Record<string, unknown> : {};
   if (GRANOT_LIFECYCLE_FLAG_NAMES.some((name) => typeof flagsRaw[name] !== "boolean")) throw invalidHealthProjection();
@@ -1096,6 +1125,7 @@ export function asGranotLifecycleHealth(data: unknown): GranotLifecycleHealth {
   const linksRaw = raw.record_links && typeof raw.record_links === "object"
     ? raw.record_links as Record<string, unknown>
     : {};
+  const counterCoverage = asCounterCoverage(raw.counter_coverage);
   return {
     generated_at: asString(raw.generated_at) ?? "",
     flags,
@@ -1153,7 +1183,8 @@ export function asGranotLifecycleHealth(data: unknown): GranotLifecycleHealth {
           const code = asString(item.code);
           return code ? [{ code, count: asNumber(item.count) }] : [];
         })
-      : [],
+      : null,
+    ...(counterCoverage ? { counter_coverage: counterCoverage } : {}),
     record_links: { active: asNumber(linksRaw.active), disputed: asNumber(linksRaw.disputed) },
     last_queue_run: asLastRun(raw.last_queue_run),
     last_cron_run: asLastRun(raw.last_cron_run),
@@ -1220,141 +1251,4 @@ function asLastRun(value: unknown): { at: string; status: "completed" | "failed"
 
 export function fetchGranotLifecycleHealth(): Promise<GranotLifecycleHealth> {
   return requestJson(proxyUrl("api/v1/admin/granot-lifecycle/operations/health")).then(asGranotLifecycleHealth);
-}
-
-export const GRANOT_WEBHOOK_ROUTE_EVENT_CLASSES = [
-  "lead_created",
-  "priority_updated",
-  "booking_status_changed",
-] as const;
-
-export type GranotWebhookRouteEventClass = (typeof GRANOT_WEBHOOK_ROUTE_EVENT_CLASSES)[number];
-
-export const GRANOT_WEBHOOK_BOOKING_ACTIONS = ["booked", "release"] as const;
-
-export type GranotWebhookBookingAction = (typeof GRANOT_WEBHOOK_BOOKING_ACTIONS)[number];
-
-export type GranotWebhookReceiptListFilters = {
-  ref_no?: string;
-  job_no?: string;
-  name?: string;
-  phone?: string;
-  email?: string;
-  source_company_id?: string;
-  route_event_class?: GranotWebhookRouteEventClass;
-  booking_action?: GranotWebhookBookingAction;
-  captured_from?: string;
-  captured_to?: string;
-  processing_state?: string;
-  cursor?: string;
-  limit?: number;
-};
-
-export type GranotWebhookReceiptListItem = {
-  receipt_id: string;
-  captured_at: string;
-  route_event_class: GranotWebhookRouteEventClass;
-  booking_action: GranotWebhookBookingAction | null;
-  processing_state: string;
-  observation_id: string | null;
-  decision_outcome: string | null;
-  ref_no: string | null;
-  job_no: string | null;
-  contact: {
-    display_name: string | null;
-    phone: string | null;
-    email: string | null;
-  };
-  source_company: {
-    id: string;
-    owner_label: string;
-  } | null;
-  intake_case_id: string | null;
-  granot_statement: unknown;
-};
-
-export type GranotWebhookReceiptListPage = {
-  items: GranotWebhookReceiptListItem[];
-  next_cursor: string | null;
-};
-
-function asNullableString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function asRouteEventClass(value: unknown): GranotWebhookRouteEventClass | undefined {
-  return GRANOT_WEBHOOK_ROUTE_EVENT_CLASSES.includes(value as GranotWebhookRouteEventClass)
-    ? (value as GranotWebhookRouteEventClass)
-    : undefined;
-}
-
-function asBookingAction(value: unknown): GranotWebhookBookingAction | null {
-  return GRANOT_WEBHOOK_BOOKING_ACTIONS.includes(value as GranotWebhookBookingAction)
-    ? (value as GranotWebhookBookingAction)
-    : null;
-}
-
-function asGranotStatement(value: unknown): unknown {
-  return value !== null && typeof value === "object" ? value : null;
-}
-
-export function asGranotWebhookReceiptListItem(value: unknown): GranotWebhookReceiptListItem | null {
-  if (!value || typeof value !== "object") return null;
-  const record = value as Record<string, unknown>;
-  const receipt_id = asString(record.receipt_id);
-  const captured_at = asString(record.captured_at);
-  const route_event_class = asRouteEventClass(record.route_event_class);
-  if (!receipt_id || !captured_at || !route_event_class) return null;
-  const contactRaw = record.contact && typeof record.contact === "object"
-    ? record.contact as Record<string, unknown>
-    : {};
-  const sourceRaw = record.source_company && typeof record.source_company === "object"
-    ? record.source_company as Record<string, unknown>
-    : null;
-  const sourceId = sourceRaw ? asString(sourceRaw.id) : undefined;
-  const sourceLabel = sourceRaw ? asString(sourceRaw.owner_label) : undefined;
-  return {
-    receipt_id,
-    captured_at,
-    route_event_class,
-    booking_action: asBookingAction(record.booking_action),
-    processing_state: asString(record.processing_state) ?? "",
-    observation_id: asNullableString(record.observation_id),
-    decision_outcome: asNullableString(record.decision_outcome),
-    ref_no: asNullableString(record.ref_no),
-    job_no: asNullableString(record.job_no),
-    contact: {
-      display_name: asNullableString(contactRaw.display_name),
-      phone: asNullableString(contactRaw.phone),
-      email: asNullableString(contactRaw.email),
-    },
-    source_company: sourceId && sourceLabel ? { id: sourceId, owner_label: sourceLabel } : null,
-    intake_case_id: asNullableString(record.intake_case_id),
-    granot_statement: asGranotStatement(record.granot_statement),
-  };
-}
-
-export function asGranotWebhookReceiptListPage(data: unknown): GranotWebhookReceiptListPage {
-  const page = unwrapEnvelope(data);
-  if (page && typeof page === "object") {
-    const record = page as Partial<GranotWebhookReceiptListPage>;
-    return {
-      items: Array.isArray(record.items)
-        ? record.items.flatMap((item) => {
-          const mapped = asGranotWebhookReceiptListItem(item);
-          return mapped ? [mapped] : [];
-        })
-        : [],
-      next_cursor: typeof record.next_cursor === "string" ? record.next_cursor : null,
-    };
-  }
-  return { items: [], next_cursor: null };
-}
-
-export function fetchGranotWebhookReceipts(
-  filters: GranotWebhookReceiptListFilters = {},
-): Promise<GranotWebhookReceiptListPage> {
-  return requestJson(
-    proxyUrl("api/v1/admin/granot-lifecycle/receipts", filters as SerializableFilters),
-  ).then(asGranotWebhookReceiptListPage);
 }

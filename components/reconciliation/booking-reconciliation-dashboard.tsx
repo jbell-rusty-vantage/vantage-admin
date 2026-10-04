@@ -254,8 +254,6 @@ async function invalidateReconciliationMutations(queryClient: ReturnType<typeof 
     queryClient.invalidateQueries({ queryKey: queryKeys.details.all }),
     queryClient.invalidateQueries({ queryKey: queryKeys.search.all }),
     queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.auditLog.all }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.observability.sheetSync.all }),
   ]);
 }
 
@@ -1069,13 +1067,12 @@ export function BookingReconciliationDashboard() {
                               Related sheet sync jobs
                             </p>
                             {detail.sheet_sync_jobs.map((job) => (
-                              <Link
+                              <p
                                 key={job.id}
-                                href={`/observational?tab=sheet-sync&q=${encodeURIComponent(job.id)}`}
-                                className="block rounded-md border bg-muted/20 px-3 py-2 text-sm hover:bg-muted/40"
+                                className="rounded-md border bg-muted/20 px-3 py-2 text-sm"
                               >
                                 {job.operation ?? "sheet-sync"} · {job.status ?? "unknown"} · {job.id}
-                              </Link>
+                              </p>
                             ))}
                           </div>
                         ) : null}

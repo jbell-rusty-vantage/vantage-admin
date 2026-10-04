@@ -128,8 +128,8 @@ export function ConnectBookingSection() {
   });
 
   const selectedBookingDetail = useQuery({
-    queryKey: queryKeys.details.resource("booked-leads", selectedBookingId ?? "", "production"),
-    queryFn: () => fetchAdminDetail<AdminRecord>("booked-leads", selectedBookingId!, "production"),
+    queryKey: queryKeys.details.resource("booked-leads", selectedBookingId ?? ""),
+    queryFn: () => fetchAdminDetail<AdminRecord>("booked-leads", selectedBookingId!),
     enabled: Boolean(selectedBookingId),
   });
 

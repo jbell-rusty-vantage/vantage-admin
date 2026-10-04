@@ -3,13 +3,11 @@ import { cookies } from "next/headers";
 import {
   getAccessTokenCookie,
   getRefreshTokenCookie,
-  getRequestMetadata,
   getSessionUserFromAccessToken,
   hashPassword,
   refreshAdminSession,
   setAuthCookies,
 } from "@/server/auth";
-import { writeAuditLog } from "@/server/audit";
 import { requestVantageApi } from "@/server/vantage-api/client";
 import { createMainServerAgentDirectory, createMainServerInviteMailer } from "./mainServer";
 import { createMongoAdminUserInvitesStore, createMongoAdminUsersStore } from "./mongoStore";
@@ -22,25 +20,6 @@ export function defaultUsersDeps(): UsersDeps {
     invites: createMongoAdminUserInvitesStore(),
     agents: createMainServerAgentDirectory(requestVantageApi),
     mailer: createMainServerInviteMailer(requestVantageApi),
-    audit: async (entry) => {
-      try {
-        const metadata = await getRequestMetadata();
-        await writeAuditLog({
-          ...metadata,
-          admin_user_id: entry.actor.id,
-          admin_email: entry.actor.email,
-          action: entry.action,
-          entity_type: "admin_user",
-          entity_id: entry.entity_id,
-          request_payload: entry.payload,
-          response_status: entry.status,
-          ok: entry.ok,
-          error_message: entry.error_code,
-        });
-      } catch (error) {
-        console.error("admin_users.audit_failed", error instanceof Error ? error.name : "unknown");
-      }
-    },
     hashPassword,
     now: () => new Date(),
     randomToken: () => randomBytes(32).toString("base64url"),

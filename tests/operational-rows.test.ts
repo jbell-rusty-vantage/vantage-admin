@@ -17,9 +17,8 @@ import type { AdminRecord } from "../lib/api/admin";
 
 const PREPENDED_ACTION_KEYS = ["__book", "__mark_bad", "__cancel", "__delete", "__related"] as const;
 
-const productionCtx = { isProduction: true, readOnly: false, canDelete: true };
-const readOnlyCtx = { isProduction: true, readOnly: true, canDelete: false };
-const historicalCtx = { isProduction: false, readOnly: true, canDelete: false };
+const productionCtx = { readOnly: false, canDelete: true };
+const readOnlyCtx = { readOnly: true, canDelete: false };
 
 function lead(overrides: AdminRecord = {}): AdminRecord {
   return { _id: "507f1f77bcf86cd799439011", name: "Ada Lovelace", phone_number: "555-0100", ...overrides };
@@ -62,16 +61,6 @@ test("rowIdentity uses customer name over phone for Bookings and Cancellations",
   );
 });
 
-test("rowIdentity uses full name over phone for Customers and name over role for Agents", () => {
-  assert.deepEqual(
-    rowIdentity("customers", { full_name: "Customer One", phone_number: "555-0200" }),
-    { primary: "Customer One", secondary: "555-0200" },
-  );
-  assert.deepEqual(rowIdentity("agents", { name: "Pat Agent", role: "closer" }), {
-    primary: "Pat Agent",
-    secondary: "closer",
-  });
-});
 
 test("rowStatusChips shows Form Lead chips only when set, with Owner labels", () => {
   assert.deepEqual(rowStatusChips("form-leads", lead()), []);
@@ -112,8 +101,6 @@ test("rowStatusChips for Booking is Cancelled only; Cancellation has none", () =
     ["cancelled"],
   );
   assert.deepEqual(rowStatusChips("cancellations", { reason: "price" }), []);
-  assert.deepEqual(rowStatusChips("customers", { full_name: "A" }), []);
-  assert.deepEqual(rowStatusChips("agents", { name: "A", role: "closer" }), []);
 });
 
 test("Form Lead booked row hides Book in the cluster", () => {
@@ -147,7 +134,7 @@ test("Call Lead cluster has no Bad Lead control", () => {
   assert.equal(cluster.cancel, false);
 });
 
-test("duplicates and historical rows expose related links only", () => {
+test("duplicate and read-only rows expose related links only", () => {
   const bookedDup = rowActionCluster(
     "duplicate-form-leads",
     lead({ booked: { _id: "booking1" } }),
@@ -159,9 +146,9 @@ test("duplicates and historical rows expose related links only", () => {
   assert.equal(bookedDup.delete, false);
   assert.equal(bookedDup.related.length, 1);
 
-  const historical = rowActionCluster("form-leads", lead(), historicalCtx);
-  assert.equal(historical.book, false);
-  assert.equal(historical.badLead, false);
+  const readOnly = rowActionCluster("form-leads", lead(), readOnlyCtx);
+  assert.equal(readOnly.book, false);
+  assert.equal(readOnly.badLead, false);
 });
 
 test("selected id sets aria-selected on that row only", () => {
@@ -192,11 +179,9 @@ function columnKeys(resource: keyof typeof operationalConfigs, canDelete = true)
       limit: 25,
       sort: operationalConfigs[resource].defaultSort,
       direction: "desc",
-      database_scope: "production",
     },
     () => undefined,
     resource,
-    true,
     { canDelete, onRequestDelete: () => undefined },
   ).map((column) => column.key);
 }
@@ -212,11 +197,9 @@ test("buildColumns prepends a sheet-check selection column only when asked", () 
       limit: 25,
       sort: operationalConfigs["form-leads"].defaultSort,
       direction: "desc",
-      database_scope: "production",
     },
     () => undefined,
     "form-leads",
-    true,
     {
       canDelete: true,
       onRequestDelete: () => undefined,
@@ -263,15 +246,6 @@ test("buildColumns does not prepend action columns", () => {
   assert.equal(cancelKeys.includes("reason"), true);
   assert.equal(cancelKeys.includes("__status"), false);
   assert.equal(cancelKeys.at(-1), "__actions");
-
-  const customerKeys = columnKeys("customers", false);
-  assert.equal(customerKeys.includes("phone"), false);
-  assert.equal(customerKeys.includes("__actions"), false);
-
-  const agentKeys = columnKeys("agents", false);
-  assert.equal(agentKeys.includes("role"), false);
-  assert.equal(agentKeys.includes("name"), true);
-  assert.equal(agentKeys.includes("active"), true);
 });
 
 test("floating bottom action bar is gone so Book and Cancel are not a third surface", () => {
@@ -284,23 +258,21 @@ test("floating bottom action bar is gone so Book and Cancel are not a third surf
   assert.doesNotMatch(page, /fixed bottom-4 left-1\/2/);
 });
 
-test("agents cancel rate formats the API fraction as a percentage", () => {
-  const column = operationalConfigs.agents.columns.find((item) => item.key === "rate");
+test("Booking customer column falls back to the stored customer name", () => {
+  const column = operationalConfigs.bookings.columns.find((item) => item.key === "customer");
   assert.ok(column);
-  assert.equal(column.format, "rate");
-  assert.equal(formatCell({ cancellation_rate: 0.125 }, column), "12.5%");
-  assert.equal(formatCell({ cancellation_rate: 0 }, column), "0.0%");
-  assert.equal(formatCell({}, column), "-");
+  assert.equal(formatCell({ customer: { full_name: "Linked Customer" } }, column), "Linked Customer");
+  assert.equal(formatCell({ customer_name: "Stored Name" }, column), "Stored Name");
 });
 
-test("agents booking and cancellation counts render zeros from numeric fields", () => {
-  const bookings = operationalConfigs.agents.columns.find((item) => item.key === "bookings");
-  const cancellations = operationalConfigs.agents.columns.find((item) => item.key === "cancellations");
-  assert.ok(bookings);
-  assert.ok(cancellations);
-  assert.equal(formatCell({ booking_count: 0 }, bookings), "0");
-  assert.equal(formatCell({ booking_count: 3 }, bookings), "3");
-  assert.equal(formatCell({ cancellation_count: 0 }, cancellations), "0");
+test("list CSV export reports a download without claiming audit persistence", () => {
+  const page = readFileSync(
+    path.join(process.cwd(), "components/operational/operational-resource-page.tsx"),
+    "utf8",
+  );
+  assert.doesNotMatch(page, /audit logged/i);
+  assert.match(page, /OPERATIONAL_COPY\.exportDownloaded/);
+  assert.equal(OPERATIONAL_COPY.exportDownloaded, "CSV export downloaded.");
 });
 
 test("buildColumns source no longer unshifts leading action keys", () => {

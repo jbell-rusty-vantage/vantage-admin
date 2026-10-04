@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  adminAuditRequestHref,
   humanizeRegistryKey,
   registryEntityHref,
   remediationTarget,
@@ -80,7 +79,6 @@ test("remediationTarget maps typed actions without inferring from summary text",
   assert.equal(remediationTarget("refresh_registry_cache").ownerActionable, false);
 });
 
-test("adminAuditRequestHref and humanizeRegistryKey stay stable", () => {
-  assert.equal(adminAuditRequestHref("req-1"), "/audit-log?request_id=req-1");
+test("humanizeRegistryKey stays stable", () => {
   assert.equal(humanizeRegistryKey("lead_source"), "Lead Source");
 });

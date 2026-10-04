@@ -21,7 +21,6 @@ import {
   compareDailyOperationsEventsNewestFirst,
   type DailyOperationsEventItem,
 } from "@/lib/api/dailyOperationsLive";
-import { LIVE_EVENTS_HREF } from "@/lib/api/granotLiveReceipts";
 import { buildJobTimelineHref } from "@/lib/api/jobNumberTimeline";
 
 export const DAILY_OPERATIONS_PANEL_DEFAULT_LIMIT = 8;
@@ -29,7 +28,6 @@ export const DAILY_OPERATIONS_PANEL_FOCUSED_LIMIT = 40;
 export const DAILY_OPERATIONS_ARRIVALS_LIMIT = 20;
 export const DAILY_OPERATIONS_ARRIVAL_HIGHLIGHT_MS = 1500;
 export const DAILY_QUIET_PRIORITIES_KIND = "granot.priority_updated";
-export const OBSERVATIONAL_HREF = "/observational";
 
 const GRANOT_OUTCOME_KINDS = new Set([
   "granot.minted",
@@ -491,10 +489,6 @@ export function dailyOperationsEventLinks(event: DailyOperationsEventItem): Dail
     );
   }
 
-  if (links.receipt_id || event.kind.startsWith("granot.")) {
-    add(LIVE_EVENTS_HREF, DAILY_COPY.openInLiveEvents);
-  }
-
   if (links.intake_case_id) {
     add(`/intakes?case=${encodeURIComponent(links.intake_case_id)}`, DAILY_COPY.openIntake);
   }
@@ -512,7 +506,6 @@ export function dailyOperationsEventLinks(event: DailyOperationsEventItem): Dail
   }
 
   if (event.kind === "exception.dead_letter") {
-    add(OBSERVATIONAL_HREF, DAILY_COPY.openObservational);
     add(GRANOT_LIFECYCLE_HEALTH_HREF, DAILY_COPY.openGranotLifecycleHealth);
   }
 

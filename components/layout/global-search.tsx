@@ -7,7 +7,6 @@ import { createPortal } from "react-dom";
 import { MIN_SEARCH_QUERY_LENGTH } from "@/components/filters/debounced-search-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { DatabaseScope } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import {
   buildSearchHref,
@@ -39,10 +38,8 @@ function focusableIn(container: HTMLElement): HTMLElement[] {
 }
 
 export function GlobalSearch({
-  scope = "production",
   destinations: destinationsProp,
 }: {
-  scope?: DatabaseScope;
   destinations?: Array<PaletteDestination>;
 }) {
   const router = useRouter();
@@ -156,7 +153,7 @@ export function GlobalSearch({
   }
 
   function goToSearch() {
-    const href = buildSearchHref(query, scope);
+    const href = buildSearchHref(query);
     if (!href) {
       return;
     }

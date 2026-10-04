@@ -11,11 +11,7 @@ import { ReleaseOwnerActions } from "../components/granot-lifecycle/release-owne
 import { GranotLifecycleCaseList } from "../components/granot-lifecycle/case-list";
 import { DiscrepancyList } from "../components/granot-lifecycle/discrepancy-list";
 import { CaseDetail } from "../components/granot-lifecycle/case-detail";
-import {
-  GRANOT_LIFECYCLE_HEALTH_HREF as HEALTH_HREF_FROM_COPY,
-  GRANOT_LIFECYCLE_RECEIPTS_HREF,
-} from "../components/granot-lifecycle/granot-lifecycle-copy";
-import { GranotLifecycleSubnavLinks } from "../components/granot-lifecycle/granot-lifecycle-subnav";
+import { GRANOT_LIFECYCLE_HEALTH_HREF as HEALTH_HREF_FROM_COPY } from "../components/granot-lifecycle/granot-lifecycle-copy";
 import { JobTimeline } from "../components/granot-lifecycle/job-timeline";
 import {
   LeadCandidateResults,
@@ -35,8 +31,7 @@ import {
   formatAlertState,
   formatHealthUnit,
 } from "../components/granot-lifecycle/lifecycle-health";
-import { LiveWebhookReceiptCard, LiveWebhooksView } from "../components/granot-lifecycle/live-webhooks";
-import type { GranotLifecycleHealth } from "../lib/api/granotLifecycle";
+import { asGranotLifecycleHealth, type GranotLifecycleHealth } from "../lib/api/granotLifecycle";
 import type {
   GranotLifecycleCandidateItem,
   GranotLifecycleCaseDetail,
@@ -906,7 +901,7 @@ test("queue stays mounted when the list page omits items instead of throwing on 
   assert.match(markup, /No lifecycle cases match/);
 });
 
-test("Granot nest navigation is gone; Granot Lifecycle subnav is Receipts then Health", () => {
+test("Granot nest navigation is gone", () => {
   const granotLayout = readFileSync(
     path.join(process.cwd(), "app/(dashboard)/ingestion/granot/layout.tsx"),
     "utf8",
@@ -917,18 +912,6 @@ test("Granot nest navigation is gone; Granot Lifecycle subnav is Receipts then H
   );
   assert.doesNotMatch(granotLayout, /GranotNavigation/);
   assert.doesNotMatch(jobTimelineDashboard, /GranotNavigation/);
-
-  const healthMarkup = renderToStaticMarkup(
-    createElement(GranotLifecycleSubnavLinks, { pathname: "/granot-lifecycle/health" }),
-  );
-  assert.match(healthMarkup, />Receipts</);
-  assert.match(healthMarkup, />Health</);
-  assert.match(healthMarkup, /href="\/granot-lifecycle\/receipts"/);
-  assert.match(healthMarkup, /href="\/granot-lifecycle\/health"/);
-  assert.ok(healthMarkup.indexOf("Receipts") < healthMarkup.indexOf("Health"));
-  assert.doesNotMatch(healthMarkup, /Automation/);
-  assert.doesNotMatch(healthMarkup, /Job timeline/);
-  assert.doesNotMatch(healthMarkup, /Intakes/);
 });
 
 test("[AC-31][AC-35][AC-38] health view is read-only, unit-labeled, and never renders raw payload", () => {
@@ -1002,164 +985,48 @@ test("[AC-31][AC-35][AC-38] health view is read-only, unit-labeled, and never re
   assert.doesNotMatch(markup, /owner@example\.invalid|5550001234|payload/);
   assert.equal(formatAlertState("insufficient_data"), "Insufficient data");
   assert.equal(formatHealthUnit("ratio", 0.05), "5.00%");
+
+  // S-GRANOT counter_coverage: an older server omits it and the empty copy stays as before.
+  assert.equal(asGranotLifecycleHealth({ ok: true, data: health }).counter_coverage, undefined);
+  assert.match(markup, /No command conflicts in the last 24 hours\./);
+  // A warming window must not read as "no conflicts"; anything but "covered" parses as unknown.
+  const warming = asGranotLifecycleHealth({
+    ok: true,
+    data: { ...health, counter_coverage: { counters_since: "2026-08-19T15:00:00.000Z", window_24h: "partial", window_1h: "covered" } },
+  });
+  assert.deepEqual(warming.counter_coverage, { counters_since: "2026-08-19T15:00:00.000Z", window_24h: "unknown", window_1h: "covered" });
+  const warmingMarkup = renderToStaticMarkup(createElement(LifecycleHealthView, {
+    data: warming,
+    stale: false,
+    refreshing: false,
+    onRefresh: () => undefined,
+  }));
+  assert.match(warmingMarkup, /Unknown — warming up: the 24-hour count is still filling/);
+  assert.match(warmingMarkup, /data-counter-coverage="unknown"/);
+  assert.doesNotMatch(warmingMarkup, /No command conflicts in the last 24 hours/);
+  // The slim server sends null (never []) while the 24-hour window is unknown.
+  const unknownList = asGranotLifecycleHealth({
+    ok: true,
+    data: { ...health, command_conflicts_last_24h: null, counter_coverage: { counters_since: "2026-08-19T15:00:00.000Z", window_24h: "unknown", window_1h: "unknown" } },
+  });
+  assert.equal(unknownList.command_conflicts_last_24h, null);
+  const unknownMarkup = renderToStaticMarkup(createElement(LifecycleHealthView, { data: unknownList, onRefresh: () => undefined }));
+  assert.match(unknownMarkup, /Unknown — warming up/);
+  assert.match(unknownMarkup, /The 1-hour window is not fully counted yet/);
+  assert.doesNotMatch(unknownMarkup, /No command conflicts in the last 24 hours/);
+  // Anything other than a list or null is still malformed.
+  assert.throws(() => asGranotLifecycleHealth({ ok: true, data: { ...health, command_conflicts_last_24h: "none" } }), /malformed/);
 });
 
-test("[AC-31] health URL stays stable for dashboard and observational links", () => {
+test("[AC-31] health URL stays stable for dashboard links", () => {
   assert.equal(GRANOT_LIFECYCLE_HEALTH_HREF, "/granot-lifecycle/health");
   assert.equal(HEALTH_HREF_FROM_COPY, "/granot-lifecycle/health");
-  assert.equal(GRANOT_LIFECYCLE_RECEIPTS_HREF, "/granot-lifecycle/receipts");
 });
 
-test("live webhook accordion shows lead facts and the three Granot event classes", () => {
-  const markup = renderToStaticMarkup(createElement(LiveWebhooksView, {
-    status: "live",
-    receipts: [
-      {
-        receipt_id: "64aaaaaaaaaaaaaaaaaaaaaa",
-        captured_at: "2026-08-28T15:00:00.000Z",
-        route_event_class: "lead_created",
-        observation_channel: "granot_webhook",
-        processing_state: "pending",
-        lead: {
-          display_name: "Ada Lovelace",
-          first_name: "Ada",
-          last_name: "Lovelace",
-          email: "ada@example.invalid",
-          phone: "212-555-0100",
-          job_no: "P5562401",
-          event_type: "Lead",
-          priority: null,
-          origin: "Brooklyn, NY",
-          destination: "Austin, TX",
-          move_date: "2026-09-01",
-        },
-        granot_statement: { first_name: "Ada", job_no: "P5562401" },
-      },
-      {
-        receipt_id: "64bbbbbbbbbbbbbbbbbbbbbb",
-        captured_at: "2026-08-28T15:01:00.000Z",
-        route_event_class: "priority_updated",
-        observation_channel: "granot_webhook",
-        processing_state: "completed",
-        lead: {
-          display_name: "Ada Lovelace",
-          first_name: "Ada",
-          last_name: "Lovelace",
-          email: null,
-          phone: "212-555-0100",
-          job_no: "P5562401",
-          event_type: "Priority",
-          priority: "5",
-          origin: null,
-          destination: null,
-          move_date: null,
-        },
-        granot_statement: { priority: "5" },
-      },
-      {
-        receipt_id: "64cccccccccccccccccccccc",
-        captured_at: "2026-08-28T15:02:00.000Z",
-        route_event_class: "booking_status_changed",
-        observation_channel: "granot_webhook",
-        processing_state: "pending",
-        lead: {
-          display_name: "Ada Lovelace",
-          first_name: "Ada",
-          last_name: "Lovelace",
-          email: null,
-          phone: null,
-          job_no: "P5562401",
-          event_type: "Booked",
-          priority: null,
-          origin: null,
-          destination: null,
-          move_date: null,
-        },
-        granot_statement: { event_type: "Booked" },
-      },
-    ],
-  }));
-  assert.match(markup, /Lead created/);
-  assert.match(markup, /Priority updated/);
-  assert.match(markup, /Booking status changed/);
-  assert.match(markup, /Ada Lovelace/);
-  assert.match(markup, /212-555-0100/);
-  assert.match(markup, /ada@example\.invalid/);
-  assert.match(markup, /P5562401/);
-  assert.match(markup, /Brooklyn, NY/);
-  assert.match(markup, /Full Granot payload/);
-  assert.match(markup, /Open job timeline/);
-  assert.match(markup, /Show details/);
-  assert.match(markup, /Hide details/);
-  assert.match(markup, /Every lead fact is on the row/);
-  assert.doesNotMatch(markup, /Open booking intake/);
-  // Facts are visible on the row, not behind the details toggle; only the raw payload is.
-  const firstCard = markup.indexOf('data-receipt-id="64aaaaaaaaaaaaaaaaaaaaaa"');
-  const brooklyn = markup.indexOf("Brooklyn, NY", firstCard);
-  const toggle = markup.indexOf("Show details", firstCard);
-  const payload = markup.indexOf("Full Granot payload", firstCard);
-  assert.ok(firstCard < brooklyn && brooklyn < toggle && toggle < payload);
-  // Each class carries its Daily Operations kind colour.
-  assert.match(markup, /data-event-class="lead_created"/);
-  assert.match(markup, /data-event-class="priority_updated"/);
-  assert.match(markup, /data-event-class="booking_status_changed"/);
-  assert.match(markup, /data-live-dot="live"/);
-  assert.match(markup, /Open Daily Operations/);
-});
-
-test("LiveWebhookReceiptCard shows Open booking intake only when intake_link is present", () => {
-  const base = {
-    receipt_id: "64cccccccccccccccccccccc",
-    captured_at: "2026-08-28T15:02:00.000Z",
-    route_event_class: "booking_status_changed" as const,
-    observation_channel: "granot_webhook" as const,
-    processing_state: "completed",
-    lead: {
-      display_name: "Ada Lovelace",
-      first_name: "Ada",
-      last_name: "Lovelace",
-      email: null,
-      phone: null,
-      job_no: "P5562401",
-      event_type: "Booked",
-      priority: null,
-      origin: null,
-      destination: null,
-      move_date: null,
-    },
-    granot_statement: { event_type: "Booked" },
-  };
-  const withoutLink = renderToStaticMarkup(createElement(LiveWebhookReceiptCard, { receipt: base }));
-  assert.match(withoutLink, /Open job timeline/);
-  assert.doesNotMatch(withoutLink, /Open booking intake/);
-  assert.doesNotMatch(withoutLink, /no intake yet/i);
-
-  const withLink = renderToStaticMarkup(createElement(LiveWebhookReceiptCard, {
-    receipt: {
-      ...base,
-      observation_id: "65cccccccccccccccccccccc",
-      intake_link: {
-        case_id: "66bbbbbbbbbbbbbbbbbbbbbb",
-        kind: "booking",
-        state: "open",
-        matched_via: "evidence_observation_id",
-      },
-    },
-  }));
-  assert.match(withLink, /Open job timeline/);
-  assert.match(withLink, /Open booking intake/);
-  assert.match(withLink, /\/intakes\?job=P5562401&amp;case=66bbbbbbbbbbbbbbbbbbbbbb/);
-  assert.ok(
-    withLink.indexOf("Open booking intake") < withLink.indexOf("Show details"),
-    "Open booking intake belongs on the collapsed Live Events row",
-  );
-});
-
-test("LiveWebhooks listens for receipt_updated and reuses the merge helper", () => {
-  const source = readFileSync(
-    path.join(process.cwd(), "components/granot-lifecycle/live-webhooks.tsx"),
-    "utf8",
-  );
-  assert.match(source, /addEventListener\("receipt_updated"/);
-  assert.match(source, /applyLiveWebhookSsePayload/);
+test("Granot Lifecycle and old receipt browse URLs redirect to Health without query state", () => {
+  for (const route of ["app/(dashboard)/granot-lifecycle/page.tsx", "app/(dashboard)/granot-lifecycle/receipts/page.tsx"]) {
+    const source = readFileSync(path.join(process.cwd(), route), "utf8");
+    assert.match(source, /permanentRedirect\(GRANOT_LIFECYCLE_HEALTH_HREF\)/, route);
+    assert.doesNotMatch(source, /searchParams/, route);
+  }
 });

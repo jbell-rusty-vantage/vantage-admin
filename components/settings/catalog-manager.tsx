@@ -236,9 +236,7 @@ async function invalidateCatalog(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: queryKeys.catalog.all }),
     queryClient.invalidateQueries({ queryKey: queryKeys.facets.all }),
     queryClient.invalidateQueries({ queryKey: queryKeys.lists.all }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.reports.all }),
     queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all }),
     queryClient.invalidateQueries({ queryKey: queryKeys.search.all }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.auditLog.all }),
   ]);
 }

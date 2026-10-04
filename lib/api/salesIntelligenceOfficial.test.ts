@@ -9,7 +9,7 @@ import type { TableQueryParams } from "./types";
 test("official-record hrefs stay operational with panel=summary", () => {
   const href = officialRecordHref("FormLead", "lead-1", "/sales-intelligence?view=attention&outreach=abc");
   assert.match(href, /^\/form-leads\?record=lead-1/);
-  assert.match(href, /database_scope=production/);
+  assert.doesNotMatch(href, /database_scope/);
   assert.match(href, /panel=summary/);
   assert.equal(href.includes("/observational"), false);
   assert.match(href, /si_return=/);

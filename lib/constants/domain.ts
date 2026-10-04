@@ -1,13 +1,4 @@
-import type { DatabaseScope, SelectOption } from "@/lib/api/types";
-
-export const DATABASE_SCOPES = ["production", "historical", "combined"] as const;
-export const OPERATIONAL_DATABASE_SCOPES = ["production", "historical"] as const;
-
-export const DATABASE_SCOPE_LABELS = {
-  production: "Production",
-  historical: "Historical Read-Only",
-  combined: "Combined Analytics",
-} as const satisfies Record<DatabaseScope, string>;
+import type { SelectOption } from "@/lib/api/types";
 
 export const SOURCE_COMPANIES = [
   "tbm_leads",
@@ -65,76 +56,6 @@ export const CRM_SOURCE_LABELS = [
   ...FORM_LEAD_SOURCE_LABELS,
   ...CALL_LEAD_SOURCE_LABELS,
 ] as const;
-
-// ---------------------------------------------------------------------------
-// Observability enums (mirror api/config/domain/observability.ts in
-// vantage-main-server). Used as built-in dropdown options so the
-// Observational filters keep working even when the facets endpoint is
-// unavailable; dynamic values (workflows, event keys, etc.) still come from
-// the facets endpoint.
-// ---------------------------------------------------------------------------
-
-export const OBSERVABILITY_LEVELS = ["debug", "info", "warn", "error", "critical"] as const;
-
-export const OPERATIONAL_EVENT_CATEGORIES = [
-  "http",
-  "mongo",
-  "crm",
-  "google_sheets",
-  "sheet_sync",
-  "ringcentral",
-  "queue",
-  "cron",
-  "lead",
-  "booking",
-  "cancellation",
-  "customer",
-  "auth",
-  "zip_state",
-  "notification",
-  "report",
-  "admin",
-] as const;
-
-export const INCIDENT_STATUSES = [
-  "open",
-  "acknowledged",
-  "resolved",
-  "ignored",
-  "auto_resolved",
-] as const;
-
-export const INCIDENT_SEVERITIES = ["warn", "error", "critical"] as const;
-
-export const NOTIFICATION_STATUSES = [
-  "queued",
-  "sending",
-  "sent",
-  "failed",
-  "suppressed",
-  "cancelled",
-] as const;
-
-export const NOTIFICATION_PURPOSES = [
-  "immediate_alert",
-  "daily_digest",
-  "weekly_report",
-  "test",
-] as const;
-
-export const NOTIFICATION_RECIPIENT_TYPES = ["owner", "developer", "internal"] as const;
-
-export const OPERATIONAL_REPORT_KEYS = [
-  "daily-owner-operational-summary",
-  "workflow-failure-summary",
-  "source-company-issue-summary",
-  "sheet-sync-health-summary",
-  "ringcentral-health-summary",
-  "notification-delivery-summary",
-  "http-error-summary",
-] as const;
-
-export const REPORT_RUN_STATUSES = ["running", "completed", "failed"] as const;
 
 export type CrmSourceLabel = (typeof CRM_SOURCE_LABELS)[number];
 
@@ -215,11 +136,6 @@ export function toSelectOptions<TValue extends string>(
   }));
 }
 
-export const DATABASE_SCOPE_OPTIONS = toSelectOptions(DATABASE_SCOPES, DATABASE_SCOPE_LABELS);
-export const OPERATIONAL_DATABASE_SCOPE_OPTIONS = toSelectOptions(
-  OPERATIONAL_DATABASE_SCOPES,
-  DATABASE_SCOPE_LABELS,
-);
 export const SOURCE_COMPANY_OPTIONS = toSelectOptions(SOURCE_COMPANIES, SOURCE_COMPANY_LABELS);
 export const FORM_LEAD_SOURCE_LABEL_OPTIONS = toSelectOptions(FORM_LEAD_SOURCE_LABELS);
 export const CALL_LEAD_SOURCE_LABEL_OPTIONS = toSelectOptions(CALL_LEAD_SOURCE_LABELS);
@@ -316,10 +232,6 @@ export function getCallLeadSourceLabel(sourceCompany?: string | null): CallLeadS
     default:
       return "Main Site Inbounds";
   }
-}
-
-export function getDatabaseScopeLabel(scope: DatabaseScope): string {
-  return DATABASE_SCOPE_LABELS[scope];
 }
 
 export const REFERRAL_SOURCE_COMPANY = "referral" as const;

@@ -45,7 +45,6 @@ export function BookingStoredLeadSection({
     queryFn: () => fetchAdminDetail<AdminRecord>(
       attached?.model === "CallLead" ? "call-leads" : "form-leads",
       attached!.id,
-      "production",
     ),
     enabled: Boolean(attached),
   });

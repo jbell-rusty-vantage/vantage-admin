@@ -18,13 +18,11 @@ import { SelectFilter } from "@/components/filters/select-filter";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
-import { useDashboardRole } from "@/components/layout/dashboard-role-context";
-import { exclusiveEndDate } from "@/components/observational/entity-link";
+import { exclusiveEndDate } from "@/lib/operations-registry/exclusiveEndDate";
 import { fetchRegistryChanges, type RegistryChangeItem } from "@/lib/api/operationsRegistry";
 import {
   REGISTRY_CHANGE_ACTIONS,
   REGISTRY_CHANGE_ENTITY_TYPES,
-  adminAuditRequestHref,
   humanizeRegistryKey,
   registryEntityHref,
 } from "@/lib/api/registryEntityLinks";
@@ -158,9 +156,7 @@ function DiffRow({ entry }: { entry: SnapshotDiffEntry }) {
 }
 
 function ChangeDetail({ item }: { item: RegistryChangeItem }) {
-  const role = useDashboardRole();
   const entityLink = registryEntityHref(item.entity_type, item.entity_id);
-  const auditHref = adminAuditRequestHref(item.request_id);
 
   return (
     <div className="space-y-3 rounded-lg border bg-background p-4">
@@ -180,22 +176,14 @@ function ChangeDetail({ item }: { item: RegistryChangeItem }) {
               {entityLink.label}
             </Link>
           ) : null}
-          {auditHref && role === "owner" ? (
-            <Link href={auditHref} className="text-primary hover:underline">
-              Open Admin Audit
-            </Link>
-          ) : null}
-          {auditHref && role !== "owner" ? (
-            <span className="text-muted-foreground" title="Admin Audit is Owner-only">
-              Request {item.request_id}
-            </span>
+          {item.request_id ? (
+            <span className="text-muted-foreground">Request {item.request_id}</span>
           ) : null}
         </div>
       </div>
 
       <FeedbackMessage tone="info">
-        Registry Changes are domain mutation history committed with registry state. Admin Audit is
-        the dashboard proxy request record. They correlate through <code>request_id</code>.
+        Registry Changes are domain mutation history committed with registry state.
       </FeedbackMessage>
 
       {item.reason ? <p className="text-sm text-muted-foreground">Reason: {item.reason}</p> : null}
@@ -308,7 +296,7 @@ export function RegistryChanges() {
           <Input
             value={String(filters.request_id ?? "")}
             onChange={(event) => update({ request_id: event.target.value, tab: "changes" })}
-            placeholder="Correlate with Admin Audit"
+            placeholder="Request id"
             aria-label="Request ID"
           />
         </FilterField>

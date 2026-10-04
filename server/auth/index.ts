@@ -7,14 +7,12 @@ export {
   setAuthCookies,
 } from "./cookies";
 export { hashPassword, verifyPassword } from "./password";
-export { getRequestMetadata, type RequestMetadata } from "./request";
 export {
   authenticateAdmin,
   getAdminFromAccessToken,
   getSessionUserFromAccessToken,
   normalizeEmail,
   refreshAdminSession,
-  resolveAdminIdFromRefreshToken,
   type AuthTokens,
   type PublicAdminUser,
   type SessionUser,

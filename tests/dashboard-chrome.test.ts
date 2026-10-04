@@ -16,13 +16,13 @@ const destinations = [
   { label: "Call Leads", href: "/call-leads" },
 ];
 
-test("buildSearchHref trims the query and includes database_scope", () => {
-  assert.equal(buildSearchHref("  P5562014  ", "production"), "/search?q=P5562014&database_scope=production");
+test("buildSearchHref trims the query and carries no database scope", () => {
+  assert.equal(buildSearchHref("  P5562014  "), "/search?q=P5562014");
 });
 
 test("buildSearchHref returns an empty string for empty or whitespace queries", () => {
-  assert.equal(buildSearchHref("", "production"), "");
-  assert.equal(buildSearchHref("   ", "historical"), "");
+  assert.equal(buildSearchHref(""), "");
+  assert.equal(buildSearchHref("   "), "");
 });
 
 test("filterPaletteDestinations matches label or href case-insensitively", () => {
@@ -44,21 +44,38 @@ test("admin palette destinations omit owner-only hrefs", () => {
 
   for (const href of [
     "/daily",
-    "/live-events",
-    "/conversations",
+    "/sales-intelligence",
     "/intakes",
     "/manual",
     "/job-timeline",
     "/extension",
-    "/audit-log",
   ]) {
     assert.equal(hrefs.includes(href), false, href);
   }
 
   assert.equal(
-    filterPaletteDestinations(destinations, "").some((destination) => destination.href === "/live-events"),
+    filterPaletteDestinations(destinations, "").some((destination) => destination.href === "/daily"),
     false,
   );
+});
+
+test("palette destinations never offer a retired destination", () => {
+  for (const role of ["owner", "admin"] as const) {
+    const hrefs = visibleDashboardNav(role).map(({ href }) => href);
+    for (const href of [
+      "/customers",
+      "/agents",
+      "/observational",
+      "/exports",
+      "/audit-log",
+      "/reports/agent-sales",
+      "/conversations",
+      "/live-events",
+      "/granot-lifecycle/receipts",
+    ]) {
+      assert.equal(hrefs.includes(href), false, `${role} ${href}`);
+    }
+  }
 });
 
 test("isCommandPaletteHotkey is true for meta/ctrl + k and false for k alone", () => {

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  analyticsMetadataMessage,
   analyticsTableRowKey,
   chartTooltipTitle,
   columnsForReport,
@@ -115,36 +114,6 @@ test("receiver source breakdown display values hide raw ids", () => {
   );
   assert.equal(formatAnalyticsLeadType("CallLead"), "Call");
   assert.equal(formatAnalyticsLeadType("form"), "Form");
-});
-
-test("production receiver-agent reports do not surface the historical warning", () => {
-  assert.equal(
-    analyticsMetadataMessage("receiver-agent-source-breakdown", "production", {
-      message: "Historical lead records do not include receiver_agent attribution.",
-    }),
-    undefined,
-  );
-  assert.equal(
-    analyticsMetadataMessage("receiver-agent-source-breakdown", "historical", {
-      message: "Historical lead records do not include receiver_agent attribution.",
-    }),
-    "Historical lead records do not include receiver_agent attribution.",
-  );
-});
-
-test("production SMS conversion reports do not surface the historical warning", () => {
-  assert.equal(
-    analyticsMetadataMessage("sms-successfully-sent-then-booked", "production", {
-      message: "This rate counts production Leads that successfully received a confirmation text.",
-    }),
-    undefined,
-  );
-  assert.equal(
-    analyticsMetadataMessage("sms-successfully-sent-then-booked", "historical", {
-      message: "Lead Messages live on production only. Switch to Production or Combined to view the texted-lead booking rate.",
-    }),
-    "Lead Messages live on production only. Switch to Production or Combined to view the texted-lead booking rate.",
-  );
 });
 
 test("text-to-booked visualization uses the All row and hides origin keys", () => {

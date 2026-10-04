@@ -2,16 +2,13 @@ import type { AdminRole } from "@/server/models";
 import type { VantageApiMethod } from "@/server/vantage-api/client";
 
 const OWNER_ONLY_PAGE_PREFIXES = [
-  "/audit-log",
   "/bookings/reconciliation",
   "/granot-lifecycle",
   "/ingestion/granot",
   "/intakes",
   "/job-timeline",
-  "/conversations",
   "/daily",
   "/sales-intelligence",
-  "/live-events",
   "/manual",
   "/extension",
 ] as const;
@@ -21,7 +18,6 @@ const OPERATIONAL_PATCH_PREFIXES = [
   "/api/v1/call-leads/",
   "/api/v1/booked-leads/",
   "/api/v1/cancelled-leads/",
-  "/api/v1/customers/",
 ] as const;
 
 const OPERATIONAL_POST_PATHS = new Set([
@@ -212,12 +208,6 @@ export function canProxyVantagePath(input: {
     if (/\/cases\/[^/]+\/(candidates|creating-observation)$/.test(path)) {
       return false;
     }
-    if (/\/receipts\/live$/.test(path)) {
-      return false;
-    }
-    if (path === `${GRANOT_LIFECYCLE_PREFIX}/receipts`) {
-      return false;
-    }
     return input.method === "GET";
   }
   if (input.method === "DELETE") {
@@ -239,22 +229,6 @@ export function canProxyVantagePath(input: {
     return false;
   }
 
-  if (path.startsWith("/api/v1/admin/observability/")) {
-    if (path.endsWith("/delete")) {
-      return false;
-    }
-    if (input.method === "PATCH" && path.includes("/incidents/") && path.endsWith("/status")) {
-      return true;
-    }
-    if (input.method === "PATCH" && path === "/api/v1/admin/observability/incidents/status") {
-      return true;
-    }
-    if (input.method === "POST" && path === "/api/v1/admin/observability/reports/run") {
-      return true;
-    }
-    return input.method === "GET";
-  }
-
   if (input.method === "GET") {
     return true;
   }
@@ -268,11 +242,10 @@ export function canProxyVantagePath(input: {
     return OPERATIONAL_PATCH_PREFIXES.some((prefix) => path.startsWith(prefix));
   }
 
+  // SLIM-02: the Sheet Sync retry allowance went with the Observational tab, its only caller.
+  // The server route stays; Owner can still reach it through the proxy.
   if (input.method === "POST") {
-    return (
-      OPERATIONAL_POST_PATHS.has(path) ||
-      path === "/api/v1/admin/sheet-sync/retry"
-    );
+    return OPERATIONAL_POST_PATHS.has(path);
   }
 
   return false;

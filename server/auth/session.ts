@@ -133,30 +133,6 @@ export async function getSessionUserFromAccessToken(
   return toPublicAdmin(admin);
 }
 
-export async function resolveAdminIdFromRefreshToken(
-  refreshToken: string,
-): Promise<Pick<PublicAdminUser, "id" | "email"> | null> {
-  let payload: ReturnType<typeof verifyRefreshToken>;
-
-  try {
-    payload = verifyRefreshToken(refreshToken);
-  } catch {
-    return null;
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(payload.sub)) {
-    return null;
-  }
-
-  await connectAdminMongo();
-  const admin = await AdminUser.findById(payload.sub);
-  if (!admin) {
-    return null;
-  }
-
-  return { id: admin._id.toString(), email: admin.email };
-}
-
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }

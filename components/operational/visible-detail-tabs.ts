@@ -1,6 +1,5 @@
 import { isReferralBooking, relatedNavLinksFor } from "@/components/operational/operational-helpers";
 import type { AdminRecord, UiResource } from "@/lib/api/admin";
-import type { DatabaseScope } from "@/lib/api/types";
 
 export const DETAIL_TAB_KEYS = [
   "summary",
@@ -15,7 +14,6 @@ export type DetailTabKey = (typeof DETAIL_TAB_KEYS)[number];
 
 export type VisibleDetailTabsContext = {
   readOnly: boolean;
-  database_scope: DatabaseScope;
   canDelete: boolean;
   productionEditAllowed: boolean;
 };
@@ -35,10 +33,6 @@ export function isLeadUiResource(resource: UiResource): boolean {
   return LEAD_RESOURCES.has(resource);
 }
 
-function isProductionScope(scope: DatabaseScope): boolean {
-  return scope === "production";
-}
-
 function bookingHasActionContent(record: AdminRecord, readOnly: boolean): boolean {
   const canCancel = !readOnly && !isReferralBooking(record);
   const hasRelated = relatedNavLinksFor("bookings", record).length > 0;
@@ -51,20 +45,16 @@ function includeActions(
   ctx: VisibleDetailTabsContext,
 ): boolean {
   if (uiResource === "form-leads" || uiResource === "call-leads") {
-    return isProductionScope(ctx.database_scope) && !ctx.readOnly;
+    return !ctx.readOnly;
   }
   if (uiResource === "bookings") {
-    return isProductionScope(ctx.database_scope) && bookingHasActionContent(record, ctx.readOnly);
+    return bookingHasActionContent(record, ctx.readOnly);
   }
   return false;
 }
 
 function includeProduction(uiResource: UiResource, ctx: VisibleDetailTabsContext): boolean {
-  if (
-    uiResource === "agents" ||
-    uiResource === "duplicate-form-leads" ||
-    uiResource === "duplicate-call-leads"
-  ) {
+  if (uiResource === "duplicate-form-leads" || uiResource === "duplicate-call-leads") {
     return false;
   }
   if (uiResource === "bookings" || uiResource === "cancellations") {
@@ -73,19 +63,12 @@ function includeProduction(uiResource: UiResource, ctx: VisibleDetailTabsContext
   return ctx.productionEditAllowed;
 }
 
-function includeSource(uiResource: UiResource): boolean {
-  return isLeadUiResource(uiResource) || uiResource === "bookings" || uiResource === "cancellations";
-}
-
 export function visibleDetailTabs(
   uiResource: UiResource,
   record: AdminRecord,
   ctx: VisibleDetailTabsContext,
 ): DetailTabKey[] {
-  const tabs: DetailTabKey[] = ["summary"];
-  if (uiResource !== "agents") {
-    tabs.push("contact");
-  }
+  const tabs: DetailTabKey[] = ["summary", "contact"];
   if (uiResource === "form-leads" || uiResource === "duplicate-form-leads") {
     tabs.push("message");
   }
@@ -95,9 +78,7 @@ export function visibleDetailTabs(
   if (includeProduction(uiResource, ctx)) {
     tabs.push("production");
   }
-  if (includeSource(uiResource)) {
-    tabs.push("source");
-  }
+  tabs.push("source");
   return tabs;
 }
 
@@ -122,15 +103,12 @@ export function resolveActivePanel(
 export function productionEditAllowedFor(
   uiResource: UiResource,
   record: AdminRecord | null,
-  options: { readOnly?: boolean; database_scope: DatabaseScope },
+  options: { readOnly?: boolean },
 ): boolean {
   if (options.readOnly) {
     return false;
   }
-  if (options.database_scope !== "production") {
-    return false;
-  }
-  if (uiResource === "agents" || uiResource === "duplicate-form-leads" || uiResource === "duplicate-call-leads") {
+  if (uiResource === "duplicate-form-leads" || uiResource === "duplicate-call-leads") {
     return false;
   }
   if (isReferralBooking(record)) {
