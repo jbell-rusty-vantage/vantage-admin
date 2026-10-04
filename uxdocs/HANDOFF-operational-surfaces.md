@@ -14,8 +14,8 @@ Start at the pack README → `AGENT-PROTOCOL.md` → the `ready` issue in
 ## What this is
 
 Admin presentation on the shared `OperationalResourcePage` shell
-(Form Leads, Call Leads, Bookings, Cancellations, plus the duplicate /
-Customers / Agents routes that already use it).
+(Form Leads, Call Leads, Bookings, Cancellations, plus the duplicate
+routes; the Customers and Agents routes were retired in the 2026-10 slimming).
 
 - Tabbed detail panel
 - Row identity + status chips + sticky Actions cluster
@@ -26,7 +26,7 @@ Customers / Agents routes that already use it).
 
 - Owner Daily View (`/daily`) or Details / Provenance / Conversation
 - Embedding `ConversationPanel` on Call Leads
-- Search, Intakes, Observational rewrites
+- Search or Intakes rewrites (Observational was retired in the 2026-10 slimming)
 - Main-server API or invariant changes
 - Bad Call, a Sync button, or new filter keys
 

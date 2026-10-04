@@ -5,12 +5,13 @@ These files are suggestions unless a doc says the surface is live.
 Live: dashboard chrome
   — Sidebar grouped Today / Records / People / Insight / System in
     components/layout/dashboard-nav.tsx. visibleDashboardNav(role) is
-    still a flattened destination list (Owner starts Overview, Live
-    Events, Lead Conversations). Duplicate Form/Call Leads nest under
+    still a flattened destination list (Owner starts Overview, Daily
+    Operations, Sales Intelligence). Duplicate Form/Call Leads nest under
     their parents in the UI. Job Timeline is title case. Compact 13px
     medium rows; nested duplicates sit on a left rail. No New badges.
     Navbar: command palette (⌘K / Ctrl+K via GlobalSearch +
-    command-palette.ts), compact database scope selector, UserMenu,
+    command-palette.ts), UserMenu (no database scope selector since
+    the 2026-10 slimming),
     pageTitleForPath. Aside sticky + h-screen (w-56 expanded, w-14
     collapsed); sidebar and mobile drawer scroll. Not Owner Daily View.
     Authority: .cursor/rules/project-organization.mdc (components/layout).
@@ -40,16 +41,20 @@ Contract (not fully developed): Booking intake Form Lead contact snapshots
     submitted vs Granot. Owner will add more to this file. Do not implement.
     Authority: vantage-main-server/docs/granot-lead-lifecycle/booking-intake-form-lead-contact-snapshots-specification.md
 
-Live: live-events-tab-specification.md
-  — Owner-only Granot live webhook SSE as a top-level sidebar tab
-    "Live Events" (immediately under Overview) at /live-events.
-    Contract: live-events-tab-specification.md. Do not rebuild the stream.
+Retired (2026-10 slimming): live-events-tab-specification.md
+  — /live-events, its SSE BFF and receipt search are gone (not-found).
+    History only. Authority: vantage-main-server/docs/server-admin-slimming/SPECIFICATION.md.
 
-Live: Lead Conversations tab at /conversations
-  — Owner-only example card for the seeded inbound Call Lead conversation.
-    Contract: lead-conversations-tab-specification.md (wins on conflict).
-    HANDOFF-conversations-example-tab.md is post-ship notes. Do not rebuild
-    the tab, add a second seed, or treat AI Gateway as live.
+Retired (2026-10 slimming): Lead Conversations tab (/conversations)
+  — lead-conversations-tab-specification.md and
+    HANDOFF-conversations-example-tab.md are history only. The server
+    conversation store, transcripts and audio were removed. Do not rebuild.
+
+Retired (2026-10 slimming): Customers, Agents, Observational, Exports,
+  Audit Log and Agent Sales report pages; the Sales Intelligence Outreach
+  desk, Overview, Closed, Guide, Coverage, rep desk and dev gallery.
+  /sales-intelligence is Numbers + RingCentral Accounts only.
+  Authority: vantage-main-server/docs/server-admin-slimming/SPECIFICATION.md.
 
 Start here for Job Timeline Enhancement (Admin): HANDOFF-job-timeline-enhancement.md
   — orientation for JTE-04 / JTE-05. Do not start until JTE-03 is complete

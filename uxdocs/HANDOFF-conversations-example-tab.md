@@ -1,3 +1,5 @@
+> **Retired 2026-10.** The Lead Conversations example tab (`/conversations`): removed by the server/admin slimming ([specification](../../vantage-main-server/docs/server-admin-slimming/SPECIFICATION.md)). This file is history only; do not rebuild from it.
+
 # Handoff — Conversations example tab (vantage-admin)
 
 **For:** agents touching the shipped Owner-facing Lead Conversations example tab.

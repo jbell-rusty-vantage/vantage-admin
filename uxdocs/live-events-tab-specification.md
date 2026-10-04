@@ -1,3 +1,5 @@
+> **Retired 2026-10.** The Live Events tab (`/live-events`) and its receipt SSE: removed by the server/admin slimming ([specification](../../vantage-main-server/docs/server-admin-slimming/SPECIFICATION.md)). This file is history only; do not rebuild from it.
+
 # Live Events tab — move out of Ingestion
 
 **Repo:** `vantage-admin` only.

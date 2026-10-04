@@ -273,6 +273,17 @@
 .si-local-dialog { position:fixed; inset:0 0 0 auto; margin:0; height:100dvh; max-height:100dvh; width:min(700px,100vw); max-width:100vw; padding:0; border:0; background:var(--si-surface); color:var(--si-ink); }
 .si-local-dialog[open] { display:flex; flex-direction:column; }
 .si-local-dialog::backdrop { background:rgba(6,43,85,.35); }
+/* The Number dialog's panel shell (moved from the deleted _legacy/styles/assessment.css; the analysis-only rules stayed
+   behind). The dialog is the one vertical scroll region: the compact header (title, Close) sticks at the top, the
+   timeline's day bands stick beneath it, and the tabs and body scroll with the content. */
+.si-local-dialog { --si-dialog-head: 52px; }
+.si-local-dialog[open] { overflow-y: auto; overscroll-behavior: contain; }
+.si-local-dialog > * { flex: none; }
+.si-local-dialog .si-panel__body { flex: none; overflow: visible; min-width: 0; }
+.si-local-dialog .si-panel__header { position: sticky; top: 0; z-index: 3; box-sizing: border-box; height: var(--si-dialog-head); align-items: center; padding: 4px 12px 4px 20px; background: var(--si-surface); border-bottom: 1px solid var(--si-line); }
+.si-local-dialog .si-panel__dtitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--si-font-heading); font-size: 15px; font-weight: 700; color: var(--si-navy); }
+.si-local-dialog .si-panel__headeractions { flex: none; margin-left: auto; }
+.si-local-dialog .si-tl__day { top: var(--si-dialog-head); }
 .si-root .si-btn { text-transform:none; letter-spacing:normal; font-weight:600; }
 .si-root .si-listview + .si-search, .si-root .si-listview > .si-search { max-width: 36rem; }
 @media(max-width:800px) {

@@ -7,7 +7,7 @@ tags:
   - owner-dashboard
   - ringcentral
   - ai-gateway
-status: draft
+status: retired
 stale_after: 2026-11-27
 generated:
   by: cursor-grok-4.6
@@ -30,6 +30,8 @@ applies_to:
   - components/layout/dashboard-nav.tsx
   - lib/api/conversations.ts
 ---
+
+> **Retired 2026-10.** The Lead Conversations tab, its server conversation store and the AI Gateway path: removed by the server/admin slimming ([specification](../../vantage-main-server/docs/server-admin-slimming/SPECIFICATION.md)). This file is history only; do not rebuild from it.
 
 # Lead Conversations tab — specification
 

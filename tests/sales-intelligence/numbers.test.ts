@@ -9,12 +9,13 @@ import { salesIntelligenceTopicKeys } from "../../lib/query/salesIntelligence";
 import { AttachedLeadLine, AttachedLeadPanel } from "../../components/sales-intelligence/numbers/attached-lead";
 import { NumberFacts } from "../../components/sales-intelligence/numbers/number-detail";
 import { TimelineEntry, repText } from "../../components/sales-intelligence/numbers/number-timeline";
-import { NumberRow } from "../../components/sales-intelligence/numbers/numbers-view";
+import { NumberRow, recoverStaleNumbersCursor } from "../../components/sales-intelligence/numbers/numbers-view";
 import { numberChips, numberFilterCount } from "../../components/sales-intelligence/numbers/numbers-filters";
 import { Restrictions } from "../../components/sales-intelligence/restrictions";
 import { RepUnavailable } from "../../components/sales-intelligence/rep-unavailable";
 import { siKeys } from "../../components/sales-intelligence/data/query-keys";
 import { parseSiUrl } from "../../components/sales-intelligence/data/url-state";
+import { siNavigation } from "../../components/sales-intelligence/data/use-url-state";
 
 const render = (type: unknown, props: Record<string, unknown> = {}) => renderToStaticMarkup(createElement(type as never, props as never));
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
@@ -164,4 +165,25 @@ test("no retired Attention, Outreach, Closed, Overview, analysis or conversation
     for (const pattern of retired) if (pattern.test(body)) hits.push(`${path.relative(process.cwd(), file)} ${pattern}`);
   }
   assert.deepEqual(hits, []);
+});
+
+test("a stale cursor restarts at page one by replacing the rejected URL, so Back never lands on it again", () => {
+  const stale = Object.assign(new Error("bad cursor"), { code: "INVALID_INPUT" });
+  const calls: unknown[] = [];
+  let dropped = 0;
+  const update = (patch: unknown, options?: unknown) => { calls.push([patch, options]); };
+  assert.equal(recoverStaleNumbersCursor(stale, "c-old", () => { dropped++; }, update), true);
+  assert.equal(dropped, 1);
+  assert.deepEqual(calls, [[{ cursor: null, before: [] }, { replace: true }]]);
+  // Page one (no cursor) or any other error is left to the region's error and Try again.
+  assert.equal(recoverStaleNumbersCursor(stale, null, () => { dropped++; }, update), false);
+  assert.equal(recoverStaleNumbersCursor(Object.assign(new Error("x"), { code: "UPSTREAM_UNAVAILABLE" }), "c-old", () => { dropped++; }, update), false);
+  assert.equal(dropped, 1);
+  assert.equal(calls.length, 1);
+});
+
+test("URL updates push by default and replace only when asked; an unchanged URL navigates nowhere", () => {
+  assert.deepEqual(siNavigation("/sales-intelligence", "cursor=c-old&before=c0", { cursor: null, before: [] }, { replace: true }), { method: "replace", href: "/sales-intelligence" });
+  assert.deepEqual(siNavigation("/sales-intelligence", "", { number: ID }), { method: "push", href: `/sales-intelligence?number=${ID}` });
+  assert.equal(siNavigation("/sales-intelligence", "", { cursor: null }), null);
 });

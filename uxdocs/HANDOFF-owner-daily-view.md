@@ -2,9 +2,7 @@
 
 **For:** the next agent picking up Daily View work in `vantage-admin`.
 **Status:** architected, not implemented. `/daily` does not exist.
-A separate Owner-only Lead Conversations example tab is already live at
-`/conversations` (see [lead-conversations-tab-specification.md](./lead-conversations-tab-specification.md)).
-That tab is not Daily View and not ODV-E.
+The separate Owner-only Lead Conversations example tab (`/conversations`) was retired by the 2026-10 server/admin slimming, with the server conversation store. Any ODV-E conversation work below is history only.
 **Written:** 2026-08-19.
 
 Read this first, then the specification. This file orients you; it decides nothing.

@@ -23,14 +23,28 @@ import { currentSalesIntelligenceHref } from "../lib/official-record";
 import { numberNextPage, numberPageOffset, numberPreviousPage, pageWindow } from "../lib/paging";
 import { NUMBER_SORT_OPTIONS } from "../lib/sort";
 import { Region, RegionProgress, SkeletonLines, regionErrorCode } from "../primitives";
-import { clearNumberFilters, numbersQuery, serializeSiUrl, type SiUrlPatch, type SiUrlState } from "../data/url-state";
+import { clearNumberFilters, numbersQuery, serializeSiUrl, type SiUrlState } from "../data/url-state";
 import { siKeys } from "../data/query-keys";
+import type { SiUrlUpdate } from "../data/use-url-state";
 import { NUMBERS_PAGE_SIZE, useNumbersPage } from "../data/use-numbers";
 import { AttachedLeadLine } from "./attached-lead";
 import { NumberDetail } from "./number-detail";
 import { numberChips, numberFilterCount, NumbersFilters } from "./numbers-filters";
 
 const n = copy.numbers;
+
+/**
+ * The server rejects a cursor from another request (an old desk link, a changed sort digest) with INVALID_INPUT;
+ * restart at page one instead of leaving an error that Retry would only repeat. The restart replaces the rejected
+ * URL rather than pushing past it: a pushed restart left the stale URL in history, and Back to it failed and pushed
+ * page one again, so Back could never leave the page. Returns whether it recovered.
+ */
+export function recoverStaleNumbersCursor(error: unknown, cursor: string | null, dropFailedPage: () => void, update: SiUrlUpdate): boolean {
+  if (!cursor || regionErrorCode(error) !== "INVALID_INPUT") return false;
+  dropFailedPage();
+  update({ cursor: null, before: [] }, { replace: true });
+  return true;
+}
 
 export function NumberRow({ number, selected, returnTo, onOpen }: { number: NumberSearchItem; selected: boolean; returnTo: string; onOpen: () => void }) {
   const r = number.rollups;
@@ -65,7 +79,7 @@ export function NumberRow({ number, selected, returnTo, onOpen }: { number: Numb
   );
 }
 
-function NumbersPage({ state, update, pending }: { state: SiUrlState; update: (patch: SiUrlPatch) => void; pending: boolean }) {
+function NumbersPage({ state, update, pending }: { state: SiUrlState; update: SiUrlUpdate; pending: boolean }) {
   const query = numbersQuery(state, NUMBERS_PAGE_SIZE);
   const { data, isFetching } = useNumbersPage(query);
   // An official record's "Return to Sales Intelligence" comes back to this page, filters and open Number included.
@@ -118,7 +132,7 @@ function NumbersPage({ state, update, pending }: { state: SiUrlState; update: (p
   );
 }
 
-export function NumbersView({ state, update, pending }: { state: SiUrlState; update: (patch: SiUrlPatch) => void; pending: boolean }) {
+export function NumbersView({ state, update, pending }: { state: SiUrlState; update: SiUrlUpdate; pending: boolean }) {
   const client = useQueryClient();
   const { compact, sheet } = useSiLayout();
   // The desk mounts client-only (`desk-client.tsx`), so the remembered rail state is read on the first render.
@@ -127,12 +141,8 @@ export function NumbersView({ state, update, pending }: { state: SiUrlState; upd
   const filterCount = numberFilterCount(state);
   const filters = <NumbersFilters value={state} onChange={update} />;
   const requestKey = numbersQuery(state, NUMBERS_PAGE_SIZE).toString();
-  // The server rejects a cursor from another request (an old desk link, a changed sort digest) with INVALID_INPUT;
-  // restart at page one instead of leaving an error that Retry would only repeat.
   const recoverStaleCursor = (error: unknown) => {
-    if (!state.cursor || regionErrorCode(error) !== "INVALID_INPUT") return;
-    client.removeQueries({ queryKey: siKeys.numbers(requestKey) });
-    update({ cursor: null, before: [] });
+    recoverStaleNumbersCursor(error, state.cursor, () => client.removeQueries({ queryKey: siKeys.numbers(requestKey) }), update);
   };
   return (
     <section className={!compact && filtersOpen ? "si-listview rail-open" : "si-listview"} aria-label={copy.page.views.numbers}>
