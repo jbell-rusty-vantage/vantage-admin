@@ -24,3 +24,16 @@ D01 scope clarification: outreach contains no LLM analysis, transcription, summa
 ## Finalization and next run — October 3, 2026
 
 Finalized October 3, 2026 under the user's instruction to finalize all additions faithfully for the end-to-end run tomorrow morning (October 4, 2026, America/New_York). This finalization adopts the consolidated business policy and manual-start design as the documentation baseline. It does not record a prior yes answer to Question 15 or claim that live deployment, activation, migration or provider operations occurred. Runtime release remains subject to implemented proof gates and deliberate Owner-controlled admission. P10b adds selected-ID manual seeding and separate prospective intake admission. Use END-TO-END-RUN.md for the October 4 morning run. S5–S7 remain protected; accelerated isolated clock tests do not substitute for observed production shadow/working-date verification.
+
+
+D01 removal scope: retire outreach LLM/transcription/summary/assessment/extracted-promise/suggestion admission and producers feature-wide, including unseeded existing Leads. A small cadence pilot does not authorize continued legacy AI processing outside the pilot. Retain existing historical evidence and deterministic provider capture/authoritative restrictions. MCP remains separate.
+
+
+## Post-slimming execution — October 4, 2026
+
+Run the lanes in [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) §7 instead of S0–S7 team staging:
+- Server lanes S1, S2 and S3 run in parallel.
+- The ADMIN team runs in parallel on mock DTOs.
+- VERIFY runs the integrated replica pass.
+
+There is no legacy data to migrate. Enrollment (pilot, intake, expansion) replaces migration. The S5–S7 oplog and headroom gates apply before bulk expansion cohorts, not before the approximately 20-Lead pilot.

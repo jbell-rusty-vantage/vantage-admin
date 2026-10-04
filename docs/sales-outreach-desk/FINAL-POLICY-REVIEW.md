@@ -115,3 +115,6 @@ All policy bundles plus the manual-start design are finalized by the user's Octo
 Engineering must prove provider timestamp/status/origin/initiator/handling/association and every intended SMS mailbox, historical priority/assignment/age quality, server/BFF/stream authorization, configuration reload/CAS/versioning, no legacy/AI competing producers, synthetic boundary/DST and replica/browser behavior, Daily Operations live/rebuild parity, actual latency/capacity/headroom and migration/reconciliation/rollback. Missing evidence becomes pending/review or blocks the affected release cohort, not a guessed policy. Reserve at least 40% capacity and S5–S7 for rehearsal, backfill/catch-up, reconciliation, readiness and rollback.
 
 Packet validators establish hashes, portable links and synthetic expectations only. They do not prove deployed behavior, provider grants, visual acceptance or production readiness.
+
+
+D01 removal scope: retire outreach LLM/transcription/summary/assessment/extracted-promise/suggestion admission and producers feature-wide, including unseeded existing Leads. A small cadence pilot does not authorize continued legacy AI processing outside the pilot. Retain existing historical evidence and deterministic provider capture/authoritative restrictions. MCP remains separate.

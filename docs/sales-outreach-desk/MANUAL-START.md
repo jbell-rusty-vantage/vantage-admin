@@ -36,3 +36,6 @@ Rep contact still happens in moving software/RingCentral. No LLM analysis, trans
 ## Finalized launch-design decision — P10b
 
 Adopt a manually selected approximately 20-Lead pilot, read-only report/preview, shadow comparison, fixed-boundary cohort activation and one full working-date verification; then enable prospective automatic new intake while expanding remaining existing Leads in reviewed batches. Preserve complete daily-goal scope or visibly pending coverage. Finalization records the design and starting choices; it does not claim that production steps have run. See [END-TO-END-RUN.md](END-TO-END-RUN.md) for October 4 morning preparation/rehearsal.
+
+
+D01 removal scope: retire outreach LLM/transcription/summary/assessment/extracted-promise/suggestion admission and producers feature-wide, including unseeded existing Leads. A small cadence pilot does not authorize continued legacy AI processing outside the pilot. Retain existing historical evidence and deterministic provider capture/authoritative restrictions. MCP remains separate.

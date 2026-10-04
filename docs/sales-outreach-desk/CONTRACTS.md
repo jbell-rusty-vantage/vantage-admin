@@ -2,6 +2,15 @@
 
 These are target contracts, not claims of deployed endpoints. Team A owns changes. All Mongo/API fields are snake_case; ISO timestamps are true UTC instants, business dates are YYYY-MM-DD interpreted in America/New_York. Each read uses one server reference instant. Never derive cadence, rank or authorization in admin.
 
+> **Post-slimming amendment (October 4, 2026):** [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) §4–§6 amends this file. The changes:
+> - `outreach_id` becomes `subject_id`, keyed on the new `sales_outreach_subjects`. `outreach_records` was purged.
+> - Add `sales_outreach_contact_events`. Migration runs become `sales_outreach_enrollment_runs`.
+> - Add an assignment command (writes `Lead.receiver_agent`, source `manual`) and Owner restriction and enrollment endpoints.
+> - Add a `manager` signed role.
+> - The scoped live stream is `GET /api/v1/admin/sales-outreach/live`, replacing the Sales Intelligence stream.
+> - The admin route is `/outreach-desk`.
+> The rest stands.
+
 ## Current Owner policy decisions
 
 Approved: P01, P02a–P02i, P03, P04a–P04d, P05a–P05h, P06a–P06f, P07a–P07g, P08a, P09a–P09c, P10a, D01 and V01/V02. Questions 1–14 resolve all substantive policy choices; Final business-policy baseline adopted by the October 3 finalization instruction. [FINAL-POLICY-REVIEW.md](FINAL-POLICY-REVIEW.md) provides consolidated business rules; SPECIFICATION provides operational tables; DECISIONS preserves exact original approval scope and provenance. Earlier partial fixtures are historical, not reopened decisions.
@@ -26,7 +35,7 @@ Allowed value namespaces and defaults:
 | Namespace | Fields | Missing default / validation |
 | --- | --- | --- |
 | controls | desk_enabled, cadence_shadow_enabled, cadence_enforcement_enabled, rep_sms_capture_enabled, goal_metrics_enabled | false; exact booleans only |
-| transition | legacy_planning_paused, migrated_cohort_id, activation_at | false, null, null; pause applies to explicitly migrated subjects only |
+| transition | legacy_planning_paused, migrated_cohort_id, activation_at, intake_admission_enabled, intake_admission_at, intake_admission_watermark | false/null defaults; pause applies to explicitly migrated subjects only |
 | cadence | policy_version, approval_ref, timezone, calendar_mode, working_days, holidays, new_days_1_3_calls, new_call_slots, new_call_min_spacing_minutes, sms_cutoff_minute, sms_mode, quoted_due_minute, quoted_same_day_cutoff_minute, return_to_new_mode, late_arrival_rule, catchup_mode, restriction_clock_rule | timezone America/New_York; P02e approved initial spacing 60 elapsed minutes; bootstrap/missing policy fields null, NOT legacy staffing defaults; enforcement rejected until complete and approved |
 | goals | roster_version, rep_work_schedules, default_scheduled_goal, effective_day_overrides, zero_goal_rule | null until approved values are explicitly installed; reviewed identity, valid New York dates, explicit nonnegative goals and audit |
 | evidence | qualifying_call_rule, goal_rep_rule, helping_rep_rule, sms_success_rule, sms_failure_correction_rule, roster_version | null until approved; default goal 100 for approved included roster; overrides effective-dated/audited |
@@ -36,7 +45,7 @@ Validate integers/ranges, calendar resolution, unique ordered nonoverlapping slo
 
 Load semantics: fetch active pointer from primary at each request and each job/batch admission; cache only immutable versions by version+hash. No active-pointer TTL or process.env fallback. Browser reload/refetch therefore sees the latest committed revision on every instance without restart/deploy. PATCH response reports committed revision; subsequent GET verifies it. SSE publishes configuration invalidation only after commit; reconnect also refetches capabilities. Worker captures revision at admission and rechecks before mutations; if changed, abort/requeue under new revision. Batch leases must observe pause between bounded records/batches. A pause cannot undo committed work; it stops new admission. Tests cover two instances, missed invalidation and cached old version.
 
-Missing collection/pointer => all new features disabled, configuration_state:'uninitialized', policy unavailable, no initialization side effect. Invalid/dangling version => new desk/cadence writes fail closed with CONFIGURATION_UNAVAILABLE; do not silently use legacy defaults. DB unavailable => no new writes/admission and no authorized cached data presented as fresh. Existing capture/legacy services continue under their own unchanged isolation unless deliberately fenced. Keep the Owner recovery/settings path available even with desk_enabled false so a configuration disable is reversible.
+Missing collection/pointer => all new features disabled, configuration_state:'uninitialized', policy unavailable, no initialization side effect. Invalid/dangling version => new desk/cadence writes fail closed with CONFIGURATION_UNAVAILABLE; do not silently use legacy defaults. DB unavailable => no new writes/admission and no authorized cached data presented as fresh. Existing canonical evidence capture retains its independent safe isolation. D01 requires outreach legacy AI/model/media-analysis admission and producers to be retired feature-wide, including unseeded subjects; disabled configuration is never permission to fall back to AI. Cohort-specific routine-cadence fencing remains separate. Keep the Owner recovery/settings path available even with desk_enabled false so a configuration disable is reversible.
 
 No new feature flag, cadence setting, goal setting, migration pacing or rollout cohort belongs in env. Existing synchronous csiFlag consumers must be inventoried/migrated or proven irrelevant to the new desk; setting the new collection alone must not leave an env flag as the controlling gate. Preserve TEST_MODE/datastore isolation, Mongo URI, provider/API/auth secrets, connection URLs, queue infrastructure and cloud runtime bootstrap as justified infrastructure settings. Read documented inventories only; missing server docs/knowledge/environment.md is a cloud setup gate. Never infer credential names/values. A reload changes operational behavior; infrastructure/secrets may still need deployment.
 
