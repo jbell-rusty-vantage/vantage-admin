@@ -52,14 +52,20 @@ export function DashboardShell({
       ? managerPagePrefixes.some(underPrefix)
       : granotLifecycleHealth || !ownerOnlyPagePrefixes.some(underPrefix));
 
+  // Lock the document while the shell is mounted. Only undo the classes this effect added: the root layout already
+  // gives <body> `h-full min-h-0`, and stripping them on unmount left every page reached from here (the Outreach
+  // Desk, login) without a height, so it could not scroll.
   useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-    html.classList.add("overflow-hidden");
-    body.classList.add("h-full", "min-h-0", "overflow-hidden");
+    const wanted: [Element, string][] = [
+      [document.documentElement, "overflow-hidden"],
+      [document.body, "h-full"],
+      [document.body, "min-h-0"],
+      [document.body, "overflow-hidden"],
+    ];
+    const added = wanted.filter(([element, name]) => !element.classList.contains(name));
+    for (const [element, name] of added) element.classList.add(name);
     return () => {
-      html.classList.remove("overflow-hidden");
-      body.classList.remove("h-full", "min-h-0", "overflow-hidden");
+      for (const [element, name] of added) element.classList.remove(name);
     };
   }, []);
 

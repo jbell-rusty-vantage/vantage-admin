@@ -25,7 +25,8 @@ export default async function OutreachDeskLayout({ children }: { children: React
   if (!user) redirect("/login?next=/outreach-desk");
   if (!isOutreachDeskRole(user.role)) redirect("/");
   return (
-    <div className={`${deskFont.variable} flex h-full min-h-0 flex-col overflow-hidden`}>
+    // Viewport-tall on its own (`h-dvh`), so the desk's inner scroller never depends on what <body> currently carries.
+    <div className={`${deskFont.variable} flex h-dvh min-h-0 flex-col overflow-hidden`}>
       <QueryProvider>{children}</QueryProvider>
     </div>
   );

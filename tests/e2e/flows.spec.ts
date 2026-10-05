@@ -112,3 +112,18 @@ test("routing: Rep and Manager homes, old Sales Intelligence links, and no desk 
   const live = await page.request.get("/api/outreach-desk-live");
   expect(live.status()).toBe(403);
 });
+
+test("scroll: the desk scrolls when reached from the Admin dashboard, not only from a deep link", async ({ page }) => {
+  await page.setViewportSize({ width: 1186, height: 600 });
+  await signIn(page, "owner");
+  await page.goto("/daily");
+  // Client-side navigation unmounts the dashboard shell, whose document lock once stripped <body>'s own height.
+  await page.locator('a[href="/outreach-desk"]').first().click();
+  await page.waitForURL(/\/outreach-desk/);
+  await waitForDesk(page);
+  await expect(page.locator("body")).toHaveClass(/\bh-full\b/);
+  const scroller = page.locator(".od-scroll").first();
+  await scroller.hover();
+  await page.mouse.wheel(0, 600);
+  await expect.poll(() => scroller.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+});
