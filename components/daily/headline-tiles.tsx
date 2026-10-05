@@ -414,7 +414,9 @@ export function HeadlineTiles({
             texts
               ? `${texts.held_now} ${DAILY_COPY.heldChip}${
                   texts.deferred ? ` · ${texts.deferred} ${DAILY_COPY.heldUntilMorning}` : ""
-                } · ${texts.skipped} ${DAILY_COPY.skipped} · ${texts.failed} ${DAILY_COPY.failed}`
+                } · ${texts.skipped} ${DAILY_COPY.skipped} · ${texts.failed} ${DAILY_COPY.failed}${
+                  (texts.unreconstructable_sent_day ?? 0) > 0 ? ` · ${DAILY_COPY.unreconstructableSentDay(texts.unreconstructable_sent_day ?? 0)}` : ""
+                }`
               : undefined
           }
           trend={trendFromPace(texts)}

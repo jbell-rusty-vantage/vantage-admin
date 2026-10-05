@@ -19,6 +19,8 @@ export const DAILY_COPY = {
   waitingForYou: "Waiting for you",
   opened: "opened",
   heldChip: "held",
+  /** SRV-9: sent texts a rebuild could only place on their accept day (no recorded send time). */
+  unreconstructableSentDay: (n: number) => `${n} sent without a recorded send time (counted on the day accepted)`,
   heldUntilMorning: "Held until 8:00 AM",
   even: "even",
   missingYesterday: "—",

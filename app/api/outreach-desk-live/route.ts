@@ -1,9 +1,11 @@
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { getAccessTokenCookie, getSessionUserFromAccessToken, getRefreshTokenCookie, refreshAdminSession, setAuthCookies } from "@/server/auth";
+import { canProxyVantagePath } from "@/server/auth/authorization";
 import { getServerEnv } from "@/lib/env/server";
 import { buildVantageApiUrl } from "@/server/vantage-api/url";
 import { outreachDeskLive, OUTREACH_DESK_LIVE_PATH } from "@/server/outreach-desk-live";
+import { mockOutreachDeskLiveStream, outreachDeskMockVariant } from "@/server/outreach-desk-mock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,8 +28,13 @@ async function requireSessionUser() {
 }
 
 export async function GET(request: NextRequest) {
+  const admin = await requireSessionUser();
+  // Local mock mode (never on Vercel production): the same role check, then a synthetic connect/clock stream.
+  if (admin && outreachDeskMockVariant() && canProxyVantagePath({ role: admin.role, method: "GET", path: OUTREACH_DESK_LIVE_PATH, via: "live" })) {
+    return mockOutreachDeskLiveStream(request.signal);
+  }
   return outreachDeskLive(request, {
-    admin: await requireSessionUser(),
+    admin,
     url: buildVantageApiUrl(OUTREACH_DESK_LIVE_PATH).toString(),
     apiSecret: getServerEnv().VANTAGE_API_SECRET,
   });

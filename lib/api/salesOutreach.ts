@@ -728,9 +728,11 @@ export function salesOutreachErrorFromBody(status: number, body: unknown, fallba
     return new SalesOutreachApiError(status, parsed.data.code, parsed.data.error ?? parsed.data.code, parsed.data.request_id ?? null, parsed.data.issues);
   }
   const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
-  const code = typeof record.code === "string" ? record.code : fallbackCode;
+  // The generic BFF also carries the server code as `registry_code`.
+  const code = typeof record.code === "string" ? record.code : typeof record.registry_code === "string" ? record.registry_code : fallbackCode;
   const message = typeof record.error === "string" ? record.error : code;
-  return new SalesOutreachApiError(status, code, message, typeof record.request_id === "string" ? record.request_id : null);
+  const issues = Array.isArray(record.issues) ? (record.issues as SalesOutreachErrorEnvelope["issues"]) : undefined;
+  return new SalesOutreachApiError(status, code, message, typeof record.request_id === "string" ? record.request_id : null, issues);
 }
 
 async function readJson(response: Response): Promise<unknown> {
