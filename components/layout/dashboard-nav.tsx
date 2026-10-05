@@ -21,7 +21,7 @@ import {
   PhoneForwarded,
   Presentation,
   Puzzle,
-  Radar,
+  Headset,
   type LucideIcon,
 } from "lucide-react";
 import { GRANOT_LIFECYCLE_COPY, GRANOT_LIFECYCLE_HEALTH_HREF } from "@/components/granot-lifecycle/granot-lifecycle-copy";
@@ -38,8 +38,13 @@ export type DashboardNavItem = {
   href: string;
   icon: LucideIcon;
   ownerOnly?: boolean;
+  /** Sales Outreach Desk (P09b): the only destinations a Manager sees. */
+  managerVisible?: boolean;
   children?: DashboardNavChild[];
 };
+
+/** Roles that render the dashboard shell: the Owner, a generic Admin and (for Daily Operations only) a Manager. */
+export type DashboardShellRole = "owner" | "admin" | "manager";
 
 export type DashboardNavSection = {
   id: "today" | "records" | "people" | "insight" | "system";
@@ -62,8 +67,8 @@ export const dashboardNavSections: DashboardNavSection[] = [
     label: "Today",
     items: [
       { label: "Overview", href: "/", icon: Home },
-      { label: "Daily Operations", href: "/daily", icon: Calendar, ownerOnly: true },
-      { label: "Sales Intelligence", href: "/sales-intelligence", icon: Radar, ownerOnly: true },
+      { label: "Daily Operations", href: "/daily", icon: Calendar, ownerOnly: true, managerVisible: true },
+      { label: "Outreach Desk", href: "/outreach-desk", icon: Headset, ownerOnly: true, managerVisible: true },
       { label: "Intakes", href: "/intakes", icon: Inbox, ownerOnly: true },
       { label: "Manual", href: "/manual", icon: ClipboardPen, ownerOnly: true },
     ],
@@ -123,6 +128,7 @@ function flattenNavItems(items: DashboardNavItem[]): DashboardNavItem[] {
       href: item.href,
       icon: item.icon,
       ...(item.ownerOnly ? { ownerOnly: true } : {}),
+      ...(item.managerVisible ? { managerVisible: true } : {}),
     },
     ...(item.children ?? []).map((child) => ({
       label: child.label,
@@ -132,16 +138,22 @@ function flattenNavItems(items: DashboardNavItem[]): DashboardNavItem[] {
   ]);
 }
 
-export function visibleDashboardNavSections(adminRole: "owner" | "admin"): DashboardNavSection[] {
+function navItemVisible(adminRole: DashboardShellRole, item: DashboardNavItem): boolean {
+  if (adminRole === "owner") return true;
+  if (adminRole === "manager") return item.managerVisible === true;
+  return !item.ownerOnly;
+}
+
+export function visibleDashboardNavSections(adminRole: DashboardShellRole): DashboardNavSection[] {
   return dashboardNavSections
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => adminRole === "owner" || !item.ownerOnly),
+      items: section.items.filter((item) => navItemVisible(adminRole, item)),
     }))
     .filter((section) => section.items.length > 0);
 }
 
-export function visibleDashboardNav(adminRole: "owner" | "admin"): DashboardNavItem[] {
+export function visibleDashboardNav(adminRole: DashboardShellRole): DashboardNavItem[] {
   return flattenNavItems(visibleDashboardNavSections(adminRole).flatMap((section) => section.items));
 }
 
@@ -258,7 +270,7 @@ export function DashboardNav({
   collapsed = false,
   onNavigate,
 }: {
-  adminRole: "owner" | "admin";
+  adminRole: DashboardShellRole;
   collapsed?: boolean;
   onNavigate?: () => void;
 }) {

@@ -16,11 +16,12 @@ test("official-record hrefs stay operational with panel=summary", () => {
   assert.match(booking, /panel=summary/);
 });
 
-test("sales intelligence return only accepts this workspace", () => {
+test("sales intelligence return only accepts the Outreach Desk (or an old Sales Intelligence link)", () => {
   assert.equal(salesIntelligenceReturnHref("si_return=%2Fform-leads"), null);
   assert.equal(salesIntelligenceReturnHref("si_return=%2Fsales-intelligence%3Fview%3Dattention"), "/sales-intelligence?view=attention");
-  assert.equal(currentSalesIntelligenceHref(new URLSearchParams("number=n1")), "/sales-intelligence?number=n1");
-  assert.equal(currentSalesIntelligenceHref(new URLSearchParams()), "/sales-intelligence");
+  assert.equal(salesIntelligenceReturnHref("si_return=%2Foutreach-desk%3Fview%3Dnumbers"), "/outreach-desk?view=numbers");
+  assert.equal(currentSalesIntelligenceHref(new URLSearchParams("view=numbers&number=n1")), "/outreach-desk?view=numbers&number=n1");
+  assert.equal(currentSalesIntelligenceHref(new URLSearchParams()), "/outreach-desk");
 });
 
 test("apiFiltersFromUrlState drops si_return; a valid return still parses", () => {

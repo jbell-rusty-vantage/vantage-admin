@@ -136,16 +136,17 @@ test("the proxy never forwards a browser-sent scope header", () => {
   });
 });
 
-test("canAccessDashboardPath: a rep opens only /sales-intelligence (the interim not-available page)", () => {
-  assert.equal(canAccessDashboardPath("rep", "/sales-intelligence"), true);
-  for (const path of ["/", "/sales-intelligence/", `/sales-intelligence/outreach/${ID}`, `/sales-intelligence/outreach/${ID.toUpperCase()}`, "/sales-intelligence/numbers",
+test("canAccessDashboardPath: a rep opens only /outreach-desk (its Outreach Desk)", () => {
+  assert.equal(canAccessDashboardPath("rep", "/outreach-desk"), true);
+  for (const path of ["/", "/outreach-desk/", "/outreach-desk/x", "/sales-intelligence", "/sales-intelligence/", `/sales-intelligence/outreach/${ID}`, `/sales-intelligence/outreach/${ID.toUpperCase()}`, "/sales-intelligence/numbers",
     `/sales-intelligence/numbers/${ID}`, "/sales-intelligence/outreach", "/sales-intelligence/legacy", "/sales-intelligence-x",
     "/operations-registry", "/settings", "/daily", "/conversations", "/form-leads"]) {
     assert.equal(canAccessDashboardPath("rep", path), false, path);
   }
-  // Owner and Admin are unchanged.
+  // The Owner is unchanged; a generic Admin has no desk (P09c).
   assert.equal(canAccessDashboardPath("owner", "/sales-intelligence/numbers"), true);
   assert.equal(canAccessDashboardPath("admin", "/sales-intelligence"), false);
+  assert.equal(canAccessDashboardPath("admin", "/outreach-desk"), false);
 });
 
 /** Every interim Sales Intelligence call (Owner only) and the retired rep allowlist: a rep reaches none of them. */
@@ -176,15 +177,15 @@ function requestWithRole(pathname: string, role: "owner" | "admin" | "rep") {
   return new NextRequest(`http://localhost:3000${pathname}`, { headers: { cookie: `${ACCESS_TOKEN_COOKIE}=${token}` } });
 }
 
-test("the request-boundary role guard lets a rep through to /sales-intelligence only", () => {
+test("the request-boundary role guard lets a rep through to /outreach-desk only", () => {
   setTestEnv();
-  assert.equal(applyRoleRouteGuard(requestWithRole("/sales-intelligence", "rep")), null);
-  assert.equal(applyRoleRouteGuard(requestWithRole("/sales-intelligence?view=reps", "rep")), null);
-  // Anything else redirects to the rep's home.
-  for (const path of [`/sales-intelligence/outreach/${ID}`, `/sales-intelligence/numbers/${ID}`, "/form-leads", "/sales-intelligence/legacy", "/sales-intelligence/dev/gallery", "/operations-registry", "/"]) {
+  assert.equal(applyRoleRouteGuard(requestWithRole("/outreach-desk", "rep")), null);
+  assert.equal(applyRoleRouteGuard(requestWithRole("/outreach-desk?view=my", "rep")), null);
+  // Anything else (the old Sales Intelligence pages included) redirects to the rep's desk.
+  for (const path of ["/sales-intelligence", `/sales-intelligence/outreach/${ID}`, `/sales-intelligence/numbers/${ID}`, "/form-leads", "/sales-intelligence/legacy", "/sales-intelligence/dev/gallery", "/operations-registry", "/daily", "/"]) {
     const response = applyRoleRouteGuard(requestWithRole(path, "rep"));
     assert.equal(response?.status, 307, path);
-    assert.equal(new URL(response!.headers.get("location")!).pathname, "/sales-intelligence", path);
+    assert.equal(new URL(response!.headers.get("location")!).pathname, "/outreach-desk", path);
   }
 });
 

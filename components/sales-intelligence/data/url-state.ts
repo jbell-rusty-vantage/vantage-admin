@@ -1,6 +1,7 @@
 /**
- * The Sales Intelligence URL, pure (the hook lives in use-url-state.ts). The interim page has two views: Numbers (the
- * default, written as no `view`) and RingCentral Accounts (`view=reps`). The URL is the whole request: the Numbers
+ * The Sales Intelligence URL, pure (the hook lives in use-url-state.ts). Numbers and RingCentral Accounts now live in
+ * the Outreach Desk (IMPL-02) as `/outreach-desk?view=numbers` and `?view=accounts`; the internal view names stay
+ * `numbers` / `reps`, and an old `view=reps` still reads as Accounts. The URL is the whole request: the Numbers
  * search, filters, sort and keyset page, the open Number, and the Accounts directory page.
  *
  * `canonicalSiQuery` keeps only the keys the current view owns, with valid values, in a fixed order. Everything else
@@ -13,6 +14,9 @@ import { readList } from "../lib/filter-state";
 export const SI_VIEWS = ["numbers", "reps"] as const;
 export type SiView = (typeof SI_VIEWS)[number];
 export const DEFAULT_VIEW: SiView = "numbers";
+/** The Outreach Desk `view` value for each internal view. */
+export const SI_DESK_VIEW_PARAM: Record<SiView, string> = { numbers: "numbers", reps: "accounts" };
+const isAccountsView = (value: string | null) => value === "accounts" || value === "reps";
 
 export const NUMBER_CLASSIFICATIONS = ["unknown", "customer", "company", "non_customer"] as const;
 export const NUMBER_ATTACHMENTS = ["any", "linked", "unlinked"] as const;
@@ -52,13 +56,14 @@ const instant = (value: string | null): string | null => (value && !Number.isNaN
 const cursorText = (value: string | null): string | null => (value && value.length <= 2000 ? value : null);
 
 export function parseSiUrl(params: URLSearchParams): SiUrlState {
-  const view = params.get("view") === "reps" ? "reps" : DEFAULT_VIEW;
+  const view = isAccountsView(params.get("view")) ? "reps" : DEFAULT_VIEW;
   const sort = (NUMBER_SORTS as readonly string[]).includes(params.get("sort") ?? "") ? (params.get("sort") as NumberSort) : NUMBER_SORT_DEFAULT.sort;
   const direction = params.get("direction") === "asc" ? "asc" : params.get("direction") === "desc" ? "desc" : NUMBER_SORT_DEFAULT.direction;
   const attachment = params.get("attachment");
-  // Numbers is written with no `view`, so a `cursor` beside any other view comes from an old desk link (its All
-  // Outreach or Closed keyset cursor) and would be rejected by `GET /numbers`: such a link opens Numbers at page one.
-  const legacyView = params.has("view") && params.get("view") !== "reps";
+  // Numbers is written `view=numbers` (or, on an old link, no `view`), so a `cursor` beside any other view comes from
+  // an old desk link (its All Outreach or Closed keyset cursor) and would be rejected by `GET /numbers`: such a link
+  // opens Numbers at page one.
+  const legacyView = params.has("view") && params.get("view") !== "numbers" && !isAccountsView(params.get("view"));
   const cursor = legacyView ? null : cursorText(params.get("cursor"));
   return {
     view,
@@ -82,8 +87,8 @@ export function parseSiUrl(params: URLSearchParams): SiUrlState {
 /** The state as a query: the current view's keys only, defaults omitted, in a fixed order. */
 export function serializeSiUrl(state: SiUrlState): URLSearchParams {
   const params = new URLSearchParams();
+  params.set("view", SI_DESK_VIEW_PARAM[state.view]);
   if (state.view === "reps") {
-    params.set("view", "reps");
     if (state.directory_cursor) params.set("directory_cursor", state.directory_cursor);
     return params;
   }

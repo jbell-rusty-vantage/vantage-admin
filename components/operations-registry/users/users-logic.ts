@@ -14,8 +14,8 @@ export const PASSWORD_MAX_BYTES = 72;
 export const INVITE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 export type AgentOption = { id: string; name: string; active: boolean };
-export type UserRole = "owner" | "admin" | "rep";
-export const USER_ROLES: UserRole[] = ["owner", "admin", "rep"];
+export type UserRole = "owner" | "admin" | "manager" | "rep";
+export const USER_ROLES: UserRole[] = ["owner", "admin", "manager", "rep"];
 
 const u = copy.ui2.users;
 

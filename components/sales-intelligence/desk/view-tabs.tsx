@@ -3,7 +3,8 @@ import { RouteTabs, type RouteTab } from "../primitives";
 import { copy } from "../sales-intelligence-copy";
 import { SI_VIEWS, siUrlUpdate, type SiView } from "../data/url-state";
 
-export const DESK_PATH = "/sales-intelligence";
+/** Numbers and RingCentral Accounts are Outreach Desk views (IMPL-02). */
+export const DESK_PATH = "/outreach-desk";
 
 /** The page URL for a view, keeping the current view's own state only when it doesn't change. */
 export function viewHref(query: string | URLSearchParams, view: SiView): string {

@@ -13,12 +13,6 @@ export const copy = {
       reps: "People in the stored RingCentral directory. Messaging a User never texts the customer.",
     },
   },
-  /** The interim page for a Rep account (no Numbers browser, no reads). */
-  repUnavailable: {
-    title: "Sales Intelligence is being rebuilt",
-    body: "It is not available for Rep accounts yet. Nothing here needs your action.",
-    contact: "Ask the Owner if you need a call or Lead looked up.",
-  },
   search: {
     placeholder: "Search phone, name or Job Number",
     label: "Search Numbers",
@@ -359,8 +353,13 @@ export const copy = {
       title: "Users",
       intro: "Who can sign in to the admin, and what they can reach. Reps can sign in, but Sales Intelligence is being rebuilt and is not available to Rep accounts yet.",
       columns: { email: "Email", role: "Role", agent: "Agent", active: "Status", invite: "Invite", actions: "Actions" },
-      role: { owner: "Owner", admin: "Admin", rep: "Rep" } as Record<string, string>,
-      roleHint: { owner: "Everything, including users.", admin: "Operations pages; no Sales Intelligence.", rep: "Can sign in; Sales Intelligence is not available to Rep accounts yet." } as Record<string, string>,
+      role: { owner: "Owner", admin: "Admin", manager: "Manager", rep: "Rep" } as Record<string, string>,
+      roleHint: {
+        owner: "Everything, including users.",
+        admin: "Operations pages; no Outreach Desk.",
+        manager: "Outreach Desk for the whole team (queues, assignments, callbacks, attendance) and Daily Operations. No other pages.",
+        rep: "Their own Outreach Desk queue, linked to their Agent.",
+      } as Record<string, string>,
       active: "Active",
       inactive: "Deactivated",
       noAgent: "—",

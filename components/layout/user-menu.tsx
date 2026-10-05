@@ -19,11 +19,11 @@ export function initialsFromEmail(email: string): string {
   return letter ? letter.toUpperCase() : "";
 }
 
-function capitalizeRole(role: "owner" | "admin"): string {
+function capitalizeRole(role: "owner" | "admin" | "manager"): string {
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
-export function UserMenu({ email, role }: { email: string; role: "owner" | "admin" }) {
+export function UserMenu({ email, role }: { email: string; role: "owner" | "admin" | "manager" }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const initials = initialsFromEmail(email);

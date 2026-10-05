@@ -12,7 +12,6 @@ import { TimelineEntry, repText } from "../../components/sales-intelligence/numb
 import { NumberRow, recoverStaleNumbersCursor } from "../../components/sales-intelligence/numbers/numbers-view";
 import { numberChips, numberFilterCount } from "../../components/sales-intelligence/numbers/numbers-filters";
 import { Restrictions } from "../../components/sales-intelligence/restrictions";
-import { RepUnavailable } from "../../components/sales-intelligence/rep-unavailable";
 import { siKeys } from "../../components/sales-intelligence/data/query-keys";
 import { parseSiUrl } from "../../components/sales-intelligence/data/url-state";
 import { siNavigation } from "../../components/sales-intelligence/data/use-url-state";
@@ -128,13 +127,6 @@ test("filter chips and the filter count follow the URL state", () => {
   assert.equal(numberFilterCount(parseSiUrl(new URLSearchParams(""))), 0);
 });
 
-test("a Rep account gets the truthful interim page and no Numbers browser", () => {
-  const html = render(RepUnavailable);
-  assert.match(text(html), /Sales Intelligence is being rebuilt/);
-  assert.match(text(html), /not available for Rep accounts yet/);
-  assert.doesNotMatch(html, /<input|<table|href=/);
-});
-
 test("every Sales Intelligence query key segment is reached by a live topic (or resyncs on reconnect)", () => {
   const reached = new Set(Object.values(salesIntelligenceTopicKeys).flat().map((key) => key[1]));
   const keys = [siKeys.numbers("q"), siKeys.number(ID), siKeys.timeline(ID), siKeys.attachments("x"), siKeys.attachmentPair(ID, "FormLead", LEAD), siKeys.reps(""), siKeys.coverage()];
@@ -183,7 +175,7 @@ test("a stale cursor restarts at page one by replacing the rejected URL, so Back
 });
 
 test("URL updates push by default and replace only when asked; an unchanged URL navigates nowhere", () => {
-  assert.deepEqual(siNavigation("/sales-intelligence", "cursor=c-old&before=c0", { cursor: null, before: [] }, { replace: true }), { method: "replace", href: "/sales-intelligence" });
-  assert.deepEqual(siNavigation("/sales-intelligence", "", { number: ID }), { method: "push", href: `/sales-intelligence?number=${ID}` });
-  assert.equal(siNavigation("/sales-intelligence", "", { cursor: null }), null);
+  assert.deepEqual(siNavigation("/outreach-desk", "view=numbers&cursor=c-old&before=c0", { cursor: null, before: [] }, { replace: true }), { method: "replace", href: "/outreach-desk?view=numbers" });
+  assert.deepEqual(siNavigation("/outreach-desk", "view=numbers", { number: ID }), { method: "push", href: `/outreach-desk?view=numbers&number=${ID}` });
+  assert.equal(siNavigation("/outreach-desk", "view=numbers", { cursor: null }), null);
 });

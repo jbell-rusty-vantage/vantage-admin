@@ -9,7 +9,7 @@ import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-
 import { cn } from "@/lib/utils";
 import { DASHBOARD_MAIN_ID } from "./dashboard-ids";
 import { DashboardRoleProvider } from "./dashboard-role-context";
-import { DashboardNav, pageTitleForPath } from "./dashboard-nav";
+import { DashboardNav, pageTitleForPath, type DashboardShellRole } from "./dashboard-nav";
 import { GlobalSearch } from "./global-search";
 import { UserMenu } from "./user-menu";
 
@@ -21,11 +21,14 @@ const ownerOnlyPagePrefixes = [
   "/intakes",
   "/daily",
   "/sales-intelligence",
+  "/outreach-desk",
   "/manual",
   "/extension",
 ] as const;
 // /operations-registry is intentionally readable by admin roles (mutations gated in UI/proxy).
 // /granot-lifecycle is Owner-only except Health, which Admin reaches from the sidebar.
+// A Manager (P09b) renders this shell only for Daily Operations; the desk has its own "Lead outreach" shell.
+const managerPagePrefixes = ["/daily"] as const;
 
 export function DashboardShell({
   adminEmail,
@@ -33,7 +36,7 @@ export function DashboardShell({
   children,
 }: {
   adminEmail: string;
-  adminRole: "owner" | "admin";
+  adminRole: DashboardShellRole;
   children: React.ReactNode;
 }) {
   const collapsed = useLocalStorageBoolean(sidebarStorageKey);
@@ -42,12 +45,12 @@ export function DashboardShell({
   const granotLifecycleHealth =
     pathname === "/granot-lifecycle/health" ||
     pathname.startsWith("/granot-lifecycle/health/");
+  const underPrefix = (prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
   const pageAllowed =
     adminRole === "owner" ||
-    granotLifecycleHealth ||
-    !ownerOnlyPagePrefixes.some(
-      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-    );
+    (adminRole === "manager"
+      ? managerPagePrefixes.some(underPrefix)
+      : granotLifecycleHealth || !ownerOnlyPagePrefixes.some(underPrefix));
 
   useEffect(() => {
     const html = document.documentElement;
@@ -104,7 +107,7 @@ export function DashboardShell({
             <h1 className="hidden min-w-0 max-w-xs truncate font-heading text-base font-extrabold text-navy lg:block">
               {pageTitleForPath(pathname)}
             </h1>
-            <GlobalSearch />
+            {adminRole === "manager" ? null : <GlobalSearch />}
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <UserMenu email={adminEmail} role={adminRole} />

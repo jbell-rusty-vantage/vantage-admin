@@ -15,7 +15,8 @@ import { salesIntelligenceLive } from "../sales-intelligence-live";
  */
 
 const DASHBOARD_PATHS = [
-  ...DASHBOARD_PATH_PREFIXES.filter((path) => path !== "/sales-intelligence"),
+  ...DASHBOARD_PATH_PREFIXES.filter((path) => path !== "/outreach-desk"),
+  "/outreach-desk/anything",
   "/sales-intelligence/numbers/65f0000000000000000000aa",
   "/sales-intelligence/legacy",
   "/sales-intelligence/outreach",
@@ -51,7 +52,7 @@ const API_PATHS = [
   "api/v1/admin/search?q=x",
 ] as const;
 
-test("canAccessDashboardPath denies a rep every dashboard path outside its Sales Intelligence pages", () => {
+test("canAccessDashboardPath denies a rep every dashboard path outside its Outreach Desk", () => {
   for (const path of DASHBOARD_PATHS) {
     assert.equal(canAccessDashboardPath("rep", path), false, path);
   }
@@ -90,10 +91,10 @@ function requestWithRole(pathname: string, role: "owner" | "admin" | "rep" | nul
 
 const toRepHome = (response: Response | null | undefined, path: string) => {
   assert.equal(response?.status, 307, path);
-  assert.equal(new URL(response!.headers.get("location")!).pathname, "/sales-intelligence", path);
+  assert.equal(new URL(response!.headers.get("location")!).pathname, "/outreach-desk", path);
 };
 // UI2-SHELL (UI-2 §1): the refusal is a redirect to the rep's home, not a plain 403; the reachable set is unchanged.
-test("the request-boundary role guard redirects a rep to /sales-intelligence from every other dashboard page", () => {
+test("the request-boundary role guard redirects a rep to /outreach-desk from every other dashboard page", () => {
   setTestEnv();
   for (const path of DASHBOARD_PATHS) {
     toRepHome(applyRoleRouteGuard(requestWithRole(path, "rep")), path);
