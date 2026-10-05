@@ -9,3 +9,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 <!-- END:nextjs-agent-rules -->
 
 Project guidance lives in `.cursor/rules`.
+
+## Quality checkpoints
+
+This repository opts in through `.quality.config.json`. After a Claude Code, Cursor or Codex turn ends, the shared server tooling triages the changes and may auto-apply clean-code and documentation edits. It never stages or commits.
+- Tooling and playbook: `../vantage-main-server/docs/quality-checkpoints.md`.
+- If a prompt carries a "Quality worker … applied edits" notice, re-read those files before editing them.
+- If `AGENT_QUALITY_CHILD=1`, you are inside the checkpoint: follow the stage prompt and never start another worker.

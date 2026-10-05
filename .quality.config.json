@@ -1,0 +1,31 @@
+{
+  "enabled": true,
+  "mode": "act",
+  "autoApply": true,
+  "models": {
+    "claude": { "triage": "claude-sonnet-5-5", "edit": "claude-sonnet-5-5" },
+    "cursor": { "triage": "grok-4.7-medium", "edit": "grok-4.7-high" },
+    "codex": { "triage": "gpt-5.6-terra", "edit": "gpt-5.6-terra" }
+  },
+  "quietSeconds": { "idle": 120, "end": 20 },
+  "instructions": ["AGENTS.md", ".quality/docs-contract.md", "CONTEXT.md", ".cursor/rules/project-organization.mdc"],
+  "docsContract": "../vantage-main-server/.cursor/agents/docs-keeper.md",
+  "glossary": "../CONTEXT.md",
+  "secretsEnvFiles": [".env", "../vantage-main-server/.env"],
+  "docsOwnership": ["docs/**", "uxdocs/**", ".cursor/rules/**", "CONTEXT.md", "AGENTS.md", "CLAUDE.md", "README.md"],
+  "protectedGlobs": [
+    "docs/sales-outreach-desk/**",
+    "SALES-OUTREACH-DESK.md",
+    "docs/server-admin-slimming/**",
+    "next.config.*",
+    "postcss.config.*"
+  ],
+  "gate": {
+    "noiseGlobs": ["**/*.log", "**/pnpm-lock.yaml", "**/package-lock.json", "**/evidence/**", ".codex/**", "**/*.snap", "**/PACKET-MANIFEST.json", "public/**", "next-env.d.ts"]
+  },
+  "checks": [
+    { "name": "typecheck", "command": ["node", "node_modules/typescript/bin/tsc", "--noEmit"], "files": "none", "parser": "tsc" },
+    { "name": "lint", "command": ["node", "node_modules/eslint/bin/eslint.js", "--max-warnings", "0", "--no-warn-ignored"], "files": "edited", "extensions": [".ts", ".tsx", ".mjs"], "parser": "eslint" },
+    { "name": "tests", "command": ["node", "--import", "tsx", "--test"], "files": "related-tests", "parser": "node-test" }
+  ]
+}
