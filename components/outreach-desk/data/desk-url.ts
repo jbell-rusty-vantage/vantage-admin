@@ -33,11 +33,14 @@ export function defaultDeskView(role: OutreachDeskRole): DeskView {
 
 const OBJECT_ID = /^[a-f\d]{24}$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const WORKFLOWS = ["new", "quoted", "discretion", "none"] as const;
+const WORKFLOWS = ["all", "new", "quoted", "discretion", "none"] as const;
 const STATES = ["needs_contact", "all_active"] as const;
 const SORTS = ["urgency", "lead_received", "last_interaction"] as const;
 const DIRECTIONS = ["asc", "desc"] as const;
 const MOVE_UNKNOWN = ["include", "exclude", "only"] as const;
+/** Move-date presets (SPECIFICATION §7); the dates are resolved from the server's business date at request time. */
+export const MOVE_PRESETS = ["upcoming", "today", "next7", "past", "unknown"] as const;
+export type MovePreset = (typeof MOVE_PRESETS)[number];
 
 /** One query key the desk owns: its name and how a raw value is accepted (null drops it). */
 type KeySpec = { key: string; read: (value: string, role: OutreachDeskRole) => string | null };
@@ -59,6 +62,7 @@ const QUEUE_KEYS: KeySpec[] = [
   { key: "state", read: oneOf(STATES) },
   { key: "sort", read: oneOf(SORTS) },
   { key: "direction", read: oneOf(DIRECTIONS) },
+  { key: "move", read: oneOf(MOVE_PRESETS) },
   { key: "move_from", read: day },
   { key: "move_to", read: day },
   { key: "move_unknown", read: oneOf(MOVE_UNKNOWN) },

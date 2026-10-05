@@ -88,6 +88,11 @@ export type DailyOperationsSnapshot = {
       held_now: number;
       skipped: number;
       failed: number;
+      /**
+       * SRV-9 (§14): sent scheduled confirmations with no recorded send time, counted on their accept day by a
+       * rebuild (always 0 live). Older servers omit it; the normalizer fills 0. Shown as a label when above 0.
+       */
+      unreconstructable_sent_day?: number;
     };
     webhooks: {
       lead_created: DailyOperationsWebhookClassCount;
@@ -595,10 +600,12 @@ export function normalizeDailyOperationsSnapshot(
   snapshot: DailyOperationsSnapshot,
 ): DailyOperationsSnapshot {
   const sheetSync = (snapshot.metrics as Partial<DailyOperationsSnapshot["metrics"]>).sheet_sync;
+  const texts = snapshot.metrics.texts as DailyOperationsSnapshot["metrics"]["texts"] | undefined;
   return {
     ...snapshot,
     metrics: {
       ...snapshot.metrics,
+      ...(texts ? { texts: { ...texts, unreconstructable_sent_day: Number(texts.unreconstructable_sent_day ?? 0) } } : {}),
       sheet_sync: {
         completed: Number(sheetSync?.completed ?? 0),
         failed: Number(sheetSync?.failed ?? 0),

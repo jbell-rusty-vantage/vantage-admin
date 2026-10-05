@@ -42,6 +42,9 @@ const serverEnvSchema = z.object({
     .min(16, "VANTAGE_ADMIN_PROXY_SIGNING_SECRET must be at least 16 characters")
     .optional(),
   NEXT_PUBLIC_APP_NAME: z.string().trim().min(1).default("Vantage Admin"),
+  // Local development only: `desk` or `m1` makes the BFF answer Sales Outreach Desk calls from synthetic fixtures
+  // (server/outreach-desk-mock.ts). Ignored on a Vercel production deployment. Never set in Vercel.
+  OUTREACH_DESK_MOCK: z.enum(["desk", "m1"]).optional(),
 }).superRefine((value, context) => {
   if (
     process.env.NODE_ENV === "production" &&

@@ -7,7 +7,8 @@ import {
   refreshAdminSession,
   setAuthCookies,
 } from "@/server/auth";
-import { proxyForwardHeaders, currentCsiScope } from "@/server/auth/proxyForwardHeaders";
+import { proxyForwardHeaders, currentCsiScope, isOutreachDeskPath } from "@/server/auth/proxyForwardHeaders";
+import { mockedProxyResponse, outreachDeskMockVariant } from "@/server/outreach-desk-mock";
 import { canProxyVantagePath } from "@/server/auth/authorization";
 import { requestVantageApi, type VantageApiMethod } from "@/server/vantage-api/client";
 import { VantageApiError } from "@/server/vantage-api/errors";
@@ -119,6 +120,10 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
 
   const body = await readRequestBody(request, method);
   if (!currentCsiScope(backendPath, body)) return NextResponse.json({ ok: false, code: "UNSUPPORTED_SCOPE", error: "Current records only." }, { status: 403 });
+  // Local mock mode (never on Vercel production): desk calls answer from the synthetic fixtures after the same checks.
+  const mockVariant = outreachDeskMockVariant();
+  const mocked = mockVariant ? mockedProxyResponse({ variant: mockVariant, admin, method, path: backendPath, body }) : null;
+  if (mocked) return NextResponse.json(mocked.body, { status: mocked.status });
   let forwarded: ReturnType<typeof proxyForwardHeaders>;
   try {
     forwarded = proxyForwardHeaders(request.headers, admin, method, backendPath);
@@ -167,6 +172,8 @@ async function handleProxyRequest(request: NextRequest, context: ProxyContext, m
         request_id:
           (error instanceof VantageApiError ? error.requestId : undefined) ?? requestId,
         registry_code: error instanceof VantageApiError ? error.registryCode : undefined,
+        // The desk branches on the server's refusal code (CURSOR_EXPIRED, REVISION_CONFLICT, REP_NOT_LINKED, …).
+        code: error instanceof VantageApiError && isOutreachDeskPath(backendPath) ? error.registryCode : undefined,
         remediation: error instanceof VantageApiError ? error.remediation : undefined,
       },
       { status },
