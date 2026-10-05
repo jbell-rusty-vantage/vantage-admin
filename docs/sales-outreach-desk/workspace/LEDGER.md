@@ -8,11 +8,11 @@ Preparation state as of 2026-10-04: ready for cloud implementation, with no task
 | SRV-4 | Server S2 engine | none | ready | unclaimed | engine types → S1/S3 |
 | SRV-5 | Server S3 capture | none | ready | unclaimed | E01 proof script → operator |
 | SRV-6 | Server S3 goals/evidence | SRV-3 models | ready | unclaimed | → S1 reads |
-| ADM-1/2/7 | Admin A1 roles/route/BFF | none | review | vantage-admin `feat/outreach-desk-a1` (`ea73de6`), worktree `../vantage-admin-a1`; merged into `feat/outreach-desk` as `7e005c7`, pushed | [A1.md](evidence/A1.md); typecheck/tests/build green; lint debt pre-existing only → VERIFY |
-| ADM-3/4/5/6/8 | Admin A2 desks | A1 merged | review | vantage-admin `feat/outreach-desk-a2`, worktree `../vantage-admin-a2`; merged into `feat/outreach-desk`, pushed | [A2.md](evidence/A2.md), [INTEGRATION.md](evidence/INTEGRATION.md) (P2 6/6 on the replica, 0 drift), [ADMIN-SUMMARY.md](evidence/ADMIN-SUMMARY.md) → VERIFY; server requests 1–6 in ADMIN-SUMMARY §4 |
-| RELEASE M1 | Deploy + operate call progress (FAST-01) | M1 pieces merged + verified on replica | blocked | — | evidence/RELEASE.md |
-| RELEASE M2 | Deploy full desk + backfill + controls on | M2 verified on replica | blocked | — | evidence/RELEASE.md |
-| VERIFY | Integrated replica + browser | server + admin merged into feat/outreach-desk | ready | — | Admin side merged; reuse INTEGRATION.md setup (pilot DB + e2e users on csi01). END-TO-END-RUN §3–§5 evidence |
+| ADM-1/2/7 | Admin A1 roles/route/BFF | none | accepted | on `main@68ac287` (deployed, run 37359428234); worktree and lane branch removed | [A1.md](evidence/A1.md); production smoke in server `evidence/RELEASE.md` §12 |
+| ADM-3/4/5/6/8 | Admin A2 desks | A1 merged | accepted | on `main@68ac287` (deployed), incl. the S4 consumers `d70db30`; worktree and lane branch removed | [A2.md](evidence/A2.md), [INTEGRATION.md](evidence/INTEGRATION.md) (P2 6/6), [S4-ADMIN.md](evidence/S4-ADMIN.md); server requests 1–6 delivered by server S4 (`main@03b4710c`); every production read parses with the admin schemas |
+| RELEASE M1 | Deploy + operate call progress (FAST-01) | M1 pieces merged + verified on replica | accepted | server `main` | server `evidence/RELEASE.md` §2–§6, §12 |
+| RELEASE M2 | Deploy full desk + backfill + controls on | M2 verified on replica | accepted | server `main@03b4710c`, admin `main@68ac287` | server `evidence/RELEASE.md` §10–§12; open: the review-list policy decisions (§9) |
+| VERIFY | Integrated replica + browser | server + admin on `main` | in_progress | — | done: replica P2 6/6 and production signed reads. **Open:** the signed-in production browser walk as Owner, Manager and Rep. Manager/Rep users are not seeded yet (`NEW_SEED_ROLE=manager\|rep pnpm seed:admin`, `--agent-id=<reviewed Agent id>` for a Rep). |
 
 Allowed states: ready, claimed, in_progress, review, blocked, accepted. Only VERIFY or the coordinator marks a cross-service item accepted, and only with evidence. A blocking issue names the decision or proof ID, the concrete failing scenario, the owning lane and what it depends on. A skipped test is not accepted.
 
@@ -34,3 +34,11 @@ Allowed states: ready, claimed, in_progress, review, blocked, accepted. Only VER
   - new dev-only env `OUTREACH_DESK_MOCK` (desk | m1), ignored when `VERCEL_ENV=production`; declared in `lib/env/server.ts`;
   - the generic proxy now also returns the server's refusal `code` for desk paths.
 - Server contract requests (not made; server untouched): see evidence/ADMIN-SUMMARY.md §4.
+
+## RELEASE — 2026-10-05 (local Windows, RELEASE session)
+
+- S4 consumers built on `feat/outreach-desk` (`d70db30`; evidence/S4-ADMIN.md): DTO mirror, fixtures re-copied, My goal card counts, Lead age = `schedule_day`, `permitted_views` gating, New lead schedule, history names.
+- Gates: `pnpm typecheck` 0; `pnpm lint` 11 errors / 7 warnings (the A1/A2 baseline, none in desk files); `pnpm test` 741 pass / 0 fail / 15 skipped; `pnpm build` green; `validate.mjs` passed.
+- Merged as `main@68ac287`, after the server S4 deploy (`main@03b4710c`). Vercel Production run 37359428234 green.
+- Production smoke and open items: server `docs/sales-outreach-desk/workspace/evidence/RELEASE.md` §12.
+- Cleanup: worktrees `../vantage-admin-a1` / `-a2` removed. Branches `feat/outreach-desk-a1`, `-a2` and `feat/outreach-desk` deleted locally and on origin.
