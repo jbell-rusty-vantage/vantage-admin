@@ -477,8 +477,6 @@
 .si-facts { display: grid; grid-template-columns: minmax(140px, max-content) minmax(0, 1fr); gap: 6px 16px; margin: 0; }
 .si-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .si-leadline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.si-repunavailable { align-items: center; justify-content: center; padding: 48px 16px; }
-.si-repunavailable .si-empty { max-width: 560px; }
 @media (max-width: 720px) {
   .si-facts { grid-template-columns: minmax(0, 1fr); }
 }

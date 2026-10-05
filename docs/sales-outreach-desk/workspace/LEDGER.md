@@ -8,8 +8,8 @@ Preparation state as of 2026-10-04: ready for cloud implementation, with no task
 | SRV-4 | Server S2 engine | none | ready | unclaimed | engine types → S1/S3 |
 | SRV-5 | Server S3 capture | none | ready | unclaimed | E01 proof script → operator |
 | SRV-6 | Server S3 goals/evidence | SRV-3 models | ready | unclaimed | → S1 reads |
-| ADM-1/2/7 | Admin A1 roles/route/BFF | none | ready | unclaimed | → A2 |
-| ADM-3/4/5/6/8 | Admin A2 desks | mock DTOs; server DTOs later | ready | unclaimed | → VERIFY |
+| ADM-1/2/7 | Admin A1 roles/route/BFF | none | in_progress | vantage-admin `feat/outreach-desk-a1` @ `e6e3bb1`, worktree `../vantage-admin-a1`, clean at claim. Files: `server/auth/*`, `server/models/adminRoles.ts`, `app/(desk)/outreach-desk/*`, `app/(dashboard)/{layout.tsx,sales-intelligence/*}`, `app/api/{outreach-desk-live,daily-operations-live,proxy}/*`, `components/layout/*`, `components/outreach-desk/shell/*`, Users tab | → A2 |
+| ADM-3/4/5/6/8 | Admin A2 desks | mock DTOs; server DTOs later | in_progress | vantage-admin `feat/outreach-desk-a2` @ `e6e3bb1`, worktree `../vantage-admin-a2`. ADM-3 (`lib/api/salesOutreach*.ts`, `lib/query/salesOutreach.ts`, `tests/outreach-desk/**`) runs in parallel with A1; ADM-4/5/6/8 start after A1 merges | → VERIFY |
 | RELEASE M1 | Deploy + operate call progress (FAST-01) | M1 pieces merged + verified on replica | blocked | — | evidence/RELEASE.md |
 | RELEASE M2 | Deploy full desk + backfill + controls on | M2 verified on replica | blocked | — | evidence/RELEASE.md |
 | VERIFY | Integrated replica + browser | server + admin merged into feat/outreach-desk | blocked | — | END-TO-END-RUN §3–§5 evidence |

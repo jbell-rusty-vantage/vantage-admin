@@ -292,7 +292,7 @@ export function HomeOverviewView({
   bookingQueue,
   bookingCommandsEnabled = true,
 }: {
-  role: "owner" | "admin" | null;
+  role: "owner" | "admin" | "manager" | null;
   overview?: OverviewReportResponse;
   overviewLoading?: boolean;
   overviewError?: string;

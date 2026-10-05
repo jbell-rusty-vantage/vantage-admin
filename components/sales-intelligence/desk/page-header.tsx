@@ -29,10 +29,10 @@ export function searchAction(value: string): SearchAction {
   return { kind: "search", q };
 }
 
-export function PageHeaderView({ value, onChange, onSubmit, live }: { value: string; onChange: (value: string) => void; onSubmit: (value: string) => void; live?: ReactNode }) {
+export function PageHeaderView({ value, onChange, onSubmit, live, title = copy.page.title }: { value: string; onChange: (value: string) => void; onSubmit: (value: string) => void; live?: ReactNode; title?: string }) {
   return (
     <div className="si-desk__titlebar">
-      <h1 className="si-desk__title">{copy.page.title}</h1>
+      <h1 className="si-desk__title">{title}</h1>
       <div className="si-desk__search">
         <SearchField value={value} onChange={onChange} onSubmit={onSubmit} placeholder={s.placeholder} label={s.label} hint={isShortPhone(value) ? s.hint : null} maxLength={200} />
       </div>
@@ -41,7 +41,7 @@ export function PageHeaderView({ value, onChange, onSubmit, live }: { value: str
   );
 }
 
-export function PageHeader({ q, onSearch }: { q: string | null; onSearch: (q: string | null) => void }) {
+export function PageHeader({ q, onSearch, title }: { q: string | null; onSearch: (q: string | null) => void; title?: string }) {
   const [value, setValue] = useState(q ?? "");
   const [seen, setSeen] = useState(q);
   // The URL's `q` wins when it changes from elsewhere (a view link, Back). Render-time adjust, no effect.
@@ -58,5 +58,5 @@ export function PageHeader({ q, onSearch }: { q: string | null; onSearch: (q: st
     if (action.kind === "hint") return;
     onSearch(action.kind === "search" ? action.q : null);
   };
-  return <PageHeaderView value={value} onChange={onChange} onSubmit={onSubmit} live={<HeaderLive />} />;
+  return <PageHeaderView value={value} onChange={onChange} onSubmit={onSubmit} live={<HeaderLive />} title={title} />;
 }

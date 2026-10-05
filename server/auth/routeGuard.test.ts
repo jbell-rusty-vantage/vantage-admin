@@ -97,7 +97,7 @@ test("PUBLIC_ASSET_PATHS is exactly the public/ folder plus /favicon.ico", () =>
   assert.deepEqual([...PUBLIC_ASSET_PATHS].sort(), [...onDisk, "/favicon.ico"].sort());
 });
 
-test("a verified rep is sent to /sales-intelligence from page paths ending in an asset extension", () => {
+test("a verified rep is sent to /outreach-desk from page paths ending in an asset extension", () => {
   const rep = tokenCookie("rep");
   for (const pathname of [
     "/customers/x.png",
@@ -111,7 +111,7 @@ test("a verified rep is sent to /sales-intelligence from page paths ending in an
   ]) {
     const response = guard(pathname, rep);
     assert.equal(response?.status, 307, pathname);
-    assert.equal(new URL(response!.headers.get("location")!).pathname, "/sales-intelligence", pathname);
+    assert.equal(new URL(response!.headers.get("location")!).pathname, "/outreach-desk", pathname);
   }
 });
 
@@ -120,8 +120,9 @@ test("a verified rep still loads /_next/ files and the real public assets", () =
   for (const pathname of ["/_next/static/chunks/app.js", "/_next/image", ...PUBLIC_ASSET_PATHS]) {
     assert.equal(guard(pathname, rep), null, pathname);
   }
-  assert.equal(guard("/sales-intelligence", rep), null);
-  // The retired Outreach record page is not a rep page any more: it redirects to the rep's home.
+  assert.equal(guard("/outreach-desk", rep), null);
+  // The old Sales Intelligence pages and the retired Outreach record page redirect to the rep's desk.
+  assert.equal(guard("/sales-intelligence", rep)?.status, 307);
   assert.equal(guard("/sales-intelligence/outreach/65f0000000000000000000aa", rep)?.status, 307);
 });
 

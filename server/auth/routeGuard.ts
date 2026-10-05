@@ -18,6 +18,7 @@ export const DASHBOARD_PATH_PREFIXES = [
   "/cancellations",
   "/intakes",
   "/sales-intelligence",
+  "/outreach-desk",
   "/manual",
   "/extension",
   "/job-timeline",
@@ -30,8 +31,9 @@ export const DASHBOARD_PATH_PREFIXES = [
   "/ingestion",
 ] as const;
 
-/** UI2-SHELL: where the edge guard sends a rep who asks for any other page (UI-2 §1). */
-export const REP_HOME_PATH = "/sales-intelligence";
+/** Sales Outreach Desk (ADM-1): where the edge guard sends a rep or a manager who asks for any other page. */
+export const REP_HOME_PATH = "/outreach-desk";
+export const MANAGER_HOME_PATH = "/outreach-desk";
 
 /** Public set-password page for an invite link (page itself is Team 2's U8). */
 export const ACCEPT_INVITE_PAGE = "/accept-invite";
@@ -146,13 +148,16 @@ export function applyRoleRouteGuard(request: NextRequest): NextResponse | null {
   if (role === "owner" || role === "admin") {
     return null;
   }
-  if (role === "rep" && canAccessDashboardPath("rep", pathname)) {
+  if ((role === "rep" || role === "manager") && canAccessDashboardPath(role, pathname)) {
     return null;
   }
-  // UI2-SHELL (UI-2 §1): every other page redirects a rep to its Sales Intelligence home (My Outreach). The set of paths a
-  // rep reaches is unchanged (`REP_DASHBOARD_PATHS`); only the refusal's form changes, from a plain 403 to a redirect.
+  // Every other page redirects a rep or a manager to the Outreach Desk (ADM-1). The paths each reaches are
+  // `REP_DASHBOARD_PATHS` / `MANAGER_DASHBOARD_PATHS`; a refusal is a redirect rather than a plain 403.
   if (role === "rep") {
     return NextResponse.redirect(new URL(REP_HOME_PATH, request.url));
+  }
+  if (role === "manager") {
+    return NextResponse.redirect(new URL(MANAGER_HOME_PATH, request.url));
   }
   return new NextResponse("Forbidden.", { status: 403, headers: { "content-type": "text/plain" } });
 }
