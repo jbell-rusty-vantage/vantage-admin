@@ -13,7 +13,7 @@ The canonical specification, plan, ledger and evidence live in the server reposi
 
 ## What changed in this repository
 
-Implemented on branch `slim/server-admin` (base `adda9e1`), waves 1 and 2:
+Shipped: implemented on branch `slim/server-admin` (base `adda9e1`), merged to `main` and deployed on 2026-10-04 as `058adbc`, with the server purge applied the same day (see the [ledger](../../../vantage-main-server/docs/server-admin-slimming/LEDGER.md) "Cutover" section for what is still owed). Changes:
 
 - Retired destinations and their direct routes show the normal not-found page: `/customers`, `/agents`, `/observational/**`, `/exports`, `/audit-log`, `/reports/agent-sales`, `/conversations`, `/live-events`. `/granot-lifecycle` and `/granot-lifecycle/receipts` redirect to `/granot-lifecycle/health`.
 - The Admin Audit Log model (`admin_audit_logs`) and its writers are deleted (SLIM-08). Authentication, sessions, invites, proxy signing and role checks are unchanged.

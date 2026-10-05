@@ -127,7 +127,7 @@ Granot Automation source checkboxes follow server `compatibility.available_for_a
 
 - **Admin owns:** login/sessions, admin users and invites, UI, route handlers, TanStack Query, frontend constants, signed proxy BFF, public employee-booking nonce.
 - **Main server owns:** operational DBs, business rules, sheet sync, analytics, registry, ingestion, Granot automation, Granot lifecycle, reporting delivery, Google Drive connection, reconciliation, exports.
-- Do not open `vantagemovers` / `vantagemovershistorical` from admin.
+- Do not open `vantagemovers` from admin. (`vantagemovershistorical` was dropped by the 2026-10-04 slimming purge.)
 - Legacy CPL is a read-only compatibility view in Operations Registry (`?tab=legacy-cpl`). Durable source/CPL/agent/merchant edits live on the other registry tabs. `/settings` is a permanent redirect, not a parallel surface.
 - Mutations must invalidate the relevant query keys (lists, details, search, analytics, registry, reporting) where data can change.
 
@@ -136,7 +136,7 @@ Granot Automation source checkboxes follow server `compatibility.available_for_a
 - Keep secrets/Mongo/auth in `server/` or route handlers — never in client components.
 - Validate proxy paths stay under `VANTAGE_API_BASE_URL`; reject absolute/`://` targets.
 - CLI Admin Previews do not inherit branch-only env. When the API host is a protected Preview, set Preview-only `VANTAGE_API_PROTECTION_BYPASS` to the **server** project's automation bypass (never this project's `VERCEL_AUTOMATION_BYPASS_SECRET`) and pass both values with `vercel deploy --env`. Do not set the bypass on Production Admin.
-- Do not write audit rows: SLIM-08 removed the Admin Audit Log, and `admin_audit_logs` is dropped after deploy (`tests/retired-destinations.test.ts` guards this). Forward CSV/export proxy responses without masking successful backend responses.
+- Do not write audit rows: SLIM-08 removed the Admin Audit Log, and the production purge dropped `admin_audit_logs` on 2026-10-04 (`tests/retired-destinations.test.ts` guards this). Forward CSV/export proxy responses without masking successful backend responses.
 - Prefer small focused modules in the owning feature folder.
 - After substantive changes: `pnpm lint`, `pnpm typecheck`, and relevant tests.
 
