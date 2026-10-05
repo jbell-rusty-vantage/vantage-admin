@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { canonicalSiHref, siRouteDecision } from "../../components/sales-intelligence/desk/route-decision";
+import { canonicalSiHref, legacySalesIntelligenceHref, siRouteDecision } from "../../components/sales-intelligence/desk/route-decision";
 import { PageHeaderView, isShortPhone, searchAction } from "../../components/sales-intelligence/desk/page-header";
 import { viewHref, viewTabs } from "../../components/sales-intelligence/desk/view-tabs";
 import {
@@ -17,42 +17,45 @@ import {
 const ID = "65f0000000000000000000cd";
 const q = (value: string) => new URLSearchParams(value);
 
-test("the interim page has two views: Numbers (default, no `view`) and RingCentral Accounts", () => {
+test("Numbers and RingCentral Accounts are Outreach Desk views: view=numbers and view=accounts", () => {
   assert.equal(parseSiUrl(q("")).view, "numbers");
+  assert.equal(parseSiUrl(q("view=numbers")).view, "numbers");
+  assert.equal(parseSiUrl(q("view=accounts")).view, "reps");
+  // An old Sales Intelligence `view=reps` still reads as Accounts.
   assert.equal(parseSiUrl(q("view=reps")).view, "reps");
-  for (const old of ["attention", "all_outreach", "closed", "overview", "rep", "coverage", "guide", "numbers", "nonsense"]) {
+  for (const old of ["attention", "all_outreach", "closed", "overview", "rep", "coverage", "guide", "nonsense"]) {
     assert.equal(parseSiUrl(q(`view=${old}`)).view, "numbers", old);
   }
   assert.deepEqual(viewTabs("").map((tab) => [tab.key, tab.label, tab.href]), [
-    ["numbers", "Numbers", "/sales-intelligence"],
-    ["reps", "RingCentral Accounts", "/sales-intelligence?view=reps"],
+    ["numbers", "Numbers", "/outreach-desk?view=numbers"],
+    ["reps", "RingCentral Accounts", "/outreach-desk?view=accounts"],
   ]);
   // A view change keeps nothing of the other view and closes the open Number.
-  assert.equal(viewHref(`q=smith&number=${ID}`, "reps"), "/sales-intelligence?view=reps");
-  assert.equal(viewHref("view=reps&directory_cursor=d1", "numbers"), "/sales-intelligence");
+  assert.equal(viewHref(`q=smith&number=${ID}`, "reps"), "/outreach-desk?view=accounts");
+  assert.equal(viewHref("view=accounts&directory_cursor=d1", "numbers"), "/outreach-desk?view=numbers");
 });
 
 test("old Outreach, Attention, Closed, Overview, lead and legacy links normalize to Numbers", () => {
+  const N = "/outreach-desk?view=numbers";
   const cases: [string, string][] = [
-    ["view=attention", "/sales-intelligence"],
-    ["view=all_outreach&priority=0&priority=not_set&sort=lead_received&direction=desc", "/sales-intelligence"],
-    ["view=closed&outcome=booked&closed_from=2026-09-01", "/sales-intelligence"],
-    ["view=overview&period=today", "/sales-intelligence"],
-    ["view=attention&lead=6ab065812d126e8df7d70862&lead_model=CallLead", "/sales-intelligence"],
-    ["outreach=6ab06ebd7bf77e198e58f3fa&panel=analysis&analysis_run=x", "/sales-intelligence"],
-    ["view=all_outreach&q=smith", "/sales-intelligence?q=smith"],
-    [`view=numbers&number=${ID}`, `/sales-intelligence?number=${ID}`],
-    [`view=numbers&number=${ID}&database_scope=production`, `/sales-intelligence?number=${ID}`],
-    ["view=reps&rep_cursor=x&directory_cursor=d1", "/sales-intelligence?view=reps&directory_cursor=d1"],
-    ["view=guide&topic=numbers", "/sales-intelligence"],
+    ["view=attention", N],
+    ["view=all_outreach&priority=0&priority=not_set&sort=lead_received&direction=desc", N],
+    ["view=closed&outcome=booked&closed_from=2026-09-01", N],
+    ["view=overview&period=today", N],
+    ["view=attention&lead=6ab065812d126e8df7d70862&lead_model=CallLead", N],
+    ["outreach=6ab06ebd7bf77e198e58f3fa&panel=analysis&analysis_run=x", N],
+    ["view=all_outreach&q=smith", `${N}&q=smith`],
+    [`view=numbers&number=${ID}&database_scope=production`, `${N}&number=${ID}`],
+    ["view=reps&rep_cursor=x&directory_cursor=d1", "/outreach-desk?view=accounts&directory_cursor=d1"],
+    ["view=guide&topic=numbers", N],
     // An old desk page-2 link carries its All Outreach / Closed keyset cursor in `cursor`; GET /numbers would reject it.
-    ["view=all_outreach&cursor=x", "/sales-intelligence"],
-    ["view=closed&cursor=x&before=w", "/sales-intelligence"],
-    ["view=all_outreach&sort=lead_received&cursor=x&q=smith", "/sales-intelligence?q=smith"],
+    ["view=all_outreach&cursor=x", N],
+    ["view=closed&cursor=x&before=w", N],
+    ["view=all_outreach&sort=lead_received&cursor=x&q=smith", `${N}&q=smith`],
     // A readable date that is not a Z instant is normalized to the instant the server accepts.
-    ["active_from=2026-09-01", "/sales-intelligence?active_from=2026-09-01T00%3A00%3A00.000Z"],
-    ["active_to=2026-09-01T00:00:00-04:00", "/sales-intelligence?active_to=2026-09-01T04%3A00%3A00.000Z"],
-    ["active_from=not-a-date", "/sales-intelligence"],
+    ["active_from=2026-09-01", `${N}&active_from=2026-09-01T00%3A00%3A00.000Z`],
+    ["active_to=2026-09-01T00:00:00-04:00", `${N}&active_to=2026-09-01T04%3A00%3A00.000Z`],
+    ["active_from=not-a-date", N],
   ];
   for (const [incoming, href] of cases) {
     const params = Object.fromEntries([...q(incoming).keys()].map((key) => [key, q(incoming).getAll(key)]));
@@ -60,15 +63,34 @@ test("old Outreach, Attention, Closed, Overview, lead and legacy links normalize
     assert.deepEqual(siRouteDecision(params), { kind: "redirect", href }, incoming);
   }
   // A canonical query renders as it is (no redirect loop), and canonicalization is idempotent.
-  for (const ok of ["", "q=smith", `number=${ID}`, "view=reps", "classification=customer&classification=company&attachment=linked&sort=interactions&direction=desc"]) {
+  for (const ok of ["view=numbers", "view=numbers&q=smith", `view=numbers&number=${ID}`, "view=accounts", "view=numbers&classification=customer&classification=company&attachment=linked&sort=interactions&direction=desc"]) {
     const params = Object.fromEntries([...q(ok).keys()].map((key) => [key, q(ok).getAll(key)]));
     assert.deepEqual(siRouteDecision(params), { kind: "render" }, ok);
     assert.equal(canonicalSiQuery(canonicalSiQuery(q(ok))).toString(), canonicalSiQuery(q(ok)).toString());
   }
-  // A Numbers cursor (written with no `view`) is kept.
+  // A Numbers cursor is kept, written with `view=numbers` or (an old link) with no `view`.
   assert.equal(parseSiUrl(q("cursor=c2&before=c1")).cursor, "c2");
+  assert.equal(parseSiUrl(q("view=numbers&cursor=c2&before=c1")).cursor, "c2");
   // Old OutreachRecord ids are never mapped: an invalid `number` is dropped, not guessed.
   assert.equal(parseSiUrl(q("number=not-an-id")).number, null);
+});
+
+test("an old /sales-intelligence link redirects permanently into the Outreach Desk (IMPL-02)", () => {
+  const cases: [string, string][] = [
+    ["", "/outreach-desk"],
+    ["view=attention", "/outreach-desk"],
+    ["view=overview&period=today", "/outreach-desk"],
+    ["outreach=6ab06ebd7bf77e198e58f3fa&panel=analysis", "/outreach-desk"],
+    [`number=${ID}`, `/outreach-desk?view=numbers&number=${ID}`],
+    [`view=numbers&number=${ID}`, `/outreach-desk?view=numbers&number=${ID}`],
+    ["q=smith&sort=interactions&direction=desc", "/outreach-desk?view=numbers&q=smith&sort=interactions&direction=desc"],
+    ["view=reps", "/outreach-desk?view=accounts"],
+    ["view=reps&directory_cursor=d1", "/outreach-desk?view=accounts&directory_cursor=d1"],
+  ];
+  for (const [incoming, href] of cases) {
+    const params = Object.fromEntries([...q(incoming).keys()].map((key) => [key, q(incoming).getAll(key)]));
+    assert.equal(legacySalesIntelligenceHref(params), href, incoming);
+  }
 });
 
 test("Numbers URL state round-trips; defaults are omitted; a request change restarts paging", () => {
@@ -77,17 +99,17 @@ test("Numbers URL state round-trips; defaults are omitted; a request change rest
   assert.equal(state.attachment, "unlinked");
   assert.equal(state.sort, "first_observed");
   assert.deepEqual(state.before, ["c1"]);
-  assert.equal(serializeSiUrl(state).toString(), `q=555&classification=customer&attachment=unlinked&hygiene=true&has_recording=true&include_form_only=true&active_from=2026-09-01T04%3A00%3A00.000Z&sort=first_observed&direction=asc&cursor=c2&before=c1&number=${ID}`);
-  assert.equal(serializeSiUrl(parseSiUrl(q("sort=last_activity&direction=desc"))).toString(), "");
+  assert.equal(serializeSiUrl(state).toString(), `view=numbers&q=555&classification=customer&attachment=unlinked&hygiene=true&has_recording=true&include_form_only=true&active_from=2026-09-01T04%3A00%3A00.000Z&sort=first_observed&direction=asc&cursor=c2&before=c1&number=${ID}`);
+  assert.equal(serializeSiUrl(parseSiUrl(q("sort=last_activity&direction=desc"))).toString(), "view=numbers");
   // `before` without a cursor is meaningless and dropped.
   assert.deepEqual(parseSiUrl(q("before=c1")).before, []);
   const paged = "q=555&cursor=c2&before=c1";
-  assert.equal(siUrlUpdate(paged, { classification: ["company"] }).toString(), "q=555&classification=company");
-  assert.equal(siUrlUpdate(paged, { sort: "interactions", direction: "desc" }).toString(), "q=555&sort=interactions&direction=desc");
-  assert.equal(siUrlUpdate(paged, { number: ID }).toString(), `q=555&cursor=c2&before=c1&number=${ID}`);
-  assert.equal(siUrlUpdate(paged, { cursor: "c3", before: ["c1", "c2"] }).toString(), "q=555&cursor=c3&before=c1&before=c2");
+  assert.equal(siUrlUpdate(paged, { classification: ["company"] }).toString(), "view=numbers&q=555&classification=company");
+  assert.equal(siUrlUpdate(paged, { sort: "interactions", direction: "desc" }).toString(), "view=numbers&q=555&sort=interactions&direction=desc");
+  assert.equal(siUrlUpdate(paged, { number: ID }).toString(), `view=numbers&q=555&cursor=c2&before=c1&number=${ID}`);
+  assert.equal(siUrlUpdate(paged, { cursor: "c3", before: ["c1", "c2"] }).toString(), "view=numbers&q=555&cursor=c3&before=c1&before=c2");
   // Clearing filters keeps the search and the sort.
-  assert.equal(siUrlUpdate("q=555&classification=customer&hygiene=true&sort=interactions&direction=asc", clearNumberFilters()).toString(), "q=555&sort=interactions&direction=asc");
+  assert.equal(siUrlUpdate("q=555&classification=customer&hygiene=true&sort=interactions&direction=asc", clearNumberFilters()).toString(), "view=numbers&q=555&sort=interactions&direction=asc");
 });
 
 test("the Numbers request sends only the server's strict query keys", () => {

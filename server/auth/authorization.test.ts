@@ -706,7 +706,7 @@ test("Granot lifecycle health GET is readable by Admin; receipt requeue stays Ow
   }), true);
 });
 
-test("interim Sales Intelligence: a rep reaches no API and only the /sales-intelligence page", () => {
+test("interim Sales Intelligence: a rep reaches none of its API, and opens only /outreach-desk", () => {
   const id = "65f0000000000000000000cd";
   for (const [method, path] of [
     ["GET", "api/v1/admin/sales-intelligence/numbers?scope=production"],
@@ -725,8 +725,8 @@ test("interim Sales Intelligence: a rep reaches no API and only the /sales-intel
   ] as const) {
     assert.equal(canProxyVantagePath({ role: "rep", method, path }), false, `${method} ${path}`);
   }
-  assert.equal(canAccessDashboardPath("rep", "/sales-intelligence"), true);
-  for (const path of [`/sales-intelligence/outreach/${id}`, "/sales-intelligence/legacy", "/Sales-Intelligence", "/form-leads", "/"]) {
+  assert.equal(canAccessDashboardPath("rep", "/outreach-desk"), true);
+  for (const path of ["/sales-intelligence", `/sales-intelligence/outreach/${id}`, "/sales-intelligence/legacy", "/Sales-Intelligence", "/Outreach-Desk", "/form-leads", "/"]) {
     assert.equal(canAccessDashboardPath("rep", path), false, path);
   }
   // The interim reads stay Owner-only for the Admin role too.

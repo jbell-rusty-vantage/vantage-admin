@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useContext } from "react";
-// S8-USERS: the shell only ever carries an Owner/Admin role; a rep never renders it.
-import type { DashboardRole as AdminRole } from "@/server/models";
+// The shell carries an Owner, Admin or (Daily Operations only) Manager role; a rep never renders it.
+import type { DashboardShellRole as AdminRole } from "./dashboard-nav";
 
 const DashboardRoleContext = createContext<AdminRole | null>(null);
 

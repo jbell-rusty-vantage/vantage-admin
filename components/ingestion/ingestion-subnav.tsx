@@ -26,7 +26,7 @@ export function IngestionSubnavLinks({
   role,
 }: {
   pathname: string;
-  role: "owner" | "admin" | null;
+  role: "owner" | "admin" | "manager" | null;
 }) {
   return (
     <nav aria-label="Ingestion workflows" className="mb-6 border-b border-steel-200">

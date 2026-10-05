@@ -20,11 +20,12 @@ export function officialRecordHref(
 export function salesIntelligenceReturnHref(search: string | URLSearchParams | null | undefined) {
   const params = typeof search === "string" ? new URLSearchParams(search.startsWith("?") ? search.slice(1) : search) : search;
   const value = params?.get("si_return");
-  if (!value || !value.startsWith("/sales-intelligence")) return null;
+  // Numbers moved into the Outreach Desk; an older return link to /sales-intelligence still redirects there.
+  if (!value || !(value.startsWith("/outreach-desk") || value.startsWith("/sales-intelligence"))) return null;
   return value;
 }
 
 export function currentSalesIntelligenceHref(params: URLSearchParams) {
   const query = params.toString();
-  return query ? `/sales-intelligence?${query}` : "/sales-intelligence";
+  return query ? `/outreach-desk?${query}` : "/outreach-desk";
 }

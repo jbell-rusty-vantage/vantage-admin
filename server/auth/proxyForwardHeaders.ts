@@ -1,10 +1,15 @@
 import { setTrustedAdminHeaders, type TrustedAdminIdentity } from './trustedProxyHeaders';
 
 export const isCsiPath = (path: string) => /^\/?api\/v1\/admin\/sales-intelligence(?:\/|\?|$)/.test(path);
+/** The Sales Outreach Desk server namespace (ADM-7). */
+export const isOutreachDeskPath = (path: string) => /^\/?api\/v1\/admin\/sales-outreach(?:\/|\?|$)/.test(path);
 
-/** Sales Intelligence serves production only: an explicit `scope` other than `production` (query or body) is refused. */
+/**
+ * Sales Intelligence and the Sales Outreach Desk serve production only: an explicit `scope` other than `production`
+ * (query or body) is refused.
+ */
 export function currentCsiScope(path: string, body?: unknown): boolean {
-  if (!isCsiPath(path)) return true;
+  if (!isCsiPath(path) && !isOutreachDeskPath(path)) return true;
   const query = new URL(path.replace(/^\//, ''), 'https://proxy.local/').searchParams;
   const scopes: unknown[] = query.getAll('scope');
   if (body && typeof body === 'object' && 'scope' in body) scopes.push(body.scope);
@@ -18,7 +23,9 @@ export function proxyForwardHeaders(incoming: Headers, admin: TrustedAdminIdenti
     if (value) headers.set(name, value);
   }
   const granot = /^api\/v1\/admin\/granot-lifecycle\/(?:booking-cases\/[^/?]+\/(?:confirm-booking|create-referral-booking|update-booking|no-action|confirm-cancellation)|release-cases\/[^/?]+\/(?:confirm-cancellation|update-booking|no-action)|discrepancies\/[^/?]+\/(?:re-evaluate|correct-record-link|no-action))(?:\?|$)/.test(path);
-  if (granot || (isCsiPath(path) && ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method))) {
+  const write = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
+  // Desk commands need the browser's Idempotency-Key (every desk write requires one on the server).
+  if (granot || ((isCsiPath(path) || isOutreachDeskPath(path)) && write)) {
     const key = incoming.get('idempotency-key');
     if (key) headers.set('idempotency-key', key);
   }
