@@ -22,6 +22,12 @@ const c = deskCopy.activity;
 const l = deskCopy.lead;
 const t = deskCopy.text;
 
+/** One side of an assignment change: the server's name, Unassigned, or Unknown rep. */
+function agentText(agentId: string | null, name: string | null): string {
+  if (!agentId) return t.unassigned;
+  return name ?? t.unknownRep;
+}
+
 function History({ detail }: { detail: SalesOutreachDetailDto }) {
   const events = [...detail.history.contact_events].sort((a, b) => Date.parse(b.event_at) - Date.parse(a.event_at));
   return (
@@ -56,7 +62,7 @@ function History({ detail }: { detail: SalesOutreachDetailDto }) {
           <ul className="od-plainlist">
             {detail.history.assignment_changes.map((change) => (
               <li key={`${change.applied_at}-${change.to_agent_id}`} title={absoluteTime(change.applied_at)}>
-                {relativeDay(change.applied_at, detail.as_of)}: {change.to_agent_id ? (change.to_agent_id === detail.assignment.assigned_agent_id ? (detail.assignment.assigned_agent_name ?? t.unknownRep) : t.unknownRep) : t.unassigned}
+                {relativeDay(change.applied_at, detail.as_of)}: {agentText(change.from_agent_id, change.from_agent_name)} → {agentText(change.to_agent_id, change.to_agent_name)}
               </li>
             ))}
           </ul>

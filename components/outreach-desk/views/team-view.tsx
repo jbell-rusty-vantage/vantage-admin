@@ -519,6 +519,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
           <LeadPanel
             subjectId={lead}
             commands={capabilities.permitted_commands}
+            cadenceSummary={capabilities.cadence_summary}
             reps={reps}
             onRevoked={() => url.update({ lead: null }, { replace: true })}
             onClose={() => url.update({ lead: null })}

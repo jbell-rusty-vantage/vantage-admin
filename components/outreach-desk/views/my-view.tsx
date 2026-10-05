@@ -44,13 +44,11 @@ type SortValue = "urgency" | "lead_received" | "last_interaction";
 function GoalCard({
   rep,
   goalMetricsEnabled,
-  overdueLeads,
   businessDay,
   isToday,
 }: {
   rep: SalesOutreachRepDayDto | null;
   goalMetricsEnabled: boolean;
-  overdueLeads: { text: string; available: boolean; reason: string | null } | null;
   businessDay: string | null;
   isToday: boolean;
 }) {
@@ -66,12 +64,17 @@ function GoalCard({
           ? c.toGoal(rep.remaining)
           : c.waitingCapture;
   const scope = rep?.count_scope === "eligible_new_quoted" ? deskCopy.team.goals.scopeEligible : deskCopy.team.goals.scopeAll;
-  const metric = (value: string, label: string, tone: string, title?: string) => (
-    <div className="od-goal__metric" title={title}>
-      <span className={`od-goal__metric-value ${value === "—" ? "od-text-muted" : tone}`}>{value}</span>
-      <span className={`od-goal__metric-label ${tone}`}>{label}</span>
-    </div>
-  );
+  // The rep's cadence counts at `as_of` (Leads, call attempts, SMS sends); unavailable shows "—" with the reason.
+  const metric = (value: SalesOutreachRepDayDto["overdue_leads"] | SalesOutreachRepDayDto["calls_due_today"] | null, label: string, tone: string) => {
+    const shown = value ? cadenceMetricText(value) : null;
+    const text = shown?.available ? shown.text : "—";
+    return (
+      <div className="od-goal__metric" title={shown?.reason ?? (shown?.available ? undefined : c.metricUnavailable)}>
+        <span className={`od-goal__metric-value ${text === "—" ? "od-text-muted" : tone}`}>{text}</span>
+        <span className={`od-goal__metric-label ${tone}`}>{label}</span>
+      </div>
+    );
+  };
   return (
     <section className="od-card od-goal" aria-labelledby="od-goal-title" data-testid="goal-card">
       <div className="od-goal__main">
@@ -113,9 +116,9 @@ function GoalCard({
         )}
       </div>
       <div className="od-goal__metrics">
-        {metric(overdueLeads?.available ? overdueLeads.text : "—", c.overdue, "od-text-red", overdueLeads?.reason ?? deskCopy.my.metricUnavailable)}
-        {metric("—", c.callsDue, "od-text-amber", deskCopy.my.metricUnavailable)}
-        {metric("—", c.smsDue, "od-text-green", deskCopy.my.metricUnavailable)}
+        {metric(rep?.overdue_leads ?? null, c.overdue, "od-text-red")}
+        {metric(rep?.calls_due_today ?? null, c.callsDue, "od-text-amber")}
+        {metric(rep?.sms_due_today ?? null, c.smsDue, "od-text-green")}
       </div>
     </section>
   );
@@ -159,7 +162,7 @@ function QueueRow({
         {row.phone ? <span className="od-cell__sub">{row.phone}</span> : null}
       </td>
       <td className={row.status_flags.overdue ? "od-text-red od-strong-red" : undefined} title={absoluteTime(row.received_at)}>
-        {leadAgeText(row.received_at, asOf)}
+        {leadAgeText(row, asOf)}
       </td>
       <td className="od-text-muted" title={absoluteTime(row.last_interaction_at)}>
         {relativeDay(row.last_interaction_at, asOf)}
@@ -195,7 +198,6 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
   const today = nyDate(asOf);
   const rep = repDays.data?.reps?.[0] ?? null;
   const teamRow = agent ? (team.data?.daily_call_goals?.find((row) => row.agent_id === agent) ?? null) : null;
-  const overdueLeads = coordinator && teamRow ? cadenceMetricText(teamRow.overdue_leads) : null;
   const reps: RepOption[] = useMemo(
     () => (team.data?.daily_call_goals ?? []).map((row) => ({ id: row.agent_id, name: row.agent_name ?? t.unknownRep })),
     [team.data],
@@ -277,7 +279,6 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
           <GoalCard
             rep={rep}
             goalMetricsEnabled={repDays.data ? repDays.data.goal_metrics_enabled : capabilities.controls.goal_metrics_enabled}
-            overdueLeads={overdueLeads}
             businessDay={repDays.data?.business_day ?? null}
             isToday={isToday}
           />
@@ -427,6 +428,7 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
               <LeadPanel
                 subjectId={lead}
                 commands={capabilities.permitted_commands}
+                cadenceSummary={capabilities.cadence_summary}
                 reps={coordinator ? reps : null}
                 onRevoked={() => url.update({ lead: null }, { replace: true })}
               />

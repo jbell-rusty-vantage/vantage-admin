@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   canonicalDeskQuery,
   defaultDeskView,
+  deskNavViews,
   deskRouteDecision,
   deskViewHref,
   deskViewsFor,
@@ -20,6 +21,16 @@ test("frames per role (IMPL-02): Owner all six, Manager four, Rep three; default
   assert.equal(defaultDeskView("owner"), "team");
   assert.equal(defaultDeskView("manager"), "team");
   assert.equal(defaultDeskView("rep"), "my");
+});
+
+test("the sidebar lists the role's frames narrowed to the server's permitted_views (S4)", () => {
+  assert.deepEqual(deskNavViews("rep", null), ["my", "activity", "settings"]);
+  assert.deepEqual(deskNavViews("rep", ["my", "activity"]), ["my", "activity"]);
+  assert.deepEqual(deskNavViews("manager", ["team", "my", "activity", "settings"]), ["team", "my", "activity", "settings"]);
+  assert.deepEqual(deskNavViews("manager", ["settings"]), ["settings"]);
+  assert.deepEqual(deskNavViews("owner", ["settings", "numbers", "accounts"]), ["settings", "numbers", "accounts"]);
+  // A view the server lists but the role's URL rule lacks never appears.
+  assert.deepEqual(deskNavViews("rep", ["my", "team"]), ["my"]);
 });
 
 test("the route writes `view` first and redirects any non-canonical or foreign link", () => {

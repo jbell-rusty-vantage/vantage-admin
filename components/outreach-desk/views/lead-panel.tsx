@@ -2,8 +2,9 @@
 /**
  * The selected-lead panel (SPECIFICATION §6.1, the right panel of sales-rep-desk.webp): Job Number, phone, name,
  * workflow and schedule day, today's Call and SMS requirements (independent), Copy job #, the next action, recent
- * activity, the Quoted date / callback controls the role may use, assignment for coordinators, and this lead's schedule
- * explained from the server's explanation codes. Every status is the server's; times are interpolated from `as_of`.
+ * activity, the Quoted date / callback controls the role may use, assignment for coordinators, this lead's schedule
+ * explained from the server's explanation codes and, for a New lead, the capabilities' read-only New lead schedule.
+ * Every status is the server's; times are interpolated from `as_of`.
  *
  * A 403/404 means the lead left this viewer's scope (reassignment, foreign id): its cached rows are cleared and the
  * selection is dropped (`onRevoked`).
@@ -13,6 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { BarChart3, CalendarDays, CircleAlert, CircleCheck, Clock3, UserRound, X } from "lucide-react";
 import {
   isSalesOutreachApiError,
+  type SalesOutreachCadenceSummaryDto,
   type SalesOutreachChannelDto,
   type SalesOutreachDetailDto,
 } from "@/lib/api/salesOutreach";
@@ -25,7 +27,7 @@ import {
   useCallbackCommand,
   useQuotedFollowupCommand,
 } from "../data/use-desk-commands";
-import { absoluteTime, durationWords, nyDate, relativeDay, shortDateLabel } from "../lib/format";
+import { absoluteTime, cadenceSummaryLines, durationWords, nyDate, relativeDay, shortDateLabel } from "../lib/format";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, SkeletonLine } from "../primitives";
 
@@ -254,6 +256,7 @@ function CommandError({ error }: { error: unknown }) {
 export function LeadPanel({
   subjectId,
   commands,
+  cadenceSummary = null,
   reps,
   onRevoked,
   onClose,
@@ -261,6 +264,8 @@ export function LeadPanel({
   subjectId: string;
   /** The server's `permitted_commands` for this viewer. */
   commands: readonly string[];
+  /** The capabilities' read-only New lead schedule, shown for New leads. */
+  cadenceSummary?: SalesOutreachCadenceSummaryDto | null;
   /** Coordinators: the reps they may assign to. */
   reps: RepOption[] | null;
   onRevoked: () => void;
@@ -302,17 +307,28 @@ export function LeadPanel({
           </div>
         )
       ) : (
-        <LeadPanelBody detail={detail} commands={commands} reps={reps} />
+        <LeadPanelBody detail={detail} commands={commands} cadenceSummary={cadenceSummary} reps={reps} />
       )}
     </aside>
   );
 }
 
-function LeadPanelBody({ detail, commands, reps }: { detail: SalesOutreachDetailDto; commands: readonly string[]; reps: RepOption[] | null }) {
+function LeadPanelBody({
+  detail,
+  commands,
+  cadenceSummary,
+  reps,
+}: {
+  detail: SalesOutreachDetailDto;
+  commands: readonly string[];
+  cadenceSummary: SalesOutreachCadenceSummaryDto | null;
+  reps: RepOption[] | null;
+}) {
   const s = detail.subject;
   const next = nextAction(detail);
   const NextIcon = next.icon;
   const lines = explanationLines(detail);
+  const schedule = detail.policy.workflow === "new" ? cadenceSummaryLines(cadenceSummary) : [];
   const workflowLine =
     detail.policy.workflow === "new"
       ? [c.newLead, detail.policy.schedule_day !== null ? c.dayN(detail.policy.schedule_day) : null].filter(Boolean).join(" · ")
@@ -370,6 +386,19 @@ function LeadPanelBody({ detail, commands, reps }: { detail: SalesOutreachDetail
             <h3>{c.policyTitle}</h3>
             <ul>
               {lines.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      ) : null}
+      {schedule.length ? (
+        <section className="od-infobox" data-testid="lead-schedule">
+          <CalendarDays aria-hidden="true" />
+          <div>
+            <h3>{c.schedule.title}</h3>
+            <ul>
+              {schedule.map((line) => (
                 <li key={line}>{line}</li>
               ))}
             </ul>

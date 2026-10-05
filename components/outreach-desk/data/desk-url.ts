@@ -27,6 +27,15 @@ export function deskViewsFor(role: OutreachDeskRole): readonly DeskView[] {
   return VIEWS_BY_ROLE[role];
 }
 
+/**
+ * The frames the sidebar lists: the role's frames, narrowed to the server's `permitted_views` once capabilities
+ * have answered (null while they load or fail, when the role's frames stand).
+ */
+export function deskNavViews(role: OutreachDeskRole, permitted: readonly string[] | null): readonly DeskView[] {
+  if (!permitted) return VIEWS_BY_ROLE[role];
+  return VIEWS_BY_ROLE[role].filter((view) => permitted.includes(view));
+}
+
 export function defaultDeskView(role: OutreachDeskRole): DeskView {
   return role === "rep" ? "my" : "team";
 }

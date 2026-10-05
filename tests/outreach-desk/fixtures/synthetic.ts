@@ -128,7 +128,7 @@ export function syntheticCapabilities(role: SalesOutreachRole, variant: Syntheti
     },
     desk_available: true,
     unavailable_reason: null,
-    permitted_views: role === "owner" ? ["team", "my", "settings", "numbers", "accounts"] : coordinator ? ["team", "my"] : ["my"],
+    permitted_views: role === "owner" ? ["team", "my", "activity", "settings", "numbers", "accounts"] : coordinator ? ["team", "my", "activity", "settings"] : ["my", "activity"],
     permitted_filters: {
       rep_days: coordinator ? ["business_day", "agent_id"] : ["business_day"],
       team: coordinator ? ["business_day"] : [],
@@ -138,6 +138,18 @@ export function syntheticCapabilities(role: SalesOutreachRole, variant: Syntheti
     permitted_commands: commands,
     role_capabilities: [...ROLE_CAPABILITIES[role]],
     deployed_reads: ["capabilities", "rep_days", "team", "queue", "outreach_detail", "live"],
+    cadence_summary: {
+      policy_version: "final-policy-2026-10-03-v1",
+      new: {
+        days_1_3_calls: { required: 2, optional: 1 },
+        call_slots: [
+          { from_day: 1, to_day: 5, calls_per_day: 2 },
+          { from_day: 6, to_day: null, calls_per_day: 1 },
+        ],
+        sms_sequence: { initial_days: [1, 2, 3], repeat_from_day: 6, repeat_every_days: 3 },
+      },
+      quoted: null,
+    },
   };
 }
 
@@ -154,9 +166,21 @@ const GOAL_SPECS: GoalSpec[] = [
   { key: "drew", actual: 0, awaiting: 0, overdue: 0, noGoal: true },
 ];
 
-function repDay(spec: GoalSpec): SalesOutreachRepDayDto {
+const cadenceOff = { value: null, unknown_reason: "cadence_disabled" as const };
+
+/** The rep's due counts, summed from its synthetic queue rows the way the server sums its projections. */
+function dueSum(agentId: string, channelKey: "call" | "sms"): number {
+  return syntheticQueueRows()
+    .filter((row) => row.assigned_agent_id === agentId)
+    .map((row) => row[channelKey])
+    .filter((channel) => channel.status === "due" || channel.status === "overdue")
+    .reduce((sum, channel) => sum + (channel.remaining ?? 0), 0);
+}
+
+function repDay(spec: GoalSpec, variant: SyntheticVariant): SalesOutreachRepDayDto {
   const agent = SYNTHETIC_AGENTS[spec.key];
   const goal = spec.noGoal ? 0 : 100;
+  const enforcement = variant === "desk";
   return {
     agent_id: agent.id,
     agent_name: agent.name,
@@ -185,13 +209,16 @@ function repDay(spec: GoalSpec): SalesOutreachRepDayDto {
     unknown_reason: null,
     projection_revision: 57,
     computed_as_of: "2026-10-01T15:59:30.000Z",
+    overdue_leads: enforcement ? { value: spec.overdue, unknown_reason: null } : cadenceOff,
+    calls_due_today: enforcement ? { value: dueSum(agent.id, "call"), unknown_reason: null } : cadenceOff,
+    sms_due_today: enforcement ? { value: dueSum(agent.id, "sms"), unknown_reason: null } : cadenceOff,
   };
 }
 
 export function syntheticRepDays(input: { role: SalesOutreachRole; agentId?: string | null; variant?: SyntheticVariant }): SalesOutreachRepDaysDto {
   const variant = input.variant ?? "desk";
   const scopeAgent = input.role === "rep" ? SYNTHETIC_REP_AGENT_ID : (input.agentId ?? null);
-  const reps = GOAL_SPECS.map(repDay).filter((row) => !scopeAgent || row.agent_id === scopeAgent);
+  const reps = GOAL_SPECS.map((spec) => repDay(spec, variant)).filter((row) => !scopeAgent || row.agent_id === scopeAgent);
   return {
     ...syntheticCommonRead(input.role, scopeAgent, variant),
     business_day: SYNTHETIC_BUSINESS_DAY,
@@ -203,15 +230,10 @@ export function syntheticRepDays(input: { role: SalesOutreachRole; agentId?: str
   };
 }
 
-const cadenceOff = { value: null, unknown_reason: "cadence_disabled" as const };
-
 export function syntheticTeam(input: { role: Exclude<SalesOutreachRole, "rep">; variant?: SyntheticVariant }): SalesOutreachTeamDto {
   const variant = input.variant ?? "desk";
   const enforcement = variant === "desk";
-  const rows: SalesOutreachDailyCallGoalRow[] = GOAL_SPECS.map((spec) => ({
-    ...repDay(spec),
-    overdue_leads: enforcement ? { value: spec.overdue, unknown_reason: null } : cadenceOff,
-  }));
+  const rows: SalesOutreachDailyCallGoalRow[] = GOAL_SPECS.map((spec) => repDay(spec, variant));
   const goalReps = GOAL_SPECS.filter((spec) => !spec.noGoal);
   const actual = GOAL_SPECS.reduce((sum, spec) => sum + spec.actual, 0);
   const goal = goalReps.length * 100;
@@ -406,7 +428,14 @@ function toRow(spec: RowSpec, variant: SyntheticVariant): SalesOutreachQueueRowD
     exposure: variant === "desk" ? "enforcement" : "shadow",
     computed_as_of: "2026-10-01T15:59:30.000Z",
     publication_revision: 50 + spec.n,
+    schedule_day: spec.workflow === "new" ? scheduleDay(spec.received) : null,
   };
+}
+
+/** Received date = Day 1, counted to the synthetic business day (the synthetic leads arrive in New York daytime). */
+function scheduleDay(receivedAt: string): number {
+  const days = (Date.parse(`${SYNTHETIC_BUSINESS_DAY}T12:00:00Z`) - Date.parse(`${receivedAt.slice(0, 10)}T12:00:00Z`)) / 86_400_000;
+  return Math.round(days) + 1;
 }
 
 /** Every synthetic queue row in urgency order (overdue first, then next due), as the server would order it. */
@@ -562,7 +591,9 @@ export function syntheticDetail(input: { subjectId: string; role: SalesOutreachR
       missed_labels_hidden: !enforcement,
       contact_events: callEvents,
       contact_events_truncated: false,
-      assignment_changes: row.assigned_agent_id ? [{ applied_at: "2026-09-29T13:25:00.000Z", from_agent_id: null, to_agent_id: row.assigned_agent_id }] : [],
+      assignment_changes: row.assigned_agent_id
+        ? [{ applied_at: "2026-09-29T13:25:00.000Z", from_agent_id: null, to_agent_id: row.assigned_agent_id, from_agent_name: null, to_agent_name: row.assigned_agent_name }]
+        : [],
     },
     restrictions: [],
     computed_as_of: row.computed_as_of,

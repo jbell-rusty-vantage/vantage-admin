@@ -98,6 +98,22 @@ export function DeskFrame({ viewer, view }: { viewer: DeskViewer; view: DeskView
     );
   }
 
+  // The server's `permitted_views` is the authority for each frame (Activity, a Manager's Settings; a Rep has none).
+  if (!data.permitted_views.includes(view)) {
+    return (
+      <div className="od-scroll">
+        <div className="od-page">
+          <DeskHeader title={deskCopy.titles[view]} />
+          <Notice icon={CircleOff} title={u.notPermitted}>
+            <Link className="od-button" href={deskViewHref(viewer.role === "rep" ? "my" : "team")}>
+              {u.backToDesk}
+            </Link>
+          </Notice>
+        </div>
+      </div>
+    );
+  }
+
   switch (view) {
     case "team":
       return <TeamView viewer={viewer} capabilities={data} />;

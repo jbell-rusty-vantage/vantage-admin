@@ -97,6 +97,7 @@ export const deskCopy = {
     cadence_disabled: "Cadence isn't running yet",
     cadence_shadow: "Cadence is in shadow mode",
     policy_unavailable: "Policy unavailable",
+    coverage_incomplete: "Waiting for RingCentral capture coverage",
   } as Record<string, string>,
   goalStates: {
     goal: "",
@@ -139,6 +140,8 @@ export const deskCopy = {
     error: "The desk couldn't load. It will retry automatically.",
     ownerSettings: "Open Settings",
     retry: "Retry",
+    notPermitted: "This page isn't part of your desk.",
+    backToDesk: "Go to my desk",
   },
   team: {
     toolbar: "Team filters",
@@ -271,6 +274,15 @@ export const deskCopy = {
     automaticTitle: "Automatic tracking",
     automaticBody: "Contact this job in the moving software and RingCentral. Outreach updates here automatically.",
     policyTitle: "This lead's schedule",
+    schedule: {
+      title: "New lead schedule",
+      firstDays: (required: number, optional: number) =>
+        `Days 1–3: ${plural(required, "call", "calls")} required${optional ? `, ${optional} optional` : ""}`,
+      slot: (from: number, to: number | null, perDay: number) =>
+        `${to === null ? `Day ${from} on` : from === to ? `Day ${from}` : `Days ${from}–${to}`}: ${plural(perDay, "call", "calls")} a day`,
+      sms: (initial: number[], repeatFrom: number, every: number) =>
+        `SMS: ${initial.length ? `${initial.length === 1 ? "Day" : "Days"} ${initial.join(", ")}, then ` : ""}every ${plural(every, "day", "days")} from Day ${repeatFrom}`,
+    },
     footnote: "Calls and SMS update automatically from RingCentral.",
     assignedTo: "Assigned to",
     reassign: "Reassign",

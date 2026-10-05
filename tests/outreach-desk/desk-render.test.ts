@@ -7,6 +7,7 @@ import {
   addDays,
   businessDateLabel,
   cadenceMetricText,
+  cadenceSummaryLines,
   callsTodayText,
   channelStatus,
   countText,
@@ -27,7 +28,16 @@ import { explanationLines, nextAction } from "../../components/outreach-desk/vie
 import { isoToNewYorkLocal, newYorkLocalToIso } from "../../components/outreach-desk/data/use-desk-commands";
 import { msUntilNewYorkMidnight, parseDeskFrame } from "../../components/outreach-desk/data/use-desk-live";
 import { outreachDeskMockVariant } from "../../server/outreach-desk-mock";
-import { salesOutreachErrorFromBody, type SalesOutreachChannelDto, type SalesOutreachQueueRowDto } from "../../lib/api/salesOutreach";
+import {
+  salesOutreachErrorFromBody,
+  type SalesOutreachCapabilitiesDto,
+  type SalesOutreachChannelDto,
+  type SalesOutreachQueueRowDto,
+  type SalesOutreachRepDaysDto,
+} from "../../lib/api/salesOutreach";
+
+const readServerExample = (name: string): unknown =>
+  JSON.parse(readFileSync(path.join(process.cwd(), "tests/outreach-desk/fixtures/server", name), "utf8"));
 import { syntheticDetail, syntheticQueueRows, syntheticTeam, syntheticSubjectId } from "./fixtures/synthetic";
 
 /**
@@ -59,8 +69,43 @@ test("dates are New York business dates and relative times interpolate from as_o
   assert.equal(relativeDay("2026-09-20T18:40:00.000Z", AS_OF), "Sep 20");
   assert.equal(relativeDay(null, AS_OF), "Never");
   assert.match(absoluteTime("2026-10-01T13:10:00.000Z"), /Oct 1, 2026.*9:10 AM EDT/);
-  assert.equal(leadAgeText("2026-09-29T14:00:00.000Z", AS_OF), "Day 3");
+  assert.equal(leadAgeText({ received_at: "2026-09-29T14:00:00.000Z", schedule_day: null }, AS_OF), "Day 3");
   assert.equal(addDays("2026-10-31", 1), "2026-11-01");
+});
+
+test("Lead age is the server's schedule_day when the row has one, else New York calendar age (S4)", () => {
+  // The stored schedule day wins even when it disagrees with the calendar (closures shift the cadence day).
+  assert.equal(leadAgeText({ received_at: "2026-09-29T14:00:00.000Z", schedule_day: 2 }, AS_OF), "Day 2");
+  assert.equal(leadAgeText({ received_at: null, schedule_day: null }, AS_OF), "Unknown");
+  const queue = readServerExample("queue.owner.page-1.json") as { data: { rows: SalesOutreachQueueRowDto[]; as_of: string } };
+  for (const row of queue.data.rows) {
+    if (row.schedule_day !== null) assert.equal(leadAgeText(row, queue.data.as_of), `Day ${row.schedule_day}`);
+  }
+});
+
+test("the New lead schedule renders the capabilities' cadence summary 1:1, nothing when unconfigured (S4)", () => {
+  const enforced = readServerExample("capabilities.rep.cadence-enforcement.json") as { data: SalesOutreachCapabilitiesDto };
+  assert.deepEqual(cadenceSummaryLines(enforced.data.cadence_summary), [
+    "Days 1–3: 2 calls required, 1 optional",
+    "Days 1–5: 2 calls a day",
+    "Day 6 on: 1 call a day",
+    "SMS: Days 1, 2, 3, then every 3 days from Day 6",
+  ]);
+  const unconfigured = readServerExample("capabilities.rep.json") as { data: SalesOutreachCapabilitiesDto };
+  assert.deepEqual(cadenceSummaryLines(unconfigured.data.cadence_summary), []);
+  assert.deepEqual(cadenceSummaryLines(null), []);
+});
+
+test("rep due counts: coverage_incomplete reads as unavailable with its reason, never a partial sum (S4)", () => {
+  const repDays = readServerExample("rep-days.rep.cadence-enforcement.json") as { data: SalesOutreachRepDaysDto };
+  const rep = repDays.data.reps![0]!;
+  assert.equal(cadenceMetricText(rep.overdue_leads).text, String(rep.overdue_leads.value));
+  assert.equal(cadenceMetricText(rep.calls_due_today).text, String(rep.calls_due_today.value));
+  assert.deepEqual(cadenceMetricText({ value: null, unknown_reason: "coverage_incomplete" }), {
+    text: "Unavailable",
+    available: false,
+    reason: "Waiting for RingCentral capture coverage",
+  });
 });
 
 test("pending counts are never zero; progress is capped", () => {

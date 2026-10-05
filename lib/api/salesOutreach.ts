@@ -89,6 +89,9 @@ export const SALES_OUTREACH_GRANOT_FRESHNESS_STATES = ["observed", "unknown"] as
 export const SALES_OUTREACH_CONFIGURATION_STATES = ["uninitialized", "active", "unavailable"] as const;
 export const SALES_OUTREACH_CADENCE_UNKNOWN_REASONS = ["cadence_disabled", "cadence_shadow", "policy_unavailable"] as const;
 export type SalesOutreachCadenceUnknownReason = (typeof SALES_OUTREACH_CADENCE_UNKNOWN_REASONS)[number];
+/** Due-count reasons (rep-days `calls_due_today` / `sms_due_today`): the cadence reasons plus `coverage_incomplete`. */
+export const SALES_OUTREACH_DUE_TODAY_UNKNOWN_REASONS = [...SALES_OUTREACH_CADENCE_UNKNOWN_REASONS, "coverage_incomplete"] as const;
+export type SalesOutreachDueTodayUnknownReason = (typeof SALES_OUTREACH_DUE_TODAY_UNKNOWN_REASONS)[number];
 export const SALES_OUTREACH_MOVE_DATE_REVIEWS = ["passed", "unknown"] as const;
 export const SALES_OUTREACH_VIEWS = ["team", "my", "activity", "settings", "numbers", "accounts"] as const;
 export type SalesOutreachView = (typeof SALES_OUTREACH_VIEWS)[number];
@@ -191,6 +194,13 @@ export const salesOutreachCadenceMetricSchema = z.object({
 });
 export type SalesOutreachCadenceMetric = z.infer<typeof salesOutreachCadenceMetricSchema>;
 
+/** A due count (call attempts or SMS sends); `coverage_incomplete` when a due requirement's remaining is unknown. */
+export const salesOutreachDueTodayMetricSchema = z.object({
+  value: count.nullable(),
+  unknown_reason: z.enum(SALES_OUTREACH_DUE_TODAY_UNKNOWN_REASONS).nullable(),
+});
+export type SalesOutreachDueTodayMetric = z.infer<typeof salesOutreachDueTodayMetricSchema>;
+
 /** One channel's requirement; `status` is already derived at `as_of` by the server. */
 export const salesOutreachChannelSchema = z.object({
   required: count.nullable(),
@@ -245,12 +255,37 @@ export const salesOutreachQueueRowSchema = z.object({
   exposure: z.enum(SALES_OUTREACH_CADENCE_EXPOSURES),
   computed_as_of: instant,
   publication_revision: count,
+  /** New schedule day (received date = Day 1) stored by the evaluator; null outside the `new` workflow or when none was stored. */
+  schedule_day: z.number().int().nullable(),
 });
 export type SalesOutreachQueueRowDto = z.infer<typeof salesOutreachQueueRowSchema>;
 
 // ---------------------------------------------------------------------------------------------
 // GET /capabilities
 // ---------------------------------------------------------------------------------------------
+
+/**
+ * The read-only New lead schedule every desk role may see (a 1:1 copy of the configuration's `cadence.*`). A null
+ * inner value is not configured; `quoted` is null today (the configuration holds no Quoted daily-call value).
+ */
+export const salesOutreachCadenceSummarySchema = z.object({
+  policy_version: z.string().nullable(),
+  new: z.object({
+    days_1_3_calls: z.object({ required: count, optional: count }).nullable(),
+    call_slots: z
+      .array(z.object({ from_day: z.number().int().min(1), to_day: z.number().int().min(1).nullable(), calls_per_day: z.number().int().min(1) }))
+      .nullable(),
+    sms_sequence: z
+      .object({
+        initial_days: z.array(z.number().int().min(1)),
+        repeat_from_day: z.number().int().min(1),
+        repeat_every_days: z.number().int().min(1),
+      })
+      .nullable(),
+  }),
+  quoted: z.object({ daily_calls_when_due: count.nullable() }).nullable(),
+});
+export type SalesOutreachCadenceSummaryDto = z.infer<typeof salesOutreachCadenceSummarySchema>;
 
 export const salesOutreachCapabilitiesSchema = baseReadSchema.extend({
   controls: z.object({
@@ -273,6 +308,8 @@ export const salesOutreachCapabilitiesSchema = baseReadSchema.extend({
   permitted_commands: z.array(z.string()),
   role_capabilities: z.array(z.string()),
   deployed_reads: z.array(z.enum(SALES_OUTREACH_DEPLOYED_READS)),
+  /** Served to every role whenever the configuration is active (also with the desk off); null otherwise. */
+  cadence_summary: salesOutreachCadenceSummarySchema.nullable(),
 });
 export type SalesOutreachCapabilitiesDto = z.infer<typeof salesOutreachCapabilitiesSchema>;
 
@@ -319,6 +356,13 @@ export const salesOutreachRepDaySchema = z.object({
   unknown_reason: z.string().nullable(),
   projection_revision: count.nullable(),
   computed_as_of: nullableInstant,
+  /*
+   * Cadence counts for the rep's current assignment at `as_of`, whatever `business_day` is shown. Units differ
+   * (Leads, call attempts, SMS sends): never compare one with another.
+   */
+  overdue_leads: salesOutreachCadenceMetricSchema,
+  calls_due_today: salesOutreachDueTodayMetricSchema,
+  sms_due_today: salesOutreachDueTodayMetricSchema,
 });
 export type SalesOutreachRepDayDto = z.infer<typeof salesOutreachRepDaySchema>;
 
@@ -356,9 +400,8 @@ export const salesOutreachTeamGoalsSchema = z.object({
   roster_size: count,
 });
 
-export const salesOutreachDailyCallGoalRowSchema = salesOutreachRepDaySchema.extend({
-  overdue_leads: salesOutreachCadenceMetricSchema,
-});
+/** `GET /team` goal rows are the same composed rows as `GET /rep-days`. */
+export const salesOutreachDailyCallGoalRowSchema = salesOutreachRepDaySchema;
 export type SalesOutreachDailyCallGoalRow = z.infer<typeof salesOutreachDailyCallGoalRowSchema>;
 
 export const salesOutreachTeamSchema = commonReadSchema.extend({
@@ -633,6 +676,9 @@ export const salesOutreachDetailSchema = commonReadSchema.extend({
           applied_at: instant,
           from_agent_id: salesOutreachAgentIdSchema.nullable(),
           to_agent_id: salesOutreachAgentIdSchema.nullable(),
+          /** Reviewed rep link name, else the Agent's name; null when that side is unassigned or unknown. */
+          from_agent_name: z.string().nullable(),
+          to_agent_name: z.string().nullable(),
         }),
       )
       .max(50),

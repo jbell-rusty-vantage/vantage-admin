@@ -5,8 +5,10 @@
  */
 import type {
   SalesOutreachCadenceMetric,
+  SalesOutreachCadenceSummaryDto,
   SalesOutreachCaptureFreshness,
   SalesOutreachChannelDto,
+  SalesOutreachDueTodayMetric,
   SalesOutreachFreshness,
   SalesOutreachQueueRowDto,
   SalesOutreachRepDayDto,
@@ -108,8 +110,8 @@ export function fillPercent(progress: number | null): number {
   return progress === null ? 0 : Math.round(Math.min(1, Math.max(0, progress)) * 1000) / 10;
 }
 
-/** A cadence metric (overdue leads, quoted with gaps): the value, or why it is unavailable. */
-export function cadenceMetricText(metric: SalesOutreachCadenceMetric): { text: string; available: boolean; reason: string | null } {
+/** A cadence metric (overdue leads, quoted with gaps, calls/SMS due): the value, or why it is unavailable. */
+export function cadenceMetricText(metric: SalesOutreachCadenceMetric | SalesOutreachDueTodayMetric): { text: string; available: boolean; reason: string | null } {
   if (metric.value !== null) return { text: String(metric.value), available: true, reason: null };
   const reason = metric.unknown_reason;
   return { text: t.unavailable, available: false, reason: reason ? (deskCopy.unknownReasons[reason] ?? t.unavailable) : null };
@@ -213,10 +215,26 @@ export function overdueByText(channel: SalesOutreachChannelDto, asOf: string): s
 
 // ---------------------------------------------------------------------------------------------- rows
 
-/** Calendar age in New York days, Day 1 being the day the Lead arrived ("Day 3"). */
-export function leadAgeText(receivedAt: string | null, asOf: string): string {
-  if (!receivedAt) return t.unknown;
-  return t.day(Math.max(1, daysBetween(nyDate(receivedAt), nyDate(asOf)) + 1));
+/**
+ * Lead age ("Day 3"): the server's New schedule day when the row carries one; otherwise (Quoted and other
+ * workflows) the calendar age in New York days, Day 1 being the day the Lead arrived.
+ */
+export function leadAgeText(row: Pick<SalesOutreachQueueRowDto, "received_at" | "schedule_day">, asOf: string): string {
+  if (row.schedule_day !== null) return t.day(row.schedule_day);
+  if (!row.received_at) return t.unknown;
+  return t.day(Math.max(1, daysBetween(nyDate(row.received_at), nyDate(asOf)) + 1));
+}
+
+/** The read-only New lead schedule as lines ("Days 1–3: 2 calls required, 1 optional"); empty when nothing is configured. */
+export function cadenceSummaryLines(summary: SalesOutreachCadenceSummaryDto | null): string[] {
+  const s = deskCopy.lead.schedule;
+  const fresh = summary?.new;
+  if (!fresh) return [];
+  const lines: string[] = [];
+  if (fresh.days_1_3_calls) lines.push(s.firstDays(fresh.days_1_3_calls.required, fresh.days_1_3_calls.optional));
+  for (const slot of fresh.call_slots ?? []) lines.push(s.slot(slot.from_day, slot.to_day, slot.calls_per_day));
+  if (fresh.sms_sequence) lines.push(s.sms(fresh.sms_sequence.initial_days, fresh.sms_sequence.repeat_from_day, fresh.sms_sequence.repeat_every_days));
+  return lines;
 }
 
 /** The priority pill for a row: New, Quoted, the raw code for other observed codes, or Unknown. */

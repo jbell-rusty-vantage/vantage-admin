@@ -3,8 +3,8 @@
  * The "Lead outreach" shell (ADM-2): its own narrow sidebar (brand, the role's frames, a selected-nav pill, the
  * signed-in identity at its foot) around the desk frame. It replaces the Admin sidebar on `/outreach-desk` for every
  * role, as in the reference screenshots. The Owner and a Manager also get quiet links to Daily Operations, and the
- * Owner one back to the Admin dashboard. Which frames exist for a role is a URL rule (`deskViewsFor`); the server's
- * capabilities still decide what each frame may load.
+ * Owner one back to the Admin dashboard. Which frames exist for a role is a URL rule (`deskViewsFor`); the sidebar
+ * narrows it to the server's `permitted_views`, and the capabilities still decide what each frame may load.
  */
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -26,7 +26,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { OutreachDeskRole } from "@/server/models/adminRoles";
-import { DESK_PATH, deskViewHref, deskViewsFor, type DeskView } from "../data/desk-url";
+import { DESK_PATH, deskNavViews, deskViewHref, type DeskView } from "../data/desk-url";
+import { useCapabilities } from "../data/use-desk-reads";
 import { deskCopy } from "../outreach-desk-copy";
 import "../styles/outreach-desk.css";
 
@@ -76,10 +77,12 @@ export type DeskViewer = {
 
 export function DeskNav({ role, view, onNavigate }: { role: OutreachDeskRole; view: DeskView; onNavigate?: () => void }) {
   const coordinator = role !== "rep";
+  const capabilities = useCapabilities();
+  const permitted = capabilities.data && !capabilities.error ? capabilities.data.permitted_views : null;
   return (
     <nav aria-label={c.nav.label}>
       <div className="od-nav">
-        {deskViewsFor(role).map((item) => {
+        {deskNavViews(role, permitted).map((item) => {
           const Icon = viewIcon(item, role);
           return (
             <Link
