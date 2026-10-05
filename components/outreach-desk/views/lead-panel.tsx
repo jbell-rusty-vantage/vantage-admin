@@ -48,7 +48,10 @@ export function nextAction(detail: Pick<SalesOutreachDetailDto, "requirements" |
   if (sms.status === "overdue") return { text: c.smsOverdue, sub: cooldown, tone: "red", icon: CircleAlert };
   if (call.status === "due") {
     const due = call.due_at && Date.parse(call.due_at) > Date.parse(detail.as_of) && nyDate(call.due_at) === nyDate(detail.as_of);
-    return { text: due ? c.callDueBy(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).format(new Date(call.due_at as string))) : c.nextCallDue, sub: cooldown, tone: "red", icon: Clock3 };
+    // Due now (or with no later deadline today) reads as the reference's red "Next call due now"; due later today is amber.
+    return due
+      ? { text: c.callDueBy(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).format(new Date(call.due_at as string))), sub: cooldown, tone: "amber", icon: Clock3 }
+      : { text: c.nextCallDue, sub: cooldown, tone: "red", icon: Clock3 };
   }
   if (sms.status === "due") return { text: c.smsDue, sub: cooldown, tone: "amber", icon: Clock3 };
   if (call.status === "completed" || sms.status === "completed") return { text: c.allDone, sub: null, tone: "green", icon: CircleCheck };

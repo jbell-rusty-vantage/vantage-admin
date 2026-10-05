@@ -67,7 +67,7 @@ function SummaryCard({
       <IconBadge icon={icon} tone={tone} />
       <div className="od-summary__body">
         <h2 className="od-summary__title">{title}</h2>
-        <p className="od-summary__value">{value}</p>
+        <p className={typeof value === "string" && /^D/.test(value) ? "od-summary__value od-summary__value--word" : "od-summary__value"}>{value}</p>
         {progress ? <Track progress={progress.value} done={progress.done} label={progress.label} /> : null}
         {caption ? <p className="od-summary__caption">{caption}</p> : null}
       </div>

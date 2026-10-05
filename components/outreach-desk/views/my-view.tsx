@@ -64,7 +64,7 @@ function GoalCard({
         ? c.goalMet
         : rep.remaining !== null
           ? c.toGoal(rep.remaining)
-          : t.pending;
+          : c.waitingCapture;
   const scope = rep?.count_scope === "eligible_new_quoted" ? deskCopy.team.goals.scopeEligible : deskCopy.team.goals.scopeAll;
   const metric = (value: string, label: string, tone: string, title?: string) => (
     <div className="od-goal__metric" title={title}>
@@ -220,10 +220,15 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
   const rows = queue.rows;
   const first = queue.first;
 
-  // Select the first row when nothing is selected yet (the reference's selected row), without a history entry.
+  // Select the first row on the first load only (the reference's selected row), without a history entry. Once any lead
+  // has been selected, a cleared selection (revoked by a reassignment, or closed) stays cleared.
   const autoSelected = useRef(false);
   useEffect(() => {
-    if (!lead && !autoSelected.current && rows.length > 0) {
+    if (lead) {
+      autoSelected.current = true;
+      return;
+    }
+    if (!autoSelected.current && rows.length > 0) {
       autoSelected.current = true;
       url.update({ lead: rows[0]!.subject_id }, { replace: true });
     }

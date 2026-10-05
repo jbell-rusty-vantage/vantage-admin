@@ -212,6 +212,7 @@ export const deskCopy = {
     goalTitleFor: (day: string) => `Outbound calls · ${day}`,
     toGoal: (n: number) => `${plural(n, "call", "calls")} to reach your goal`,
     goalMet: "Goal reached — keep going",
+    waitingCapture: "Waiting for RingCentral call capture",
     noGoal: "No goal today",
     overdue: "overdue",
     overdueUnit: "leads",

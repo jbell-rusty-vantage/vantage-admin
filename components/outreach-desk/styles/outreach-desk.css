@@ -1918,3 +1918,11 @@
   font-weight: 700;
   text-align: left;
 }
+
+.od-summary__value {
+  white-space: nowrap;
+}
+
+.od-summary__value--word {
+  font-size: 19px;
+}

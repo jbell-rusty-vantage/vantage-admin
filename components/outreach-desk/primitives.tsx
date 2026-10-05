@@ -69,7 +69,7 @@ export function CopyJobButton({ jobNo, block = false }: { jobNo: string | null; 
     timer.current = setTimeout(() => setState("idle"), 1600);
   };
   const c = deskCopy.lead;
-  const text = !jobNo ? c.copyDisabled : state === "copied" ? c.copied : state === "failed" ? c.copyFailed : c.copy;
+  const text = state === "copied" ? c.copied : state === "failed" ? c.copyFailed : c.copy;
   return (
     <button
       type="button"

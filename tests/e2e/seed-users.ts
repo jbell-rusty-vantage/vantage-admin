@@ -28,11 +28,14 @@ async function main() {
   const users = mongoose.connection.db!.collection("admin_users");
   const passwordHash = await hashPassword(E2E_PASSWORD);
   const now = new Date();
-  for (const user of Object.values(E2E_USERS)) {
+  // P2 integration binds the two Rep users to the server pilot's Agents instead of the synthetic mock Agents.
+  const agentOverride: Record<string, string | undefined> = { rep: process.env.E2E_REP_AGENT_ID, rep2: process.env.E2E_REP2_AGENT_ID };
+  for (const [key, user] of Object.entries(E2E_USERS)) {
+    const agentId = agentOverride[key] ?? user.agent_id;
     await users.updateOne(
       { email: user.email },
       {
-        $set: { role: user.role, agent_id: user.agent_id, active: true, password_hash: passwordHash, updated_at: now, password_changed_at: now },
+        $set: { role: user.role, agent_id: agentId, active: true, password_hash: passwordHash, updated_at: now, password_changed_at: now },
         $setOnInsert: { email: user.email, token_version: 0, created_at: now },
       },
       { upsert: true },
