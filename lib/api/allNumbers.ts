@@ -117,6 +117,11 @@ export const accountSchema = z.object({
    * it (`nudge.rc_account_id`), so Message stays disabled until the server sends it.
    */
   rc_account_id: z.string().nullable().optional(),
+  /**
+   * Additive to CONTRACT §4.5: the channels Message can use for this User now, in the server's preference order (empty
+   * when `can_message` is false). Optional so an older server still parses; the panel then falls back to Team Messaging.
+   */
+  message_channels: z.array(z.enum(["team_messaging", "pager"])).optional(),
 });
 export type Account = z.infer<typeof accountSchema>;
 

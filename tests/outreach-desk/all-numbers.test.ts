@@ -198,6 +198,8 @@ test("Accounts: connect a suggestion, change with a role, disconnect, a stale li
   assert.equal(drew.suggestion?.agent_name, "Drew Lane");
   const missing = initial.accounts.find((account) => !account.in_directory)!;
   assert.equal(missing.can_message, false);
+  assert.deepEqual(missing.message_channels, [], "no channel when the User can't be messaged");
+  assert.deepEqual(drew.message_channels, ["pager"], "no Agent: pager only, never Team Messaging");
 
   const connected = data(call(state, "POST", `accounts/${drew.extension_id}/agent`, { agent_id: drew.suggestion!.agent_id }), { parse: (value: unknown) => value as { account: typeof drew } });
   assert.equal(connected.account.agent?.name, "Drew Lane");

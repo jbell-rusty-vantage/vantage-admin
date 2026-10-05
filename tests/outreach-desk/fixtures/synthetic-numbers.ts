@@ -395,7 +395,8 @@ export function agentById(id: string): (AgentRef & { key: AgentKey }) | null {
 export function accountDto(account: MockAccount): Account {
   const { agent_key: _agentKey, ...dto } = account;
   void _agentKey;
-  return dto;
+  // The mock's Message rule (see the nudges route): Team Messaging needs a connected Agent, pager only an extension.
+  return { ...dto, message_channels: dto.can_message ? (dto.agent ? ["team_messaging", "pager"] : ["pager"]) : [] };
 }
 
 /** The strongest name candidate for one unconnected directory User: an Agent of the same name no User is connected to. */

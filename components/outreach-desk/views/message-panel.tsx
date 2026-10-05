@@ -22,13 +22,18 @@ export function MessagePanel({ account, onClose }: { account: Account; onClose: 
   const channelId = useId();
   const bodyId = useId();
   const name = account.name ?? deskCopy.accounts.unnamed;
-  const [channel, setChannel] = useState<NudgeChannel>(account.extension_number ? "pager" : "team_messaging");
+  // The server names the channels this User can get (`message_channels`); an older server falls back to Team Messaging,
+  // its default channel. Never guess pager: it is off unless the server enables it.
+  const offered = account.message_channels?.length ? account.message_channels : null;
+  const [channel, setChannel] = useState<NudgeChannel>(offered?.[0] ?? "team_messaging");
   const [body, setBody] = useState("");
   const [preview, setPreview] = useState<NudgePreview | null>(null);
   const [sent, setSent] = useState<NudgeSendResult | null>(null);
   const previewCommand = useNudgePreview();
   const sendCommand = useNudgeSend();
-  const allowed = preview ? NUDGE_CHANNELS.filter((value) => preview.allowed_channels.includes(value)) : [...NUDGE_CHANNELS];
+  const allowed = preview
+    ? NUDGE_CHANNELS.filter((value) => preview.allowed_channels.includes(value))
+    : NUDGE_CHANNELS.filter((value) => (offered ?? NUDGE_CHANNELS).includes(value));
   const canMessage = account.can_message && Boolean(account.rc_account_id);
   const busy = previewCommand.isPending || sendCommand.isPending;
 

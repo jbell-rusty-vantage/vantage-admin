@@ -79,6 +79,12 @@ test("Waiting on us: the switch keeps only waiting numbers, longest wait first",
   await expect(page).toHaveURL(/show=waiting&q=wireless/);
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText("(786) 555-0148");
+  // Back to All and a new search at once: the second URL write builds on the first, it never restores show=waiting.
+  await page.getByRole("group", { name: "Show" }).getByRole("button", { name: /^All/ }).click();
+  await page.getByRole("searchbox", { name: "Search number, name or job #" }).fill("Taylor");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/view=numbers&q=Taylor$/);
+  await expect(numberRow(page, "(512) 555-0142")).toBeVisible();
 });
 
 test("open a number → Link to a lead → Unlink", async ({ page }) => {
