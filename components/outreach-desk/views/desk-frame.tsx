@@ -58,7 +58,8 @@ export function DeskFrame({ viewer, view }: { viewer: DeskViewer; view: DeskView
   }, [scopeLost, queryClient]);
   useDeskLive(Boolean(data?.desk_available));
 
-  if (!data) {
+  // A refusal outranks cached data: a refetch that answers 403 keeps the old `data` in the query, but the scope is gone.
+  if (!data || scopeLost) {
     if (!error) return <FrameSkeleton view={view} />;
     const notLinked = isSalesOutreachApiError(error) && error.code === "REP_NOT_LINKED";
     return (
