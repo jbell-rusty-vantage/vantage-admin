@@ -21,29 +21,3 @@ test("sales-intelligence.css has balanced braces and no UI-1 block starts inside
   if (depth !== 0) problems.push(`file ends at depth ${depth}`);
   assert.deepEqual(problems, []);
 });
-
-/** The rules that make the Number dialog's panel shell work (moved from the deleted _legacy/styles/assessment.css). */
-test("the Number dialog keeps its panel shell: one scroll region, a sticky header, an ellipsis title", () => {
-  // Top-level rules only (selector → every body with exactly that selector); comments stripped.
-  const css = readFileSync(file, "utf8").replace(/\/\*[^]*?\*\//g, "").replace(/\s+/g, " ");
-  const bodies = new Map<string, string[]>();
-  for (const block of css.split("}")) {
-    const at = block.indexOf("{");
-    if (at === -1 || block.includes("{", at + 1)) continue;
-    const selector = block.slice(0, at).trim();
-    bodies.set(selector, [...(bodies.get(selector) ?? []), block.slice(at + 1).trim()]);
-  }
-  const rule = (selector: string) => {
-    const found = bodies.get(selector);
-    assert.ok(found, `${selector} has a rule`);
-    return found.join(" ");
-  };
-  assert.match(rule(".si-local-dialog"), /--si-dialog-head: 52px/);
-  assert.match(rule(".si-local-dialog[open]"), /overflow-y: auto;[^]*overscroll-behavior: contain/);
-  assert.match(rule(".si-local-dialog > *"), /flex: none/);
-  assert.match(rule(".si-local-dialog .si-panel__body"), /flex: none; overflow: visible/);
-  assert.match(rule(".si-local-dialog .si-panel__header"), /position: sticky; top: 0;[^]*height: var\(--si-dialog-head\)/);
-  assert.match(rule(".si-local-dialog .si-panel__dtitle"), /text-overflow: ellipsis; white-space: nowrap;[^]*font-family: var\(--si-font-heading\); font-size: 15px; font-weight: 700; color: var\(--si-navy\)/);
-  assert.match(rule(".si-local-dialog .si-panel__headeractions"), /margin-left: auto/);
-  assert.match(rule(".si-local-dialog .si-tl__day"), /top: var\(--si-dialog-head\)/);
-});

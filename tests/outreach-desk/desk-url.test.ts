@@ -7,6 +7,7 @@ import {
   deskRouteDecision,
   deskViewHref,
   deskViewsFor,
+  legacySalesIntelligenceHref,
 } from "../../components/outreach-desk/data/desk-url";
 import { visibleDashboardNav } from "../../components/layout/dashboard-nav";
 
@@ -50,10 +51,28 @@ test("the route writes `view` first and redirects any non-canonical or foreign l
   assert.deepEqual(deskRouteDecision(params("view=my&lead=not-an-id"), "rep"), { kind: "redirect", href: "/outreach-desk?view=my" });
 });
 
-test("Numbers and Accounts keep their own Sales Intelligence state under view=numbers / view=accounts", () => {
+test("All Numbers keeps its segment, search and open number; Accounts keeps no keys", () => {
   assert.equal(canonicalDeskQuery(new URLSearchParams(`view=numbers&number=${ID}&lead=${ID}`), "owner").toString(), `view=numbers&number=${ID}`);
-  assert.equal(canonicalDeskQuery(new URLSearchParams("view=accounts&directory_cursor=d1&q=x"), "owner").toString(), "view=accounts&directory_cursor=d1");
+  assert.equal(
+    canonicalDeskQuery(new URLSearchParams(`view=numbers&number=${ID}&q=%20smith%20&show=waiting&classification=customer`), "owner").toString(),
+    `view=numbers&show=waiting&q=smith&number=${ID}`,
+  );
+  // Only "waiting" is a segment; All is the default and never written.
+  assert.equal(canonicalDeskQuery(new URLSearchParams("view=numbers&show=all&number=bad"), "owner").toString(), "view=numbers");
+  assert.equal(canonicalDeskQuery(new URLSearchParams("view=accounts&directory_cursor=d1&q=x"), "owner").toString(), "view=accounts");
   assert.deepEqual(deskRouteDecision(params(`view=numbers&number=${ID}`), "owner"), { kind: "render", view: "numbers" });
+  assert.deepEqual(deskRouteDecision(params("view=numbers&show=waiting"), "owner"), { kind: "render", view: "numbers" });
+  // A Manager never gets All Numbers, whatever the keys.
+  assert.deepEqual(deskRouteDecision(params("view=numbers&show=waiting"), "manager"), { kind: "redirect", href: "/outreach-desk?view=team" });
+});
+
+test("old /sales-intelligence links land in the desk (permanent redirect target)", () => {
+  assert.equal(legacySalesIntelligenceHref({}), "/outreach-desk");
+  assert.equal(legacySalesIntelligenceHref({ number: ID }), `/outreach-desk?view=numbers&number=${ID}`);
+  assert.equal(legacySalesIntelligenceHref({ view: "numbers", q: "5125550142", classification: "customer", cursor: "c1" }), "/outreach-desk?view=numbers&q=5125550142");
+  assert.equal(legacySalesIntelligenceHref({ view: "reps", directory_cursor: "d1" }), "/outreach-desk?view=accounts");
+  assert.equal(legacySalesIntelligenceHref({ view: "outreach", outreach: ID, lead: ID }), "/outreach-desk");
+  assert.equal(legacySalesIntelligenceHref({ number: "not-an-id" }), "/outreach-desk");
 });
 
 test("queue filters are kept per frame; an individual rep wins over Unassigned", () => {

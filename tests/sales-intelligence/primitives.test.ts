@@ -4,17 +4,13 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   DelayedSkeleton,
-  LiveIndicator,
-  LiveIndicatorDetails,
   Region,
   RegionBoundary,
   RegionError,
   RegionProgress,
-  RouteTabs,
   SkeletonBlock,
   SkeletonLines,
   TimeText,
-  liveIndicatorText,
   regionErrorCode,
 } from "../../components/sales-intelligence/primitives";
 
@@ -84,52 +80,4 @@ test("TimeText: title and aria-label carry the exact ET time; countdown amber; n
   assert.doesNotMatch(render(TimeText, { t: "2026-09-20T18:30:00.000Z", asOf: AS_OF, mode: "countdown", overdue: false }), /amber/);
   assert.equal(text(render(TimeText, { t: null, asOf: AS_OF, mode: "relative", nullText: "No call observed" })), "No call observed");
   assert.equal(text(render(TimeText, { t: "2026-09-20T17:10:00.000Z", asOf: null, mode: "relative" })), "Sep 20, 2026, 1:10 PM ET");
-});
-
-test("LiveIndicator: live / reconnecting / offline wording, neutral dot, amber when capture is unhealthy", () => {
-  const base = { updatedAt: "2026-09-20T19:09:00.000Z", asOf: AS_OF, onRefresh: noop };
-  const live = render(LiveIndicator, { ...base, status: "live", health: { status: "ok", knownCompleteThrough: AS_OF } });
-  assert.match(text(live), /Live · Updated Sep 20, 3:09 PM ET/);
-  assert.match(live, /si-livedot is-pulse/);
-  assert.doesNotMatch(live, /green/);
-  assert.doesNotMatch(live, /is-unhealthy/);
-  assert.match(live, /<button type="button" class="si-iconbtn si-iconbtn--hit" aria-label="Refresh everything on this page"/);
-  assert.match(live, /lucide-refresh-cw/);
-  const reconnecting = render(LiveIndicator, { ...base, status: "reconnecting" });
-  assert.match(text(reconnecting), /Reconnecting…/);
-  assert.doesNotMatch(reconnecting, /is-pulse/);
-  const offline = render(LiveIndicator, { ...base, status: "offline" });
-  assert.match(text(offline), /Offline · Refresh/);
-  for (const status of ["attention", "broken"] as const) {
-    assert.match(render(LiveIndicator, { ...base, status: "live", health: { status, knownCompleteThrough: null } }), /si-liveind is-live is-unhealthy/);
-  }
-  assert.equal(liveIndicatorText("live", null, AS_OF), "Live");
-  assert.equal(liveIndicatorText("connecting", null, null), "Connecting…");
-});
-
-test("LiveIndicatorDetails: history coverage, status sentence, red word only for broken, no Coverage link", () => {
-  const broken = render(LiveIndicatorDetails, { health: { status: "broken", knownCompleteThrough: "2026-09-20T12:00:00.000Z" }, asOf: AS_OF });
-  assert.match(text(broken), /History known through Sep 20, 8:00 AM ET/);
-  assert.match(broken, /title="Sep 20, 2026, 8:00 AM ET"/);
-  assert.match(broken, /si-text--danger">Broken</);
-  assert.doesNotMatch(broken, /href=/);
-  const attention = render(LiveIndicatorDetails, { health: { status: "attention", knownCompleteThrough: null }, asOf: AS_OF });
-  assert.match(attention, /si-text--amber">Needs attention</);
-  assert.doesNotMatch(attention, /danger/);
-  assert.match(text(attention), /History coverage not known yet/);
-  assert.match(text(render(LiveIndicatorDetails, { health: null, asOf: AS_OF })), /Capture status not known yet\./);
-});
-
-test("RouteTabs: anchors, aria-current, counts", () => {
-  const tabs = render(RouteTabs, {
-    items: [
-      { key: "numbers", label: "Numbers", href: "/sales-intelligence", count: 1204 },
-      { key: "reps", label: "RingCentral Accounts", href: "/sales-intelligence?view=reps" },
-    ],
-    active: "numbers",
-  });
-  assert.match(tabs, /<nav class="si-tabs si-routetabs" aria-label="Sections">/);
-  assert.match(tabs, /class="si-tab si-routetab is-active" aria-current="page"/);
-  assert.match(tabs, /si-tab__count">1,204</);
-  assert.doesNotMatch(tabs, /role="tab/);
 });

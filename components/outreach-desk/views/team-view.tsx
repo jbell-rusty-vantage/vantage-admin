@@ -10,7 +10,7 @@
  * here computes overdue or order.
  */
 import Link from "next/link";
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Calendar, CircleAlert, Clock3, Info, NotebookText, Phone, Users } from "lucide-react";
 import { fetchDailyOperationsSnapshot, normalizeDailyOperationsSnapshot } from "@/lib/api/dailyOperations";
@@ -36,7 +36,7 @@ import {
   shortDateLabel,
 } from "../lib/format";
 import { deskCopy } from "../outreach-desk-copy";
-import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, IconBadge, Pill, SearchBox, Segmented, SkeletonLine, Track } from "../primitives";
+import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, Pill, SearchBox, Segmented, SkeletonLine, SummaryCard, Track } from "../primitives";
 import { LeadPanel, type RepOption } from "./lead-panel";
 
 const c = deskCopy.team;
@@ -44,36 +44,6 @@ const t = deskCopy.text;
 
 type WorkflowFilter = "all" | "new" | "quoted";
 type SortValue = "urgency" | "lead_received" | "last_interaction";
-
-function SummaryCard({
-  icon,
-  tone,
-  title,
-  value,
-  progress,
-  caption,
-  testId,
-}: {
-  icon: typeof Phone;
-  tone: "blue" | "green" | "red" | "amber" | "gray";
-  title: string;
-  value: ReactNode;
-  progress?: { value: number | null; done?: boolean; label: string } | null;
-  caption?: ReactNode;
-  testId: string;
-}) {
-  return (
-    <section className="od-card od-summary" data-testid={testId}>
-      <IconBadge icon={icon} tone={tone} />
-      <div className="od-summary__body">
-        <h2 className="od-summary__title">{title}</h2>
-        <p className={typeof value === "string" && /^D/.test(value) ? "od-summary__value od-summary__value--word" : "od-summary__value"}>{value}</p>
-        {progress ? <Track progress={progress.value} done={progress.done} label={progress.label} /> : null}
-        {caption ? <p className="od-summary__caption">{caption}</p> : null}
-      </div>
-    </section>
-  );
-}
 
 function scopeSubtitle(team: SalesOutreachTeamDto): string {
   const scope = team.goals?.count_scope;

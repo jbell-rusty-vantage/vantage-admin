@@ -6,7 +6,6 @@ import { canAccessDashboardPath, canProxyVantagePath } from "./authorization";
 import { ACCESS_TOKEN_COOKIE } from "./cookies";
 import { applyRoleRouteGuard, DASHBOARD_PATH_PREFIXES } from "./routeGuard";
 import { signAccessToken } from "./tokens";
-import { salesIntelligenceLive } from "../sales-intelligence-live";
 
 /**
  * S8-USERS: a rep can sign in but is denied every dashboard path and API outside its Sales
@@ -113,17 +112,4 @@ test("the request-boundary role guard redirects a rep to /outreach-desk from eve
   const redirected = applyRoleRouteGuard(garbage);
   assert.equal(redirected?.status, 307);
   assert.equal(new URL(redirected!.headers.get("location")!).pathname, "/login");
-});
-
-test("the Sales Intelligence live BFF refuses a rep (Owner-only stream)", async () => {
-  setTestEnv();
-  const response = await salesIntelligenceLive(new Request("http://localhost/api/sales-intelligence-live?scope=production"), {
-    admin: { id: "65f0000000000000000000a1", email: "rep@example.invalid", role: "rep" },
-    url: "http://upstream.invalid/live",
-    apiSecret: "x",
-    fetch: async () => {
-      throw new Error("must not be called");
-    },
-  });
-  assert.equal(response.status, 403);
 });

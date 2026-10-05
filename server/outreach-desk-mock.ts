@@ -1,3 +1,4 @@
+import { mockAllNumbersResponse } from "@/lib/api/allNumbersMock";
 import { mockSalesOutreachResponse } from "@/lib/api/salesOutreachMock";
 import { syntheticDailyOperationsSnapshot } from "@/tests/outreach-desk/fixtures/synthetic-daily";
 import type { SyntheticVariant } from "@/tests/outreach-desk/fixtures/synthetic";
@@ -5,8 +6,9 @@ import type { TrustedAdminIdentity } from "./auth/trustedProxyHeaders";
 
 /**
  * Local mock mode for the Sales Outreach Desk (ADM-3): with `OUTREACH_DESK_MOCK=desk` (or `m1`) the BFF answers the
- * desk's `/api/v1/admin/sales-outreach/**` calls (and the Daily Operations snapshot the Team view summarizes) from the
- * synthetic fixtures, after the same session, role allowlist and scope checks as a real call. It exists to build and
+ * desk's `/api/v1/admin/sales-outreach/**` calls, the All Numbers and Accounts calls under
+ * `/api/v1/admin/sales-intelligence/` (numbers, accounts, nudges) and the Daily Operations snapshot the Team view
+ * summarizes from the synthetic fixtures, after the same session, role allowlist and scope checks as a real call. It exists to build and
  * screenshot the desk without a server. It is refused on a Vercel production deployment whatever the env says.
  */
 export function outreachDeskMockVariant(env: Record<string, string | undefined> = process.env): SyntheticVariant | null {
@@ -17,6 +19,7 @@ export function outreachDeskMockVariant(env: Record<string, string | undefined> 
 
 const DESK_PATH = /^\/?api\/v1\/admin\/sales-outreach(?:\/|$)/;
 const DAILY_SNAPSHOT_PATH = /^\/?api\/v1\/admin\/daily-operations$/;
+const ALL_NUMBERS_PATH = /^\/?api\/v1\/admin\/sales-intelligence\//;
 
 /** The mock answer for a proxied call, or null when the call is not mocked (it then goes to the real server). */
 export function mockedProxyResponse(input: {
@@ -38,6 +41,10 @@ export function mockedProxyResponse(input: {
       body: input.body,
       variant: input.variant,
     });
+  }
+  if (ALL_NUMBERS_PATH.test(pathname)) {
+    const answer = mockAllNumbersResponse({ role: input.admin.role, actor: input.admin.email, method: input.method, path: pathname, query, body: input.body });
+    if (answer) return answer;
   }
   if (DAILY_SNAPSHOT_PATH.test(pathname) && input.method === "GET") {
     return { status: 200, body: { ok: true, data: syntheticDailyOperationsSnapshot() } };

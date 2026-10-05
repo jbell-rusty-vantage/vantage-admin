@@ -2,15 +2,14 @@
  * The Outreach Desk URL (IMPL-02), pure. `/outreach-desk?view=` picks the frame:
  * - `team` (Owner/Manager default), `my` (Rep default; Owner/Manager may add `agent=<id>` to inspect a rep),
  *   `activity`, `settings`;
- * - Owner only: `numbers` and `accounts` (today's Sales Intelligence Numbers and RingCentral Accounts, moved
- *   unchanged; their own keys are canonicalized by `canonicalSiQuery`).
+ * - Owner only: `numbers` (All Numbers: `show=waiting` for "Waiting on us", `q`, and `number=<id>` for the open
+ *   Number) and `accounts` (RingCentral Accounts, no keys).
  * `lead=<subject_id>` is the selected Lead. Every other key belongs to one view's filters and is kept only for that
  * view (`VIEW_KEYS`), so a link from another view or an old Sales Intelligence link never leaks state.
  *
  * The role here only shapes the URL (which frames exist for whom, the default frame). It is never authorization:
  * the server's capabilities and its 403s are the authority, and the edge guard and layout check the session.
  */
-import { canonicalSiQuery } from "@/components/sales-intelligence/data/url-state";
 import type { OutreachDeskRole } from "@/server/models/adminRoles";
 
 export const DESK_PATH = "/outreach-desk";
@@ -93,7 +92,11 @@ const VIEW_KEYS: Record<DeskView, KeySpec[]> = {
     { key: "lead", read: objectId },
   ],
   settings: [{ key: "section", read: text(40) }],
-  numbers: [],
+  numbers: [
+    { key: "show", read: oneOf(["waiting"]) },
+    { key: "q", read: text(100) },
+    { key: "number", read: objectId },
+  ],
   accounts: [],
 };
 
@@ -105,16 +108,10 @@ export function parseDeskView(params: URLSearchParams, role: OutreachDeskRole): 
 
 /**
  * The canonical query for any incoming query and role (idempotent). `view` is always written, first, so the frame is
- * explicit in every link; Numbers and Accounts hand their own keys to the Sales Intelligence canonicalizer. Mutually
- * exclusive filters (an individual rep and Unassigned) keep the individual rep.
+ * explicit in every link. Mutually exclusive filters (an individual rep and Unassigned) keep the individual rep.
  */
 export function canonicalDeskQuery(params: URLSearchParams, role: OutreachDeskRole): URLSearchParams {
   const view = parseDeskView(params, role);
-  if (view === "numbers" || view === "accounts") {
-    const siParams = new URLSearchParams(params);
-    siParams.set("view", view);
-    return canonicalSiQuery(siParams);
-  }
   const out = new URLSearchParams({ view });
   for (const spec of VIEW_KEYS[view]) {
     const raw = params.get(spec.key);
@@ -130,6 +127,15 @@ export function canonicalDeskHref(params: URLSearchParams, role: OutreachDeskRol
   return `${DESK_PATH}?${canonicalDeskQuery(params, role).toString()}`;
 }
 
+function toParams(searchParams: Record<string, string | string[] | undefined>): URLSearchParams {
+  const incoming = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (value === undefined) continue;
+    for (const item of Array.isArray(value) ? value : [value]) incoming.append(key, item);
+  }
+  return incoming;
+}
+
 export type DeskRouteDecision = { kind: "render"; view: DeskView } | { kind: "redirect"; href: string };
 
 /** The page's decision: render the canonical URL as is, or redirect to it (a non-canonical or foreign link). */
@@ -137,11 +143,7 @@ export function deskRouteDecision(
   searchParams: Record<string, string | string[] | undefined>,
   role: OutreachDeskRole,
 ): DeskRouteDecision {
-  const incoming = new URLSearchParams();
-  for (const [key, value] of Object.entries(searchParams)) {
-    if (value === undefined) continue;
-    for (const item of Array.isArray(value) ? value : [value]) incoming.append(key, item);
-  }
+  const incoming = toParams(searchParams);
   const canonical = canonicalDeskQuery(incoming, role);
   if (canonical.toString() === incoming.toString()) return { kind: "render", view: parseDeskView(canonical, role) };
   return { kind: "redirect", href: `${DESK_PATH}?${canonical.toString()}` };
@@ -153,4 +155,24 @@ export function deskViewHref(view: DeskView, keep?: { agent?: string | null; lea
   if (keep?.agent) params.set("agent", keep.agent);
   if (keep?.lead) params.set("lead", keep.lead);
   return `${DESK_PATH}?${params.toString()}`;
+}
+
+/**
+ * Where an old `/sales-intelligence` (or `/sales-intelligence/legacy`) link goes (IMPL-02, permanent): Accounts
+ * (`view=reps` or `view=accounts`) opens `?view=accounts`; a link that names a Number (`number=`) or a search (`q=`)
+ * opens All Numbers with them; anything else (the bare page, an old Outreach, Attention, Closed, Overview, Coverage or
+ * Guide link, old Numbers filters) opens the desk's default view for the viewer. Old OutreachRecord ids are never mapped.
+ */
+export function legacySalesIntelligenceHref(searchParams: Record<string, string | string[] | undefined>): string {
+  const incoming = toParams(searchParams);
+  const view = incoming.get("view");
+  if (view === "reps" || view === "accounts") return deskViewHref("accounts");
+  const out = new URLSearchParams({ view: "numbers" });
+  for (const spec of VIEW_KEYS.numbers) {
+    if (spec.key === "show") continue;
+    const raw = incoming.get(spec.key);
+    const value = raw === null ? null : spec.read(raw, "owner");
+    if (value !== null) out.set(spec.key, value);
+  }
+  return [...out.keys()].length > 1 ? `${DESK_PATH}?${out.toString()}` : DESK_PATH;
 }

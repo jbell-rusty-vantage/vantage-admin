@@ -47,8 +47,19 @@ export function Track({
   );
 }
 
-export function Pill({ variant, children }: { variant: "new" | "quoted" | "neutral" | "amber"; children: ReactNode }) {
+export function Pill({ variant, children }: { variant: "new" | "quoted" | "neutral" | "amber" | "green" | "red"; children: ReactNode }) {
   return <span className={`od-pill od-pill--${variant}`}>{children}</span>;
+}
+
+/** A round initials avatar (the sidebar identity's look) for a person's name. */
+export function Avatar({ name, size = "md" }: { name: string; size?: "md" | "sm" }) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const letters = parts.length >= 2 ? `${parts[0]![0]}${parts[parts.length - 1]![0]}` : (parts[0] ?? "?").slice(0, 2);
+  return (
+    <span className={cx("od-avatar", size === "sm" && "od-avatar--sm")} aria-hidden="true">
+      {letters.toUpperCase()}
+    </span>
+  );
 }
 
 /** Copy job # — the desk's main action. Disabled (never fabricated) while the Job Number is pending. */
@@ -219,4 +230,35 @@ export function Notice({ icon, title, children, tone = "gray" }: { icon: LucideI
 
 export function SkeletonLine({ width = "100%", height = 12 }: { width?: number | string; height?: number }) {
   return <span className="od-skeleton" style={{ width, height }} aria-hidden="true" />;
+}
+
+/** A summary card: a circular icon badge, a title, a big value, an optional pill track and a caption. */
+export function SummaryCard({
+  icon,
+  tone,
+  title,
+  value,
+  progress,
+  caption,
+  testId,
+}: {
+  icon: LucideIcon;
+  tone: "blue" | "green" | "red" | "amber" | "gray";
+  title: string;
+  value: ReactNode;
+  progress?: { value: number | null; done?: boolean; label: string } | null;
+  caption?: ReactNode;
+  testId: string;
+}) {
+  return (
+    <section className="od-card od-summary" data-testid={testId}>
+      <IconBadge icon={icon} tone={tone} />
+      <div className="od-summary__body">
+        <h2 className="od-summary__title">{title}</h2>
+        <p className={typeof value === "string" && /^D/.test(value) ? "od-summary__value od-summary__value--word" : "od-summary__value"}>{value}</p>
+        {progress ? <Track progress={progress.value} done={progress.done} label={progress.label} /> : null}
+        {caption ? <p className="od-summary__caption">{caption}</p> : null}
+      </div>
+    </section>
+  );
 }

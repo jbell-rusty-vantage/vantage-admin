@@ -15,7 +15,6 @@ import {
 import { applyRoleRouteGuard } from "./routeGuard";
 import { signAccessToken } from "./tokens";
 import { setTrustedAdminHeaders } from "./trustedProxyHeaders";
-import { salesIntelligenceLive } from "../sales-intelligence-live";
 
 /**
  * S8-REP (addendum §4.1): the trusted proxy signs `role` and, for a rep only, `agent_id`. Owner and
@@ -188,35 +187,3 @@ test("the request-boundary role guard lets a rep through to /outreach-desk only"
     assert.equal(new URL(response!.headers.get("location")!).pathname, "/outreach-desk", path);
   }
 });
-
-test("the live BFF admits only the Owner: a rep and the Admin role are refused without an upstream call", async () => {
-  process.env.VANTAGE_ADMIN_PROXY_SIGNING_SECRET = SECRET;
-  resetServerEnvForTests();
-  try {
-    const refuse = async () => { throw new Error("must not be called"); };
-    const rep = await salesIntelligenceLive(new Request("http://localhost/api/sales-intelligence-live?scope=production", { headers: { [ADMIN_PROXY_AGENT_HEADER]: "65f0000000000000000000ff" } }), {
-      admin: { id: "65f0000000000000000000a1", email: "rep@example.invalid", role: "rep", agent_id: AGENT },
-      url: "http://upstream.invalid/live", apiSecret: "x", fetch: refuse,
-    });
-    assert.equal(rep.status, 403);
-    const admin = await salesIntelligenceLive(new Request("http://localhost/api/sales-intelligence-live"), {
-      admin: { id: "a", email: "a@x.test", role: "admin" }, url: "http://upstream.invalid/live", apiSecret: "x", fetch: refuse,
-    });
-    assert.equal(admin.status, 403);
-    let forwarded: Headers | null = null;
-    const owner = await salesIntelligenceLive(new Request("http://localhost/api/sales-intelligence-live?scope=production"), {
-      admin: { id: "65f0000000000000000000a2", email: "owner@example.invalid", role: "owner" },
-      url: "http://upstream.invalid/live", apiSecret: "x",
-      fetch: async (_url, init) => {
-        forwarded = new Headers(init?.headers);
-        return new Response(new ReadableStream({ start(c) { c.close(); } }), { headers: { "content-type": "text/event-stream" } });
-      },
-    });
-    assert.equal(owner.status, 200);
-    assert.equal((forwarded as Headers | null)?.get(ADMIN_PROXY_HEADER_NAMES.role), "owner");
-  } finally {
-    delete process.env.VANTAGE_ADMIN_PROXY_SIGNING_SECRET;
-    resetServerEnvForTests();
-  }
-});
-
