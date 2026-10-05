@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test \"{lib,server,tests}/**/*.test.ts\"",
-    "seed:admin": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/seed-admin-user.ts"
+    "seed:admin": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs scripts/seed-admin-user.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.14",
@@ -26,6 +27,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",

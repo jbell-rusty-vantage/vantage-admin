@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getAccessTokenCookie,
-  getAdminFromAccessToken,
+  getSessionUserFromAccessToken,
   getRefreshTokenCookie,
   refreshAdminSession,
   setAuthCookies,
@@ -21,7 +21,7 @@ async function requireAdmin() {
   const cookieStore = await cookies();
   const accessToken = getAccessTokenCookie(cookieStore);
   if (accessToken) {
-    const admin = await getAdminFromAccessToken(accessToken);
+    const admin = await getSessionUserFromAccessToken(accessToken);
     if (admin) {
       return admin;
     }
@@ -43,7 +43,8 @@ export async function GET(request: NextRequest) {
   if (!admin) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
-  if (admin.role !== "owner") {
+  // Daily Operations is the Owner's and, since P09b, a Manager's. A generic Admin and a rep are refused.
+  if (admin.role !== "owner" && admin.role !== "manager") {
     return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
   }
 

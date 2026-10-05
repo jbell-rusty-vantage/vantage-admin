@@ -1,5 +1,13 @@
 import type { AdminRole } from "@/server/models";
 import type { VantageApiMethod } from "@/server/vantage-api/client";
+import {
+  MANAGER_DAILY_OPERATIONS_ROUTES,
+  MANAGER_OUTREACH_ROUTES,
+  OUTREACH_DESK_LIVE_API_PATH,
+  REP_OUTREACH_ROUTES,
+  isOutreachDeskApiPath,
+  matchesDeskRoute,
+} from "./outreach-desk-routes";
 
 const OWNER_ONLY_PAGE_PREFIXES = [
   "/bookings/reconciliation",
@@ -9,6 +17,7 @@ const OWNER_ONLY_PAGE_PREFIXES = [
   "/job-timeline",
   "/daily",
   "/sales-intelligence",
+  "/outreach-desk",
   "/manual",
   "/extension",
 ] as const;
@@ -60,21 +69,23 @@ const GOOGLE_DRIVE_PREFIX = "/api/v1/admin/google-drive";
 const GRANOT_AUTOMATION_PREFIX = "/api/v1/admin/granot-automation";
 const GRANOT_LIFECYCLE_PREFIX = "/api/v1/admin/granot-lifecycle";
 
-/**
- * The only dashboard page a rep may open: `/sales-intelligence`, which shows the interim "not available for Rep
- * accounts yet" page and makes no read. Every other page stays denied.
- */
-const REP_DASHBOARD_PATHS: readonly RegExp[] = [/^\/sales-intelligence$/];
+/** Sales Outreach Desk (IMPL-02/03): a rep opens only its desk; every other page stays denied. */
+const REP_DASHBOARD_PATHS: readonly RegExp[] = [/^\/outreach-desk$/];
+
+/** A Manager (P09b) opens only the desk and Daily Operations; every other page stays denied. */
+const MANAGER_DASHBOARD_PATHS: readonly RegExp[] = [/^\/outreach-desk$/, /^\/daily$/];
 
 export function canAccessDashboardPath(role: AdminRole, pathname: string): boolean {
   if (role === "owner") {
     return true;
   }
-  // A rep reaches only the interim Sales Intelligence page. Anything that is
-  // not exactly "admin" or "rep" is denied, so a new role never inherits the
-  // Admin allowances below.
+  // A rep reaches only its desk and a manager only the desk and Daily Operations. Anything that is not exactly
+  // "admin", "manager" or "rep" is denied, so a new role never inherits the Admin allowances below.
   if (role === "rep") {
     return REP_DASHBOARD_PATHS.some(pattern => pattern.test(pathname));
+  }
+  if (role === "manager") {
+    return MANAGER_DASHBOARD_PATHS.some(pattern => pattern.test(pathname));
   }
   if (role !== "admin") {
     return false;
@@ -111,20 +122,36 @@ export function canProxyVantagePath(input: {
   role: AdminRole;
   method: VantageApiMethod;
   path: string;
+  /** `live` only from the desk's SSE route handler; the generic proxy never forwards the desk stream. */
+  via?: "proxy" | "live";
 }): boolean {
+  const path = normalizeProxyPath(input.path);
+  // Desk live hints are an SSE stream: they go through `app/api/outreach-desk-live`, never the buffered proxy.
+  if (input.via !== "live" && path === OUTREACH_DESK_LIVE_API_PATH) {
+    return false;
+  }
   if (input.role === "owner") {
     return true;
   }
-  // The interim Sales Intelligence reads are Owner-only and the rep page makes no read, so a rep reaches no API.
+  // A rep reaches exactly its desk calls (ADM-7, the server's Rep allowlist); the server still scopes each one to
+  // its own assignment and Agent. The interim Sales Intelligence reads stay Owner-only.
   if (input.role === "rep") {
-    return false;
+    return matchesDeskRoute(REP_OUTREACH_ROUTES, input.method, path);
+  }
+  // A manager reaches the Manager desk calls and the Daily Operations reads (P09b), nothing else.
+  if (input.role === "manager") {
+    return (
+      matchesDeskRoute(MANAGER_OUTREACH_ROUTES, input.method, path) ||
+      matchesDeskRoute(MANAGER_DAILY_OPERATIONS_ROUTES, input.method, path)
+    );
   }
   // Any role that is not exactly "admin" reaches no API.
   if (input.role !== "admin") {
     return false;
   }
 
-  const path = normalizeProxyPath(input.path);
+  // P09c: a generic Admin gets no desk.
+  if (isOutreachDeskApiPath(path)) return false;
   if (path === "/api/v1/admin/sales-intelligence" || path.startsWith("/api/v1/admin/sales-intelligence/")) return false;
   if (
     path === "/api/v1/admin/job-number-timeline" ||

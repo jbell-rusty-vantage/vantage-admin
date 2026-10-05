@@ -12,7 +12,7 @@ function hrefs(items: { href: string }[]): string[] {
   return items.map((item) => item.href);
 }
 
-test("owner flat nav keeps Overview, Daily Operations, Sales Intelligence, then Intakes, Manual, and Form Leads", () => {
+test("owner flat nav keeps Overview, Daily Operations, Outreach Desk, then Intakes, Manual, and Form Leads", () => {
   const owner = visibleDashboardNav("owner");
 
   assert.equal(owner[0]?.label, "Overview");
@@ -20,8 +20,8 @@ test("owner flat nav keeps Overview, Daily Operations, Sales Intelligence, then 
   assert.equal(owner[1]?.label, "Daily Operations");
   assert.equal(owner[1]?.href, "/daily");
   assert.equal(owner[1]?.ownerOnly, true);
-  assert.equal(owner[2]?.label, "Sales Intelligence");
-  assert.equal(owner[2]?.href, "/sales-intelligence");
+  assert.equal(owner[2]?.label, "Outreach Desk");
+  assert.equal(owner[2]?.href, "/outreach-desk");
   assert.equal(owner[2]?.ownerOnly, true);
   assert.equal(owner[3]?.label, "Intakes");
   assert.equal(owner[3]?.href, "/intakes");
@@ -79,7 +79,7 @@ test("owner sections keep the five groups and admin Today and System shrink", ()
   assert.deepEqual(hrefs(owner.find((section) => section.id === "today")!.items), [
     "/",
     "/daily",
-    "/sales-intelligence",
+    "/outreach-desk",
     "/intakes",
     "/manual",
   ]);
