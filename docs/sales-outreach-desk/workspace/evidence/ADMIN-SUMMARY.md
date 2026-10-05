@@ -47,14 +47,14 @@ Lint debt (not this sprint): `components/reporting/{reporting-dashboard,report-s
 
 ## 5. What the Integrator / VERIFY step needs next
 
-- Start from INTEGRATION.md (commands are exact). The server worktree `../vantage-main-server-p2` (detached at `b1056cf6`) has a real install and untracked `.p2-tmp/` helpers; the pilot database `testvantagemovers_sodpilot` and admin auth DBs `vantage_admin_outreach_e2e{,_p2}` remain on csi01.
+- Start from INTEGRATION.md (commands are exact). The server worktree `../vantage-main-server-p2` (detached at `b1056cf6`) had a real install and untracked `.p2-tmp/` helpers (removed 2026-10-05; the helpers are now the server's `ops/local-integration/`); the pilot database `testvantagemovers_sodpilot` and admin auth DBs `vantage_admin_outreach_e2e{,_p2}` remain on csi01.
 - Run END-TO-END-RUN §3–§5 with an advancing synthetic clock; the admin side already has the visual (1186×742), keyboard/focus, reassignment and 403 checks as `pnpm test:e2e` + `tests/e2e/integration.spec.ts`.
 - Observe live SSE change hints end to end (the replica supports change streams) and the 30 s clock frames.
 - Confirm requests 1–5 with the server team; the admin will adopt new fields additively (schemas are non-strict).
 
 ## 6. Machine and checkout state
 
-- Worktrees: `../vantage-admin-a1` (A1 branch), `../vantage-admin-a2` (A2 branch), both real installs, kept; `../vantage-admin-int` (detached, no `node_modules`) removed after merging. Server `../vantage-main-server-p2` kept for VERIFY.
+- Worktrees: `../vantage-admin-a1` (A1 branch), `../vantage-admin-a2` (A2 branch), both real installs, kept; `../vantage-admin-int` (detached, no `node_modules`) removed after merging. Server `../vantage-main-server-p2` kept for VERIFY (removed 2026-10-05).
 - The main admin checkout was left as found (another session had `feat/outreach-desk` checked out there); merges were made on a detached worktree and pushed (fast-forward, no force). Pull before working there.
 - Heavy commands ran one at a time under a lock; one dev server at a time; processes were stopped by task or exact PID only.
 - Local mock mode for UI work: `OUTREACH_DESK_MOCK=desk pnpm dev` (or `m1` for the goal-parts-only desk). Never set it in Vercel; it is ignored when `VERCEL_ENV=production`.

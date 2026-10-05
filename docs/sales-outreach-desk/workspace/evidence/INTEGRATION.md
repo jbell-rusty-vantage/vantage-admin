@@ -6,18 +6,20 @@ The csi01 replica (127.0.0.1:27189) was running, so P2 ran locally. Docker was n
 
 Server: a detached worktree `../vantage-main-server-p2` at `origin/feat/outreach-desk` = `b1056cf6` (read-only use; no server file was changed or committed; the only additions were untracked helpers under `.p2-tmp/`). Real `pnpm install`.
 
+> **2026-10-05:** that worktree is removed. The helpers now live in the server repo at `ops/local-integration/` (see its README). They take `--database=`, refuse non-`test` names and ignore `.env`. Run the commands below from the main server checkout.
+
 ```text
 # synthetic pilot (the server's own seed; refuses non-loopback / non-test databases)
 node --import tsx ops/sales-outreach/seed-synthetic-pilot.ts --database=testvantagemovers_sodpilot [--reset]
 # env for the next steps (no .env; provider/production env names unset)
 TEST_MODE=true TEST_MONGO_DATABASE_NAME=testvantagemovers_sodpilot MONGO_URI="mongodb://127.0.0.1:27189/?replicaSet=csi01" SHEET_SYNC_MODE=disabled
 node --import tsx ops/sales-outreach/build-indexes.ts --target=testvantagemovers_sodpilot --apply
-node --import tsx .p2-tmp/p2-csi-indexes.ts        # CSI ledger/audit + registry indexes, as the replica proofs build them
+node --import tsx ops/local-integration/csi-indexes.ts --database=testvantagemovers_sodpilot   # CSI ledger/audit + registry indexes
 node --import tsx ops/sales-outreach/install-approved-policy.ts --target=testvantagemovers_sodpilot --apply \
   --enable=desk_enabled,goal_metrics_enabled,cadence_shadow_enabled,cadence_enforcement_enabled
-# API on loopback only (wrapper: app.listen(3107, "127.0.0.1")), with local secrets
+# API on loopback only (127.0.0.1:3107), with local secrets
 VANTAGE_API_SECRET=local-e2e-api-secret VANTAGE_ADMIN_PROXY_SIGNING_SECRET=local-e2e-proxy-signing-secret-32ch \
-CRON_SECRET=local-p2-cron-secret node --import tsx .p2-tmp/serve-loopback.ts
+CRON_SECRET=local-p2-cron-secret node --import tsx ops/local-integration/serve.ts --database=testvantagemovers_sodpilot
 ```
 
 Admin (`../vantage-admin-a2`): `next dev -p 3100` with `VANTAGE_API_BASE_URL=http://127.0.0.1:3107`, the same two secrets, mock mode **off**, admin auth DB `vantage_admin_outreach_e2e_p2` on the replica. Users seeded by `tests/e2e/seed-users.ts` with the two Reps bound to the pilot Agents (Avery `d9e98cc15237c848c5c8732b`, Blake `360f2f6456d420c391c73535`).
