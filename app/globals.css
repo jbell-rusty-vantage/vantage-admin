@@ -1,6 +1,55 @@
 @import "tailwindcss";
+@import "./crm.css";
 
 :root {
+  /*
+   * CRM visual system (dashboard-redesign-proposal/15-crm-visual-system.md). The Outreach Desk's token set, promoted
+   * to the app under neutral names. The Desk (`.od-root`) aliases its `--od-*` values to these, so one source serves
+   * both the dashboard and the desk. The dashboard shell opts into the look with `data-ui="crm"` (below); pages
+   * outside it (the public employee booking form, legal pages, login) keep the brand palette.
+   */
+  --crm-page: #f4f7fc;
+  --crm-card: #ffffff;
+  --crm-sidebar: #ffffff;
+  --crm-border: #e2e8f1;
+  --crm-border-strong: #d3dbe7;
+  --crm-divider: #edf1f6;
+  --crm-table-head: #f7f9fc;
+  --crm-ink: #101c3d;
+  --crm-text: #1d2943;
+  /* `muted` is darkened from the Desk's #66738c so it passes AA on the page background too (doc 15 guardrails). */
+  --crm-muted: #5f6c85;
+  --crm-faint: #8a95aa;
+  --crm-blue: #2f6fe6;
+  --crm-blue-strong: #1f5bd0;
+  --crm-blue-ink: #1b4fb8;
+  --crm-blue-50: #eaf2fe;
+  --crm-blue-100: #dbe8fd;
+  --crm-blue-tint: #eef4fe;
+  --crm-green: #2f9e4f;
+  --crm-green-bar: #3cb35a;
+  --crm-green-50: #e7f6ec;
+  --crm-amber: #e07b0a;
+  --crm-amber-ink: #a85a05;
+  --crm-amber-50: #fff2df;
+  --crm-red: #e03535;
+  --crm-red-50: #fdeaea;
+  --crm-purple: #6a4fc6;
+  --crm-purple-50: #efe9fc;
+  --crm-gold: #f4b400;
+  --crm-gold-50: #fff3d1;
+  --crm-track: #e6ebf2;
+  --crm-r-card: 12px;
+  --crm-r-control: 8px;
+  --crm-r-pill: 999px;
+  --crm-shadow-card: 0 1px 2px rgba(16, 28, 61, 0.04), 0 1px 3px rgba(16, 28, 61, 0.03);
+  --crm-shadow-pop: 0 10px 30px rgba(16, 28, 61, 0.12);
+  --crm-focus: 0 0 0 3px rgba(47, 111, 230, 0.28);
+  --crm-sidebar-w: 232px;
+  --crm-rail-w: 64px;
+  --crm-gap: 14px;
+  --crm-font: var(--font-plus-jakarta), system-ui, sans-serif;
+
   /* Brand palette */
   --navy: #062b55;
   --trust-blue: #145da0;
@@ -52,6 +101,79 @@
   --destructive: #dc2626;
   --destructive-foreground: var(--white);
   --ring: var(--bright-blue);
+}
+
+/*
+ * The dashboard shell's look (doc 15, step 2). Re-points the semantic and brand aliases that Tailwind's theme reads
+ * (`--color-navy`, `--color-trust-blue`, `--shadow-*`, the fonts) at the `--crm-*` values, so the existing
+ * `text-navy` / `bg-card` / `rounded-*` call sites recolour without being touched. Gold leaves the chrome: the
+ * pale-gold selection tint becomes the blue-50 pill; `--gold` itself stays for celebration moments.
+ */
+[data-ui="crm"] {
+  --navy: var(--crm-ink);
+  --trust-blue: var(--crm-blue);
+  --bright-blue: var(--crm-blue-strong);
+  --pale-gold: var(--crm-blue-50);
+  --white: var(--crm-card);
+  --cool-white: var(--crm-page);
+  --near-black: var(--crm-text);
+  --steel: var(--crm-muted);
+  --steel-400: var(--crm-faint);
+  --steel-300: var(--crm-border-strong);
+  --steel-200: var(--crm-border);
+  --steel-100: var(--crm-divider);
+  --cta: var(--crm-blue);
+  --cta-hover: var(--crm-blue-strong);
+  --accent: var(--crm-blue);
+  --radius: var(--crm-r-card);
+  --radius-sm: var(--crm-r-control);
+  --radius-lg: 16px;
+  --font-head: var(--crm-font);
+  --font-body: var(--crm-font);
+  --shadow-sm: var(--crm-shadow-card);
+  --shadow-md: var(--crm-shadow-card);
+  --shadow-lg: var(--crm-shadow-pop);
+  --shadow-xl: var(--crm-shadow-pop);
+  --background: var(--crm-page);
+  --foreground: var(--crm-text);
+  --card: var(--crm-card);
+  --card-foreground: var(--crm-text);
+  --muted: var(--crm-divider);
+  --muted-foreground: var(--crm-muted);
+  --border: var(--crm-border);
+  --input: var(--crm-border-strong);
+  --primary: var(--crm-blue);
+  --primary-foreground: #ffffff;
+  --destructive: var(--crm-red);
+  --ring: var(--crm-blue);
+
+  color: var(--crm-text);
+  font-family: var(--crm-font);
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+[data-ui="crm"] h1,
+[data-ui="crm"] h2,
+[data-ui="crm"] h3,
+[data-ui="crm"] h4 {
+  color: var(--crm-ink);
+  letter-spacing: -0.01em;
+}
+
+[data-ui="crm"] .eyebrow {
+  color: var(--crm-muted);
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+
+[data-ui="crm"] .eyebrow::before {
+  background: var(--crm-blue);
+}
+
+[data-ui="crm"] :focus-visible {
+  outline: none;
+  box-shadow: var(--crm-focus);
 }
 
 @theme inline {

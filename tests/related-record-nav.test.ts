@@ -39,14 +39,14 @@ test("getRelatedNavLinks returns Booking → Lead", () => {
       lead_ref: { _id: "lead1" },
       lead_model: "FormLead",
     }),
-    [{ href: "/form-leads?record=lead1", label: "View lead" }],
+    [{ href: "/leads?lead=lead1&lk=form", label: "View lead" }],
   );
   assert.deepEqual(
     getRelatedNavLinks("bookings", {
       lead_ref: "lead2",
       lead_model: "CallLead",
     }),
-    [{ href: "/call-leads?record=lead2", label: "View lead" }],
+    [{ href: "/leads?lead=lead2&lk=call", label: "View lead" }],
   );
   assert.deepEqual(
     getRelatedNavLinks("bookings", {
@@ -73,7 +73,7 @@ test("linkedContextHref resolves relation keys for the side panel", () => {
       lead_ref: "l1",
       lead_model: "FormLead",
     }),
-    "/form-leads?record=l1",
+    "/leads?lead=l1&lk=form",
   );
   assert.equal(
     linkedContextHref("cancellations", "booked_lead", { booked_lead: "b2" }),
@@ -81,7 +81,7 @@ test("linkedContextHref resolves relation keys for the side panel", () => {
   );
   assert.equal(
     linkedContextHref("bookings", "cancelled", { cancelled: "c1" }),
-    "/cancellations?record=c1",
+    "/bookings/cancellations?record=c1",
   );
   assert.equal(linkedContextHref("bookings", "related_bookings", {}), null);
 });

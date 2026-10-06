@@ -9,6 +9,7 @@ export function parseManualTab(value: string | null | undefined): ManualTab {
   return value === "attach" ? "attach" : "create";
 }
 
+/** Where each old Manual tab lives now (doc 01): New lead on the Leads workspace, Connect on Reconciliation. */
 export function manualTabHref(tab: ManualTab): string {
-  return tab === "attach" ? "/manual?tab=attach" : "/manual";
+  return tab === "attach" ? "/bookings/reconciliation?connect=1" : "/leads?new=1";
 }

@@ -132,6 +132,9 @@ function storageOrNull(): Storage | null {
 }
 
 /**
+ * `embedded` is the Today > Operations tab: the Today header owns the title and date, so the board keeps only its
+ * toolbar (live chip, Quiet priorities, Sheet Sync, Colours) in one right-aligned row.
+ *
  * The Owner's day. One EventSource feeds one in-memory board; every band
  * reads from it. Counts move per fact (`applyDailyOperationsSsePayload`); the
  * like-hour baselines and the `now` marker follow the browser clock
@@ -139,7 +142,7 @@ function storageOrNull(): Storage | null {
  * The snapshot resyncs from Mongo every five minutes, when the tab returns
  * after a long hide, and when the Florida day rolls over.
  */
-export function DailyOperationsPage() {
+export function DailyOperationsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -466,16 +469,18 @@ export function DailyOperationsPage() {
   return (
     <KindColorsProvider overrides={kindTones}>
       <div className="space-y-5">
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="eyebrow">{DAILY_COPY.title}</p>
-            <h1 className="text-3xl font-extrabold tracking-tight">{DAILY_COPY.title}</h1>
-            <p className="mt-1.5 text-sm text-steel">
-              {snapshot
-                ? formatDailyOperationsDay(snapshot.generated_at)
-                : DAILY_COPY.timezone}
-            </p>
-          </div>
+        <header className={cn("flex flex-wrap items-end gap-3", embedded ? "justify-end" : "justify-between")}>
+          {embedded ? null : (
+            <div>
+              <p className="eyebrow">{DAILY_COPY.title}</p>
+              <h1 className="text-3xl font-extrabold tracking-tight">{DAILY_COPY.title}</h1>
+              <p className="mt-1.5 text-sm text-steel">
+                {snapshot
+                  ? formatDailyOperationsDay(snapshot.generated_at)
+                  : DAILY_COPY.timezone}
+              </p>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2" aria-label={DAILY_COPY.boardToolbar}>
             <LiveChrome
               status={status}

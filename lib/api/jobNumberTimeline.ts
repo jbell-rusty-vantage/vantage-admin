@@ -289,7 +289,8 @@ export type RecentOfficialBookingExample = {
   booked_at: string;
 };
 
-export const JOB_TIMELINE_HREF = "/job-timeline";
+/** The full Job Timeline page lives under Leads (doc 01); `/job-timeline` redirects here. */
+export const JOB_TIMELINE_HREF = "/leads/timeline";
 
 export const PROOF_SHAPE_LABELS: Record<JobTimelineProofShape, string> = {
   granot_born: "Granot-born",

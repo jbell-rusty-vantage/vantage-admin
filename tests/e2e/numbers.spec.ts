@@ -197,7 +197,7 @@ for (const view of [
     await expect.poll(() => scroller.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
 
     // Client-side navigation from the dashboard into the view (the path that once left <body> without a height).
-    await page.goto("/daily");
+    await page.goto("/?tab=operations");
     await page.locator('a[href="/outreach-desk"]').first().click();
     await page.waitForURL(/\/outreach-desk/);
     await waitForDesk(page);

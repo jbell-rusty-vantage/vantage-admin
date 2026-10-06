@@ -158,7 +158,7 @@ test("owner copy names booking intakes without lifecycle jargon", () => {
   assert.equal(isAllowedIntakeReturn("/intakes"), true);
   assert.equal(isAllowedIntakeReturn("/intakes?tab=cancellations"), true);
   assert.equal(isAllowedIntakeReturn("/ingestion/granot/lifecycle"), false);
-  assert.equal(intakeJobHref("5562924"), "/job-timeline?job=5562924");
+  assert.equal(intakeJobHref("5562924"), "/leads/timeline?job=5562924");
 });
 
 test("AC-RRF-07 GRANOT_IDENTITY_CONFLICT copy does not say case revision changed", () => {
@@ -200,7 +200,7 @@ test("intake list uses owner language and keeps historical Release rows off the 
   assert.equal(bookingMarkup.includes("No Action"), false);
   assert.equal(bookingMarkup.includes("Cancel this booking"), false);
   assert.match(bookingMarkup, /href="\/intakes\?case=case-booking"/);
-  assert.match(bookingMarkup, /href="\/job-timeline\?job=Synthetic/);
+  assert.match(bookingMarkup, /href="\/leads\/timeline\?job=Synthetic/);
   assert.match(bookingMarkup, /Open Job timeline/);
   assert.match(bookingMarkup, /Open job history/);
   assert.equal(bookingMarkup.includes("Synthetic Job 2"), false);
@@ -674,7 +674,7 @@ test("the booking intake reads as one story: Granot, then the customer, then the
     assert.ok(at > readSoFar, `${act} is out of order in the booking intake story`);
     readSoFar = at;
   }
-  assert.match(markup, /href="\/job-timeline\?job=Synthetic/);
+  assert.match(markup, /href="\/leads\/timeline\?job=Synthetic/);
 });
 
 test("a booking intake that needs no customer never asks for one", () => {
@@ -786,7 +786,7 @@ test("the reference drawers explain the job in owner words, not schema words", (
   assert.match(markup, /Vantage read it cleanly/);
   assert.match(markup, /some fields looked wrong/);
   assert.match(markup, /Every update Granot sent on this job \(2\)/);
-  assert.match(markup, /href="\/job-timeline\?job=Synthetic/);
+  assert.match(markup, /href="\/leads\/timeline\?job=Synthetic/);
   assert.match(markup, /Open Job timeline/);
   for (const jargon of ["normalization_result", "priority_5", "observation_id", "decision_id"]) {
     assert.equal(markup.includes(jargon), false);

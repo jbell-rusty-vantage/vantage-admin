@@ -22,12 +22,10 @@ const root = process.cwd();
 const OPERATIONAL_PAGE_FILES = [
   "components/operational/operational-resource-page.tsx",
   "components/operational/operational-filter-panel.tsx",
-  "app/(dashboard)/form-leads/page.tsx",
-  "app/(dashboard)/call-leads/page.tsx",
+  "app/(dashboard)/leads/page.tsx",
+  "components/leads/leads-workspace.tsx",
   "app/(dashboard)/bookings/page.tsx",
-  "app/(dashboard)/cancellations/page.tsx",
-  "app/(dashboard)/duplicate-form-leads/page.tsx",
-  "app/(dashboard)/duplicate-call-leads/page.tsx",
+  "app/(dashboard)/bookings/cancellations/page.tsx",
 ];
 
 function emptyFilters(): TableQueryParams {

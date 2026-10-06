@@ -1,155 +1,91 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  dashboardNavSections,
+  activeNavKey,
+  dashboardHomeFor,
+  dashboardNavItems,
   isActivePath,
   pageTitleForPath,
   visibleDashboardNav,
-  visibleDashboardNavSections,
 } from "../components/layout/dashboard-nav";
+import { sidebarBadgeCounts } from "../components/layout/use-sidebar-badges";
+import { insightsTabForPath } from "../components/insights/insights-tabs";
+import { setupSectionsFor } from "../components/setup/setup-hub";
 
 function hrefs(items: { href: string }[]): string[] {
   return items.map((item) => item.href);
 }
 
-test("owner flat nav keeps Overview, Daily Operations, Outreach Desk, then Intakes, Manual, and Form Leads", () => {
-  const owner = visibleDashboardNav("owner");
-
-  assert.equal(owner[0]?.label, "Overview");
-  assert.equal(owner[0]?.href, "/");
-  assert.equal(owner[1]?.label, "Daily Operations");
-  assert.equal(owner[1]?.href, "/daily");
-  assert.equal(owner[1]?.ownerOnly, true);
-  assert.equal(owner[2]?.label, "Outreach Desk");
-  assert.equal(owner[2]?.href, "/outreach-desk");
-  assert.equal(owner[2]?.ownerOnly, true);
-  assert.equal(owner[3]?.label, "Intakes");
-  assert.equal(owner[3]?.href, "/intakes");
-  assert.equal(owner[3]?.ownerOnly, true);
-  assert.equal(owner[4]?.label, "Manual");
-  assert.equal(owner[4]?.href, "/manual");
-  assert.equal(owner[4]?.ownerOnly, true);
-  assert.equal(owner[5]?.label, "Form Leads");
-  assert.equal(owner[5]?.href, "/form-leads");
-  assert.equal(
-    owner.some((item) => "isNew" in item && item.isNew),
-    false,
-  );
-
-  const formIndex = owner.findIndex((item) => item.href === "/form-leads");
-  const duplicateFormIndex = owner.findIndex((item) => item.href === "/duplicate-form-leads");
-  const callIndex = owner.findIndex((item) => item.href === "/call-leads");
-  const duplicateCallIndex = owner.findIndex((item) => item.href === "/duplicate-call-leads");
-  assert.ok(formIndex > 3);
-  assert.equal(duplicateFormIndex, formIndex + 1);
-  assert.equal(owner[duplicateFormIndex]?.label, "Duplicate Form Leads");
-  assert.equal(duplicateCallIndex, callIndex + 1);
-  assert.equal(owner[duplicateCallIndex]?.label, "Duplicate Call Leads");
-});
-
-test("admin flat nav omits owner-only destinations", () => {
-  const admin = visibleDashboardNav("admin");
-  const adminHrefs = hrefs(admin);
-
-  for (const href of [
-    "/daily",
-    "/sales-intelligence",
-    "/intakes",
-    "/manual",
-    "/job-timeline",
-    "/extension",
-  ]) {
-    assert.equal(adminHrefs.includes(href), false, href);
-  }
-
-  assert.deepEqual(adminHrefs.slice(0, 3), ["/", "/form-leads", "/duplicate-form-leads"]);
-});
-
-test("owner sections keep the five groups and admin Today and System shrink", () => {
+test("the sidebar has six destinations in the Owner's order: Today, Leads, Bookings, Outreach Desk, Insights, Setup", () => {
   assert.deepEqual(
-    dashboardNavSections.map((section) => section.id),
-    ["today", "records", "people", "insight", "system"],
+    dashboardNavItems.map((item) => item.key),
+    ["today", "leads", "bookings", "outreach-desk", "insights", "setup"],
   );
-
-  const owner = visibleDashboardNavSections("owner");
+  assert.deepEqual(hrefs(visibleDashboardNav("owner")), ["/", "/leads", "/bookings", "/outreach-desk", "/insights", "/setup"]);
   assert.deepEqual(
-    owner.map((section) => section.id),
-    ["today", "records", "people", "insight", "system"],
-  );
-  assert.deepEqual(hrefs(owner.find((section) => section.id === "today")!.items), [
-    "/",
-    "/daily",
-    "/outreach-desk",
-    "/intakes",
-    "/manual",
-  ]);
-  assert.deepEqual(hrefs(owner.find((section) => section.id === "records")!.items), [
-    "/form-leads",
-    "/call-leads",
-    "/bookings",
-    "/cancellations",
-    "/job-timeline",
-  ]);
-  assert.deepEqual(hrefs(owner.find((section) => section.id === "people")!.items), [
-    "/testimonials",
-  ]);
-  assert.deepEqual(hrefs(owner.find((section) => section.id === "insight")!.items), [
-    "/analytics",
-    "/reporting",
-  ]);
-  assert.deepEqual(hrefs(owner.find((section) => section.id === "system")!.items), [
-    "/operations-registry",
-    "/granot-lifecycle/health",
-    "/ingestion",
-    "/extension",
-  ]);
-  assert.deepEqual(
-    owner.find((section) => section.id === "system")!.items.map((item) => item.label),
-    ["Operations Registry", "Granot Lifecycle", "Ingestion", "Extension"],
-  );
-
-  const admin = visibleDashboardNavSections("admin");
-  assert.deepEqual(
-    admin.map((section) => section.id),
-    ["today", "records", "people", "insight", "system"],
-  );
-  assert.deepEqual(hrefs(admin.find((section) => section.id === "today")!.items), ["/"]);
-  assert.deepEqual(hrefs(admin.find((section) => section.id === "records")!.items), [
-    "/form-leads",
-    "/call-leads",
-    "/bookings",
-    "/cancellations",
-  ]);
-  assert.deepEqual(hrefs(admin.find((section) => section.id === "insight")!.items), [
-    "/analytics",
-    "/reporting",
-  ]);
-  // Health is the only Granot Lifecycle page and Admin may read it.
-  assert.deepEqual(hrefs(admin.find((section) => section.id === "system")!.items), [
-    "/operations-registry",
-    "/granot-lifecycle/health",
-    "/ingestion",
-  ]);
-  assert.equal(
-    admin.find((section) => section.id === "system")!.items.some((item) => item.label === "Extension"),
-    false,
+    visibleDashboardNav("owner").map((item) => item.label),
+    ["Today", "Leads", "Bookings", "Outreach Desk", "Insights", "Setup"],
   );
 });
 
-test("Job Timeline sidebar label is title case", () => {
-  const jobTimeline = visibleDashboardNav("owner").find((item) => item.href === "/job-timeline");
-  assert.equal(jobTimeline?.label, "Job Timeline");
-  assert.equal(jobTimeline?.ownerOnly, true);
-  assert.equal(
-    visibleDashboardNav("owner").some((item) => item.label === "Job timeline"),
-    false,
+test("Admin sees Leads, Bookings, Insights and Setup; a Manager sees Today and the Outreach Desk", () => {
+  assert.deepEqual(hrefs(visibleDashboardNav("admin")), ["/leads", "/bookings", "/insights", "/setup"]);
+  assert.deepEqual(hrefs(visibleDashboardNav("manager")), ["/", "/outreach-desk"]);
+  assert.equal(dashboardHomeFor("owner"), "/");
+  assert.equal(dashboardHomeFor("manager"), "/");
+  assert.equal(dashboardHomeFor("admin"), "/leads");
+});
+
+test("badges sit on Today, Leads and Bookings and are counts, never zero", () => {
+  assert.deepEqual(
+    visibleDashboardNav("owner").map((item) => item.badge ?? null),
+    ["today", "leads", "bookings", null, null, null],
   );
+  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 3, unassigned: 5 }), { today: 8, bookings: 3, leads: null });
+  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 0, unassigned: null }), { today: null, bookings: null, leads: null });
+});
+
+test("regrouped old destinations keep their new sidebar item active", () => {
+  assert.equal(activeNavKey("/"), "today");
+  assert.equal(activeNavKey("/daily"), "today");
+  assert.equal(activeNavKey("/leads"), "leads");
+  assert.equal(activeNavKey("/leads/timeline"), "leads");
+  assert.equal(activeNavKey("/job-timeline"), "leads");
+  assert.equal(activeNavKey("/bookings/cancellations"), "bookings");
+  assert.equal(activeNavKey("/intakes"), "bookings");
+  assert.equal(activeNavKey("/cancellations/new"), "bookings");
+  assert.equal(activeNavKey("/outreach-desk"), "outreach-desk");
+  assert.equal(activeNavKey("/insights/sheets"), "insights");
+  assert.equal(activeNavKey("/reporting/abc/edit"), "insights");
+  assert.equal(activeNavKey("/analytics"), "insights");
+  assert.equal(activeNavKey("/setup"), "setup");
+  assert.equal(activeNavKey("/operations-registry"), "setup");
+  assert.equal(activeNavKey("/granot-lifecycle/health"), "setup");
+  assert.equal(activeNavKey("/ingestion/granot"), "setup");
+  assert.equal(activeNavKey("/extension"), "setup");
+  assert.equal(activeNavKey("/testimonials"), "setup");
+  assert.equal(activeNavKey("/login"), null);
 });
 
 test("retired destinations are not in the sidebar for any role", () => {
-  for (const role of ["owner", "admin"] as const) {
+  for (const role of ["owner", "admin", "manager"] as const) {
     const navHrefs = hrefs(visibleDashboardNav(role));
     for (const href of [
+      "/form-leads",
+      "/duplicate-form-leads",
+      "/call-leads",
+      "/duplicate-call-leads",
+      "/cancellations",
+      "/daily",
+      "/manual",
+      "/search",
+      "/job-timeline",
+      "/intakes",
+      "/analytics",
+      "/reporting",
+      "/operations-registry",
+      "/extension",
+      "/testimonials",
       "/customers",
       "/agents",
       "/observational",
@@ -166,29 +102,47 @@ test("retired destinations are not in the sidebar for any role", () => {
 });
 
 test("pageTitleForPath uses nav labels, then longer special prefixes", () => {
-  assert.equal(pageTitleForPath("/"), "Overview");
-  assert.equal(pageTitleForPath("/form-leads"), "Form Leads");
-  assert.equal(pageTitleForPath("/duplicate-form-leads"), "Duplicate Form Leads");
+  assert.equal(pageTitleForPath("/"), "Today");
+  assert.equal(pageTitleForPath("/leads"), "Leads");
+  assert.equal(pageTitleForPath("/leads/timeline"), "Job Timeline");
   assert.equal(pageTitleForPath("/bookings"), "Bookings");
+  assert.equal(pageTitleForPath("/bookings/cancellations"), "Bookings");
   assert.equal(pageTitleForPath("/bookings/reconciliation"), "Booking Reconciliation");
   assert.equal(pageTitleForPath("/bookings/new"), "Precise Booking Form");
-  assert.equal(pageTitleForPath("/job-timeline"), "Job Timeline");
-  assert.equal(pageTitleForPath("/search"), "Search");
-  assert.equal(pageTitleForPath("/ingestion/granot/lifecycle"), "Ingestion");
-  assert.equal(pageTitleForPath("/granot-lifecycle/health"), "Granot Lifecycle");
-  assert.equal(pageTitleForPath("/daily"), "Daily Operations");
-  assert.equal(pageTitleForPath("/manual"), "Manual");
-  assert.equal(pageTitleForPath("/extension"), "Extension");
-  assert.equal(pageTitleForPath("/cancellations/new"), "New Cancellation");
-  assert.equal(pageTitleForPath("/reporting"), "Reporting");
+  assert.equal(pageTitleForPath("/intakes"), "Bookings to finish");
+  assert.equal(pageTitleForPath("/cancellations/new"), "Record a cancellation");
+  assert.equal(pageTitleForPath("/insights"), "Insights");
+  assert.equal(pageTitleForPath("/insights/sheets"), "Insights");
   assert.equal(pageTitleForPath("/reporting/new"), "Create New Report");
-  assert.equal(pageTitleForPath("/reporting/destinations"), "Sheets");
+  assert.equal(pageTitleForPath("/setup"), "Setup");
+  assert.equal(pageTitleForPath("/operations-registry"), "Setup");
+  assert.equal(pageTitleForPath("/granot-lifecycle/health"), "Connections & health");
+  assert.equal(pageTitleForPath("/ingestion/granot/lifecycle"), "Connections & health");
+  assert.equal(pageTitleForPath("/extension"), "People & access");
+  assert.equal(pageTitleForPath("/testimonials"), "Website");
 });
 
-test("isActivePath treats Overview as exact and prefixes other destinations", () => {
+test("isActivePath treats Today as exact and prefixes other destinations", () => {
   assert.equal(isActivePath("/", "/"), true);
-  assert.equal(isActivePath("/form-leads", "/"), false);
-  assert.equal(isActivePath("/form-leads", "/form-leads"), true);
+  assert.equal(isActivePath("/leads", "/"), false);
+  assert.equal(isActivePath("/leads", "/leads"), true);
   assert.equal(isActivePath("/bookings/reconciliation", "/bookings"), true);
-  assert.equal(isActivePath("/duplicate-form-leads", "/form-leads"), false);
+  assert.equal(isActivePath("/leadsx", "/leads"), false);
+});
+
+test("Insights tabs: Sheets covers the reporting sub-pages", () => {
+  assert.equal(insightsTabForPath("/insights"), "analytics");
+  assert.equal(insightsTabForPath("/insights/sheets"), "sheets");
+  assert.equal(insightsTabForPath("/reporting/destinations/x"), "sheets");
+});
+
+test("Setup sections: Admin does not see Users or the Extension", () => {
+  const owner = setupSectionsFor("owner");
+  const admin = setupSectionsFor("admin");
+  assert.deepEqual(
+    owner.map((section) => section.key),
+    ["lead-sources", "lead-costs", "people", "money", "carriers", "connections", "website", "changes"],
+  );
+  assert.deepEqual(owner.find((section) => section.key === "people")!.links.map((link) => link.label), ["Agents", "Users", "Extension"]);
+  assert.deepEqual(admin.find((section) => section.key === "people")!.links.map((link) => link.label), ["Agents"]);
 });

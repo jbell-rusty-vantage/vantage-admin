@@ -169,9 +169,10 @@ export function buildManualCreateLeadPayload(draft: ManualCreateLeadDraft): Reco
   };
 }
 
+/** The Leads workspace with the new lead's panel open (doc 03). */
 export function createdLeadRecordHref(kind: ManualLeadKind, id: string): string {
-  const path = kind === "CallLead" ? "/call-leads" : "/form-leads";
-  return `${path}?record=${encodeURIComponent(id)}`;
+  const lk = kind === "CallLead" ? "call" : "form";
+  return `/leads?lead=${encodeURIComponent(id)}&lk=${lk}`;
 }
 
 export function bookingRecordHref(id: string): string {

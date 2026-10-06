@@ -92,8 +92,9 @@ test("routing: Rep and Manager homes, old Sales Intelligence links, and no desk 
   await expect(page).toHaveURL(/\/outreach-desk\?view=team$/);
   await page.goto("/outreach-desk?view=numbers");
   await expect(page).toHaveURL(/\/outreach-desk\?view=team$/);
+  // Daily Operations lives on Today → Operations; `/daily` redirects there and a Manager may open it.
   await page.goto("/daily");
-  await expect(page).toHaveURL(/\/daily$/);
+  await expect(page).toHaveURL(/\/\?tab=operations$/);
   await page.context().clearCookies();
 
   await signIn(page, "owner");
@@ -116,7 +117,7 @@ test("routing: Rep and Manager homes, old Sales Intelligence links, and no desk 
 test("scroll: the desk scrolls when reached from the Admin dashboard, not only from a deep link", async ({ page }) => {
   await page.setViewportSize({ width: 1186, height: 600 });
   await signIn(page, "owner");
-  await page.goto("/daily");
+  await page.goto("/?tab=operations");
   // Client-side navigation unmounts the dashboard shell, whose document lock once stripped <body>'s own height.
   await page.locator('a[href="/outreach-desk"]').first().click();
   await page.waitForURL(/\/outreach-desk/);

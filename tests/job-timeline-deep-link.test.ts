@@ -11,13 +11,13 @@ test("JobTimelineDeepLink is URL-only and omits empty Job Numbers", () => {
   const present = renderToStaticMarkup(
     createElement(JobTimelineDeepLink, { job: " 5562924 " }),
   );
-  assert.match(present, /href="\/job-timeline\?job=5562924"/);
+  assert.match(present, /href="\/leads\/timeline\?job=5562924"/);
   assert.match(present, />5562924</);
-  assert.equal(buildJobTimelineHref({ job: "5562924" }), "/job-timeline?job=5562924");
+  assert.equal(buildJobTimelineHref({ job: "5562924" }), "/leads/timeline?job=5562924");
 
   const missing = renderToStaticMarkup(createElement(JobTimelineDeepLink, { job: "  " }));
   assert.equal(missing, "-");
-  assert.doesNotMatch(missing, /job-timeline/);
+  assert.doesNotMatch(missing, /leads\/timeline/);
 });
 
 test("operational list/detail Job cells use the owner timeline href", () => {

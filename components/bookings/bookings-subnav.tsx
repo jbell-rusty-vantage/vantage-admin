@@ -1,18 +1,24 @@
 "use client";
-
-import Link from "next/link";
+/**
+ * Bookings tabs (doc 01): To finish · All bookings · Cancellations · Reconciliation, plus the Precise Booking Form.
+ * To finish and Reconciliation are Owner-only (the booking intakes and the reconciliation workbench).
+ */
 import { usePathname } from "next/navigation";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
-import { cn } from "@/lib/utils";
+import { useSidebarBadges } from "@/components/layout/use-sidebar-badges";
+import { Tabs } from "@/components/ui/crm";
 
 type BookingsTab = {
   href: string;
   label: string;
   ownerOnly?: boolean;
+  badge?: "bookings";
 };
 
 const tabs: BookingsTab[] = [
-  { href: "/bookings", label: "All Bookings" },
+  { href: "/intakes", label: "To finish", ownerOnly: true, badge: "bookings" },
+  { href: "/bookings", label: "All bookings" },
+  { href: "/bookings/cancellations", label: "Cancellations" },
   { href: "/bookings/reconciliation", label: "Reconciliation", ownerOnly: true },
   { href: "/bookings/new", label: "Precise Booking Form" },
 ];
@@ -38,31 +44,16 @@ export function isBookingsTabActive(pathname: string, href: string): boolean {
 export function BookingsSubnav() {
   const pathname = usePathname();
   const role = useDashboardRole();
+  const badges = useSidebarBadges(role ?? "admin");
+  const visible = tabs.filter((tab) => role === "owner" || !tab.ownerOnly);
+  const active = visible.find((tab) => isBookingsTabActive(pathname, tab.href))?.href ?? "/bookings";
 
   return (
-    <nav aria-label="Bookings navigation" className="overflow-x-auto">
-      <div className="flex min-w-max gap-2 rounded-lg border bg-background p-2">
-        {tabs
-          .filter((tab) => role === "owner" || !tab.ownerOnly)
-          .map((tab) => {
-            const active = isBookingsTabActive(pathname, tab.href);
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "rounded-md px-3 py-2 text-sm font-semibold transition-colors",
-                  active
-                    ? "bg-primary text-white"
-                    : "text-steel hover:bg-steel-100 hover:text-navy",
-                )}
-              >
-                {tab.label}
-              </Link>
-            );
-          })}
-      </div>
-    </nav>
+    <Tabs<string>
+      label="Bookings navigation"
+      value={active}
+      hrefFor={(href) => href}
+      tabs={visible.map((tab) => ({ value: tab.href, label: tab.label, badge: tab.badge ? badges[tab.badge] : null }))}
+    />
   );
 }

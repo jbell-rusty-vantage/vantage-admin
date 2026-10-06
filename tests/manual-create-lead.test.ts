@@ -88,14 +88,14 @@ test("Manual copy uses owner words and never names create internals", () => {
   assert.doesNotMatch(MANUAL_COPY.successForm, /synced|already/i);
 });
 
-test("Manual tabs stay on /manual and default to create", () => {
+test("the old Manual tabs now open the Leads workspace New lead sheet and Reconciliation → Connect", () => {
   assert.deepEqual(MANUAL_TABS.map((tab) => tab.id), ["create", "attach"]);
   assert.equal(parseManualTab(null), "create");
   assert.equal(parseManualTab("create"), "create");
   assert.equal(parseManualTab("attach"), "attach");
   assert.equal(parseManualTab("other"), "create");
-  assert.equal(manualTabHref("create"), "/manual");
-  assert.equal(manualTabHref("attach"), "/manual?tab=attach");
+  assert.equal(manualTabHref("create"), "/leads?new=1");
+  assert.equal(manualTabHref("attach"), "/bookings/reconciliation?connect=1");
 });
 
 test("Form Lead create requires contact, zips, move size, and Source Company stream", () => {
@@ -271,6 +271,6 @@ test("Booking search uses job number and lead search uses Owner Source Company p
     limit: 10,
     q: "P5562014",
   });
-  assert.equal(createdLeadRecordHref("FormLead", "abc 1"), "/form-leads?record=abc%201");
-  assert.equal(createdLeadRecordHref("CallLead", "abc"), "/call-leads?record=abc");
+  assert.equal(createdLeadRecordHref("FormLead", "abc 1"), "/leads?lead=abc%201&lk=form");
+  assert.equal(createdLeadRecordHref("CallLead", "abc"), "/leads?lead=abc&lk=call");
 });

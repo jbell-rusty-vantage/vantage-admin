@@ -18,6 +18,15 @@ const publicSans = localFont({
   display: "swap",
 });
 
+// The CRM typeface (dashboard-redesign-proposal/15): Plus Jakarta Sans app-wide behind `data-ui="crm"`. The Outreach
+// Desk's `--font-od` falls back to this variable, so the desk and the dashboard share one font file.
+const plusJakarta = localFont({
+  src: "./fonts/plus-jakarta-sans-latin-wght.woff2",
+  variable: "--font-plus-jakarta",
+  weight: "400 800",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Vantage Admin",
   description: "Owner dashboard for Vantage Movers operations.",
@@ -35,7 +44,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${archivo.variable} ${publicSans.variable} h-full overflow-x-hidden antialiased`}
+      className={`${archivo.variable} ${publicSans.variable} ${plusJakarta.variable} h-full overflow-x-hidden antialiased`}
     >
       <body className="flex h-full min-h-0 flex-col overflow-x-hidden">{children}</body>
     </html>

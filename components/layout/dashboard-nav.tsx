@@ -1,142 +1,74 @@
 "use client";
-
+/**
+ * The dashboard sidebar (dashboard-redesign-proposal/01-sidebar-and-information-architecture.md). Six destinations
+ * answer the Owner's three questions — what needs me (Today), find this customer or job (Leads, Bookings), how is the
+ * team doing (Outreach Desk) — and push everything else behind Insights and Setup. Nothing was deleted: the old
+ * destinations are regrouped under tabs and reached by permanent redirects (`next.config.ts`).
+ */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
   BookOpenCheck,
-  Boxes,
-  Calendar,
-  ClipboardPen,
-  ClipboardX,
-  Copy,
-  FileText,
-  HeartPulse,
-  History,
-  Home,
-  Inbox,
-  Import,
-  MessageSquareQuote,
-  Phone,
-  PhoneForwarded,
-  Presentation,
-  Puzzle,
   Headset,
+  LayoutDashboard,
+  ListChecks,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
-import { GRANOT_LIFECYCLE_COPY, GRANOT_LIFECYCLE_HEALTH_HREF } from "@/components/granot-lifecycle/granot-lifecycle-copy";
-import { cn } from "@/lib/utils";
 
-export type DashboardNavChild = {
-  label: string;
-  href: string;
-  icon: LucideIcon;
-};
+export type DashboardNavKey = "today" | "leads" | "bookings" | "outreach-desk" | "insights" | "setup";
 
 export type DashboardNavItem = {
+  key: DashboardNavKey;
   label: string;
   href: string;
   icon: LucideIcon;
+  /** Other route prefixes this destination owns (old pages regrouped under it); they keep the item active. */
+  activeFor: readonly string[];
   ownerOnly?: boolean;
-  /** Sales Outreach Desk (P09b): the only destinations a Manager sees. */
+  /** Sales Outreach Desk (P09b): the destinations a Manager sees. */
   managerVisible?: boolean;
-  children?: DashboardNavChild[];
+  /** Which badge the sidebar shows next to the item (counts come from `useSidebarBadges`). */
+  badge?: "today" | "bookings" | "leads";
 };
 
-/** Roles that render the dashboard shell: the Owner, a generic Admin and (for Daily Operations only) a Manager. */
+/** Roles that render the dashboard shell: the Owner, a generic Admin and (for Today → Operations only) a Manager. */
 export type DashboardShellRole = "owner" | "admin" | "manager";
 
-export type DashboardNavSection = {
-  id: "today" | "records" | "people" | "insight" | "system";
-  label: string;
-  items: DashboardNavItem[];
-};
-
 const extraPageTitles: { href: string; title: string }[] = [
-  { href: "/search", title: "Search" },
+  { href: "/leads/timeline", title: "Job Timeline" },
+  { href: "/job-timeline", title: "Job Timeline" },
+  { href: "/intakes", title: "Bookings to finish" },
   { href: "/bookings/reconciliation", title: "Booking Reconciliation" },
   { href: "/bookings/new", title: "Precise Booking Form" },
-  { href: "/cancellations/new", title: "New Cancellation" },
+  { href: "/cancellations/new", title: "Record a cancellation" },
+  { href: "/analytics", title: "Analytics" },
+  { href: "/reporting", title: "Sheets" },
   { href: "/reporting/new", title: "Create New Report" },
   { href: "/reporting/destinations", title: "Sheets" },
+  { href: "/operations-registry", title: "Setup" },
+  { href: "/granot-lifecycle", title: "Connections & health" },
+  { href: "/ingestion", title: "Connections & health" },
+  { href: "/extension", title: "People & access" },
+  { href: "/testimonials", title: "Website" },
+  { href: "/sales-intelligence", title: "Sales Intelligence" },
 ];
 
-export const dashboardNavSections: DashboardNavSection[] = [
+export const dashboardNavItems: readonly DashboardNavItem[] = [
+  { key: "today", label: "Today", href: "/", icon: LayoutDashboard, activeFor: ["/daily"], ownerOnly: true, managerVisible: true, badge: "today" },
+  { key: "leads", label: "Leads", href: "/leads", icon: ListChecks, activeFor: ["/leads", "/job-timeline", "/manual", "/search"], badge: "leads" },
+  { key: "bookings", label: "Bookings", href: "/bookings", icon: BookOpenCheck, activeFor: ["/bookings", "/intakes", "/cancellations"], badge: "bookings" },
+  { key: "outreach-desk", label: "Outreach Desk", href: "/outreach-desk", icon: Headset, activeFor: ["/outreach-desk", "/sales-intelligence"], ownerOnly: true, managerVisible: true },
+  { key: "insights", label: "Insights", href: "/insights", icon: BarChart3, activeFor: ["/insights", "/analytics", "/reporting"] },
   {
-    id: "today",
-    label: "Today",
-    items: [
-      { label: "Overview", href: "/", icon: Home },
-      { label: "Daily Operations", href: "/daily", icon: Calendar, ownerOnly: true, managerVisible: true },
-      { label: "Outreach Desk", href: "/outreach-desk", icon: Headset, ownerOnly: true, managerVisible: true },
-      { label: "Intakes", href: "/intakes", icon: Inbox, ownerOnly: true },
-      { label: "Manual", href: "/manual", icon: ClipboardPen, ownerOnly: true },
-    ],
-  },
-  {
-    id: "records",
-    label: "Records",
-    items: [
-      {
-        label: "Form Leads",
-        href: "/form-leads",
-        icon: FileText,
-        children: [{ label: "Duplicate Form Leads", href: "/duplicate-form-leads", icon: Copy }],
-      },
-      {
-        label: "Call Leads",
-        href: "/call-leads",
-        icon: Phone,
-        children: [{ label: "Duplicate Call Leads", href: "/duplicate-call-leads", icon: PhoneForwarded }],
-      },
-      { label: "Bookings", href: "/bookings", icon: BookOpenCheck },
-      { label: "Cancellations", href: "/cancellations", icon: ClipboardX },
-      { label: "Job Timeline", href: "/job-timeline", icon: History, ownerOnly: true },
-    ],
-  },
-  {
-    id: "people",
-    label: "People",
-    items: [
-      { label: "Testimonials", href: "/testimonials", icon: MessageSquareQuote },
-    ],
-  },
-  {
-    id: "insight",
-    label: "Insight",
-    items: [
-      { label: "Analytics", href: "/analytics", icon: BarChart3 },
-      { label: "Reporting", href: "/reporting", icon: Presentation },
-    ],
-  },
-  {
-    id: "system",
-    label: "System",
-    items: [
-      { label: "Operations Registry", href: "/operations-registry", icon: Boxes },
-      { label: GRANOT_LIFECYCLE_COPY.pageTitle, href: GRANOT_LIFECYCLE_HEALTH_HREF, icon: HeartPulse },
-      { label: "Ingestion", href: "/ingestion", icon: Import },
-      { label: "Extension", href: "/extension", icon: Puzzle, ownerOnly: true },
-    ],
+    key: "setup",
+    label: "Setup",
+    href: "/setup",
+    icon: Settings,
+    activeFor: ["/setup", "/operations-registry", "/granot-lifecycle", "/ingestion", "/extension", "/testimonials", "/settings"],
   },
 ];
-
-function flattenNavItems(items: DashboardNavItem[]): DashboardNavItem[] {
-  return items.flatMap((item) => [
-    {
-      label: item.label,
-      href: item.href,
-      icon: item.icon,
-      ...(item.ownerOnly ? { ownerOnly: true } : {}),
-      ...(item.managerVisible ? { managerVisible: true } : {}),
-    },
-    ...(item.children ?? []).map((child) => ({
-      label: child.label,
-      href: child.href,
-      icon: child.icon,
-    })),
-  ]);
-}
 
 function navItemVisible(adminRole: DashboardShellRole, item: DashboardNavItem): boolean {
   if (adminRole === "owner") return true;
@@ -144,33 +76,42 @@ function navItemVisible(adminRole: DashboardShellRole, item: DashboardNavItem): 
   return !item.ownerOnly;
 }
 
-export function visibleDashboardNavSections(adminRole: DashboardShellRole): DashboardNavSection[] {
-  return dashboardNavSections
-    .map((section) => ({
-      ...section,
-      items: section.items.filter((item) => navItemVisible(adminRole, item)),
-    }))
-    .filter((section) => section.items.length > 0);
-}
-
 export function visibleDashboardNav(adminRole: DashboardShellRole): DashboardNavItem[] {
-  return flattenNavItems(visibleDashboardNavSections(adminRole).flatMap((section) => section.items));
+  return dashboardNavItems.filter((item) => navItemVisible(adminRole, item));
 }
 
 export const dashboardNavigation: DashboardNavItem[] = visibleDashboardNav("owner");
+
+/** The role's home: the Owner and a Manager land on Today; an Admin has no Today and lands on Leads. */
+export function dashboardHomeFor(adminRole: DashboardShellRole): string {
+  return adminRole === "admin" ? "/leads" : "/";
+}
 
 export function isActivePath(pathname: string, href: string): boolean {
   if (href === "/") {
     return pathname === "/";
   }
-
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** The sidebar item a path belongs to (its own href or one of the regrouped prefixes). */
+export function activeNavKey(pathname: string): DashboardNavKey | null {
+  const path = pathname.split(/[?#]/, 1)[0] || "/";
+  let best: { key: DashboardNavKey; length: number } | null = null;
+  for (const item of dashboardNavItems) {
+    for (const prefix of [item.href, ...item.activeFor]) {
+      if (!isActivePath(path, prefix)) continue;
+      const length = prefix === "/" ? 1 : prefix.length;
+      if (!best || length > best.length) best = { key: item.key, length };
+    }
+  }
+  return best?.key ?? null;
 }
 
 function titleFromLastSegment(pathname: string): string {
   const segment = pathname.split("/").filter(Boolean).pop();
   if (!segment) {
-    return "Overview";
+    return "Today";
   }
 
   return segment
@@ -182,11 +123,11 @@ function titleFromLastSegment(pathname: string): string {
 export function pageTitleForPath(pathname: string): string {
   const path = pathname.split(/[?#]/, 1)[0] || "/";
   if (path === "/") {
-    return "Overview";
+    return "Today";
   }
 
   const titles = new Map<string, string>();
-  for (const item of flattenNavItems(dashboardNavSections.flatMap((section) => section.items))) {
+  for (const item of dashboardNavItems) {
     titles.set(item.href, item.label);
   }
   for (const extra of extraPageTitles) {
@@ -210,109 +151,63 @@ export function pageTitleForPath(pathname: string): string {
   return bestTitle || titleFromLastSegment(path);
 }
 
-function itemIsVisuallyActive(pathname: string, item: DashboardNavItem | DashboardNavChild): boolean {
-  if (isActivePath(pathname, item.href)) {
-    return true;
-  }
+export type SidebarBadgeCounts = Partial<Record<NonNullable<DashboardNavItem["badge"]>, number | null>>;
 
-  if ("children" in item && item.children?.some((child) => isActivePath(pathname, child.href))) {
-    return true;
-  }
-
-  return false;
-}
-
-function NavLink({
-  item,
-  pathname,
-  collapsed,
-  indented,
-  onNavigate,
-}: {
-  item: DashboardNavItem | DashboardNavChild;
-  pathname: string;
-  collapsed: boolean;
-  indented?: boolean;
-  onNavigate?: () => void;
-}) {
-  const current = isActivePath(pathname, item.href);
-  const active = itemIsVisuallyActive(pathname, item);
+function NavLink({ item, active, badge, onNavigate }: { item: DashboardNavItem; active: boolean; badge: number | null | undefined; onNavigate?: () => void }) {
   const Icon = item.icon;
-
   return (
-    <Link
-      href={item.href}
-      title={collapsed ? item.label : undefined}
-      aria-current={current ? "page" : undefined}
-      onClick={onNavigate}
-      className={cn(
-        "flex items-center rounded-md text-[13px] leading-5 font-medium transition-colors",
-        collapsed ? "justify-center px-1.5 py-1.5" : "gap-2 px-2 py-1",
-        indented ? "text-xs font-normal" : undefined,
-        current
-          ? "bg-pale-gold/80 text-navy"
-          : active
-            ? "bg-pale-gold/45 text-navy"
-            : "text-steel hover:bg-steel-100 hover:text-navy",
-      )}
-    >
-      <Icon
-        className={cn("shrink-0", indented ? "h-3 w-3" : "h-3.5 w-3.5")}
-        aria-hidden="true"
-      />
-      <span className={cn("min-w-0 truncate", collapsed ? "sr-only" : undefined)}>{item.label}</span>
+    <Link href={item.href} className="crm-nav__item" aria-current={active ? "page" : undefined} onClick={onNavigate} data-nav={item.key} title={item.label}>
+      <Icon aria-hidden="true" />
+      <span className="crm-nav__label">{item.label}</span>
+      {badge ? (
+        <span className="crm-nav__badge" aria-label={`${badge} waiting`}>
+          {badge}
+        </span>
+      ) : null}
     </Link>
   );
 }
 
 export function DashboardNav({
   adminRole,
-  collapsed = false,
+  badges = {},
   onNavigate,
 }: {
   adminRole: DashboardShellRole;
-  collapsed?: boolean;
+  badges?: SidebarBadgeCounts;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const sections = visibleDashboardNavSections(adminRole);
+  const items = visibleDashboardNav(adminRole);
+  const active = activeNavKey(pathname);
 
   return (
-    <nav aria-label="Dashboard" className="px-0.5">
-      {sections.map((section, sectionIndex) => (
-        <div key={section.id} className={sectionIndex === 0 ? undefined : "mt-3"}>
-          {collapsed ? (
-            sectionIndex > 0 ? (
-              <div className="mx-1.5 mb-2 border-t border-steel-200/80" aria-hidden="true" />
-            ) : null
-          ) : (
-            <p className="mb-1 px-2 text-[10px] font-medium uppercase tracking-[0.14em] text-steel/70">
-              {section.label}
-            </p>
-          )}
-          <div className="space-y-px">
-            {section.items.map((item) => (
-              <div key={item.href}>
-                <NavLink item={item} pathname={pathname} collapsed={collapsed} onNavigate={onNavigate} />
-                {!collapsed && item.children?.length ? (
-                  <div className="ml-3.5 mt-px space-y-px border-l border-steel-200 pl-2">
-                    {item.children.map((child) => (
-                      <NavLink
-                        key={child.href}
-                        item={child}
-                        pathname={pathname}
-                        collapsed={false}
-                        indented
-                        onNavigate={onNavigate}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </div>
+    <nav aria-label="Dashboard" className="crm-nav">
+      {items.map((item) => (
+        <NavLink key={item.key} item={item} active={item.key === active} badge={item.badge ? badges[item.badge] : null} onNavigate={onNavigate} />
       ))}
+    </nav>
+  );
+}
+
+/** The phone-width bottom bar: the same items, badges on Today, Leads and Bookings. */
+export function DashboardMobileBar({ adminRole, badges = {} }: { adminRole: DashboardShellRole; badges?: SidebarBadgeCounts }) {
+  const pathname = usePathname();
+  const items = visibleDashboardNav(adminRole);
+  const active = activeNavKey(pathname);
+  return (
+    <nav aria-label="Dashboard" className="crm-mobilebar">
+      {items.map((item) => {
+        const Icon = item.icon;
+        const badge = item.badge ? badges[item.badge] : null;
+        return (
+          <Link key={item.key} href={item.href} className="crm-mobilebar__item" aria-current={item.key === active ? "page" : undefined} data-nav={item.key}>
+            <Icon aria-hidden="true" />
+            <span>{item.label}</span>
+            {badge ? <span className="crm-nav__badge">{badge}</span> : null}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

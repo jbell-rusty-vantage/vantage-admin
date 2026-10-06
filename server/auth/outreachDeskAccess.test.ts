@@ -146,10 +146,11 @@ test("a Manager is signed with the seven-line payload and no Agent header", () =
   }
 });
 
-test("pages: a Manager opens only the desk and Daily Operations; a Rep only the desk; an Admin no desk", () => {
+test("pages: a Manager opens only the desk and Daily Operations (now Today → Operations); a Rep only the desk; an Admin no desk", () => {
   assert.equal(canAccessDashboardPath("manager", "/outreach-desk"), true);
   assert.equal(canAccessDashboardPath("manager", "/daily"), true);
-  for (const path of ["/", "/daily/x", "/outreach-desk/x", "/sales-intelligence", "/form-leads", "/operations-registry", "/intakes", "/settings"]) {
+  assert.equal(canAccessDashboardPath("manager", "/"), true);
+  for (const path of ["/daily/x", "/outreach-desk/x", "/sales-intelligence", "/form-leads", "/leads", "/operations-registry", "/intakes", "/settings", "/setup"]) {
     assert.equal(canAccessDashboardPath("manager", path), false, path);
   }
   assert.equal(canAccessDashboardPath("rep", "/outreach-desk"), true);
@@ -168,7 +169,8 @@ test("the edge guard sends a Manager to the desk from any page but the desk and 
   setTestEnv();
   assert.equal(applyRoleRouteGuard(requestWithRole("/outreach-desk?view=team", "manager")), null);
   assert.equal(applyRoleRouteGuard(requestWithRole("/daily", "manager")), null);
-  for (const path of ["/", "/form-leads", "/sales-intelligence", "/operations-registry?tab=users", "/intakes", "/analytics"]) {
+  assert.equal(applyRoleRouteGuard(requestWithRole("/?tab=operations", "manager")), null);
+  for (const path of ["/leads", "/form-leads", "/sales-intelligence", "/operations-registry?tab=users", "/intakes", "/analytics", "/insights", "/setup"]) {
     const response = applyRoleRouteGuard(requestWithRole(path, "manager"));
     assert.equal(response?.status, 307, path);
     assert.equal(new URL(response!.headers.get("location")!).pathname, "/outreach-desk", path);

@@ -1,17 +1,24 @@
 "use client";
-
+/**
+ * The dashboard shell in the CRM look (dashboard-redesign-proposal/15-crm-visual-system.md "The shell, after"): a
+ * white 232 px sidebar with 40 px rows and a blue-50 active pill, the environment chip and the ⌘K record search at its
+ * top, the signed-in identity at its foot; a slim topbar with the page title and the connection freshness chips; a
+ * phone-width bottom tab bar. `data-ui="crm"` on the root (and mirrored onto <html> while mounted, for portals) turns
+ * the shared theme on for everything inside.
+ */
 import { useEffect, useState } from "react";
-import { Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
-import { usePathname } from "next/navigation";
-import { BrandLogo } from "@/components/brand/brand-logo";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, Truck, X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-local-storage-boolean";
-import { cn } from "@/lib/utils";
+import { Avatar, cx } from "@/components/ui/crm";
 import { DASHBOARD_MAIN_ID } from "./dashboard-ids";
 import { DashboardRoleProvider } from "./dashboard-role-context";
-import { DashboardNav, pageTitleForPath, type DashboardShellRole } from "./dashboard-nav";
+import { DashboardMobileBar, DashboardNav, pageTitleForPath, type DashboardShellRole } from "./dashboard-nav";
 import { GlobalSearch } from "./global-search";
-import { UserMenu } from "./user-menu";
+import { TopbarFreshness } from "./topbar-freshness";
+import { useSidebarBadges } from "./use-sidebar-badges";
+import { initialsFromEmail } from "./user-menu";
 
 const sidebarStorageKey = "vantage-admin-sidebar-collapsed";
 const ownerOnlyPagePrefixes = [
@@ -26,9 +33,127 @@ const ownerOnlyPagePrefixes = [
   "/extension",
 ] as const;
 // /operations-registry is intentionally readable by admin roles (mutations gated in UI/proxy).
-// /granot-lifecycle is Owner-only except Health, which Admin reaches from the sidebar.
-// A Manager (P09b) renders this shell only for Daily Operations; the desk has its own "Lead outreach" shell.
-const managerPagePrefixes = ["/daily"] as const;
+// /granot-lifecycle is Owner-only except Health, which Admin reaches from Setup.
+// A Manager (P09b) renders this shell only for Today → Operations; the desk has its own "Lead outreach" shell.
+const managerPagePrefixes = ["/"] as const;
+
+function displayNameFromEmail(email: string): string {
+  const local = email.split("@")[0] ?? email;
+  return local
+    .split(/[.\-_+]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function roleLabel(role: DashboardShellRole): string {
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function IdentityMenu({ email, role, collapsed }: { email: string; role: DashboardShellRole; collapsed: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const router = useRouter();
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+  async function signOut() {
+    setSigningOut(true);
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.replace("/login");
+    router.refresh();
+  }
+  const name = displayNameFromEmail(email);
+  return (
+    <div className="crm-identity">
+      {open ? (
+        <div className="crm-identity__menu" role="menu" aria-label="Account menu">
+          <p className="crm-identity__email">{email}</p>
+          <button type="button" role="menuitem" className="crm-button crm-button--quiet crm-button--block" onClick={signOut} disabled={signingOut}>
+            {signingOut ? "Signing out…" : "Sign out"}
+          </button>
+        </div>
+      ) : null}
+      <button
+        type="button"
+        className="crm-identity__button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Account menu: ${name}, ${roleLabel(role)}`}
+        title={collapsed ? `${name} · ${roleLabel(role)}` : undefined}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="crm-avatar" aria-hidden="true">
+          {initialsFromEmail(email) || <Avatar name={name} />}
+        </span>
+        <span className="crm-identity__text">
+          <span className="crm-identity__name">
+            {name} <span className="crm-identity__role">· {roleLabel(role)}</span>
+          </span>
+        </span>
+        <ChevronDown className="crm-identity__chevron" aria-hidden="true" width={16} height={16} />
+      </button>
+    </div>
+  );
+}
+
+function SidebarBody({
+  adminRole,
+  adminEmail,
+  collapsed,
+  onToggleCollapsed,
+  onNavigate,
+  onClose,
+  badges,
+}: {
+  adminRole: DashboardShellRole;
+  adminEmail: string;
+  collapsed: boolean;
+  onToggleCollapsed?: () => void;
+  onNavigate?: () => void;
+  onClose?: () => void;
+  badges: ReturnType<typeof useSidebarBadges>;
+}) {
+  return (
+    <>
+      <div className="crm-sidebar__top">
+        <Link href="/" className="crm-brand" aria-label="Vantage Admin">
+          <Truck aria-hidden="true" />
+          <span>Vantage Admin</span>
+        </Link>
+        {onClose ? (
+          <button type="button" className="crm-button crm-button--quiet crm-button--icon" onClick={onClose} aria-label="Close navigation">
+            <X aria-hidden="true" />
+          </button>
+        ) : onToggleCollapsed ? (
+          <button type="button" className="crm-button crm-button--quiet crm-button--icon" onClick={onToggleCollapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+            {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+          </button>
+        ) : null}
+      </div>
+      <span className="crm-env" data-testid="environment-chip">
+        <span className="crm-dot crm-dot--green" aria-hidden="true" />
+        Production
+      </span>
+      {adminRole === "manager" ? null : collapsed ? (
+        <div className="mb-2 flex justify-center">
+          <GlobalSearch variant="icon" />
+        </div>
+      ) : (
+        <GlobalSearch />
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <DashboardNav adminRole={adminRole} badges={badges} onNavigate={onNavigate} />
+      </div>
+      <IdentityMenu email={adminEmail} role={adminRole} collapsed={collapsed} />
+    </>
+  );
+}
 
 export function DashboardShell({
   adminEmail,
@@ -42,6 +167,7 @@ export function DashboardShell({
   const collapsed = useLocalStorageBoolean(sidebarStorageKey);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const badges = useSidebarBadges(adminRole);
   const granotLifecycleHealth =
     pathname === "/granot-lifecycle/health" ||
     pathname.startsWith("/granot-lifecycle/health/");
@@ -49,12 +175,13 @@ export function DashboardShell({
   const pageAllowed =
     adminRole === "owner" ||
     (adminRole === "manager"
-      ? managerPagePrefixes.some(underPrefix)
+      ? managerPagePrefixes.some((prefix) => (prefix === "/" ? pathname === "/" : underPrefix(prefix)))
       : granotLifecycleHealth || !ownerOnlyPagePrefixes.some(underPrefix));
 
   // Lock the document while the shell is mounted. Only undo the classes this effect added: the root layout already
   // gives <body> `h-full min-h-0`, and stripping them on unmount left every page reached from here (the Outreach
-  // Desk, login) without a height, so it could not scroll.
+  // Desk, login) without a height, so it could not scroll. The CRM theme attribute is mirrored onto <html> the same
+  // way so portals (⌘K, side panels) share the look.
   useEffect(() => {
     const wanted: [Element, string][] = [
       [document.documentElement, "overflow-hidden"],
@@ -64,10 +191,21 @@ export function DashboardShell({
     ];
     const added = wanted.filter(([element, name]) => !element.classList.contains(name));
     for (const [element, name] of added) element.classList.add(name);
+    const hadTheme = document.documentElement.getAttribute("data-ui");
+    document.documentElement.setAttribute("data-ui", "crm");
     return () => {
       for (const [element, name] of added) element.classList.remove(name);
+      if (hadTheme === null) document.documentElement.removeAttribute("data-ui");
+      else document.documentElement.setAttribute("data-ui", hadTheme);
     };
   }, []);
+
+  // The phone drawer closes on navigation (state adjusted from the previous render, not in an effect).
+  const [drawerPath, setDrawerPath] = useState(pathname);
+  if (drawerPath !== pathname) {
+    setDrawerPath(pathname);
+    setMobileOpen(false);
+  }
 
   function toggleCollapsed() {
     setLocalStorageBoolean(sidebarStorageKey, !collapsed);
@@ -75,91 +213,52 @@ export function DashboardShell({
 
   return (
     <DashboardRoleProvider role={adminRole}>
-      <div className="flex h-full min-h-0 overflow-hidden bg-cool-white">
-      <aside
-        className={cn(
-          "hidden h-full shrink-0 flex-col border-r border-steel-200 bg-white px-2.5 py-4 shadow-sm transition-[width] duration-200 lg:flex",
-          collapsed ? "w-14" : "w-56",
-        )}
-      >
-        <div className={cn("mb-3 flex shrink-0 items-center gap-2", collapsed ? "justify-center px-0" : "justify-between px-1")}>
-          <div className={collapsed ? "hidden" : undefined}>
-            <BrandLogo />
-          </div>
-          <Button
-            variant="ghost"
-            className="h-9 w-9 px-0"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      <div className="crm-shell flex h-full min-h-0 overflow-hidden" data-ui="crm" data-role={adminRole}>
+        <aside className="crm-sidebar" data-collapsed={collapsed ? "true" : undefined}>
+          <SidebarBody adminRole={adminRole} adminEmail={adminEmail} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} badges={badges} />
+        </aside>
+        <div className="crm-main">
+          <header className="crm-topbar">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <button type="button" className="crm-button crm-button--quiet crm-button--icon lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
+                <Menu aria-hidden="true" />
+              </button>
+              <h1 className="crm-topbar__title">{pageTitleForPath(pathname)}</h1>
+            </div>
+            <div className="crm-topbar__right">
+              {adminRole === "owner" ? <TopbarFreshness /> : null}
+              <span className="lg:hidden">{adminRole === "manager" ? null : <GlobalSearch variant="icon" />}</span>
+            </div>
+          </header>
+          <main
+            id={DASHBOARD_MAIN_ID}
+            className={
+              pathname === "/sales-intelligence" || pathname.startsWith("/sales-intelligence/")
+                ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden overflow-x-hidden p-0"
+                : "crm-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-5 lg:p-6"
+            }
           >
-            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </Button>
+            {pageAllowed ? (
+              children
+            ) : (
+              <div className="crm-card p-6">
+                <h1 className="text-xl font-semibold text-navy">Not allowed</h1>
+                <p className="mt-2 text-sm text-steel">
+                  Your admin role does not have access to this page.
+                </p>
+              </div>
+            )}
+          </main>
+          <DashboardMobileBar adminRole={adminRole} badges={badges} />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <DashboardNav adminRole={adminRole} collapsed={collapsed} />
-        </div>
-      </aside>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="z-30 flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-steel-200 bg-white/95 px-6 py-3 shadow-sm backdrop-blur">
-          <div className="flex min-w-0 flex-1 items-center gap-4">
-            <Button
-              variant="ghost"
-              className="h-9 w-9 shrink-0 px-0 lg:hidden"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            <h1 className="hidden min-w-0 max-w-xs truncate font-heading text-base font-extrabold text-navy lg:block">
-              {pageTitleForPath(pathname)}
-            </h1>
-            {adminRole === "manager" ? null : <GlobalSearch />}
+        {mobileOpen ? (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <button type="button" aria-label="Close navigation" className="crm-scrim" onClick={() => setMobileOpen(false)} />
+            <aside className={cx("crm-sidebar crm-sidebar--drawer")}>
+              <SidebarBody adminRole={adminRole} adminEmail={adminEmail} collapsed={false} onClose={() => setMobileOpen(false)} onNavigate={() => setMobileOpen(false)} badges={badges} />
+            </aside>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <UserMenu email={adminEmail} role={adminRole} />
-          </div>
-        </header>
-        <main
-          id={DASHBOARD_MAIN_ID}
-          className={
-            pathname === "/sales-intelligence" || pathname.startsWith("/sales-intelligence/")
-              ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden overflow-x-hidden p-0"
-              : "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-6"
-          }
-        >
-          {pageAllowed ? (
-            children
-          ) : (
-            <div className="rounded-lg border border-steel-200 bg-white p-6 shadow-sm">
-              <h1 className="text-xl font-semibold text-navy">Not allowed</h1>
-              <p className="mt-2 text-sm text-steel">
-                Your admin role does not have access to this page.
-              </p>
-            </div>
-          )}
-        </main>
-      </div>
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            aria-label="Close navigation"
-            className="absolute inset-0 bg-background/70 backdrop-blur-sm"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="absolute left-0 top-0 flex h-full w-64 flex-col border-r bg-white p-4 shadow-xl">
-            <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
-              <BrandLogo />
-              <Button variant="ghost" className="h-9 w-9 px-0" onClick={() => setMobileOpen(false)} aria-label="Close">
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <DashboardNav adminRole={adminRole} onNavigate={() => setMobileOpen(false)} />
-            </div>
-          </aside>
-        </div>
-      ) : null}
+        ) : null}
       </div>
     </DashboardRoleProvider>
   );

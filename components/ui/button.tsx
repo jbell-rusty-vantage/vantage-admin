@@ -26,6 +26,7 @@ export function Button({
   return (
     <button
       type={type}
+      data-crm-button={variant}
       className={cn(
         "inline-flex h-10 items-center justify-center rounded-md px-4 py-2",
         "font-heading text-sm font-bold uppercase tracking-wide transition-all duration-150",

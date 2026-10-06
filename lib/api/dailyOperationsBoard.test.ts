@@ -228,7 +228,7 @@ test("held text card title formats send_at and does not hardcode 8:00 AM", () =>
   assert.doesNotMatch(title, /8:00 AM/);
   const markup = renderToStaticMarkup(createElement(DailyOperationsEventCard, { event }));
   assert.match(markup, /Text held until/);
-  assert.match(markup, /form-leads\?record=lead1/);
+  assert.match(markup, /leads\?lead=lead1&amp;lk=form/);
   assert.match(markup, /panel=message/);
   const header = dailyOperationsTextsHeader({ sent: 19, heldNow: 3, failed: 1 });
   assert.equal(header, "19 sent · 3 held until 8:00 AM · 1 failed");
@@ -263,7 +263,7 @@ test("zip-miss chip stays on the Lead card and the Lead stays in the Leads panel
   const leadCard = renderToStaticMarkup(createElement(DailyOperationsEventCard, { event: lead }));
   assert.match(leadCard, /ZIP 33101 · state not found/);
   assert.match(leadCard, /••4192/);
-  assert.match(leadCard, /form-leads\?record=lead1/);
+  assert.match(leadCard, /leads\?lead=lead1&amp;lk=form/);
   const exceptionCard = renderToStaticMarkup(createElement(DailyOperationsEventCard, { event: exception }));
   assert.match(exceptionCard, /ZIP did not produce a state/);
   const exceptionPanel = eventsForDailyOperationsPanel({ events: [lead, exception], lane: "exception" });
@@ -333,15 +333,16 @@ test("card links use existing desks and never open Confirm on /daily", () => {
     true,
   );
   assert.equal(
-    hrefs.some((link) => link.href === "/job-timeline?job=5562924"),
+    hrefs.some((link) => link.href === "/leads/timeline?job=5562924"),
     true,
   );
-  assert.equal(leadDeskHref({ leadId: "abc", leadModel: "CallLead" }), "/call-leads?record=abc");
+  assert.equal(leadDeskHref({ leadId: "abc", leadModel: "CallLead" }), "/leads?lead=abc&lk=call");
   assert.equal(
     leadDeskHref({ leadId: "dup", leadModel: "FormLead", duplicate: true }),
-    "/duplicate-form-leads?record=dup",
+    "/leads?lead=dup&lk=form&show=duplicates",
   );
-  assert.equal(resolveDailyOperationsOpenHref("lead:abc"), "/form-leads?record=abc");
+  assert.equal(resolveDailyOperationsOpenHref("lead:abc"), "/leads?lead=abc&lk=form");
+  assert.equal(resolveDailyOperationsOpenHref("cancellation:c1"), "/bookings/cancellations?record=c1");
   const markup = renderToStaticMarkup(createElement(DailyOperationsEventCard, { event: booked }));
   assert.equal(dailyOperationsHasConfirmControl(markup), false);
   assert.doesNotMatch(markup, /Confirm Granot/);
@@ -672,8 +673,8 @@ test("card details expose every stored fact with a label; nothing hides behind a
   const links = dailyOperationsEventLinks(event);
   const openLead = links.find((link) => link.label === DAILY_COPY.openLead);
   const openList = links.find((link) => link.label === DAILY_COPY.openList);
-  assert.equal(openLead?.href, "/call-leads?record=lead1");
-  assert.equal(openList?.href, "/call-leads");
+  assert.equal(openLead?.href, "/leads?lead=lead1&lk=call");
+  assert.equal(openList?.href, "/leads?kind=call");
 });
 
 test("attention chips flag zip miss, held, skipped, failed, duplicate", () => {

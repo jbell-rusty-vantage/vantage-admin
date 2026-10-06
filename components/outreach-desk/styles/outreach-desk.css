@@ -7,46 +7,50 @@
  */
 
 .od-root {
+  /*
+   * Doc 15, step 1: the desk's values now live on `:root` as `--crm-*` (app/globals.css) and the `--od-*` names
+   * alias them, so the desk renders pixel-identical by construction while the dashboard shares the same source.
+   */
   /* Surfaces */
-  --od-page: #f4f7fc;
-  --od-card: #ffffff;
-  --od-sidebar: #ffffff;
-  --od-border: #e2e8f1;
-  --od-border-strong: #d3dbe7;
-  --od-divider: #edf1f6;
-  --od-table-head: #f7f9fc;
-  /* Text */
-  --od-ink: #101c3d;
-  --od-text: #1d2943;
+  --od-page: var(--crm-page);
+  --od-card: var(--crm-card);
+  --od-sidebar: var(--crm-sidebar);
+  --od-border: var(--crm-border);
+  --od-border-strong: var(--crm-border-strong);
+  --od-divider: var(--crm-divider);
+  --od-table-head: var(--crm-table-head);
+  /* Text (the desk keeps its original muted tone on white cards) */
+  --od-ink: var(--crm-ink);
+  --od-text: var(--crm-text);
   --od-muted: #66738c;
-  --od-faint: #8a95aa;
+  --od-faint: var(--crm-faint);
   /* Accents (blue for actions/selection, green done, amber due, red overdue) */
-  --od-blue: #2f6fe6;
-  --od-blue-strong: #1f5bd0;
-  --od-blue-ink: #1b4fb8;
-  --od-blue-50: #eaf2fe;
-  --od-blue-100: #dbe8fd;
-  --od-blue-tint: #eef4fe;
-  --od-green: #2f9e4f;
-  --od-green-bar: #3cb35a;
-  --od-green-50: #e7f6ec;
-  --od-amber: #e07b0a;
-  --od-amber-50: #fff2df;
-  --od-red: #e03535;
-  --od-red-50: #fdeaea;
-  --od-purple: #6a4fc6;
-  --od-purple-50: #efe9fc;
-  --od-track: #e6ebf2;
+  --od-blue: var(--crm-blue);
+  --od-blue-strong: var(--crm-blue-strong);
+  --od-blue-ink: var(--crm-blue-ink);
+  --od-blue-50: var(--crm-blue-50);
+  --od-blue-100: var(--crm-blue-100);
+  --od-blue-tint: var(--crm-blue-tint);
+  --od-green: var(--crm-green);
+  --od-green-bar: var(--crm-green-bar);
+  --od-green-50: var(--crm-green-50);
+  --od-amber: var(--crm-amber);
+  --od-amber-50: var(--crm-amber-50);
+  --od-red: var(--crm-red);
+  --od-red-50: var(--crm-red-50);
+  --od-purple: var(--crm-purple);
+  --od-purple-50: var(--crm-purple-50);
+  --od-track: var(--crm-track);
   /* Geometry */
-  --od-r-card: 12px;
-  --od-r-control: 8px;
-  --od-r-pill: 999px;
-  --od-shadow-card: 0 1px 2px rgba(16, 28, 61, 0.04), 0 1px 3px rgba(16, 28, 61, 0.03);
-  --od-shadow-pop: 0 10px 30px rgba(16, 28, 61, 0.12);
-  --od-focus: 0 0 0 3px rgba(47, 111, 230, 0.28);
+  --od-r-card: var(--crm-r-card);
+  --od-r-control: var(--crm-r-control);
+  --od-r-pill: var(--crm-r-pill);
+  --od-shadow-card: var(--crm-shadow-card);
+  --od-shadow-pop: var(--crm-shadow-pop);
+  --od-focus: var(--crm-focus);
   --od-sidebar-w: 186px;
   --od-gap: 14px;
-  --od-font: var(--font-od, var(--font-public-sans)), system-ui, sans-serif;
+  --od-font: var(--font-od, var(--font-plus-jakarta, var(--font-public-sans))), system-ui, sans-serif;
 
   display: flex;
   height: 100%;

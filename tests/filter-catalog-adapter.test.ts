@@ -80,10 +80,8 @@ test("Analytics Source Company options narrow by Lead type", () => {
 
 test("listed lead and analytics surfaces do not import hardcoded source maps", () => {
   const listed = [
-    "app/(dashboard)/form-leads/page.tsx",
-    "app/(dashboard)/call-leads/page.tsx",
-    "app/(dashboard)/duplicate-form-leads/page.tsx",
-    "app/(dashboard)/duplicate-call-leads/page.tsx",
+    "app/(dashboard)/leads/page.tsx",
+    "components/leads/leads-workspace.tsx",
     "components/analytics/analytics-dashboard.tsx",
     "lib/api/facets.ts",
   ];

@@ -72,8 +72,11 @@ const GRANOT_LIFECYCLE_PREFIX = "/api/v1/admin/granot-lifecycle";
 /** Sales Outreach Desk (IMPL-02/03): a rep opens only its desk; every other page stays denied. */
 const REP_DASHBOARD_PATHS: readonly RegExp[] = [/^\/outreach-desk$/];
 
-/** A Manager (P09b) opens only the desk and Daily Operations; every other page stays denied. */
-const MANAGER_DASHBOARD_PATHS: readonly RegExp[] = [/^\/outreach-desk$/, /^\/daily$/];
+/**
+ * A Manager (P09b) opens only the desk and Daily Operations, which now lives on Today → Operations (`/?tab=operations`;
+ * `/daily` redirects there). Every other page stays denied.
+ */
+const MANAGER_DASHBOARD_PATHS: readonly RegExp[] = [/^\/outreach-desk$/, /^\/daily$/, /^\/$/];
 
 export function canAccessDashboardPath(role: AdminRole, pathname: string): boolean {
   if (role === "owner") {

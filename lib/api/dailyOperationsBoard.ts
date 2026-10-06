@@ -385,21 +385,23 @@ export function zipMissChips(event: DailyOperationsEventItem): string[] {
   return chips;
 }
 
+function leadKindOf(input: { leadModel?: DailyOperationsLinks["lead_model"] | null; leadKind?: "form" | "call" | null }): "form" | "call" {
+  const form = input.leadModel === "FormLead" || input.leadKind === "form" || !input.leadModel && input.leadKind !== "call";
+  return form ? "form" : "call";
+}
+
+/** The Leads workspace list filtered to this lead's kind (and the Duplicates chip when it is one). */
 export function leadDeskBase(input: {
   leadModel?: DailyOperationsLinks["lead_model"] | null;
   leadKind?: "form" | "call" | null;
   duplicate?: boolean;
 }): string {
-  const form = input.leadModel === "FormLead" || input.leadKind === "form" || !input.leadModel && input.leadKind !== "call";
-  return input.duplicate
-    ? form
-      ? "/duplicate-form-leads"
-      : "/duplicate-call-leads"
-    : form
-      ? "/form-leads"
-      : "/call-leads";
+  const params = new URLSearchParams({ kind: leadKindOf(input) });
+  if (input.duplicate) params.set("show", "duplicates");
+  return `/leads?${params.toString()}`;
 }
 
+/** The Leads workspace with this lead's panel open (doc 03: `?lead=<id>`). */
 export function leadDeskHref(input: {
   leadId: string;
   leadModel?: DailyOperationsLinks["lead_model"] | null;
@@ -407,12 +409,12 @@ export function leadDeskHref(input: {
   duplicate?: boolean;
   panel?: "message";
 }): string {
-  const base = leadDeskBase(input);
-  const params = new URLSearchParams({ record: input.leadId });
+  const params = new URLSearchParams({ lead: input.leadId, lk: leadKindOf(input) });
+  if (input.duplicate) params.set("show", "duplicates");
   if (input.panel) {
     params.set("panel", input.panel);
   }
-  return `${base}?${params.toString()}`;
+  return `/leads?${params.toString()}`;
 }
 
 export function resolveDailyOperationsOpenHref(open: string | null | undefined): string | null {
@@ -429,13 +431,13 @@ export function resolveDailyOperationsOpenHref(open: string | null | undefined):
     return null;
   }
   if (kind === "lead") {
-    return `/form-leads?record=${encodeURIComponent(id)}`;
+    return `/leads?lead=${encodeURIComponent(id)}&lk=form`;
   }
   if (kind === "booking") {
     return `/bookings?record=${encodeURIComponent(id)}`;
   }
   if (kind === "cancellation") {
-    return `/cancellations?record=${encodeURIComponent(id)}`;
+    return `/bookings/cancellations?record=${encodeURIComponent(id)}`;
   }
   if (kind === "intake") {
     return `/intakes?case=${encodeURIComponent(id)}`;
@@ -502,7 +504,7 @@ export function dailyOperationsEventLinks(event: DailyOperationsEventItem): Dail
     add(`/bookings?record=${encodeURIComponent(links.booking_id)}`, DAILY_COPY.openBooking);
   }
   if (links.cancellation_id) {
-    add(`/cancellations?record=${encodeURIComponent(links.cancellation_id)}`, DAILY_COPY.openCancellation);
+    add(`/bookings/cancellations?record=${encodeURIComponent(links.cancellation_id)}`, DAILY_COPY.openCancellation);
   }
 
   if (event.kind === "exception.dead_letter") {

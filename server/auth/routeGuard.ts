@@ -10,6 +10,9 @@ export const PUBLIC_APP_PATHS = ["/employee-booking"] as const;
 
 export const DASHBOARD_PATH_PREFIXES = [
   "/",
+  "/leads",
+  "/insights",
+  "/setup",
   "/form-leads",
   "/duplicate-form-leads",
   "/call-leads",

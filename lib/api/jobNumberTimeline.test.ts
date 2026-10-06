@@ -42,14 +42,14 @@ test("typed Job Number search uses the owner DTO route, not the forensic lifecyc
 
 test("job timeline href keeps the typed Job Number in the URL", () => {
   assert.equal(buildJobTimelineHref({}), JOB_TIMELINE_HREF);
-  assert.equal(buildJobTimelineHref({ job: " 5562924 " }), "/job-timeline?job=5562924");
+  assert.equal(buildJobTimelineHref({ job: " 5562924 " }), "/leads/timeline?job=5562924");
   assert.equal(
     buildJobTimelineHref({ job: "5562924", view: "attention" }),
-    "/job-timeline?job=5562924&view=attention",
+    "/leads/timeline?job=5562924&view=attention",
   );
   assert.equal(
     buildJobTimelineHref({ job: "5562924", view: "lifecycle" }),
-    "/job-timeline?job=5562924",
+    "/leads/timeline?job=5562924",
   );
 });
 

@@ -144,13 +144,14 @@ test("tiles and panels show percent versus yesterday at this hour plus both prio
   assert.doesNotMatch(all, /data-focused="true"/);
 });
 
-test("Owner nav places Daily Operations second; Admin cannot see it", () => {
+test("Daily Operations lives on Today → Operations: the Owner sees Today first; Admin has no Today", () => {
   const owner = visibleDashboardNav("owner");
   const admin = visibleDashboardNav("admin");
-  assert.equal(owner[1]?.label, "Daily Operations");
-  assert.equal(owner[1]?.href, "/daily");
-  assert.equal(owner[1]?.ownerOnly, true);
-  assert.equal(admin.some((item) => item.href === "/daily"), false);
+  assert.equal(owner[0]?.label, "Today");
+  assert.equal(owner[0]?.href, "/");
+  assert.equal(owner[0]?.ownerOnly, true);
+  assert.equal(owner[0]?.activeFor.includes("/daily"), true);
+  assert.equal(admin.some((item) => item.href === "/" || item.href === "/daily"), false);
 });
 
 test("empty snapshot still shows WordPress form at 0 and silent Source Company rows", () => {

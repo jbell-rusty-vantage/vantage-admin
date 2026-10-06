@@ -59,9 +59,9 @@ test("blank search offers three recent official booking Job Numbers to open", ()
     }),
   );
   assert.match(markup, /Recent official bookings/);
-  assert.match(markup, /href="\/job-timeline\?job=P9003"/);
-  assert.match(markup, /href="\/job-timeline\?job=P9002"/);
-  assert.match(markup, /href="\/job-timeline\?job=P9001"/);
+  assert.match(markup, /href="\/leads\/timeline\?job=P9003"/);
+  assert.match(markup, /href="\/leads\/timeline\?job=P9002"/);
+  assert.match(markup, /href="\/leads\/timeline\?job=P9001"/);
   assert.match(markup, />P9003</);
   assert.doesNotMatch(markup, /Lead created/);
   assert.doesNotMatch(markup, /Ada Example/);

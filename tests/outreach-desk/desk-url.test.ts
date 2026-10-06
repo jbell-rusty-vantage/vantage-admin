@@ -85,8 +85,8 @@ test("queue filters are kept per frame; an individual rep wins over Unassigned",
   assert.equal(deskViewHref("my", { agent: AGENT, lead: ID }), `/outreach-desk?view=my&agent=${AGENT}&lead=${ID}`);
 });
 
-test("the Admin nav: a Manager sees only Daily Operations and the Outreach Desk", () => {
-  assert.deepEqual(visibleDashboardNav("manager").map((item) => item.href), ["/daily", "/outreach-desk"]);
+test("the Admin nav: a Manager sees only Today (Daily Operations) and the Outreach Desk", () => {
+  assert.deepEqual(visibleDashboardNav("manager").map((item) => item.href), ["/", "/outreach-desk"]);
   assert.equal(visibleDashboardNav("admin").some((item) => item.href === "/outreach-desk"), false);
   assert.equal(visibleDashboardNav("owner").some((item) => item.href === "/outreach-desk" && item.label === "Outreach Desk"), true);
 });
