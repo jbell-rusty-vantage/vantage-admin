@@ -3,6 +3,7 @@
  * from the server's `as_of`, never from the browser clock, and nothing here decides cadence, overdue, rank or
  * authorization. A `null` count is "pending", never 0 (S1 rendering rules).
  */
+import { isSalesOutreachApiError, SALES_OUTREACH_READ_SHAPE_MISMATCH } from "@/lib/api/salesOutreach";
 import type {
   SalesOutreachCadenceMetric,
   SalesOutreachCadenceSummaryDto,
@@ -115,6 +116,20 @@ export function cadenceMetricText(metric: SalesOutreachCadenceMetric | SalesOutr
   if (metric.value !== null) return { text: String(metric.value), available: true, reason: null };
   const reason = metric.unknown_reason;
   return { text: t.unavailable, available: false, reason: reason ? (deskCopy.unknownReasons[reason] ?? t.unavailable) : null };
+}
+
+/**
+ * Why a desk read failed, in words: a body the mirror can't read, a 503 (unavailable, not empty), a lost scope, or
+ * anything else (network, 5xx). Views show this in place of a skeleton that would never resolve.
+ */
+export function readFailureText(error: unknown): string {
+  const r = deskCopy.readErrors;
+  if (isSalesOutreachApiError(error)) {
+    if (error.code === SALES_OUTREACH_READ_SHAPE_MISMATCH) return r.shape;
+    if (error.unavailable) return r.unavailable;
+    if (error.status === 403) return r.forbidden;
+  }
+  return r.failed;
 }
 
 // ---------------------------------------------------------------------------------------------- freshness

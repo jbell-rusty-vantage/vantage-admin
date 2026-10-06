@@ -1407,6 +1407,32 @@
   cursor: pointer;
 }
 
+/* A failed read inside a view (ADM-0): said in words, never an endless skeleton. */
+.od-read-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  color: var(--od-red);
+  background: var(--od-red-50);
+}
+
+.od-read-error p {
+  flex: 1 1 240px;
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.od-read-error--stale {
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  color: var(--od-amber);
+  background: var(--od-amber-50);
+  font-size: 13px;
+}
+
 .od-queue__note {
   display: flex;
   align-items: center;

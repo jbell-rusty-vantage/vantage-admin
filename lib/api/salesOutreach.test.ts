@@ -32,6 +32,8 @@ import {
   salesOutreachRestrictionLiftRequestSchema,
   salesOutreachRestrictionsResponseSchema,
   salesOutreachTeamSchema,
+  onSalesOutreachUnknownValue,
+  type SalesOutreachUnknownValue,
 } from "./salesOutreach";
 
 const SERVER_FIXTURES = join(process.cwd(), "tests", "outreach-desk", "fixtures", "server");
@@ -63,10 +65,20 @@ const COMMAND_RULES: Array<[RegExp, z.ZodType | null, z.ZodType]> = [
 /**
  * The admin's schemas are non-strict (an additive server field must not break a read), so a silently stripped
  * field would hide drift. Parsing must round-trip every server example unchanged: the admin knows every field.
+ * Read enums are tolerant (a new value reads as a fallback or is kept as text), so a new value would also hide
+ * drift: the guard fails on any unknown-value report too — the admin knows every value.
  */
 function assertKnowsEveryField(schema: z.ZodType, value: unknown, file: string) {
-  const parsed = schema.safeParse(value);
+  const unknown: SalesOutreachUnknownValue[] = [];
+  const stop = onSalesOutreachUnknownValue((event) => unknown.push(event));
+  let parsed: ReturnType<typeof schema.safeParse>;
+  try {
+    parsed = schema.safeParse(value);
+  } finally {
+    stop();
+  }
   assert.ok(parsed.success, `${file}: ${parsed.success ? "" : JSON.stringify(parsed.error.issues.slice(0, 3))}`);
+  assert.deepEqual(unknown, [], `${file}: the admin mirror does not list a server enum value`);
   assert.deepEqual(parsed.data, value, `${file}: the admin schema dropped or changed a server field`);
 }
 

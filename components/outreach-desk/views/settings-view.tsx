@@ -36,6 +36,7 @@ import { useDayOverrideCommand } from "../data/use-desk-commands";
 import { retryDeskRead, useTeam } from "../data/use-desk-reads";
 import type { DeskViewer } from "../shell/desk-shell";
 import { absoluteTime, addDays, nyDate, shortDateLabel } from "../lib/format";
+import { CONFIGURATION_CONTROL_KEYS, configurationPatchBody, withDefaultGoal, withHolidays, withSwitchToggled, withWorkingDayToggled, type ConfigurationSwitchKey } from "../lib/configuration-patch";
 import { deskCopy } from "../outreach-desk-copy";
 import { DeskHeader, IconBadge, SkeletonLine } from "../primitives";
 
@@ -79,7 +80,10 @@ function useConfiguration(enabled: boolean) {
   });
 }
 
-/** Replaces the configuration value (the server validates it and fails closed). */
+/**
+ * Replaces the configuration value (the server validates it and fails closed). `value` is always an edit of the
+ * value just read (`../lib/configuration-patch`), so keys this admin does not know are sent back unchanged.
+ */
 function useConfigurationWrite() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -87,7 +91,7 @@ function useConfigurationWrite() {
       salesOutreachCommand(
         "PATCH",
         salesOutreachPaths.configuration(),
-        { expected_revision: config.revision, value },
+        configurationPatchBody(config, value),
         newIdempotencyKey("configuration"),
         salesOutreachConfigurationPatchResponseSchema,
       ),
@@ -95,21 +99,13 @@ function useConfigurationWrite() {
   });
 }
 
-const CONTROL_KEYS = ["desk_enabled", "goal_metrics_enabled", "rep_sms_capture_enabled", "cadence_shadow_enabled", "cadence_enforcement_enabled"] as const;
-
 function ControlsPanel({ config }: { config: SalesOutreachConfigurationReadDto }) {
   const write = useConfigurationWrite();
   const value = config.value;
   if (!value) return <p className="od-text-muted">{config.unavailable_reason ?? deskCopy.unavailable.configuration_unavailable}</p>;
-  const toggle = (key: (typeof CONTROL_KEYS)[number] | "intake_admission_enabled") => {
-    const next: SalesOutreachConfigurationValue =
-      key === "intake_admission_enabled"
-        ? { ...value, transition: { ...value.transition, intake_admission_enabled: !value.transition.intake_admission_enabled } }
-        : { ...value, controls: { ...value.controls, [key]: !value.controls[key] } };
-    write.mutate({ config, value: next });
-  };
-  const rows: { key: (typeof CONTROL_KEYS)[number] | "intake_admission_enabled"; on: boolean }[] = [
-    ...CONTROL_KEYS.map((key) => ({ key, on: value.controls[key] })),
+  const toggle = (key: ConfigurationSwitchKey) => write.mutate({ config, value: withSwitchToggled(value, key) });
+  const rows: { key: ConfigurationSwitchKey; on: boolean }[] = [
+    ...CONFIGURATION_CONTROL_KEYS.map((key) => ({ key, on: value.controls[key] })),
     { key: "intake_admission_enabled", on: value.transition.intake_admission_enabled },
   ];
   return (
@@ -143,16 +139,9 @@ function RosterPanel({ config, names }: { config: SalesOutreachConfigurationRead
   const saveDefault = () => {
     const goal = Number(defaultGoal);
     if (!Number.isInteger(goal) || goal < 0) return;
-    write.mutate({ config, value: { ...value, goals: { ...value.goals, default_scheduled_goal: goal } } });
+    write.mutate({ config, value: withDefaultGoal(value, goal) });
   };
-  const toggleDay = (agentId: string, day: number) => {
-    const next = schedules.map((row) =>
-      row.agent_id === agentId
-        ? { ...row, working_days: row.working_days.includes(day) ? row.working_days.filter((d) => d !== day) : [...row.working_days, day].sort() }
-        : row,
-    );
-    write.mutate({ config, value: { ...value, goals: { ...value.goals, rep_work_schedules: next } } });
-  };
+  const toggleDay = (agentId: string, day: number) => write.mutate({ config, value: withWorkingDayToggled(value, agentId, day) });
   return (
     <>
       <div className="od-inline-form">
@@ -218,7 +207,7 @@ function ClosuresPanel({ config, today }: { config: SalesOutreachConfigurationRe
   const value = config.value;
   if (!value) return null;
   const holidays = value.cadence.holidays ?? [];
-  const save = (next: string[]) => write.mutate({ config, value: { ...value, cadence: { ...value.cadence, holidays: [...new Set(next)].sort() } } });
+  const save = (next: string[]) => write.mutate({ config, value: withHolidays(value, next) });
   return (
     <>
       <ul className="od-plainlist od-plainlist--chips">

@@ -7,7 +7,8 @@
  * Rendering rules (server handoff): a null count is pending, never 0; `cadence_disabled` / `cadence_shadow` metrics
  * are unavailable; 108/100 shows a capped bar and 0 remaining; zero-goal reps say "No goal today" and are outside the
  * denominator; the label is the server's count scope ("Outbound calls"), with "Other outbound" kept separate. Nothing
- * here computes overdue or order.
+ * here computes overdue or order. A failed `GET /team` (or attention queue) read is said in words, never left as
+ * skeletons (ADM-0).
  */
 import Link from "next/link";
 import { useMemo } from "react";
@@ -29,6 +30,7 @@ import {
   ownerText,
   percentText,
   priorityPill,
+  readFailureText,
   relativeDay,
   repGoalText,
   repProgressLabel,
@@ -36,7 +38,7 @@ import {
   shortDateLabel,
 } from "../lib/format";
 import { deskCopy } from "../outreach-desk-copy";
-import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, Pill, SearchBox, Segmented, SkeletonLine, SummaryCard, Track } from "../primitives";
+import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, Pill, ReadFailure, SearchBox, Segmented, SkeletonLine, SummaryCard, Track } from "../primitives";
 import { LeadPanel, type RepOption } from "./lead-panel";
 
 const c = deskCopy.team;
@@ -208,6 +210,8 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
 
   const team = useTeam(day, true);
   const data = team.data;
+  // A failed read with nothing cached: every placeholder says "Unavailable" instead of loading forever.
+  const failed = Boolean(team.error) && !data;
   const asOf = data?.as_of ?? capabilities.as_of;
   const today = nyDate(asOf);
   const cadenceOn = capabilities.controls.cadence_shadow_enabled || capabilities.controls.cadence_enforcement_enabled;
@@ -261,6 +265,8 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
 
   const attentionRows = filtered ? (cadenceOn ? attentionQueue.rows.slice(0, 10) : null) : (data?.leads_needing_attention.rows ?? null);
   const attentionUnavailable = filtered ? !cadenceOn : data ? data.leads_needing_attention.rows === null : false;
+  const attentionError = filtered ? (attentionQueue.query.error ?? null) : failed ? team.error : null;
+  const loading = (width: number) => (failed ? t.unavailable : <SkeletonLine width={width} height={22} />);
   const scopeLabel = goals?.count_scope_label ?? c.cards.outbound;
 
   const ownerOptions = [
@@ -277,6 +283,9 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
       <div className="od-scroll">
         <div className={`od-page${lead ? " od-page--with-drawer" : ""}`}>
           <DeskHeader title={deskCopy.titles.team} subtitle={data ? businessDateLabel(data.business_day) : null} />
+          {team.error ? (
+            <ReadFailure what={deskCopy.readErrors.team} error={team.error} staleAsOf={data?.as_of ?? null} onRetry={() => void team.refetch()} testId="team-read-error" />
+          ) : null}
           <div className="od-toolbar" role="toolbar" aria-label={c.toolbar}>
             <DeskSelect icon={Calendar} label={c.pickDay} value={day ?? ""} options={dayOptions} onChange={(value) => url.update({ day: value || null })} />
             <DeskSelect
@@ -306,7 +315,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
               icon={Phone}
               tone="blue"
               title={scopeLabel}
-              value={goalsOff ? t.unavailable : outbound ? `${countText(outbound.actual)} / ${outbound.goal}` : <SkeletonLine width={90} height={22} />}
+              value={goalsOff ? t.unavailable : outbound ? `${countText(outbound.actual)} / ${outbound.goal}` : loading(90)}
               progress={goalsOff || !outbound ? null : { value: outbound.progress, done: outbound.done, label: scopeLabel }}
               caption={
                 goalsOff
@@ -323,7 +332,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
               icon={Users}
               tone="green"
               title={c.cards.repsAtGoal}
-              value={goalsOff ? t.unavailable : atGoal ? `${atGoal.count} / ${atGoal.of}` : <SkeletonLine width={60} height={22} />}
+              value={goalsOff ? t.unavailable : atGoal ? `${atGoal.count} / ${atGoal.of}` : loading(60)}
               progress={goalsOff || !atGoal ? null : { value: atGoal.of ? atGoal.count / atGoal.of : null, done: atGoal.of > 0 && atGoal.count === atGoal.of, label: c.cards.repsAtGoal }}
               caption={
                 goalsOff || !atGoal
@@ -340,7 +349,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
               icon={CircleAlert}
               tone="red"
               title={c.cards.overdue}
-              value={overdue ? (overdue.available ? overdue.text : t.unavailable) : <SkeletonLine width={40} height={22} />}
+              value={overdue ? (overdue.available ? overdue.text : t.unavailable) : loading(40)}
               caption={
                 <>
                   {overdue && !overdue.available ? <span>{overdue.reason}</span> : null}
@@ -357,7 +366,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
               icon={NotebookText}
               tone="amber"
               title={c.cards.quotedGaps}
-              value={quoted ? (quoted.available ? quoted.text : t.unavailable) : <SkeletonLine width={40} height={22} />}
+              value={quoted ? (quoted.available ? quoted.text : t.unavailable) : loading(40)}
               caption={quoted && !quoted.available ? quoted.reason : null}
             />
           </div>
@@ -389,7 +398,13 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
                     </tr>
                   </thead>
                   <tbody>
-                    {shownRows === null ? (
+                    {shownRows === null && failed ? (
+                      <tr>
+                        <td colSpan={6} className="od-empty">
+                          {t.unavailable}
+                        </td>
+                      </tr>
+                    ) : shownRows === null ? (
                       [0, 1, 2].map((index) => (
                         <tr key={index}>
                           <td colSpan={6}>
@@ -457,7 +472,13 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
                     </tr>
                   </thead>
                   <tbody>
-                    {attentionRows === null ? (
+                    {attentionError && !attentionRows?.length ? (
+                      <tr>
+                        <td colSpan={6} className="od-empty" role={filtered ? "alert" : undefined}>
+                          {filtered ? `${deskCopy.readErrors.queue} ${readFailureText(attentionError)}` : t.unavailable}
+                        </td>
+                      </tr>
+                    ) : attentionRows === null ? (
                       [0, 1, 2].map((index) => (
                         <tr key={index}>
                           <td colSpan={6}>
