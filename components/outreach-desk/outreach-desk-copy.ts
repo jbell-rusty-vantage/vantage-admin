@@ -348,6 +348,44 @@ export const deskCopy = {
       policy_unavailable: "Policy unavailable",
       stale_policy: "Policy changed; recalculating",
     } as Record<string, string>,
+    /** `projection_state` values (the panel's headline and schedule lines). */
+    projectionStates: {
+      pending: "Still being evaluated",
+      stale_policy: "Policy changed; recalculating",
+      cadence_disabled: "Cadence isn't running yet",
+      policy_unavailable: "Policy unavailable",
+    } as Record<string, string>,
+    /** `engine_state` values other than `active` (the server's `SubjectEngineState`). */
+    engineStates: {
+      closed: "This lead's schedule has ended",
+      review: "The schedule is on hold until the review is resolved",
+      no_routine_cadence: "This priority has no routine schedule",
+      no_policy_configured: "No schedule is set up for this priority yet",
+    } as Record<string, string>,
+    /** "Needs review: <reason>"; an unknown reason reads as plain "Needs review" (logged in development). */
+    needsReview: (reason: string | null) => (reason ? `Needs review: ${reason}` : "Needs review"),
+    moreReviewReasons: (n: number) => `${plural(n, "more reason", "more reasons")} listed below`,
+    /**
+     * Subject `review_reasons` and enrollment review reasons, in words (lower case: they follow "Needs review: ").
+     * Codes from the server's `subjectStatusOf`, `resolveDeskPolicy`, `evaluateDeskEligibility` and enrollment
+     * `classify`, plus `no_contact_number` (lane C2c switch).
+     */
+    reviewReasons: {
+      no_contact_number: "no phone number to call",
+      ambiguous_identity: "identity ambiguous — another lead has this Job Number",
+      received_time_missing: "the time this lead came in is missing",
+      received_time_unreliable: "the time this lead came in isn't reliable",
+      priority_needs_review: "no priority from the moving software yet",
+      malformed_priority: "the priority from the moving software isn't a recognized code",
+      unmapped_priority: "this priority code has no schedule set up",
+      unsupported_intake_source: "the lead's source has no default schedule",
+      policy_unavailable: "the schedule policy isn't set up",
+      duplicate: "marked as a duplicate lead",
+      unmatched_booking_anchor: "created from a booking that matched no lead",
+      legacy_closed_reopening_required: "closed in the old Outreach; reopening needs a decision",
+      number_only_unassociated: "phone number not linked to a lead",
+      lead_not_found: "the lead record wasn't found",
+    } as Record<string, string>,
   },
   activity: {
     title: "Activity",

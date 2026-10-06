@@ -15,6 +15,7 @@ import type {
   SalesOutreachRepDayDto,
 } from "@/lib/api/salesOutreach";
 import { deskCopy } from "../outreach-desk-copy";
+import { reportUnknownDeskCode } from "./unknown-codes";
 
 const t = deskCopy.text;
 export const DESK_TIMEZONE = "America/New_York";
@@ -259,6 +260,19 @@ export function priorityPill(row: Pick<SalesOutreachQueueRowDto, "workflow" | "p
   if (row.workflow === "discretion") return { text: deskCopy.workflows.discretion(row.priority_raw), variant: "neutral" };
   if (row.priority_raw) return { text: deskCopy.workflows.code(row.priority_raw), variant: "neutral" };
   return { text: t.unknown, variant: "neutral" };
+}
+
+/**
+ * A review reason in words ("Needs review: no phone number to call"). A reason the copy map does not know reads as
+ * plain "Needs review" — the code itself never reaches the screen — and is reported (logged once in development).
+ */
+export function reviewReasonText(reason: unknown): string {
+  const lead = deskCopy.lead;
+  if (reason === null || reason === undefined || reason === "") return lead.needsReview(null);
+  const text = typeof reason === "string" && Object.hasOwn(lead.reviewReasons, reason) ? lead.reviewReasons[reason] : undefined;
+  if (text) return lead.needsReview(text);
+  reportUnknownDeskCode({ kind: "review_reason", code: null, value: reason });
+  return lead.needsReview(null);
 }
 
 /**

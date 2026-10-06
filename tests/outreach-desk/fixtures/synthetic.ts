@@ -449,6 +449,8 @@ export function syntheticQueueRows(variant: SyntheticVariant = "desk"): SalesOut
 
 export function syntheticDetail(input: { subjectId: string; role: SalesOutreachRole; variant?: SyntheticVariant }): SalesOutreachDetailDto | null {
   const variant = input.variant ?? "desk";
+  const review = SYNTHETIC_REVIEW_SUBJECTS.find((candidate) => syntheticSubjectId(candidate.n) === input.subjectId);
+  if (review) return syntheticReviewDetail({ n: review.n, reasons: review.reasons, role: input.role, variant });
   const row = syntheticQueueRows(variant).find((candidate) => candidate.subject_id === input.subjectId);
   if (!row) return null;
   const spec = ROW_SPECS.find((candidate) => syntheticSubjectId(candidate.n) === input.subjectId)!;
@@ -562,13 +564,16 @@ export function syntheticDetail(input: { subjectId: string; role: SalesOutreachR
       advisory_cooldown: { warning: false, unsuccessful_attempts: spec.last ? 1 : 0 },
       catch_up: { call: { outstanding: Boolean(spec.overdue), missed_count: spec.overdue ? 2 : 0, state: spec.overdue ? "one_per_channel" : null }, sms: { outstanding: false, missed_count: 0, state: null } },
       blocked_until: { call: null, sms: null },
-      explanation: quoted
-        ? [{ code: "quoted_daily_call_from_selected_date", value: spec.n === 12 ? "2026-10-05" : "2026-09-25" }]
-        : [
-            { code: "new_schedule_day", value: scheduleDay },
-            { code: "new_calls_required_today", value: row.call.required },
-            { code: "new_sms_required_today", value: row.sms.required },
-          ],
+      // The server's explanation codes (`reads/detail.ts` explanationOf), in its order.
+      explanation: [
+        { code: "projection_state", value: enforcement ? "current" : "cadence_disabled" },
+        { code: "workflow", value: spec.workflow },
+        ...(quoted ? [] : [{ code: "schedule_day", value: scheduleDay }]),
+        { code: "priority_basis", value: spec.priority === null ? "intake_default" : "accepted_observation" },
+        ...(quoted ? [{ code: "quoted_date", value: spec.n === 12 ? "2026-10-05" : "2026-09-25" }] : []),
+        ...(row.status_flags.move_date_unknown ? [{ code: "move_date_unknown", value: null }] : []),
+        ...(row.status_flags.job_pending ? [{ code: "job_number_pending", value: null }] : []),
+      ],
     },
     requirements: { call: row.call, sms: row.sms },
     status_flags: row.status_flags,
@@ -598,6 +603,54 @@ export function syntheticDetail(input: { subjectId: string; role: SalesOutreachR
     restrictions: [],
     computed_as_of: row.computed_as_of,
     publication_revision: row.publication_revision,
+  };
+}
+
+/**
+ * Review subjects (status `review`, no queue row: the queue's needs-contact frame never lists them). Unassigned, so
+ * only the Owner/Manager open them (`?view=team&lead=<id>` in mock mode). One per review-reason family the desk has
+ * copy for; 905 carries a reason no copy map knows, to show the safe fallback.
+ */
+export const SYNTHETIC_REVIEW_SUBJECTS: ReadonlyArray<{ n: number; reasons: string[] }> = [
+  { n: 901, reasons: ["no_contact_number"] },
+  { n: 902, reasons: ["ambiguous_identity", "received_time_unreliable"] },
+  { n: 903, reasons: ["priority_needs_review"] },
+  { n: 904, reasons: ["unmapped_priority"] },
+  { n: 905, reasons: ["some_future_reason"] },
+];
+
+/**
+ * A review subject as the server reads it: no projection yet (`projection_state: pending`), no requirements, and one
+ * `review` explanation code per reason (first five), as `reads/detail.ts` explanationOf emits them.
+ */
+export function syntheticReviewDetail(input: { n: number; reasons: string[]; role?: SalesOutreachRole; variant?: SyntheticVariant }): SalesOutreachDetailDto {
+  const base = syntheticDetail({ subjectId: syntheticSubjectId(7), role: input.role ?? "owner", variant: input.variant ?? "desk" })!;
+  const none = channel(0, 0, "not_required", null);
+  return {
+    ...base,
+    subject: { ...base.subject, subject_id: syntheticSubjectId(input.n), status: "review", review_reasons: input.reasons, job_no: `P55690${input.n}`, name: `Review lead ${input.n}` },
+    priority: { raw: null, basis: "none", accepted_at: null, uncertain: false },
+    policy: {
+      ...base.policy,
+      projection_state: "pending",
+      workflow: "none",
+      engine_state: null,
+      schedule_day: null,
+      period: null,
+      quoted: null,
+      initial_response: null,
+      catch_up: { call: { outstanding: false, missed_count: 0, state: null }, sms: { outstanding: false, missed_count: 0, state: null } },
+      explanation: [
+        { code: "projection_state", value: "pending" },
+        { code: "priority_basis", value: "none" },
+        ...input.reasons.slice(0, 5).map((reason) => ({ code: "review", value: reason })),
+      ],
+    },
+    requirements: { call: none, sms: none },
+    status_flags: { ...base.status_flags, needs_contact: false, overdue: false, pending: false },
+    oldest_actionable_due_at: null,
+    next_action_due_at: null,
+    history: { ...base.history, window_history: [], window_summary: { dates: 0, call_missed: 0, sms_missed: 0 }, contact_events: [], assignment_changes: [] },
   };
 }
 
