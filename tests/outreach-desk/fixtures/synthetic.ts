@@ -11,6 +11,7 @@
  *   rows, the queue answers 503 PROJECTION_PENDING).
  */
 import type {
+  SalesOutreachAdmissionsDto,
   SalesOutreachCapabilitiesDto,
   SalesOutreachChannelDto,
   SalesOutreachConfigurationReadDto,
@@ -20,6 +21,7 @@ import type {
   SalesOutreachEnrollmentCandidatesDto,
   SalesOutreachEnrollmentReportDto,
   SalesOutreachFreshness,
+  SalesOutreachLeadRef,
   SalesOutreachOtherOutboundBreakdown,
   SalesOutreachQueueRowDto,
   SalesOutreachRepDayDto,
@@ -541,6 +543,9 @@ export function syntheticQueueRows(variant: SyntheticVariant = "desk"): SalesOut
 // Selected-lead detail
 // ---------------------------------------------------------------------------------------------
 
+/** The queue row whose subject joined through the Owner's automatic admission (olr B6 cohort `admission:<date>`). */
+export const SYNTHETIC_ADMITTED_ROW = 3;
+
 export function syntheticDetail(input: { subjectId: string; role: SalesOutreachRole; variant?: SyntheticVariant }): SalesOutreachDetailDto | null {
   const variant = input.variant ?? "desk";
   const review = SYNTHETIC_REVIEW_SUBJECTS.find((candidate) => syntheticSubjectId(candidate.n) === input.subjectId);
@@ -593,7 +598,9 @@ export function syntheticDetail(input: { subjectId: string; role: SalesOutreachR
       received_at: spec.received,
       received_date: spec.received.slice(0, 10),
       received_quality: "instant",
-      enrollment: { cohort_id: "backfill:2026-09-30", kind: "expansion", enrolled_at: "2026-09-30T12:00:00.000Z", activation_at: "2026-09-30T12:00:00.000Z" },
+      enrollment: spec.n === SYNTHETIC_ADMITTED_ROW
+        ? { cohort_id: "admission:2026-09-28", kind: "expansion", enrolled_at: "2026-09-28T17:10:00.000Z", activation_at: "2026-09-28T17:10:00.000Z" }
+        : { cohort_id: "backfill:2026-09-30", kind: "expansion", enrolled_at: "2026-09-30T12:00:00.000Z", activation_at: "2026-09-30T12:00:00.000Z" },
       job_no: row.job_no,
       job_pending: row.job_pending,
       phone: row.phone,
@@ -993,6 +1000,63 @@ export function syntheticEnrollmentCandidates(
     items,
     next_cursor: more ? `mock:${partition}:${offset + limit}` : null,
     scanned: items.length,
+  };
+}
+
+/**
+ * The report for a request: `backfill_scope` is the whole scope; `selected` (the Settings one-click Enroll) selects the
+ * named Leads that are eligible — a Ready or Older candidate — and none in review.
+ */
+export function syntheticEnrollmentReportFor(body: { selection?: { mode?: string; lead_refs?: SalesOutreachLeadRef[] }; cohort_id?: string } = {}): SalesOutreachEnrollmentReportDto {
+  const report = syntheticEnrollmentReport();
+  if (body.selection?.mode !== "selected") return report;
+  const eligible = [...syntheticEnrollmentCandidateItems("in_scope"), ...syntheticEnrollmentCandidateItems("older")];
+  const wanted = new Set((body.selection.lead_refs ?? []).map((ref) => `${ref.model}:${ref.id}`));
+  const selected = eligible.filter((item) => wanted.has(`${item.lead.model}:${item.lead.id}`));
+  const review = syntheticEnrollmentCandidateItems("review").filter((item) => wanted.has(`${item.lead.model}:${item.lead.id}`));
+  return {
+    ...report,
+    cohort_id: body.cohort_id ?? report.cohort_id,
+    scope: { mode: "selected", today: SYNTHETIC_BUSINESS_DAY },
+    counts: { in_scope: selected.length, older: 0, already_enrolled: 0, closed: 0, excluded: 0, review: review.length, not_new_or_quoted: 0 },
+    reasons: Object.fromEntries(review.map((item) => [item.reason, 1])),
+    lead_refs: selected.map((item) => item.lead),
+    review,
+  };
+}
+
+/**
+ * One day's new-lead intake (olr B8 `GET /enrollment/admissions`): today has a mix of admissions and refusals; older
+ * days inside the 14-day retention have none. Reasons are the server's free text (intake gate codes, `closed:` and
+ * `excluded:` eligibility codes).
+ */
+export function syntheticAdmissions(businessDay: string = SYNTHETIC_BUSINESS_DAY): SalesOutreachAdmissionsDto {
+  const today = businessDay === SYNTHETIC_BUSINESS_DAY;
+  const lead = (model: "FormLead" | "CallLead", n: number) => ({ model, id: syntheticSubjectId(1300 + n) });
+  return {
+    contract_version: "sod-v1",
+    business_day: businessDay,
+    as_of: SYNTHETIC_AS_OF,
+    timezone: "America/New_York",
+    retention_days: 14,
+    counts: today
+      ? {
+          admitted_intake: 6,
+          admitted_review: 1,
+          admitted_expansion: 0,
+          deferred: 0,
+          not_admitted: { closed_priority: 1, "excluded:duplicate": 2, "closed:official_booking": 1, historical_import: 1 },
+        }
+      : { admitted_intake: 0, admitted_review: 0, admitted_expansion: 0, deferred: 0, not_admitted: {} },
+    recent_refusals: today
+      ? [
+          { lead: lead("FormLead", 1), reason: "excluded:duplicate", at: "2026-10-01T15:40:00.000Z" },
+          { lead: lead("CallLead", 2), reason: "closed:official_booking", at: "2026-10-01T15:05:00.000Z" },
+          { lead: lead("FormLead", 3), reason: "historical_import", at: "2026-10-01T14:30:00.000Z" },
+          { lead: lead("FormLead", 4), reason: "excluded:duplicate", at: "2026-10-01T13:55:00.000Z" },
+          { lead: lead("CallLead", 5), reason: "closed_priority", at: "2026-10-01T13:10:00.000Z" },
+        ]
+      : [],
   };
 }
 

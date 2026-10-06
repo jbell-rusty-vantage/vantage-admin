@@ -2572,3 +2572,58 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Enrollment lists and the day's intake (lifecycle repair ADM-4). */
+.od-enroll__tabs {
+  flex-wrap: wrap;
+}
+
+.od-enroll__more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.od-admissions__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.od-admissions__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--od-divider);
+  border-radius: 10px;
+  background: var(--od-blue-tint);
+}
+
+.od-admissions__tile[data-key="not_admitted"] {
+  background: var(--od-amber-50);
+}
+
+.od-admissions__value {
+  color: var(--od-ink);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.od-admissions__label {
+  color: var(--od-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.od-admissions__section {
+  margin: 4px 0 0;
+  color: var(--od-text);
+  font-size: 13px;
+  font-weight: 800;
+}

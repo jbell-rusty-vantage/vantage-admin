@@ -441,6 +441,57 @@ export function reviewReasonText(reason: unknown): string {
   return lead.needsReview(null);
 }
 
+const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/**
+ * Why an intake refusal happened, in words ("Already booked") — `GET /enrollment/admissions` `not_admitted` keys and
+ * `recent_refusals[].reason` (olr B8; free text on the server). `review:<reason>` reads the review-reason copy. An
+ * unknown reason reads "Another reason" and is reported (logged once in development); the code never shows.
+ */
+export function admissionReasonText(reason: unknown): string {
+  const a = deskCopy.settingsExtra.admissions;
+  const reviewReasons = deskCopy.lead.reviewReasons;
+  let text: string | undefined;
+  if (typeof reason === "string") {
+    if (Object.hasOwn(a.reasons, reason)) text = a.reasons[reason];
+    else if (reason.startsWith("review:") && Object.hasOwn(reviewReasons, reason.slice("review:".length))) {
+      text = a.reviewReason(reviewReasons[reason.slice("review:".length)]!);
+    }
+  }
+  if (text) return sentence(text);
+  reportUnknownDeskCode({ kind: "admission_reason", code: null, value: reason });
+  return sentence(a.otherReason);
+}
+
+/**
+ * A candidate's reason in the enrollment lists (ADM-4): review reasons read "Needs review: <reason>"; a ready lead's
+ * reason (`received_window`, `upcoming_move`, `selected`) reads in words. Older leads need none (the hint says why).
+ * Unknown reasons read the safe fallback and are reported.
+ */
+export function enrollmentReasonText(partition: string, reason: unknown): string | null {
+  if (partition === "review") return reviewReasonText(reason);
+  if (partition !== "in_scope") return null;
+  const ready = deskCopy.settingsExtra.readyReasons;
+  if (typeof reason === "string" && Object.hasOwn(ready, reason)) return ready[reason]!;
+  reportUnknownDeskCode({ kind: "enrollment_reason", code: partition, value: reason });
+  return null;
+}
+
+/**
+ * How a subject joined the desk (the lead panel's enrollment line), from `subject.enrollment`. The cohort id itself
+ * never shows: `admission:` (olr B6 automatic admission), the Settings one-click cohorts `owner-enroll-` /
+ * `owner-older-`, kind `intake` (the new-lead gate) and `pilot`; anything else reads "Enrolled on <day>".
+ */
+export function enrollmentSourceText(enrollment: { cohort_id: string; kind: string; enrolled_at: string }): string {
+  const e = deskCopy.lead.enrollment;
+  const day = shortDateLabel(nyDate(enrollment.enrolled_at));
+  if (enrollment.cohort_id.startsWith("admission:")) return e.admission(day);
+  if (/^owner-(enroll|older)-/.test(enrollment.cohort_id)) return e.owner(day);
+  if (enrollment.kind === "intake") return e.intake(day);
+  if (enrollment.kind === "pilot") return e.pilot(day);
+  return e.other(day);
+}
+
 /**
  * The attention table's concise issue: from the server's statuses and flags only (no browser cadence). The overdue
  * duration is interpolated from `as_of`.

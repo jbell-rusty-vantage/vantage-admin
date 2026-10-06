@@ -31,6 +31,7 @@ import {
   absoluteTime,
   cadenceSummaryLines,
   durationWords,
+  enrollmentSourceText,
   isUnverified,
   isVerifiedOverdue,
   knownThroughTime,
@@ -419,6 +420,9 @@ function LeadPanelBody({
         {s.name ? <p className="od-lead__name">{s.name}</p> : null}
         {workflowLine ? <p className="od-lead__meta">{workflowLine}</p> : null}
         {today ? <p className="od-lead__meta">{today}</p> : null}
+        <p className="od-lead__meta" data-testid="lead-enrollment">
+          {enrollmentSourceText(s.enrollment)}
+        </p>
       </div>
       <CopyJobButton jobNo={s.job_pending ? null : s.job_no} block />
       <div className={`od-lead__next od-lead__next--${next.tone}`}>

@@ -12,7 +12,9 @@ export type UnknownDeskCodeKind =
   | "explanation_value"
   | "freshness_reason"
   | "association_reason"
-  | "configuration_issue";
+  | "configuration_issue"
+  | "admission_reason"
+  | "enrollment_reason";
 
 export type UnknownDeskCode = {
   kind: UnknownDeskCodeKind;

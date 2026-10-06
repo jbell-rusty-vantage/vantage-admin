@@ -25,8 +25,10 @@ import {
   syntheticCommonRead,
   syntheticConfiguration,
   syntheticDetail,
+  SYNTHETIC_BUSINESS_DAY,
+  syntheticAdmissions,
   syntheticEnrollmentCandidates,
-  syntheticEnrollmentReport,
+  syntheticEnrollmentReportFor,
   syntheticQueueRows,
   syntheticRepDays,
   syntheticRestrictions,
@@ -298,7 +300,16 @@ export function mockSalesOutreachResponse(input: MockSalesOutreachInput): MockSa
     }
     return ok(syntheticEnrollmentCandidates(partition, { offset, limit }));
   }
-  if (route("POST", "enrollment/report")) return ok(syntheticEnrollmentReport());
+  if (route("GET", "enrollment/admissions")) {
+    // The server keeps completed jobs 14 days and refuses a future day (olr B8).
+    const day = params.get("business_day") ?? SYNTHETIC_BUSINESS_DAY;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return refuse(400, "INVALID_INPUT", [{ path: "business_day", code: "invalid_string" }]);
+    if (day > SYNTHETIC_BUSINESS_DAY) return refuse(400, "INVALID_INPUT", [{ path: "business_day", code: "business_day_in_future" }]);
+    const earliest = new Date(Date.parse(`${SYNTHETIC_BUSINESS_DAY}T12:00:00Z`) - 13 * 86_400_000).toISOString().slice(0, 10);
+    if (day < earliest) return refuse(400, "INVALID_INPUT", [{ path: "business_day", code: "retention_exceeded" }]);
+    return ok(syntheticAdmissions(day));
+  }
+  if (route("POST", "enrollment/report")) return ok(syntheticEnrollmentReportFor(body as Parameters<typeof syntheticEnrollmentReportFor>[0]));
   if (route("POST", "enrollment/apply")) return refuse(503, "SERVICE_UNAVAILABLE", [{ path: "migration.paused", code: "migration_paused" }]);
   if (route("POST", "enrollment/verify")) {
     return ok({ contract_version: "sod-v1", mode: "verify", run_key: String(body.run_key ?? "mock"), run_status: "completed", complete: true, consistent: true, counts: { enrolled_by_run: 2, enrolled_elsewhere: 0, not_enrolled: 0 }, mismatches: [] });

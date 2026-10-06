@@ -1106,6 +1106,8 @@ export const salesOutreachPaths = {
   enrollmentReport: () => "enrollment/report",
   enrollmentApply: () => "enrollment/apply",
   enrollmentVerify: () => "enrollment/verify",
+  /** olr B8: what the lead-change jobs of one New York day decided for Leads that were not subjects (default today). */
+  enrollmentAdmissions: (query: { business_day?: string | null } = {}) => withQuery("enrollment/admissions", query),
 } as const;
 
 function withQuery(path: string, query: Record<string, string | number | undefined | null>): string {
@@ -1579,3 +1581,27 @@ export const salesOutreachEnrollmentVerifySchema = z.object({
   mismatches: z.array(z.object({ lead: salesOutreachLeadRefSchema, problem: z.string() })),
 });
 export type SalesOutreachEnrollmentVerifyDto = z.infer<typeof salesOutreachEnrollmentVerifySchema>;
+
+/**
+ * olr B8 `GET /enrollment/admissions?business_day=` (server `salesOutreachAdmissionsSchema`,
+ * `validation/v1/salesOutreachEnrollment.ts`). `not_admitted` and `recent_refusals[].reason` are free text
+ * (`closed_priority`, `excluded:duplicate`, `review:<reason>`, …): the admin renders them through its copy map and
+ * never raw. A day older than `retention_days` answers 400 `INVALID_INPUT` issue `retention_exceeded`; a future day
+ * `business_day_in_future`.
+ */
+export const salesOutreachAdmissionsSchema = z.object({
+  contract_version: contract,
+  business_day: salesOutreachBusinessDateSchema,
+  as_of: instant,
+  timezone: z.literal(SALES_OUTREACH_TIMEZONE),
+  retention_days: z.number().int().positive(),
+  counts: z.object({
+    admitted_intake: count,
+    admitted_review: count,
+    admitted_expansion: count,
+    deferred: count,
+    not_admitted: z.record(z.string(), count),
+  }),
+  recent_refusals: z.array(z.object({ lead: salesOutreachLeadRefSchema, reason: z.string(), at: instant })),
+});
+export type SalesOutreachAdmissionsDto = z.infer<typeof salesOutreachAdmissionsSchema>;
