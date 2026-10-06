@@ -37,8 +37,27 @@
   color: var(--crm-ink);
 }
 
+.ch-table td,
+.ch-table th[scope="row"] {
+  padding: 6px 12px;
+}
+
+.ch-table .crm-person {
+  font-size: 12.5px;
+}
+
 .ch-reason-cell {
-  max-width: 24rem;
+  max-width: 22rem;
+}
+
+/* One line, cut with an ellipsis; the whole reason is the tooltip and the drawer. */
+.ch-reason-clip {
+  display: block;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
 }
 
 .ch-actions {
@@ -47,7 +66,7 @@
 }
 
 .ch-row-button {
-  min-height: 44px;
+  min-height: 30px;
 }
 
 .ch-pager {

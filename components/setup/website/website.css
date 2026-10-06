@@ -27,17 +27,54 @@
   padding: 12px 16px 20px;
 }
 
-.ws-open {
-  min-height: 44px;
-  text-align: left;
-  font-weight: 700;
+.ws-table {
+  table-layout: fixed;
+  min-width: 900px;
 }
 
-.ws-review {
-  max-width: 32rem;
+.ws-table th:nth-child(1) {
+  width: 18%;
+}
+
+.ws-table th:nth-child(2),
+.ws-table th:nth-child(3) {
+  width: 9%;
+}
+
+.ws-table th:nth-child(5) {
+  width: 14%;
+}
+
+.ws-table th:nth-child(6),
+.ws-table th:nth-child(7) {
+  width: 8%;
+}
+
+.ws-table td,
+.ws-table th[scope="row"] {
+  padding: 6px 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ws-open {
+  min-height: 32px;
+  max-width: 100%;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+/* One line, cut on a word, the full review as the tooltip and in the drawer. */
+.ws-review__clip {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
 }
 
 .ws-pager {

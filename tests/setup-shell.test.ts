@@ -20,28 +20,28 @@ import { setupRedirectRows } from "../lib/setup/setup-redirects";
  * the permanent redirect table, which must agree with the rewrite for every old `?tab=` value.
  */
 
-test("Setup has the eight sections of doc 19 in order, each on its own route", () => {
+test("Setup has the nine sections (doc 19 plus External Sheet Ingestion) in order, each on its own route", () => {
   assert.deepEqual(
     SETUP_SECTIONS.map((section) => section.key),
-    ["lead-sources", "lead-costs", "people", "money", "carriers", "connections", "website", "changes"],
+    ["lead-sources", "lead-costs", "people", "merchants", "carriers", "connections", "sheet-ingestion", "website", "changes"],
   );
   assert.deepEqual(
     SETUP_SECTIONS.map((section) => section.href),
-    ["/setup/lead-sources", "/setup/lead-costs", "/setup/people", "/setup/money", "/setup/carriers", "/setup/connections", "/setup/website", "/setup/changes"],
+    ["/setup/lead-sources", "/setup/lead-costs", "/setup/people", "/setup/merchants", "/setup/carriers", "/setup/connections", "/setup/sheet-ingestion", "/setup/website", "/setup/changes"],
   );
   assert.deepEqual(
     SETUP_SECTIONS.map((section) => section.label),
-    ["Lead sources", "Lead costs", "People & access", "Money", "Carriers", "Connections & health", "Website", "Change history"],
+    ["Lead sources", "Lead costs", "People & access", "Merchants", "Carriers", "Connections & health", "External Sheet Ingestion", "Website", "Change history"],
   );
 });
 
-test("Admin and Manager do not see Connections or Website; the Owner sees all eight", () => {
+test("Admin and Manager do not see Connections or Website; the Owner sees all nine", () => {
   assert.deepEqual(
     setupSectionsFor("admin").map((section) => section.key),
-    ["lead-sources", "lead-costs", "people", "money", "carriers", "changes"],
+    ["lead-sources", "lead-costs", "people", "merchants", "carriers", "sheet-ingestion", "changes"],
   );
-  assert.equal(setupSectionsFor("owner").length, 8);
-  assert.equal(setupSectionsFor(null).length, 6);
+  assert.equal(setupSectionsFor("owner").length, 9);
+  assert.equal(setupSectionsFor(null).length, 7);
   assert.equal(canOpenSetupSection("admin", "connections"), false);
   assert.equal(canOpenSetupSection("admin", "website"), false);
   assert.equal(canOpenSetupSection("admin", "people"), true);
@@ -59,11 +59,11 @@ test("the active section follows the pathname; /setup itself is Lead sources", (
 test("badges are counts, never zero, only on Lead sources and People", () => {
   const leadSources = SETUP_SECTIONS[0]!;
   const people = SETUP_SECTIONS[2]!;
-  const money = SETUP_SECTIONS[3]!;
+  const merchants = SETUP_SECTIONS[3]!;
   assert.equal(setupBadgeFor(leadSources, { needsYou: 3 }), 3);
   assert.equal(setupBadgeFor(leadSources, { needsYou: 0 }), null);
   assert.equal(setupBadgeFor(people, { notMatched: 2 }), 2);
-  assert.equal(setupBadgeFor(money, { needsYou: 9, notMatched: 9 }), null);
+  assert.equal(setupBadgeFor(merchants, { needsYou: 9, notMatched: 9 }), null);
 });
 
 test("every old Registry tab and page maps to its Setup route with the deep link translated", () => {
@@ -80,7 +80,7 @@ test("every old Registry tab and page maps to its Setup route with the deep link
   assert.equal(setupHrefForRegistryTab("legacy-cpl"), "/setup/lead-costs?view=old");
   assert.equal(setupHrefForRegistryTab("agents", { entity: "a1" }), "/setup/people?person=a1");
   assert.equal(setupHrefForRegistryTab("users"), "/setup/people");
-  assert.equal(setupHrefForRegistryTab("merchants"), "/setup/money");
+  assert.equal(setupHrefForRegistryTab("merchants"), "/setup/merchants");
   assert.equal(setupHrefForRegistryTab("moving-carriers"), "/setup/carriers");
   assert.equal(setupHrefForRegistryTab("changes"), "/setup/changes");
   assert.equal(setupHrefForRegistryTab("overview"), "/setup/connections");

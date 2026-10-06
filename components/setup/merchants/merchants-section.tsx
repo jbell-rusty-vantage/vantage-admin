@@ -1,6 +1,6 @@
 "use client";
 /**
- * Setup → Money (`/setup/money`, doc 19 "Money"): Merchants that take deposits, as a card list with rename, deactivate
+ * Setup → Merchants (`/setup/merchants`, doc 19 "Money", renamed Merchants because only Merchants live here): Merchants that take deposits, as a card list with rename, deactivate
  * (dependency preview and reason) and reactivate in a small sheet. The Registry's rules are kept: records are never
  * deleted, and deactivating reads what depends on the Merchant first. Rep compensation is server work; one line says so
  * and links to Today → Money.
@@ -24,7 +24,7 @@ import {
 } from "@/lib/api/registryAgents";
 import { formatRegistryError } from "@/lib/api/registryRequest";
 import { queryKeys } from "@/lib/query/keys";
-import { MONEY_COPY as c } from "./money-copy";
+import { MERCHANTS_COPY as c } from "./merchants-copy";
 
 /** The PATCH body for a rename: the new name and the reason; null when the name did not change. Pure so a test covers it. */
 export function merchantUpdateBody(merchant: Pick<RegistryCatalogItem, "name">, draft: { name: string; reason: string }): CatalogUpdateInput | null {
@@ -183,7 +183,7 @@ function AddMerchantSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function MoneySection() {
+export function MerchantsSection() {
   const readOnly = useSetupReadOnly();
   const [includeInactive, setIncludeInactive] = useState(false);
   const [open, setOpen] = useState<string | "new" | null>(null);
@@ -197,7 +197,7 @@ export function MoneySection() {
   return (
     <>
       <SetupSectionHead
-        section="money"
+        section="merchants"
         right={
           readOnly ? null : (
             <button type="button" className="crm-button crm-button--primary" onClick={() => setOpen("new")}>

@@ -37,10 +37,6 @@ export const CONNECTIONS_COPY = {
     readFailure: "The lead sources did not load.",
     noSheet: "No Master Sheet",
   },
-  bestRelocation: {
-    title: "Best Relocation",
-    subtitle: "The lead feed pulled from Best Relocation.",
-  },
   registry: {
     title: "Registry",
     subtitle: "Signing and health checks behind every Setup change.",

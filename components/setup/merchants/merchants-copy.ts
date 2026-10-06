@@ -1,6 +1,6 @@
 /** Money copy (doc 19 "Money"): Merchants that take deposits. No em-dashes. */
 
-export const MONEY_COPY = {
+export const MERCHANTS_COPY = {
   merchants: "Merchants",
   includeInactive: "Include inactive",
   active: "Active",

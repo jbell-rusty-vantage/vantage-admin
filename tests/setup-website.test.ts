@@ -3,7 +3,7 @@ import test from "node:test";
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TestimonialDrawer } from "../components/setup/website/testimonial-drawer";
-import { TestimonialsTable } from "../components/setup/website/testimonials-list";
+import { clipReview, TestimonialsTable } from "../components/setup/website/testimonials-list";
 import { WEBSITE_COPY } from "../components/setup/website/website-copy";
 import type { AdminTestimonial } from "../lib/api/admin";
 import { findOwnerMarkupLeaks } from "../lib/operations-registry/ownerLanguageDeck";
@@ -92,4 +92,15 @@ test("Website copy uses glossary words and no em-dashes", () => {
   assert.equal(copy.rating(1), "1 star");
   assert.equal(copy.rating(4), "4 stars");
   assert.equal(copy.page(2, 3, 120), "Page 2 of 3 · 120 testimonials");
+});
+
+test("the review column shows one clipped line, cut on a word, with the full text as the tooltip", () => {
+  const long = "Movers arrived on time, wrapped every piece of furniture carefully, and finished the whole move two hours early without a single scratch anywhere.";
+  const clipped = clipReview(long, 60);
+  assert.ok(clipped.length <= 61, clipped);
+  assert.match(clipped, /…$/);
+  assert.doesNotMatch(clipped, /\s…$/);
+  assert.equal(clipReview("Short review"), "Short review");
+  assert.equal(clipReview("  spaced   out  "), "spaced out");
+  assert.equal(clipReview(null), "");
 });

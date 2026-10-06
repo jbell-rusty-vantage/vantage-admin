@@ -1,5 +1,8 @@
 "use client";
-/** The change list as a `.crm-table`: when, who, what (action and kind of record), why, and a View / Hide control. */
+/**
+ * The change list as a `.crm-table`: when, who, what (action and kind of record), the reason clipped to one line with the
+ * full text on hover, and a View / Hide control. Rows stay short; the drawer holds the whole change.
+ */
 import { formatAbsolute } from "@/components/ui/crm/format";
 import { Person, Pill } from "@/components/ui/crm/primitives";
 import type { RegistryChangeItem } from "@/lib/api/operationsRegistry";
@@ -10,7 +13,7 @@ export function ChangesTable({ items, openId, onOpen }: { items: readonly Regist
   const copy = CHANGES_COPY;
   return (
     <div className="crm-table-wrap">
-      <table className="crm-table" data-testid="changes-table">
+      <table className="crm-table ch-table" data-testid="changes-table">
         <thead>
           <tr>
             <th scope="col">{copy.columns.when}</th>
@@ -33,7 +36,15 @@ export function ChangesTable({ items, openId, onOpen }: { items: readonly Regist
               <td>
                 <Pill variant="blue">{actionLabel(item.action)}</Pill> <span className="ch-entity">{entityLabel(item.entity_type)}</span>
               </td>
-              <td className="ch-reason-cell">{item.reason ?? <span className="su-quiet">{copy.noReason}</span>}</td>
+              <td className="ch-reason-cell">
+                {item.reason ? (
+                  <span className="ch-reason-clip" title={item.reason}>
+                    {item.reason}
+                  </span>
+                ) : (
+                  <span className="su-quiet">{copy.noReason}</span>
+                )}
+              </td>
               <td className="ch-actions" onClick={(event) => event.stopPropagation()}>
                 <button
                   type="button"

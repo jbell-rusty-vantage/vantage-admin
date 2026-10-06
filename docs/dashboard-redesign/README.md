@@ -22,9 +22,10 @@ in [SERVER-WORK.md](SERVER-WORK.md).
 | 19 | Lead sources (`/setup/lead-sources`): Things that need you, the source tree (feeds → Granot names · inbound numbers · lead cost), the Granot names and Inbound numbers views, the Feed / Granot name / Inbound number / Lead cost sheets, Add a lead source in six screens, Turn it on with the default feed chosen explicitly | `components/setup/lead-sources/`, `lib/setup/readiness.ts` |
 | 19 | Lead costs (`/setup/lead-costs`): the grid by company with one effective date and one Save, Fix past leads, the read-only Old rate book; the per-feed Lead cost sheet with Periods | `components/setup/lead-costs/` |
 | 19 | People & access (`/setup/people`): one person, one card (Agent · Dashboard login · Extension · RingCentral · Pay), the four Edit sheets on the existing commands, Add person, Not matched to a person | `components/setup/people/` (`people-model.ts` is the client-side join) |
-| 19 | Money (`/setup/money`): Merchants as cards with rename / deactivate / reactivate | `components/setup/money/` |
+| 19 | Merchants (`/setup/merchants`; doc 19 called it Money, renamed because only Merchants live there): Merchants as cards with rename / deactivate / reactivate | `components/setup/merchants/` |
 | 19 | Carriers (`/setup/carriers`): the table, create / edit, CSV import with Patch as the default and a browser preview | `components/setup/carriers/`, `lib/setup/carriers-preview.ts` |
-| 19 | Connections & health (`/setup/connections`, Owner): Granot · RingCentral · Google Sheets · Best Relocation cards, the Registry signing status, compatibility statement and health findings | `components/setup/connections/` |
+| 19 | Connections & health (`/setup/connections`, Owner): Granot · RingCentral · Google Sheets cards, the Registry signing status, compatibility statement and health findings | `components/setup/connections/` |
+| 19 | External Sheet Ingestion (`/setup/sheet-ingestion`): the Best Relocation sheet pull, embedded; split out of Connections on the Owner's ask | `components/setup/sheet-ingestion/` |
 | 19 | Website (`/setup/website`, Owner): Testimonials re-homed | `components/setup/website/` |
 | 19 | Change history (`/setup/changes`): Entity · Who · When and the diff | `components/setup/changes/` |
 
@@ -50,7 +51,7 @@ in [SERVER-WORK.md](SERVER-WORK.md).
 | `?tab=lead-costs\|cpl` · `…&cpl_mode=corrections` | `/setup/lead-costs` · `/setup/lead-costs?view=fix` |
 | `?tab=legacy-cpl` | `/setup/lead-costs?view=old` |
 | `?tab=agents[&entity=X]` · `?tab=users` | `/setup/people[?person=X]` |
-| `?tab=merchants` | `/setup/money` |
+| `?tab=merchants` | `/setup/merchants` |
 | `?tab=moving-carriers` · `/settings` | `/setup/carriers` |
 | `?tab=changes` | `/setup/changes` |
 | `?tab=overview` | `/setup/connections` |

@@ -1,6 +1,6 @@
 "use client";
 /**
- * Setup → Connections & health (doc 19): four partner cards (Granot, RingCentral, Google Sheets, Best Relocation)
+ * Setup → Connections & health (doc 19): three partner cards (Granot, RingCentral, Google Sheets)
  * then the quiet Registry card. The Owner-only gate is the page's. The registry reads keep the overview's keys and its
  * 60 second refetch.
  */
@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { SetupSectionHead } from "@/components/setup/setup-shell";
 import { fetchRegistryHealth, fetchRegistryOverview } from "@/lib/api/operationsRegistry";
 import { queryKeys } from "@/lib/query/keys";
-import { BestRelocationCard, GranotCard, RingCentralCard, SheetsCard } from "./partner-cards";
+import { GranotCard, RingCentralCard, SheetsCard } from "./partner-cards";
 import { RegistryCard } from "./registry-card";
 
 export function ConnectionsSection() {
@@ -36,7 +36,6 @@ export function ConnectionsSection() {
           <SheetsCard />
         </div>
         <GranotCard findings={healthQuery.data?.findings ?? null} findingsFailed={healthQuery.isError} />
-        <BestRelocationCard />
         <RegistryCard
           overview={overviewQuery.data}
           health={healthQuery.data}

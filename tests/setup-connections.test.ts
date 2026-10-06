@@ -215,7 +215,6 @@ test("Connections copy uses glossary words and no em-dashes", () => {
     copy.ringcentral.captureUnavailable,
     copy.sheets.hint,
     copy.sheets.open("Best Relocation"),
-    copy.bestRelocation.subtitle,
     copy.registry.subtitle,
     copy.registry.generated("a", "b"),
   ].join(" ");

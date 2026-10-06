@@ -1,15 +1,14 @@
 "use client";
 /**
- * The four partner cards of Setup → Connections & health (doc 19), each built from a read that already exists:
+ * The three partner cards of Setup → Connections & health (doc 19), each built from a read that already exists:
  * Granot (the health page embedded, the registry's Granot findings beneath), RingCentral (inbound number checks and
- * call log capture freshness, the same read the topbar chips use), Google Sheets (Master Sheet links) and Best
- * Relocation (the ingestion dashboard embedded).
+ * call log capture freshness, the same read the topbar chips use) and Google Sheets (Master Sheet links). The Best
+ * Relocation sheet pull has its own section, Setup → External Sheet Ingestion.
  */
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { LifecycleHealthPage } from "@/components/granot-lifecycle/lifecycle-health";
-import { BestRelocationIngestionDashboard } from "@/components/ingestion/best-relocation-ingestion-dashboard";
 import { RegistryHealthFindings } from "@/components/operations-registry/registry-health-findings";
 import { useTeam } from "@/components/outreach-desk/data/use-desk-reads";
 import { freshnessChips } from "@/components/outreach-desk/lib/format";
@@ -116,17 +115,6 @@ export function SheetsCard() {
       ) : (
         <MasterSheetLines links={links ?? []} />
       )}
-    </CrmCard>
-  );
-}
-
-export function BestRelocationCard() {
-  const copy = CONNECTIONS_COPY.bestRelocation;
-  return (
-    <CrmCard title={copy.title} subtitle={copy.subtitle} testId="connections-best-relocation">
-      <div className="cn-embed">
-        <BestRelocationIngestionDashboard />
-      </div>
     </CrmCard>
   );
 }

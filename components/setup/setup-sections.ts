@@ -1,10 +1,10 @@
 /**
- * The eight Setup sections (doc 19 "Routes"): keys, routes, roles and badges. Pure (no JSX) so `tests/setup-shell.test.ts`
+ * The nine Setup sections (doc 19 "Routes", plus External Sheet Ingestion split out of Connections on the Owner's ask): keys, routes, roles and badges. Pure (no JSX) so `tests/setup-shell.test.ts`
  * covers the role filter and the active-section lookup. Admin reads every section except Connections and Website
  * (Owner only; the nav hides them and the route shows the shell's "Not allowed" card); People shows Admin the roster
  * read-only. Badges: Lead sources carries the "Things that need you" count, People the "Not matched to a person" count.
  */
-import { Banknote, Cable, Globe, History, Landmark, Puzzle, Truck, Users, type LucideIcon } from "lucide-react";
+import { Banknote, Cable, FileSpreadsheet, Globe, History, Landmark, Puzzle, Truck, Users, type LucideIcon } from "lucide-react";
 import { SETUP_ROUTES } from "@/lib/setup/setup-links";
 import { SETUP_COPY } from "./setup-copy";
 
@@ -30,9 +30,10 @@ export const SETUP_SECTIONS: readonly SetupSection[] = [
   section("lead-sources", SETUP_ROUTES.leadSources, Cable, { badge: "needsYou" }),
   section("lead-costs", SETUP_ROUTES.leadCosts, Banknote),
   section("people", SETUP_ROUTES.people, Users, { badge: "notMatched" }),
-  section("money", SETUP_ROUTES.money, Landmark),
+  section("merchants", SETUP_ROUTES.merchants, Landmark),
   section("carriers", SETUP_ROUTES.carriers, Truck),
   section("connections", SETUP_ROUTES.connections, Puzzle, { ownerOnly: true }),
+  section("sheet-ingestion", SETUP_ROUTES.sheetIngestion, FileSpreadsheet),
   section("website", SETUP_ROUTES.website, Globe, { ownerOnly: true }),
   section("changes", SETUP_ROUTES.changes, History),
 ];

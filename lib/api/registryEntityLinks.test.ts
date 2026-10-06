@@ -14,9 +14,9 @@ test("registryEntityHref covers company, feed, lead costs, inbound numbers, Gran
     href: "/setup/people?person=a1",
     label: "Open agent",
   });
-  // Merchants have no per-record key in Setup, so the link opens the Money section.
+  // Merchants have no per-record key in Setup, so the link opens the Merchants section.
   assert.deepEqual(registryEntityHref("merchant", "m1"), {
-    href: "/setup/money",
+    href: "/setup/merchants",
     label: "Open merchant",
   });
   // A lead source opens as ?source=<id> on the Lead sources tree.

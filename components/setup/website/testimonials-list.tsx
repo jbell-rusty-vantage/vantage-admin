@@ -20,6 +20,15 @@ const RATING_OPTIONS = [{ value: "", label: WEBSITE_COPY.stars.any }, ...[5, 4, 
 
 const TABLE_DEFAULTS = { page: 1, limit: 50, sort: "review_date", direction: "desc" } as const;
 
+/** The review as one table line: the first words, cut on a word boundary with an ellipsis; the full text is the tooltip and the drawer. */
+export function clipReview(text: string | null | undefined, max = 90): string {
+  const flat = (text ?? "").replace(/\s+/g, " ").trim();
+  if (flat.length <= max) return flat;
+  const cut = flat.slice(0, max);
+  const at = cut.lastIndexOf(" ");
+  return `${(at > max * 0.6 ? cut.slice(0, at) : cut).trimEnd()}…`;
+}
+
 export function TestimonialsList() {
   const copy = WEBSITE_COPY;
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -154,7 +163,15 @@ function TestimonialRow({ item, selected, onOpen }: { item: AdminTestimonial; se
       </th>
       <td>{formatShortDate(item.review_date)}</td>
       <td>{copy.rating(item.rating)}</td>
-      <td className="ws-review">{item.review_text || copy.drawer.none}</td>
+      <td className="ws-review">
+        {item.review_text ? (
+          <span className="ws-review__clip" title={item.review_text}>
+            {clipReview(item.review_text)}
+          </span>
+        ) : (
+          <span className="su-quiet">{copy.drawer.none}</span>
+        )}
+      </td>
       <td>{item.customer?.id ? <span className="crm-strong">{item.customer.full_name || copy.linkedCustomer}</span> : <Pill variant="gray">{copy.notLinked}</Pill>}</td>
       <td>
         <Pill variant={item.published ? "green" : "gray"}>{item.published ? copy.yes : copy.no}</Pill>
@@ -171,7 +188,7 @@ export function TestimonialsTable({ items, selectedId, onOpen }: { items: readon
   const copy = WEBSITE_COPY;
   return (
     <div className="crm-table-wrap">
-      <table className="crm-table" data-testid="testimonials-table">
+      <table className="crm-table ws-table" data-testid="testimonials-table">
         <thead>
           <tr>
             <th scope="col">{copy.columns.reviewer}</th>

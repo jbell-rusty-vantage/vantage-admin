@@ -1,0 +1,4 @@
+/* Setup External Sheet Ingestion: rules beyond the shared .crm-* and .su-* classes. Imported by app/(dashboard)/setup/layout.tsx. */
+.si-embed {
+  padding: 4px 16px 16px;
+}

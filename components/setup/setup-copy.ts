@@ -7,7 +7,7 @@ export const SETUP_COPY = {
   title: "Setup",
   subtitle: "Everything you configure once and touch rarely. Daily work lives on Today, Leads and Bookings.",
   help:
-    "Setup is one place with eight sections. Lead sources shows each company you buy or receive leads from as one tree: its feeds, the Granot names and inbound numbers that land in them, and what each lead costs. People & access shows one card per person. Connections & health says whether Granot, RingCentral, Google Sheets and Best Relocation are connected and recent.",
+    "Setup is one place with nine sections. Lead sources shows each company you buy or receive leads from as one tree: its feeds, the Granot names and inbound numbers that land in them, and what each lead costs. People & access shows one card per person. Connections & health says whether Granot, RingCentral and Google Sheets are connected and recent. External Sheet Ingestion is the Best Relocation sheet pull.",
   navLabel: "Setup sections",
   /** The Registry's read-only banner, reused for the Admin role. */
   readOnlyTitle: "Read-only view",
@@ -18,9 +18,10 @@ export const SETUP_COPY = {
     "lead-sources": { label: "Lead sources", purpose: "Who sends me leads, and how do they arrive." },
     "lead-costs": { label: "Lead costs", purpose: "What do I pay per lead." },
     people: { label: "People & access", purpose: "Who works here, and what can they open." },
-    money: { label: "Money", purpose: "Merchants that take deposits." },
+    merchants: { label: "Merchants", purpose: "Merchants that take deposits." },
     carriers: { label: "Carriers", purpose: "Moving carriers for tariff work." },
-    connections: { label: "Connections & health", purpose: "Granot · RingCentral · Google Sheets · Best Relocation." },
+    connections: { label: "Connections & health", purpose: "Granot · RingCentral · Google Sheets." },
+    "sheet-ingestion": { label: "External Sheet Ingestion", purpose: "Lead sheets pulled in from outside partners, Best Relocation first." },
     website: { label: "Website", purpose: "Testimonials shown on the main site." },
     changes: { label: "Change history", purpose: "Every change, who made it, before and after." },
   },

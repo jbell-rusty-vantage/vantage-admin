@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MerchantCards, merchantAliases, merchantUpdateBody } from "../components/setup/money/money-section";
-import { MONEY_COPY } from "../components/setup/money/money-copy";
+import { MerchantCards, merchantAliases, merchantUpdateBody } from "../components/setup/merchants/merchants-section";
+import { MERCHANTS_COPY as MONEY_COPY } from "../components/setup/merchants/merchants-copy";
 import type { RegistryCatalogItem } from "../lib/api/registryAgents";
 import { findOwnerMarkupLeaks } from "../lib/operations-registry/ownerLanguageDeck";
 
