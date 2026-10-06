@@ -8,8 +8,9 @@ import { CompatibilityObservationStatement } from "../components/operations-regi
 import { RegistryHealthFindings } from "../components/operations-registry/registry-health-findings";
 import { CONNECTIONS_COPY } from "../components/setup/connections/connections-copy";
 import { googleSheetUrl, granotFindings, masterSheetLinks, summarizeRoutes } from "../components/setup/connections/connections-model";
-import { MasterSheetLines, RouteSummaryView } from "../components/setup/connections/partner-cards";
+import { GranotUpdatesLine, MasterSheetLines, RouteSummaryView } from "../components/setup/connections/partner-cards";
 import { RegistryCard, remainingCompatibilityReads } from "../components/setup/connections/registry-card";
+import type { GranotRun } from "../lib/api/granotAutomation";
 import type { RegistryHealth, RegistryHealthFinding, RegistryOverview } from "../lib/api/operationsRegistry";
 import type { RingCentralRoute } from "../lib/api/registryRingCentral";
 import type { SourceCompanyItem } from "../lib/api/registrySources";
@@ -205,10 +206,36 @@ test("the Registry card shows the signing status, the observation and the full f
   assert.match(loading, /Loading/);
 });
 
+test("the Granot card carries the Granot updates health line and a link to Automations (doc 17)", () => {
+  const run: GranotRun = {
+    run_id: "aaaaaaaaaaaaaaaaaaaaaaa1",
+    run_group_id: "group-1",
+    status: "completed",
+    operation: "form_leads",
+    workflow: "apply",
+    receipt_count: 21,
+    created_at: "2026-10-05T13:12:00.000Z",
+  };
+  const applied = html(createElement(GranotUpdatesLine, { runs: [run], failed: false }));
+  assert.match(applied, /Granot updates/);
+  assert.match(applied, /Last check .* · applied 21/);
+  assert.match(applied, /href="\/automations\/granot-updates"[^>]*>Open Granot updates/);
+  assert.doesNotMatch(applied, /aaaaaaaaaaaaaaaaaaaaaaa1|group-1/);
+  assert.deepEqual(findOwnerMarkupLeaks(applied), []);
+  const waiting = html(createElement(GranotUpdatesLine, { runs: [{ ...run, status: "awaiting_approval", receipt_count: 0 }], failed: false }));
+  assert.match(waiting, /waiting for your approval/);
+  assert.match(html(createElement(GranotUpdatesLine, { runs: [], failed: false })), /No check yet\./);
+  assert.match(html(createElement(GranotUpdatesLine, { runs: null, failed: true })), /The checks could not load\./);
+});
+
 test("Connections copy uses glossary words and no em-dashes", () => {
   const copy = CONNECTIONS_COPY;
   const strings = [
     copy.granot.subtitle,
+    copy.granot.lastCheck("Oct 5", 21),
+    copy.granot.lastCheckWaiting("Oct 5"),
+    copy.granot.noCheck,
+    copy.granot.open,
     copy.ringcentral.subtitle,
     copy.ringcentral.verified(2),
     copy.ringcentral.notChecked(1),

@@ -8,6 +8,14 @@ export const CONNECTIONS_COPY = {
     subtitle: "Is Granot sending what we expect, and is every lead landing where it should.",
     findingsTitle: "Granot findings from the registry",
     findingsNone: "No registry findings about Granot names.",
+    // Doc 17: the check itself lives under Automations → Granot updates; this card keeps a health line and a link.
+    updatesTitle: "Granot updates",
+    lastCheck: (when: string, applied: number) => `Last check ${when} · applied ${applied}`,
+    lastCheckWaiting: (when: string) => `Last check ${when} · waiting for your approval`,
+    lastCheckRunning: (when: string) => `Last check ${when} · still reading Granot`,
+    noCheck: "No check yet.",
+    checksFailed: "The checks could not load.",
+    open: "Open Granot updates",
   },
   ringcentral: {
     title: "RingCentral",

@@ -104,6 +104,8 @@ export const queryKeys = {
     all: ["granot-automation"] as const,
     sources: () => [...queryKeys.granotAutomation.all, "sources"] as const,
     runs: () => [...queryKeys.granotAutomation.all, "runs"] as const,
+    /** The newest-first page the Granot updates pages, the Automations badge and Today share (doc 17). */
+    runsPage: (limit: number) => [...queryKeys.granotAutomation.all, "runs", "page", limit] as const,
     runGroup: (id: string) =>
       [...queryKeys.granotAutomation.all, "run-groups", id] as const,
     run: (id: string) => [...queryKeys.granotAutomation.all, "runs", "detail", id] as const,

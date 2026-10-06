@@ -12,9 +12,13 @@ import { LifecycleHealthPage } from "@/components/granot-lifecycle/lifecycle-hea
 import { RegistryHealthFindings } from "@/components/operations-registry/registry-health-findings";
 import { useTeam } from "@/components/outreach-desk/data/use-desk-reads";
 import { freshnessChips } from "@/components/outreach-desk/lib/format";
-import { formatRelative } from "@/components/ui/crm/format";
+import { useGranotRuns } from "@/components/automations/granot-updates/use-granot-updates";
+import { formatAbsolute, formatRelative } from "@/components/ui/crm/format";
 import { CrmCard, FreshnessChips, Pill, ReadFailure, SkeletonLine } from "@/components/ui/crm/primitives";
+import type { GranotRun } from "@/lib/api/granotAutomation";
 import type { RegistryHealthFinding } from "@/lib/api/operationsRegistry";
+import { lastCheckSummary } from "@/lib/automations/granot-updates-model";
+import { GRANOT_UPDATES_HREF } from "@/lib/automations/granot-updates-redirects";
 import { fetchRingCentralRoutes } from "@/lib/api/registryRingCentral";
 import { fetchSourceCompanies } from "@/lib/api/registrySources";
 import { queryKeys } from "@/lib/query/keys";
@@ -33,14 +37,47 @@ function CardSkeleton() {
   );
 }
 
+/** The Granot updates health line (doc 17): "Last check Oct 5 9:12 AM · applied 21" and a link to the Automations page. */
+export function GranotUpdatesLine({ runs, failed }: { runs: readonly GranotRun[] | null; failed: boolean }) {
+  const copy = CONNECTIONS_COPY.granot;
+  const last = runs ? lastCheckSummary(runs) : null;
+  const when = last ? formatRelative(last.check.created_at) : "";
+  const words = failed
+    ? copy.checksFailed
+    : runs === null
+      ? CONNECTIONS_COPY.loading
+      : last === null
+        ? copy.noCheck
+        : last.check.status === "awaiting"
+          ? copy.lastCheckWaiting(when)
+          : last.check.status === "checking" || last.check.status === "applying"
+            ? copy.lastCheckRunning(when)
+            : copy.lastCheck(when, last.applied);
+  return (
+    <div className="cn-block" data-testid="connections-granot-updates">
+      <div className="cn-block__row">
+        <h3 className="cn-block__title">{copy.updatesTitle}</h3>
+        <Link className="crm-link crm-strong" href={GRANOT_UPDATES_HREF}>
+          {copy.open}
+        </Link>
+      </div>
+      <p className="su-quiet" title={last?.check.created_at ? formatAbsolute(last.check.created_at) : undefined}>
+        {words}
+      </p>
+    </div>
+  );
+}
+
 export function GranotCard({ findings, findingsFailed }: { findings: readonly RegistryHealthFinding[] | null; findingsFailed: boolean }) {
   const copy = CONNECTIONS_COPY.granot;
   const team = useTeam(null, true);
+  const runs = useGranotRuns(true);
   const freshness = team.data?.freshness;
   const granotChip = freshness ? freshnessChips(freshness).filter((chip) => chip.key === "granot") : [];
   const own = findings ? granotFindings(findings) : null;
   return (
     <CrmCard title={copy.title} subtitle={copy.subtitle} tools={<FreshnessChips chips={granotChip} label="Granot freshness" />} testId="connections-granot">
+      <GranotUpdatesLine runs={runs.data ?? null} failed={runs.isError} />
       <div className="cn-embed">
         <LifecycleHealthPage showBackLink={false} />
       </div>

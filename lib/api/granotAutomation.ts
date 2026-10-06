@@ -94,6 +94,13 @@ export type GranotCollection = {
   sources: GranotCollectionSummary[];
 };
 
+/** Additive owner-detail display hints the server may add later (doc 17 G1); the admin derives them until then. */
+export type GranotActionDisplay = {
+  job_no?: string;
+  section?: "follow_up" | "booked" | string;
+  lead_label?: string;
+};
+
 export type GranotAction = {
   action_id: string;
   operation?: string;
@@ -102,12 +109,23 @@ export type GranotAction = {
   source_label?: string;
   source_row_id?: string;
   target_id?: string;
+  /** The matched lead id when the planner found one (Form `lead_id`, Call `preview.call_lead_id`). */
+  lead_id?: string;
+  /** `bookedJobs` or `followUpEstimates` on Form plans (which Granot report the row came from). */
+  table_section?: string;
+  /** An explicit job number when the server sends one (`job_no` or `display.job_no`); else parsed from the row id. */
+  job_no?: string;
   summary?: string;
   reason?: string;
   classification?: string;
   match_method?: "ref_no_exact" | "mongo_id" | "fallback" | "none" | string;
   warnings?: string[];
   preview?: Record<string, unknown>;
+  /** Form updates: the new values the apply will write (doc 17 "What changes"). */
+  patch?: Record<string, unknown>;
+  /** Form updates: the values the lead holds today for the fields in `patch`. */
+  expected?: Record<string, unknown>;
+  display?: GranotActionDisplay;
 };
 
 export type GranotConflict = {
@@ -157,6 +175,8 @@ export type GranotRun = {
   receipts?: GranotReceipt[];
   receipt_count: number;
   checkpoint?: GranotCheckpoint;
+  /** Why a run failed (the server stores it; the admin read projects it once doc 17 G5 lands). */
+  failure?: { code?: string; summary?: string; retryable?: boolean };
   created_at?: string;
   updated_at?: string;
 };
@@ -256,13 +276,35 @@ function normalizeAutomationSource(value: unknown): GranotAutomationSource | nul
   };
 }
 
+function recordOrUndefined(value: unknown): Record<string, unknown> | undefined {
+  const record = asRecord(value);
+  return Object.keys(record).length > 0 ? record : undefined;
+}
+
+function normalizeDisplay(value: unknown): GranotActionDisplay | undefined {
+  const display = asRecord(value);
+  const result: GranotActionDisplay = {
+    job_no: stringValue(display.job_no),
+    section: stringValue(display.section),
+    lead_label: stringValue(display.lead_label),
+  };
+  return result.job_no || result.section || result.lead_label ? result : undefined;
+}
+
+/**
+ * Keeps everything the owner detail sends that the review page reads (doc 17): `patch` / `expected` on Form updates,
+ * `preview` on Call actions, the matched lead id, the Granot report section and any explicit job number. The
+ * credential-bearing `granot_statement` never arrives (the server redacts it) and `lifecycle_apply` is not kept.
+ */
 function normalizeAction(value: unknown): GranotAction {
   const action = asRecord(value);
   const row = asRecord(action.row);
   const preview = asRecord(action.preview);
+  const display = normalizeDisplay(action.display);
   const classification = stringValue(action.classification);
   const status = stringValue(classification, preview.status, action.status);
   const operation = stringValue(action.operation, classification);
+  const leadId = stringValue(action.lead_id, preview.call_lead_id, preview.lead_id);
   return {
     action_id: stringValue(action.action_id, action.actionId, action.id, action._id) ?? "",
     operation,
@@ -278,10 +320,16 @@ function normalizeAction(value: unknown): GranotAction {
         : ["updateable", "unchanged"].includes(status ?? ""),
     source_label: stringValue(action.source_label, row.source_label, row.sourceLabel),
     source_row_id: stringValue(action.row_id, row.row_id, row.id),
-    target_id: stringValue(action.lead_id),
+    target_id: leadId,
+    lead_id: leadId,
+    table_section: stringValue(action.table_section, row.table_section, row.section),
+    job_no: stringValue(action.job_no, display?.job_no, preview.job_no, row.job_no),
     reason: stringValue(action.reason),
     summary: stringValue(action.reason, preview.message, preview.summary),
     preview: Object.keys(preview).length > 0 ? preview : undefined,
+    patch: recordOrUndefined(action.patch),
+    expected: recordOrUndefined(action.expected),
+    display,
   };
 }
 
@@ -374,6 +422,7 @@ export function normalizeGranotRun(value: unknown): GranotRun {
   const actions = Array.isArray(plan.actions) ? plan.actions.map(normalizeAction) : undefined;
   const collection = normalizeCollection(run.collection);
   const checkpoint = asRecord(run.checkpoint);
+  const failure = asRecord(run.failure);
   return {
     run_id: stringValue(run.run_id, run.runId, run.id, run._id) ?? "",
     run_group_id: stringValue(run.run_group_id, run.runGroupId),
@@ -403,6 +452,14 @@ export function normalizeGranotRun(value: unknown): GranotRun {
             phase: stringValue(checkpoint.phase),
             completed_units: numberValue(checkpoint.completed_units),
             updated_at: stringValue(checkpoint.updated_at),
+          }
+        : undefined,
+    failure:
+      Object.keys(failure).length > 0
+        ? {
+            code: stringValue(failure.code),
+            summary: stringValue(failure.summary),
+            retryable: typeof failure.retryable === "boolean" ? failure.retryable : undefined,
           }
         : undefined,
     created_at: stringValue(run.created_at, run.createdAt),
@@ -527,8 +584,26 @@ export async function createGranotAutomationSource(
   );
 }
 
-export async function fetchGranotRuns(): Promise<GranotRun[]> {
-  const data = await request<unknown>("/runs");
+export type FetchGranotRunsParams = {
+  /** Newest-first page size; the server caps it at 100 (default 25). */
+  limit?: number;
+  /** Sent when given; the server ignores it until doc 17 G3 lands (history filters client-side meanwhile). */
+  status?: string;
+  /** Sent when given; the server ignores it until doc 17 G3 lands. */
+  before?: string;
+};
+
+export const GRANOT_RUNS_MAX_LIMIT = 100;
+
+export async function fetchGranotRuns(params: FetchGranotRunsParams = {}): Promise<GranotRun[]> {
+  const search = new URLSearchParams();
+  if (params.limit !== undefined) {
+    search.set("limit", String(Math.min(Math.max(Math.trunc(params.limit), 1), GRANOT_RUNS_MAX_LIMIT)));
+  }
+  if (params.status) search.set("status", params.status);
+  if (params.before) search.set("before", params.before);
+  const query = search.toString();
+  const data = await request<unknown>(`/runs${query ? `?${query}` : ""}`);
   const runs = Array.isArray(data) ? data : asRecord(data).runs;
   return Array.isArray(runs) ? runs.map(normalizeGranotRun) : [];
 }

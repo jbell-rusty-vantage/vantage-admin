@@ -10,6 +10,7 @@ import {
 } from "./outreach-desk-routes";
 
 const OWNER_ONLY_PAGE_PREFIXES = [
+  "/automations",
   "/bookings/reconciliation",
   "/granot-lifecycle",
   "/ingestion/granot",

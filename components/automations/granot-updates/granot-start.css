@@ -1,0 +1,196 @@
+/*
+ * Granot updates, the start page (doc 17 step 1 and History). Imported by app/(dashboard)/automations/layout.tsx.
+ * Only what the shared .crm-* and .su-* classes do not already give. Prefix: gu-start-.
+ */
+.gu-start-help {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 420px;
+}
+
+.gu-start-help p {
+  margin: 0;
+}
+
+.gu-start-waiting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.gu-start-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gu-start-names-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.gu-start-company {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gu-start-company__label {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--crm-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.gu-start-notready {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.gu-start-notready .crm-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gu-start-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gu-start-factor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.gu-start-large {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.gu-start-range {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-r-control);
+  background: var(--crm-card);
+}
+
+.gu-start-range__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gu-start-range__hint {
+  margin: 0;
+  text-align: center;
+}
+
+.gu-start-range__months {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.gu-start-month__title {
+  margin: 0 0 4px;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--crm-ink);
+}
+
+.gu-start-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.gu-start-weekday {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--crm-muted);
+}
+
+.gu-start-day {
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--crm-ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.gu-start-day:hover {
+  background: var(--crm-blue-50);
+}
+
+.gu-start-day:focus-visible {
+  outline: none;
+  box-shadow: var(--crm-focus-field);
+}
+
+.gu-start-day--today {
+  border-color: var(--crm-border-strong);
+  font-weight: 800;
+}
+
+.gu-start-day[data-edge="in"] {
+  background: var(--crm-blue-100);
+  border-radius: 0;
+}
+
+.gu-start-day[data-edge="from"],
+.gu-start-day[data-edge="to"],
+.gu-start-day[data-edge="only"] {
+  background: var(--crm-blue);
+  color: #fff;
+  font-weight: 800;
+}
+
+.gu-start-outcome {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.gu-start-view {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.gu-start-more {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 14px;
+}
+
+@media (max-width: 640px) {
+  .gu-start-choices,
+  .gu-start-range__months {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

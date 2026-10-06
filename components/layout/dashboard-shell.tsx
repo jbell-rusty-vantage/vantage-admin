@@ -24,6 +24,7 @@ import { initialsFromEmail } from "./user-menu";
 
 const sidebarStorageKey = "vantage-admin-sidebar-collapsed";
 const ownerOnlyPagePrefixes = [
+  "/automations",
   "/bookings/reconciliation",
   "/granot-lifecycle",
   "/ingestion/granot",

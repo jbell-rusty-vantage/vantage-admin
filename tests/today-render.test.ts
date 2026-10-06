@@ -11,6 +11,7 @@ import type { OverviewReportResponse } from "../lib/api/admin";
 import type { DailyOperationsSnapshot } from "../lib/api/dailyOperations";
 import type { DailyOperationsEventItem } from "../lib/api/dailyOperationsLive";
 import type { GranotLifecycleCaseListItem } from "../lib/api/granotLifecycle";
+import type { GranotCheck } from "../lib/automations/granot-updates-model";
 import type { MoneySpendResponse } from "../lib/api/money";
 import type { SalesOutreachTeamDto } from "../lib/api/salesOutreach";
 import { emptySnapshot } from "./today-fixtures";
@@ -130,7 +131,31 @@ test("Pulse: three Waiting columns with counts, lists and actions", () => {
   assert.match(markup, /2 exceptions/);
   assert.match(markup, /zip missing, CRM failed/);
   assert.match(markup, /href="\/\?tab=operations&amp;lane=exception"[^>]*>Open →/);
-  assert.doesNotMatch(markup, /Granot check/);
+  // Doc 17: the fourth slot exists only while a Granot check waits for approval.
+  assert.doesNotMatch(markup, /waiting-granot/);
+});
+
+test("Pulse: the fourth Waiting slot says how many Granot updates are ready and opens the check (doc 17)", () => {
+  const check: GranotCheck = {
+    id: "group-1",
+    runs: [],
+    operations: ["form_leads", "call_leads"],
+    from: "2026-10-03",
+    to: "2026-10-05",
+    status: "awaiting",
+    created_at: "2026-10-05T13:12:00.000Z",
+    expires_at: "2026-10-06T17:41:00.000Z",
+    source_labels: ["TBM Forms"],
+    buckets: { ready: 23, look: 3, missing: 12, same: 81, readyForm: 14, readyCall: 9 },
+    receipt_count: 0,
+  };
+  const markup = pulse({ granotWaiting: [check, { ...check, id: "group-0" }] });
+  assert.match(markup, /data-testid="waiting-granot"/);
+  assert.match(markup, /23 Granot updates ready/);
+  assert.match(markup, /Oct 3 – Oct 5 · expires in 23 h/);
+  assert.match(markup, /\+1 more check waiting/);
+  assert.match(markup, /href="\/automations\/granot-updates\/group-1"[^>]*>Review →/);
+  assert.doesNotMatch(markup, /group-1<\//);
 });
 
 test("Pulse: five tiles with trend, captions and the Spend placeholder", () => {

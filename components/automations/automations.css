@@ -1,0 +1,65 @@
+/*
+ * Automations (the Owner tab that hosts Granot updates, doc 17): the hub page and the rules the two Granot updates
+ * stylesheets share. Imported by app/(dashboard)/automations/layout.tsx. Colour rides on the --crm-* tokens and is
+ * always paired with words or an icon; list targets are 44 px.
+ */
+
+.au-waiting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.au-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--crm-gap);
+}
+
+/* One automation: an icon, its name and purpose, the health line, and Open on the right; the whole card is the link. */
+.au-card {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 16px;
+  min-height: 44px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.au-card:hover {
+  border-color: #b9d1fb;
+}
+
+.au-card__body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.au-card__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--crm-ink);
+}
+
+.au-card__purpose {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--crm-text);
+}
+
+.au-card__health {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--crm-muted);
+}
+
+.au-card__open {
+  align-self: center;
+  white-space: nowrap;
+}

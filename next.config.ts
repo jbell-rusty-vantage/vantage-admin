@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { granotUpdatesRedirectRows } from "./lib/automations/granot-updates-redirects";
 import { setupRedirectRows } from "./lib/setup/setup-redirects";
 
 const nextConfig: NextConfig = {
@@ -26,6 +27,9 @@ const nextConfig: NextConfig = {
         destination: "/intakes",
         permanent: true,
       },
+      // Granot updates (doc 17): the old HTTP Automation page moved under the Automations tab. The table lives in
+      // `lib/automations/granot-updates-redirects.ts` and is pinned by its test.
+      ...granotUpdatesRedirectRows(),
       // Setup (doc 19): the Operations Registry's `?tab=` model, `/extension`, `/testimonials` and `/settings` became the
       // eight Setup sections. The table lives in `lib/setup/setup-redirects.ts` so a test keeps it equal to the running
       // page's own rewrite (`lib/setup/setup-links.ts`).

@@ -342,9 +342,23 @@ test("normalizer tolerates a minimal create response", () => {
     receipts: undefined,
     receipt_count: 0,
     checkpoint: undefined,
+    // Doc 17 G5: the run's `failure` block is additive and absent on a minimal response.
+    failure: undefined,
     created_at: undefined,
     updated_at: undefined,
   });
+});
+
+test("runs list passes the page size the Granot updates pages ask for, capped at the server maximum", async () => {
+  let calls = mockFetch({ ok: true, data: [] });
+  await fetchGranotRuns({ limit: 100 });
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-automation/runs?limit=100");
+  calls = mockFetch({ ok: true, data: [] });
+  await fetchGranotRuns({ limit: 500, status: "awaiting_approval" });
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-automation/runs?limit=100&status=awaiting_approval");
+  calls = mockFetch({ ok: true, data: [] });
+  await fetchGranotRuns();
+  assert.equal(calls[0]?.input, "/api/proxy/api/v1/admin/granot-automation/runs");
 });
 
 test("date adapter converts browser dates to the Granot route format", () => {

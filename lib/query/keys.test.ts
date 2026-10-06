@@ -149,6 +149,8 @@ test("reporting keys isolate catalog, definition detail, and run history", () =>
 test("Granot automation keys isolate run history and detail", () => {
   assert.deepEqual(queryKeys.granotAutomation.sources(), ["granot-automation", "sources"]);
   assert.deepEqual(queryKeys.granotAutomation.runs(), ["granot-automation", "runs"]);
+  // Doc 17: the newest-first page the Granot updates pages, Today and the Automations badge share.
+  assert.deepEqual(queryKeys.granotAutomation.runsPage(100), ["granot-automation", "runs", "page", 100]);
   assert.deepEqual(queryKeys.granotAutomation.runGroup("group-1"), [
     "granot-automation",
     "run-groups",

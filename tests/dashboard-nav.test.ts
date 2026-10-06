@@ -16,15 +16,16 @@ function hrefs(items: { href: string }[]): string[] {
   return items.map((item) => item.href);
 }
 
-test("the sidebar has six destinations in the Owner's order: Today, Leads, Bookings, Outreach Desk, Insights, Setup", () => {
+// Doc 17 (2026-10-06): Automations joined the sidebar as the Owner's tab for Granot updates and later Granot reads.
+test("the sidebar has seven destinations in the Owner's order: Today, Leads, Bookings, Outreach Desk, Automations, Insights, Setup", () => {
   assert.deepEqual(
     dashboardNavItems.map((item) => item.key),
-    ["today", "leads", "bookings", "outreach-desk", "insights", "setup"],
+    ["today", "leads", "bookings", "outreach-desk", "automations", "insights", "setup"],
   );
-  assert.deepEqual(hrefs(visibleDashboardNav("owner")), ["/", "/leads", "/bookings", "/outreach-desk", "/insights", "/setup"]);
+  assert.deepEqual(hrefs(visibleDashboardNav("owner")), ["/", "/leads", "/bookings", "/outreach-desk", "/automations", "/insights", "/setup"]);
   assert.deepEqual(
     visibleDashboardNav("owner").map((item) => item.label),
-    ["Today", "Leads", "Bookings", "Outreach Desk", "Insights", "Setup"],
+    ["Today", "Leads", "Bookings", "Outreach Desk", "Automations", "Insights", "Setup"],
   );
 });
 
@@ -36,13 +37,15 @@ test("Admin sees Leads, Bookings, Insights and Setup; a Manager sees Today and t
   assert.equal(dashboardHomeFor("admin"), "/leads");
 });
 
-test("badges sit on Today, Leads and Bookings and are counts, never zero", () => {
+test("badges sit on Today, Leads, Bookings and Automations and are counts, never zero", () => {
   assert.deepEqual(
     visibleDashboardNav("owner").map((item) => item.badge ?? null),
-    ["today", "leads", "bookings", null, null, null],
+    ["today", "leads", "bookings", null, "automations", null, null],
   );
-  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 3, unassigned: 5 }), { today: 8, bookings: 3, leads: null });
-  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 0, unassigned: null }), { today: null, bookings: null, leads: null });
+  // Automations counts the Granot checks waiting for approval (doc 17); Leads stays empty.
+  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 3, unassigned: 5, granotWaiting: 1 }), { today: 8, bookings: 3, leads: null, automations: 1 });
+  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 0, unassigned: null }), { today: null, bookings: null, leads: null, automations: null });
+  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 0, unassigned: null, granotWaiting: 0 }), { today: null, bookings: null, leads: null, automations: null });
 });
 
 test("regrouped old destinations keep their new sidebar item active", () => {
@@ -55,6 +58,8 @@ test("regrouped old destinations keep their new sidebar item active", () => {
   assert.equal(activeNavKey("/intakes"), "bookings");
   assert.equal(activeNavKey("/cancellations/new"), "bookings");
   assert.equal(activeNavKey("/outreach-desk"), "outreach-desk");
+  assert.equal(activeNavKey("/automations"), "automations");
+  assert.equal(activeNavKey("/automations/granot-updates/group-1"), "automations");
   assert.equal(activeNavKey("/insights/sheets"), "insights");
   assert.equal(activeNavKey("/reporting/abc/edit"), "insights");
   assert.equal(activeNavKey("/analytics"), "insights");
@@ -111,6 +116,9 @@ test("pageTitleForPath uses nav labels, then longer special prefixes", () => {
   assert.equal(pageTitleForPath("/bookings/new"), "Precise Booking Form");
   assert.equal(pageTitleForPath("/intakes"), "Bookings to finish");
   assert.equal(pageTitleForPath("/cancellations/new"), "Record a cancellation");
+  assert.equal(pageTitleForPath("/automations"), "Automations");
+  assert.equal(pageTitleForPath("/automations/granot-updates"), "Granot updates");
+  assert.equal(pageTitleForPath("/automations/granot-updates/group-1"), "Granot updates");
   assert.equal(pageTitleForPath("/insights"), "Insights");
   assert.equal(pageTitleForPath("/insights/sheets"), "Insights");
   assert.equal(pageTitleForPath("/reporting/new"), "Create New Report");

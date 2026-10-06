@@ -12,7 +12,7 @@ needs a second design round. Server behaviour stays in `vantage-main-server`; no
 | T2 | Add `cpl` and `receiver_agent` to the Daily Operations lead facts so the Spend tile moves between resyncs | `recordFormLeadDailyOperationsFact` and the call equivalent (additive field) | `components/today/pulse-view.tsx` Spend tile (today a "—" that links to Money) | small |
 | T3 | `rep_compensation` on Agent (pay basis hourly / daily / monthly, amount, effective date; audited like every Registry change) | Operations Registry service + Changes; Setup → Money UI follows | Money tab by-rep rows (`compensation_missing` → "no rate", never $0) | medium |
 | T4 | Deposits-today on the snapshot (the Bookings tile caption) | Daily Operations snapshot `metrics.bookings` | `pulse-view.tsx` Bookings tile caption (omitted today) | trivial |
-| T5 | Doc 17 Granot check waiting for approval (fourth Waiting-for-you slot, Leads badge) | doc 17 | `pulse-view.tsx`, `components/layout/use-sidebar-badges.ts` (`leads` badge is `null` today) | later |
+| T5 | ~~Doc 17 Granot check waiting for approval (fourth Waiting-for-you slot, Leads badge)~~ **Done 2026-10-06, admin-only**: the fourth slot and the Automations badge read the runs list (`GET /runs?limit=100`) shared by key with the Granot updates pages; no server work was needed | — | `pulse-view.tsx` (`granotWaiting`), `use-sidebar-badges.ts` (`automations`) | done |
 
 Already in place: `intakes.still_open` on the snapshot and `unassigned.count` on the Desk team read drive the Today and
 Bookings badges with no new polling.
@@ -98,6 +98,26 @@ call site that switches over.
 | S19 | **Lead cost writes fail with `Cannot call create() with a session and multiple documents unless ordered: true is set`** (seen in production on 2026-10-06). The CPL schedule command creates several period documents inside a session with `Model.create(docs, { session })`; Mongoose requires `{ session, ordered: true }` (or `insertMany`) for an array. Until fixed, every Save on Lead costs that writes more than one period fails and the admin shows this sentence. | the simple-schedule and advanced commands under `src/services/` (cpl schedule) | `applySimpleCplSchedule` (the grid Save in `components/setup/lead-costs/lead-costs-grid.tsx`, the Lead cost sheet) and `applyAdvancedCplCommand` (the Periods block) | trivial, **urgent** |
 | S18 | One `needs-you` read (list + Granot names + routes, and S1's automation names with no landing) | the Things that need you strip and the sub-navigation badge make three reads | `components/setup/lead-sources/use-needs-you.ts` | small |
 
+
+## Granot updates (doc 17)
+
+Built admin-only on 2026-10-06 under the new Automations tab (`/automations/granot-updates`). Nothing below is required
+to ship: every page works on today's `granot-automation` routes. Each item names the admin call site that switches
+over. Runtime configuration lives in Mongo (the standing rule), never in env.
+
+| # | Item | Why | Admin call site | Size |
+|---|---|---|---|---|
+| G1 | Additive `display: { job_no, section: "follow_up" \| "booked", lead_label }` on each action of `GET /runs/:id?details=owner` (the target lead's display name resolved server-side) | the review and results rows say the customer's name instead of "(form)" / "(call)", and the job number stops being parsed from the row id | `normalizeAction` already keeps `display`; `jobNoOf` prefers `display.job_no`; `LeadCell` in `components/automations/granot-updates/check-cells.tsx` and `resultsCsv`'s lead column read `display.lead_label` | small |
+| G2 | Call preview values, not only names: `preview.changes: [{ field, before, after }]` alongside today's `changes: string[]` | "What changes" on Call rows shows before → after like Form rows | `whatChanges` in `lib/automations/granot-updates-model.ts` already reads objects; no admin change | small |
+| G3 | `GET /runs?status=&before=` paging (and `limit` beyond 100 or a cursor) | History pages client-side today from the largest page the server gives (100 newest runs); a check older than that is unreachable by URL | `fetchGranotRuns` already sends `status` / `before` when given; `HistoryCard` in `start-history.tsx` switches from client-side paging; `checkById` in `check-page.tsx` falls back to `GET /run-groups/:id` (G4) | small |
+| G4 | `GET /api/v1/admin/granot-automation/run-groups/:id` (both runs, merged counters, the group's filters) | one read per check instead of the list plus one detail per run; a bookmarked check survives the 100-run list cap | `GranotCheckPage` (`check-page.tsx`) reads `useGranotRuns` + two `useGranotRunDetail`s today; `queryKeys.granotAutomation.runGroup(id)` already exists | small |
+| G5 | Project the stored `failure: { code, summary, retryable }` block on the run reads (`safeRun`) | the check page says "Granot rejected the sign-in; we retried once" / "Granot changed a page layout" / "Granot did not answer" instead of the generic sentence | `normalizeGranotRun` already reads `failure`; `collectorFailureSentence(run.failure?.code)` in `check-progress.tsx` | trivial |
+| G6 | Echo the create `filters` (`date_factor`, `type`, `status`) on the run reads | Try again / Check again re-create the check with the same Opened / Booked choice after a reload (today the choice is remembered only in the browser tab, `rememberCheckChoices`) | `checkChoices` in the model (hard-codes `date_factor: "OPEN"` when the choice is unknown) | trivial |
+| G7 | `GET …/last-applied?operations=form_leads,call_leads` → the newest applied window per lead type | Since last check comes from one read instead of the runs list (which is capped at 100 and loses old checks) | `sinceLastCheck` in the model, used by `start-new-check.tsx` | trivial |
+| G8 | The scheduled morning check: a cron that prepares a check (since last check, all ready names, both lead types; default 7:00 New York) and never approves it; runtime keys `granot_updates.scheduled_check.enabled` (default off) and `granot_updates.scheduled_check.time` in the Mongo configuration collection | the Owner only reviews and approves from Today | none in the admin (the check appears in History, Today and the badge by itself); a Setup toggle for the two keys is a later admin item | medium |
+| G9 | `GRANOT_AUTOMATION_APPLY_ENABLED` env switch → runtime key `granot_updates.apply_enabled` (Mongo configuration, same cleanup) | the apply switch stops needing a rebuild + redeploy | none; the admin already shows `review.applyDisabled` on `APPLY_DISABLED` | small |
+| G10 | Needs-a-look candidates: `preview.candidates: [{ lead_id, kind, label }]` on conflict actions | the Needs a look tab links each candidate lead | `check-review.tsx` already renders `preview.candidates` / `candidate_ids` when present | small |
+| G11 | Not-found reasons in Owner words on the action (`reason` is a code such as `ambiguous_fallback` today, `summary` a developer sentence) | the Not found and Needs a look tabs show the server's own reason verbatim | `review.lookReason` map in `granot-updates-copy.ts` translates the known codes; unknown codes fall back to `summary` | trivial |
 
 ## Packet amendment (doc 15)
 

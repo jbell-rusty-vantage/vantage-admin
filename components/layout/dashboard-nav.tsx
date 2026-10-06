@@ -1,9 +1,10 @@
 "use client";
 /**
- * The dashboard sidebar (dashboard-redesign-proposal/01-sidebar-and-information-architecture.md). Six destinations
- * answer the Owner's three questions — what needs me (Today), find this customer or job (Leads, Bookings), how is the
- * team doing (Outreach Desk) — and push everything else behind Insights and Setup. Nothing was deleted: the old
- * destinations are regrouped under tabs and reached by permanent redirects (`next.config.ts`).
+ * The dashboard sidebar (dashboard-redesign-proposal/01-sidebar-and-information-architecture.md). Seven destinations
+ * answer the Owner's questions — what needs me (Today), find this customer or job (Leads, Bookings), how is the team
+ * doing (Outreach Desk), what can run for me (Automations: operations that read Granot and prepare updates, doc 17
+ * first) — and push everything else behind Insights and Setup. Nothing was deleted: the old destinations are
+ * regrouped under tabs and reached by permanent redirects (`next.config.ts`).
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -14,10 +15,11 @@ import {
   LayoutDashboard,
   ListChecks,
   Settings,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
-export type DashboardNavKey = "today" | "leads" | "bookings" | "outreach-desk" | "insights" | "setup";
+export type DashboardNavKey = "today" | "leads" | "bookings" | "outreach-desk" | "automations" | "insights" | "setup";
 
 export type DashboardNavItem = {
   key: DashboardNavKey;
@@ -30,13 +32,14 @@ export type DashboardNavItem = {
   /** Sales Outreach Desk (P09b): the destinations a Manager sees. */
   managerVisible?: boolean;
   /** Which badge the sidebar shows next to the item (counts come from `useSidebarBadges`). */
-  badge?: "today" | "bookings" | "leads";
+  badge?: "today" | "bookings" | "leads" | "automations";
 };
 
 /** Roles that render the dashboard shell: the Owner, a generic Admin and (for Today → Operations only) a Manager. */
 export type DashboardShellRole = "owner" | "admin" | "manager";
 
 const extraPageTitles: { href: string; title: string }[] = [
+  { href: "/automations/granot-updates", title: "Granot updates" },
   { href: "/leads/timeline", title: "Job Timeline" },
   { href: "/job-timeline", title: "Job Timeline" },
   { href: "/intakes", title: "Bookings to finish" },
@@ -60,6 +63,9 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
   { key: "leads", label: "Leads", href: "/leads", icon: ListChecks, activeFor: ["/leads", "/job-timeline", "/manual", "/search"], badge: "leads" },
   { key: "bookings", label: "Bookings", href: "/bookings", icon: BookOpenCheck, activeFor: ["/bookings", "/intakes", "/cancellations"], badge: "bookings" },
   { key: "outreach-desk", label: "Outreach Desk", href: "/outreach-desk", icon: Headset, activeFor: ["/outreach-desk", "/sales-intelligence"], ownerOnly: true, managerVisible: true },
+  // Operations the Owner starts and approves (doc 17 Granot updates first; more Granot reads later). `/ingestion/granot`
+  // redirects here, so it is not listed as an active prefix (its lifecycle sub-pages stay with Setup).
+  { key: "automations", label: "Automations", href: "/automations", icon: Workflow, activeFor: ["/automations"], ownerOnly: true, badge: "automations" },
   { key: "insights", label: "Insights", href: "/insights", icon: BarChart3, activeFor: ["/insights", "/analytics", "/reporting"] },
   {
     key: "setup",
@@ -190,7 +196,7 @@ export function DashboardNav({
   );
 }
 
-/** The phone-width bottom bar: the same items, badges on Today, Leads and Bookings. */
+/** The phone-width bottom bar: the same items, badges on Today, Leads, Bookings and Automations. */
 export function DashboardMobileBar({ adminRole, badges = {} }: { adminRole: DashboardShellRole; badges?: SidebarBadgeCounts }) {
   const pathname = usePathname();
   const items = visibleDashboardNav(adminRole);

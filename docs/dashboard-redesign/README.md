@@ -1,6 +1,6 @@
 # Dashboard redesign — delivery notes (admin, 2026-10-06)
 
-Spec: the workspace-root packet `dashboard-redesign-proposal/` (docs 01, 02, 03, 06, 15, 16 and 19 built here; the rest
+Spec: the workspace-root packet `dashboard-redesign-proposal/` (docs 01, 02, 03, 06, 15, 16, 17 and 19 built here; the rest
 not yet). Built on `main` in this repository only, in three sessions on 2026-10-06. Server work the pages need is listed
 in [SERVER-WORK.md](SERVER-WORK.md).
 
@@ -28,6 +28,12 @@ in [SERVER-WORK.md](SERVER-WORK.md).
 | 19 | External Sheet Ingestion (`/setup/sheet-ingestion`): the Best Relocation sheet pull, embedded; split out of Connections on the Owner's ask | `components/setup/sheet-ingestion/` |
 | 19 | Website (`/setup/website`, Owner): Testimonials re-homed | `components/setup/website/` |
 | 19 | Change history (`/setup/changes`): Entity · Who · When and the diff | `components/setup/changes/` |
+| 17 | **Automations** (`/automations`, Owner only; a new seventh sidebar tab, 2026-10-06, for operations the Owner starts and approves; more Granot reads and extractions land here later): the hub with one card per automation, its health line ("Last check ‹when› · applied N") and the Waiting notice; the Automations badge counts the checks waiting for approval | `components/automations/` (`automations-hub.tsx`, `automations-copy.ts`, `automations.css`), `components/layout/dashboard-nav.tsx`, `components/layout/use-sidebar-badges.ts` |
+| 17 | **Granot updates** (`/automations/granot-updates`, Owner only; supersedes doc 05's placement under Connections & health and the brief's placement under Leads, on the Owner's instruction): ① Choose as one card (Form leads · Call leads toggles saying what each fills, Granot names as chips grouped by Source Company with not-ready names greyed and Fix in Setup ›, presets Since last check · Today · Yesterday · Last 7 days · Custom with a two-month range picker, Opened / Booked, the sentence, **Check Granot**, always `workflow: "apply"`), the Waiting for you notice, History grouped per check with All · Waiting · Done · Failed and Load more | `components/automations/granot-updates/start-page.tsx`, `start-new-check.tsx`, `start-range-picker.tsx`, `start-history.tsx` |
+| 17 | **The check page** (`/automations/granot-updates/[checkId]`, `checkId` = `run_group_id`): ② the honest progress strip (signed in · reading N / M · matching) with "You can leave this page", failures as sentences + Try again; ③ four summary cards, tabs Ready · Needs a look · Not found · No change · Sources (active tab only), Lead type chip, Hide fallback matches, the table Job # (copy) · Lead (opens the Leads `DetailPanel` on `?lead=&lk=`) · Granot name · What changes (before → after per field) · Matched by (warnings on hover), the sticky bar and **one** confirmation dialog that sends one approve per plan with its own checksum; a 409 shows "This plan changed or expired · Check again"; ④ Applied · Already current · Failed · Pending cards, tabs, rows joined to their planned action, per-row Audit details drawer (the only place ids and the checksum appear), Export CSV built in the browser | `check-page.tsx`, `check-progress.tsx`, `check-review.tsx`, `check-approve-dialog.tsx`, `check-results.tsx`, `check-cells.tsx` |
+| 17 | The pure model (what changes, job number, matched by, four buckets, one check per group, Since last check, outcome words, approval summary, results CSV, failure sentences, history rows) and the data layer (`normalizeAction` keeps `patch`, `expected`, `preview`, `lead_id`, `table_section`, `job_no`, `display`; `fetchGranotRuns({ limit })`; the run's `failure` block) | `lib/automations/granot-updates-model.ts`, `lib/api/granotAutomation.ts`, `components/automations/granot-updates/use-granot-updates.ts` |
+| 17 | Today → Pulse → Waiting for you gets the fourth slot "N Granot updates ready · window · expires in Nh → Review" (only while a check waits); Setup → Connections & health → Granot keeps a health line and **Open Granot updates** | `components/today/pulse-view.tsx`, `components/today/today-copy.ts`, `components/setup/connections/partner-cards.tsx` (`GranotUpdatesLine`) |
+| 17 | Retired: `components/ingestion/granot-automation-dashboard.tsx`, the ingestion subnav and `INGESTION_COPY`, `/ingestion/granot` (now a redirect); `/ingestion` keeps Best Relocation only | `components/ingestion/`, `app/(dashboard)/ingestion/` |
 
 ## Redirects (permanent, query string translated)
 
@@ -57,6 +63,7 @@ in [SERVER-WORK.md](SERVER-WORK.md).
 | `?tab=overview` | `/setup/connections` |
 | `/extension` · `/testimonials` | `/setup/people` · `/setup/website` |
 | `/setup` | `/setup/lead-sources` (a page redirect; the hub kept for one release) |
+| `/ingestion/granot` · `/ingestion/granot?run=X` | `/automations/granot-updates` · `/automations/granot-updates/X` (doc 17; the table in `lib/automations/granot-updates-redirects.ts`, pinned by its test) |
 
 `/cancellations/new`, `/bookings/new`, `/bookings/reconciliation`, `/intakes`, `/reporting/*`, `/granot-lifecycle/*`, `/ingestion/*`
 keep their routes; the sidebar highlights the item that owns them. The table in `lib/setup/setup-redirects.ts` is the one `next.config.ts`
@@ -86,12 +93,15 @@ server-produced deep links.
 - **Setup → Carriers:** `import=1` (the CSV import sheet), `q`, `inactive=1`.
 - **Setup → Website:** the Testimonials keys unchanged (`q`, `reviewer_name`, `rating`, `from`, `to`, `direction`, `page`, `limit`).
 - **Setup → Change history:** `entity`, `who`, `from`, `to`, `page`, `limit`, `change=<id>` (the open diff).
+- **Automations → Granot updates:** the start page holds its choices in component state (nothing in the URL); the check page
+  is `/automations/granot-updates/<checkId>` (`checkId` = `run_group_id`; a run id from an old `?run=` link also resolves) and
+  takes `lead=<id>&lk=form|call[&panel=…]` for the lead panel, the same keys as Leads.
 
 ## Roles
 
 | Role | Sidebar | Home |
 |---|---|---|
-| Owner | all six | `/` (Today) |
+| Owner | all seven (Automations is Owner-only: route guard, shell prefix and the route layout agree) | `/` (Today) |
 | Admin | Leads, Bookings, Insights, Setup (read-only; People shows the roster only; no Connections or Website) | `/leads` (Today redirects there) |
 | Manager | Today → Operations only, Outreach Desk | `/` (Today, Operations tab) |
 | Rep | Outreach Desk | `/outreach-desk` |
@@ -105,9 +115,9 @@ the amendment is made in the server copy first and re-mirrored here. Not done in
 
 ## Not built (later docs)
 
-04 Granot case file, 07 Sheets, 09–14, 17 Granot
-updates (the Leads badge stays empty until then), 18 Job Timeline chronicle (the full page moved to `/leads/timeline`;
-the panel tab is not built). The booking panel keeps the `DetailPanel` tabs (Summary · Contact · Cancellation · Actions ·
+04 Granot case file, 07 Sheets, 09–14, 18 Job Timeline chronicle (the full page moved to `/leads/timeline`;
+the panel tab is not built). Doc 17 shipped on 2026-10-06 under the Automations tab (the Leads badge stays empty; the
+badge is on Automations). The booking panel keeps the `DetailPanel` tabs (Summary · Contact · Cancellation · Actions ·
 Production · Source) until docs 04 and 18 land; the cancellation's own Edit stays in the cancellations panel reached
 from the Cancellation tab.
 
@@ -118,3 +128,14 @@ and cancellation cards against production payloads (populated `cancelled`, `book
 `sheet_sync`), the finish sheet against a real open case (Use buttons, suggested agent, File booking), the Record a
 cancellation submit, the Operations Board feed under live facts (buffer, folding, pairing), the Lanes expand-in-place,
 and the toast (which needs the server milestones).
+
+The doc 17 session (2026-10-06) was also admin-only with no browser walk. The Owner's first look is the acceptance check
+for: the Granot-name chips against the production catalog (the Registry join and the not-ready reasons), a real check
+from Check Granot through the progress strip to the review (the counts, the What changes column from `patch` /
+`expected`, the lead panel from a row), one approval through the dialog (one approve per plan; the 409 path), the
+results page and the CSV, the Today slot and the Automations badge while a check waits, and the `/ingestion/granot`
+redirect. Deviations from doc 17 and the brief: the pages live under **Automations** (a new Owner-only sidebar tab, by
+the Owner's instruction) instead of Leads, so there is no Granot updates button in the Leads header and the badge sits
+on Automations; "Which Granot sources" reads "Which Granot names" because the language deck bans the phrase "granot
+sources"; Try again / Check again re-create the check with Opened dates unless the choice was made in this browser tab
+(G6); failures show the generic sentence until the server projects `failure` (G5).

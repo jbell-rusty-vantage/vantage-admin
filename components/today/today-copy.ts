@@ -35,6 +35,13 @@ export const todayCopy = {
       href: "/outreach-desk?view=team&unassigned=true",
       unavailable: "The Outreach Desk count could not load.",
     },
+    // Doc 17: the fourth slot, shown only while a Granot check waits for approval.
+    granotUpdates: {
+      title: (n: number) => (n === 1 ? "1 Granot update ready" : `${n} Granot updates ready`),
+      sub: (window: string, expires: string | null) => (expires ? `${window} · expires in ${expires}` : window),
+      more: (n: number) => (n === 1 ? "+1 more check waiting" : `+${n} more checks waiting`),
+      action: "Review →",
+    },
     exceptions: {
       title: (n: number) => (n === 1 ? "1 exception" : `${n} exceptions`),
       none: "No exceptions today.",

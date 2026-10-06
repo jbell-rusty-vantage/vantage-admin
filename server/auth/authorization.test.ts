@@ -74,8 +74,14 @@ test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/operations-registry?tab=legacy-cpl"), true);
   assert.equal(canAccessDashboardPath("admin", "/ingestion"), true);
   assert.equal(canAccessDashboardPath("admin", "/ingestion/granot"), false);
+  // Automations (doc 17 Granot updates) is the Owner's tab; `/ingestion/granot` redirects into it.
+  assert.equal(canAccessDashboardPath("admin", "/automations"), false);
+  assert.equal(canAccessDashboardPath("admin", "/automations/granot-updates"), false);
+  assert.equal(canAccessDashboardPath("admin", "/automations/granot-updates/group-1"), false);
+  assert.equal(canAccessDashboardPath("manager", "/automations"), false);
   assert.equal(canAccessDashboardPath("owner", "/settings"), true);
   assert.equal(canAccessDashboardPath("owner", "/ingestion/granot"), true);
+  assert.equal(canAccessDashboardPath("owner", "/automations/granot-updates"), true);
 });
 
 test("admin can read registry endpoints but cannot mutate them", () => {
