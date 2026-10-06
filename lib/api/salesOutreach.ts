@@ -4,9 +4,14 @@ import { z } from "zod";
  * Sales Outreach Desk (sod-v1) DTOs, mirrored from the server's Zod contracts (vantage-main-server
  * `src/validation/v1/salesOutreachReads.ts`, `salesOutreachCommands.ts`, `salesOutreachEnrollment.ts`,
  * `salesOutreach.ts` and `src/config/domain/salesOutreach.ts`). The server is the authority: field names,
- * enums and nullability follow it exactly, but objects are NOT strict, so an additive server field never
- * breaks a read. `tests/outreach-desk/fixtures/server/` holds the server's own example payloads and
- * `salesOutreach.test.ts` parses every one of them (the drift guard).
+ * enums and nullability follow it exactly. An additive server field or enum value never breaks a read:
+ * - read objects are plain `z.object`, which drops a field the mirror does not know yet (harmless for a read);
+ * - the read enums the server may grow are tolerant (`tolerantEnum` / `openEnum` below, listed in
+ *   `SALES_OUTREACH_TOLERATED_ENUMS`): an unknown value reads as a safe fallback or is kept as text;
+ * - the configuration value is loose at every level and keeps every enum as text, because the Owner's Settings
+ *   PATCH sends the whole value back: a key or value the mirror does not know must survive the round trip.
+ * `tests/outreach-desk/fixtures/server/` holds the server's own example payloads and `salesOutreach.test.ts`
+ * parses every one of them (the drift guard: no field dropped, no unknown enum value reported).
  *
  * Honesty rules the admin renders (server handoff): a `null` count is pending, never 0; the cadence
  * unknown reasons (`cadence_disabled`, `cadence_shadow`, `policy_unavailable`) mean unavailable; overdue
@@ -121,6 +126,140 @@ export const SALES_OUTREACH_GOAL_STATE_LABELS = {
 } as const satisfies Record<SalesOutreachGoalState, string | null>;
 
 // ---------------------------------------------------------------------------------------------
+// Tolerant enums (an enum value the server adds later never fails a read)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * How an unknown value is read: `fallback` maps it to a fixed safe value of the enum (neutral, never red, never
+ * "done"); `text` keeps the server's string (reasons the copy already falls back on, and every configuration enum,
+ * which the Settings PATCH must send back unchanged); `dropped` removes it from a list (capabilities).
+ */
+export type SalesOutreachToleranceMode = "fallback" | "text" | "dropped";
+export type SalesOutreachUnknownValue = { field: string; value: unknown; mode: SalesOutreachToleranceMode; fallback: string | null };
+export type SalesOutreachToleratedEnum = {
+  field: string;
+  values: readonly string[];
+  mode: SalesOutreachToleranceMode;
+  fallback: string | null;
+  /** The schema for one value (a list for `dropped`), for tests. */
+  schema: z.ZodType;
+};
+
+/** Every tolerated enum the mirror reads (the handoff lists these so the server may emit new values after this deploys). */
+export const SALES_OUTREACH_TOLERATED_ENUMS: SalesOutreachToleratedEnum[] = [];
+
+type UnknownValueListener = (event: SalesOutreachUnknownValue) => void;
+let unknownValueListener: UnknownValueListener | null = null;
+const warnedUnknownValues = new Set<string>();
+
+/** Observes unknown enum values (tests; the drift guard asserts the server examples report none). Returns an unsubscribe. */
+export function onSalesOutreachUnknownValue(listener: UnknownValueListener): () => void {
+  const previous = unknownValueListener;
+  unknownValueListener = listener;
+  return () => {
+    unknownValueListener = previous;
+  };
+}
+
+function reportUnknownValue(event: SalesOutreachUnknownValue): void {
+  if (unknownValueListener) {
+    unknownValueListener(event);
+    return;
+  }
+  if (process.env.NODE_ENV !== "development") return;
+  const key = `${event.field}\u0000${String(event.value)}`;
+  if (warnedUnknownValues.has(key)) return;
+  warnedUnknownValues.add(key);
+  const outcome = event.mode === "fallback" ? `read as "${event.fallback}"` : event.mode === "dropped" ? "dropped" : "kept as text";
+  console.warn(`[outreach-desk] unknown ${event.field} value ${JSON.stringify(event.value)} from the server; ${outcome}. Update lib/api/salesOutreach.ts.`);
+}
+
+type EnumValues = readonly [string, ...string[]];
+
+function register<S extends z.ZodType>(field: string, values: EnumValues, mode: SalesOutreachToleranceMode, fallback: string | null, schema: S): S {
+  SALES_OUTREACH_TOLERATED_ENUMS.push({ field, values, mode, fallback, schema });
+  return schema;
+}
+
+/** A read enum whose unknown string value reads as `fallback` (a missing or non-string value still fails). */
+function tolerantEnum<const T extends EnumValues>(field: string, values: T, fallback: T[number]) {
+  const known = new Set<string>(values);
+  const schema = z.preprocess((value) => {
+    if (typeof value !== "string" || known.has(value)) return value;
+    reportUnknownValue({ field, value, mode: "fallback", fallback });
+    return fallback;
+  }, z.enum(values));
+  return register(field, values, "fallback", fallback, schema);
+}
+
+/** An enum kept as text: any string parses unchanged (typed with the known values for completion); unknown values are reported. */
+function openEnum<const T extends EnumValues>(field: string, values: T) {
+  const known = new Set<string>(values);
+  const schema = z.custom<T[number] | (string & {})>((value) => {
+    if (typeof value !== "string") return false;
+    if (!known.has(value)) reportUnknownValue({ field, value, mode: "text", fallback: null });
+    return true;
+  }, `expected a string (${field})`);
+  return register(field, values, "text", null, schema);
+}
+
+/** A list of enum values whose unknown members are dropped (the rest keep their order). */
+function tolerantEnumList<const T extends EnumValues>(field: string, values: T) {
+  const known = new Set<string>(values);
+  const schema = z.preprocess((value) => {
+    if (!Array.isArray(value)) return value;
+    return value.filter((item) => {
+      if (typeof item !== "string" || known.has(item)) return true;
+      reportUnknownValue({ field, value: item, mode: "dropped", fallback: null });
+      return false;
+    });
+  }, z.array(z.enum(values)));
+  return register(field, values, "dropped", null, schema);
+}
+
+/** A fixed server label; a different string reads as the known label. */
+function tolerantLiteral<const T extends string>(field: string, value: T) {
+  const schema = z.preprocess((input) => {
+    if (typeof input !== "string" || input === value) return input;
+    reportUnknownValue({ field, value: input, mode: "fallback", fallback: value });
+    return value;
+  }, z.literal(value));
+  return register(field, [value], "fallback", value, schema);
+}
+
+// Read enums the repair may grow (research/LANE-D-admin-consumers.md §2–§6) and the parts of every read.
+const channelStatusSchema = tolerantEnum("channel.status (queue rows, team attention rows, detail requirements, shadow labels)", SALES_OUTREACH_CHANNEL_STATUSES, "pending");
+const coverageStateSchema = tolerantEnum("coverage.state (channel and rep-day coverage)", SALES_OUTREACH_COVERAGE_STATES, "unknown");
+const captureFreshnessStateSchema = tolerantEnum("freshness.calls/sms.state (every read)", SALES_OUTREACH_CAPTURE_FRESHNESS_STATES, "unknown");
+const granotFreshnessStateSchema = tolerantEnum("freshness.granot.state (every read)", SALES_OUTREACH_GRANOT_FRESHNESS_STATES, "unknown");
+const configurationStateSchema = tolerantEnum("configuration_state (every read, team readiness, GET /configuration)", SALES_OUTREACH_CONFIGURATION_STATES, "unavailable");
+const cadenceUnknownReasonSchema = openEnum("cadence metric unknown_reason (overdue/quoted metrics, leads_needing_attention)", SALES_OUTREACH_CADENCE_UNKNOWN_REASONS);
+const dueTodayUnknownReasonSchema = openEnum("due-today metric unknown_reason (calls_due_today, sms_due_today)", SALES_OUTREACH_DUE_TODAY_UNKNOWN_REASONS);
+const goalsUnknownReasonSchema = openEnum("rep-days unknown_reason / team goals_unknown_reason", ["goal_metrics_disabled"]);
+const workflowSchema = tolerantEnum("workflow (queue rows, detail policy/period/window history, enrollment candidates)", SALES_OUTREACH_WORKFLOWS, "none");
+const queueSubjectStatusSchema = tolerantEnum("queue row subject_status", ["active", "review"], "review");
+const subjectStatusSchema = tolerantEnum("detail subject.status", SALES_OUTREACH_SUBJECT_STATUSES, "review");
+const receivedQualitySchema = tolerantEnum("detail subject.received_quality", SALES_OUTREACH_RECEIVED_QUALITIES, "unreliable");
+const enrollmentKindSchema = tolerantEnum("enrollment kind (detail subject.enrollment.kind)", SALES_OUTREACH_ENROLLMENT_KINDS, "expansion");
+const priorityBasisSchema = tolerantEnum("detail priority.basis", SALES_OUTREACH_PRIORITY_BASES, "none");
+const projectionStateSchema = tolerantEnum("detail policy.projection_state", SALES_OUTREACH_PROJECTION_STATES, "pending");
+const periodStartKindSchema = tolerantEnum("detail policy.period.start_kind", SALES_OUTREACH_PERIOD_START_KINDS, "activation");
+const countScopeSchema = tolerantEnum("rep-day count_scope", SALES_OUTREACH_GOAL_COUNT_SCOPES, "all_outbound");
+const countScopeOrMixedSchema = tolerantEnum("count_scope (rep-days and team goals)", [...SALES_OUTREACH_GOAL_COUNT_SCOPES, "mixed"], "mixed");
+const actualBasisSchema = tolerantEnum("rep-day actual_basis", SALES_OUTREACH_ACTUAL_BASES, "pending");
+const goalStateSchema = tolerantEnum("rep-day goal_state", SALES_OUTREACH_GOAL_STATES, "no_goal_today");
+const goalBasisSchema = tolerantEnum("rep-day goal_provenance.basis", SALES_OUTREACH_GOAL_BASES, "not_scheduled");
+const goalSourceSchema = tolerantEnum("rep-day goal_provenance.source", ["configuration", "projection_snapshot"], "projection_snapshot");
+const otherOutboundLabelSchema = tolerantLiteral("rep-day other_outbound.label", SALES_OUTREACH_OTHER_OUTBOUND_LABEL);
+const queueStateEchoSchema = tolerantEnum("queue filters.state (echo)", SALES_OUTREACH_QUEUE_STATES, "needs_contact");
+const enrollmentPartitionSchema = tolerantEnum("enrollment partition (candidates list and rows)", SALES_OUTREACH_ENROLLMENT_PARTITIONS, "review");
+const enrollmentScopeModeSchema = tolerantEnum("enrollment scope.mode", ["backfill_scope", "selected"], "backfill_scope");
+const enrollmentRunKindSchema = tolerantEnum("enrollment report kind", ["pilot", "expansion"], "expansion");
+const enrollmentApplyStatusSchema = tolerantEnum("enrollment apply status", ["running", "completed", "paused", "lease_held", "failed"], "running");
+const enrollmentVerifyStatusSchema = tolerantEnum("enrollment verify run_status", ["running", "completed", "failed", "paused"], "running");
+const deskUnavailableReasonSchema = tolerantEnum("capabilities unavailable_reason", SALES_OUTREACH_DESK_UNAVAILABLE_REASONS, "configuration_unavailable");
+
+// ---------------------------------------------------------------------------------------------
 // Shared atoms
 // ---------------------------------------------------------------------------------------------
 
@@ -141,14 +280,14 @@ const nullableInstant = instant.nullable();
 const count = z.number().int().min(0);
 
 export const salesOutreachCoverageSchema = z.object({
-  state: z.enum(SALES_OUTREACH_COVERAGE_STATES),
+  state: coverageStateSchema,
   known_complete_through: nullableInstant,
   required_through: instant,
   gaps: z.array(z.object({ from: nullableInstant, to: instant })).max(50),
 });
 
 export const salesOutreachCaptureFreshnessSchema = z.object({
-  state: z.enum(SALES_OUTREACH_CAPTURE_FRESHNESS_STATES),
+  state: captureFreshnessStateSchema,
   last_updated_at: nullableInstant,
   known_complete_through: nullableInstant,
   age_seconds: count.nullable(),
@@ -159,7 +298,7 @@ export const salesOutreachFreshnessSchema = z.object({
   calls: salesOutreachCaptureFreshnessSchema,
   sms: salesOutreachCaptureFreshnessSchema,
   granot: z.object({
-    state: z.enum(SALES_OUTREACH_GRANOT_FRESHNESS_STATES),
+    state: granotFreshnessStateSchema,
     last_observed_at: nullableInstant,
     age_seconds: count.nullable(),
   }),
@@ -177,7 +316,7 @@ const baseReadSchema = z.object({
   as_of: instant,
   timezone: z.literal(SALES_OUTREACH_TIMEZONE),
   scope: scopeSchema,
-  configuration_state: z.enum(SALES_OUTREACH_CONFIGURATION_STATES),
+  configuration_state: configurationStateSchema,
   configuration_version: z.string().nullable(),
   configuration_revision: count.nullable(),
 });
@@ -190,14 +329,14 @@ const commonReadSchema = baseReadSchema.extend({
 /** A cadence metric: `value` null with an `unknown_reason` means unavailable, never 0. */
 export const salesOutreachCadenceMetricSchema = z.object({
   value: count.nullable(),
-  unknown_reason: z.enum(SALES_OUTREACH_CADENCE_UNKNOWN_REASONS).nullable(),
+  unknown_reason: cadenceUnknownReasonSchema.nullable(),
 });
 export type SalesOutreachCadenceMetric = z.infer<typeof salesOutreachCadenceMetricSchema>;
 
 /** A due count (call attempts or SMS sends); `coverage_incomplete` when a due requirement's remaining is unknown. */
 export const salesOutreachDueTodayMetricSchema = z.object({
   value: count.nullable(),
-  unknown_reason: z.enum(SALES_OUTREACH_DUE_TODAY_UNKNOWN_REASONS).nullable(),
+  unknown_reason: dueTodayUnknownReasonSchema.nullable(),
 });
 export type SalesOutreachDueTodayMetric = z.infer<typeof salesOutreachDueTodayMetricSchema>;
 
@@ -208,10 +347,10 @@ export const salesOutreachChannelSchema = z.object({
   remaining: count.nullable(),
   due_at: nullableInstant,
   oldest_actionable_due_at: nullableInstant,
-  status: z.enum(SALES_OUTREACH_CHANNEL_STATUSES),
+  status: channelStatusSchema,
   completion_kind: z.string().nullable(),
   coverage: z.object({
-    state: z.enum(SALES_OUTREACH_COVERAGE_STATES),
+    state: coverageStateSchema,
     known_complete_through: nullableInstant,
     gaps: z.array(z.unknown()).max(50),
   }),
@@ -241,8 +380,8 @@ export const salesOutreachQueueRowSchema = z.object({
   move_date: salesOutreachBusinessDateSchema.nullable(),
   move_date_review: z.enum(SALES_OUTREACH_MOVE_DATE_REVIEWS).nullable(),
   priority_raw: z.string().nullable(),
-  workflow: z.enum(SALES_OUTREACH_WORKFLOWS).nullable(),
-  subject_status: z.enum(["active", "review"]),
+  workflow: workflowSchema.nullable(),
+  subject_status: queueSubjectStatusSchema,
   assigned_agent_id: salesOutreachAgentIdSchema.nullable(),
   assigned_agent_name: z.string().nullable(),
   received_at: nullableInstant,
@@ -297,17 +436,17 @@ export const salesOutreachCapabilitiesSchema = baseReadSchema.extend({
     intake_admission_enabled: z.boolean(),
   }),
   desk_available: z.boolean(),
-  unavailable_reason: z.enum(SALES_OUTREACH_DESK_UNAVAILABLE_REASONS).nullable(),
-  permitted_views: z.array(z.enum(SALES_OUTREACH_VIEWS)),
+  unavailable_reason: deskUnavailableReasonSchema.nullable(),
+  permitted_views: tolerantEnumList("capabilities permitted_views", SALES_OUTREACH_VIEWS),
   permitted_filters: z.object({
-    rep_days: z.array(z.enum(["business_day", "agent_id"])),
-    team: z.array(z.enum(["business_day"])),
-    queue: z.array(z.enum(SALES_OUTREACH_QUEUE_FILTERS)),
+    rep_days: tolerantEnumList("capabilities permitted_filters.rep_days", ["business_day", "agent_id"]),
+    team: tolerantEnumList("capabilities permitted_filters.team", ["business_day"]),
+    queue: tolerantEnumList("capabilities permitted_filters.queue", SALES_OUTREACH_QUEUE_FILTERS),
   }),
-  live_topics: z.array(z.enum(SALES_OUTREACH_LIVE_TOPICS)),
+  live_topics: tolerantEnumList("capabilities live_topics", SALES_OUTREACH_LIVE_TOPICS),
   permitted_commands: z.array(z.string()),
   role_capabilities: z.array(z.string()),
-  deployed_reads: z.array(z.enum(SALES_OUTREACH_DEPLOYED_READS)),
+  deployed_reads: tolerantEnumList("capabilities deployed_reads", SALES_OUTREACH_DEPLOYED_READS),
   /** Served to every role whenever the configuration is active (also with the desk off); null otherwise. */
   cadence_summary: salesOutreachCadenceSummarySchema.nullable(),
 });
@@ -318,8 +457,8 @@ export type SalesOutreachCapabilitiesDto = z.infer<typeof salesOutreachCapabilit
 // ---------------------------------------------------------------------------------------------
 
 export const salesOutreachGoalProvenanceSchema = z.object({
-  source: z.enum(["configuration", "projection_snapshot"]),
-  basis: z.enum(SALES_OUTREACH_GOAL_BASES),
+  source: goalSourceSchema,
+  basis: goalBasisSchema,
   configuration_version: z.string().nullable(),
   roster_version: z.string().nullable(),
   scheduled_working_day: z.boolean().nullable(),
@@ -336,22 +475,22 @@ export const salesOutreachRepDaySchema = z.object({
   agent_id: salesOutreachAgentIdSchema,
   agent_name: z.string().nullable(),
   reviewed_link: z.boolean(),
-  goal_state: z.enum(SALES_OUTREACH_GOAL_STATES),
+  goal_state: goalStateSchema,
   goal_label: z.string().nullable(),
   goal: count.nullable(),
   goal_provenance: salesOutreachGoalProvenanceSchema,
-  count_scope: z.enum(SALES_OUTREACH_GOAL_COUNT_SCOPES),
+  count_scope: countScopeSchema,
   count_scope_label: z.string(),
   /** Confirmed (Call Log) outbound credits; null while pending, never a guessed 0. */
   actual_confirmed: count.nullable(),
   /** Webhook-seen calls not yet in the Call Log: shown separately, never counted toward progress. */
   actual_awaiting_confirmation: count.nullable(),
-  actual_basis: z.enum(SALES_OUTREACH_ACTUAL_BASES),
+  actual_basis: actualBasisSchema,
   remaining: count.nullable(),
   /** Capped at 1 by the server; null without a positive goal or a known actual. */
   progress: z.number().min(0).max(1).nullable(),
   goal_reached: z.boolean().nullable(),
-  other_outbound: z.object({ count: count.nullable(), label: z.literal(SALES_OUTREACH_OTHER_OUTBOUND_LABEL) }),
+  other_outbound: z.object({ count: count.nullable(), label: otherOutboundLabelSchema }),
   coverage: salesOutreachCoverageSchema,
   unknown_reason: z.string().nullable(),
   projection_revision: count.nullable(),
@@ -366,7 +505,7 @@ export const salesOutreachRepDaySchema = z.object({
 });
 export type SalesOutreachRepDayDto = z.infer<typeof salesOutreachRepDaySchema>;
 
-const countScopeOrMixed = z.enum([...SALES_OUTREACH_GOAL_COUNT_SCOPES, "mixed"]);
+const countScopeOrMixed = countScopeOrMixedSchema;
 
 export const salesOutreachRepDaysSchema = commonReadSchema.extend({
   business_day: salesOutreachBusinessDateSchema,
@@ -374,7 +513,7 @@ export const salesOutreachRepDaysSchema = commonReadSchema.extend({
   goal_metrics_enabled: z.boolean(),
   count_scope: countScopeOrMixed.nullable(),
   reps: z.array(salesOutreachRepDaySchema).nullable(),
-  unknown_reason: z.enum(["goal_metrics_disabled"]).nullable(),
+  unknown_reason: goalsUnknownReasonSchema.nullable(),
 });
 export type SalesOutreachRepDaysDto = z.infer<typeof salesOutreachRepDaysSchema>;
 
@@ -409,7 +548,7 @@ export const salesOutreachTeamSchema = commonReadSchema.extend({
   is_today: z.boolean(),
   goal_metrics_enabled: z.boolean(),
   goals: salesOutreachTeamGoalsSchema.nullable(),
-  goals_unknown_reason: z.enum(["goal_metrics_disabled"]).nullable(),
+  goals_unknown_reason: goalsUnknownReasonSchema.nullable(),
   daily_call_goals: z.array(salesOutreachDailyCallGoalRowSchema).nullable(),
   distinct_overdue_leads: salesOutreachCadenceMetricSchema,
   quoted_overdue_leads: salesOutreachCadenceMetricSchema,
@@ -417,13 +556,13 @@ export const salesOutreachTeamSchema = commonReadSchema.extend({
   leads_needing_attention: z.object({
     rows: z.array(salesOutreachQueueRowSchema).nullable(),
     limit: z.number().int().min(1).max(100),
-    unknown_reason: z.enum(SALES_OUTREACH_CADENCE_UNKNOWN_REASONS).nullable(),
+    unknown_reason: cadenceUnknownReasonSchema.nullable(),
   }),
   cadence_exposure: z.enum(SALES_OUTREACH_CADENCE_EXPOSURES).nullable(),
   /** Owner-only advanced readiness; null for a Manager. */
   readiness: z
     .object({
-      configuration_state: z.enum(SALES_OUTREACH_CONFIGURATION_STATES),
+      configuration_state: configurationStateSchema,
       activation_blockers: z.array(z.string()),
     })
     .nullable(),
@@ -443,7 +582,7 @@ export const salesOutreachQueueFiltersSchema = z.object({
   move_date_unknown: z.enum(SALES_OUTREACH_MOVE_DATE_UNKNOWN_MODES),
   agent_id: salesOutreachAgentIdSchema.nullable(),
   unassigned: z.boolean(),
-  state: z.enum(SALES_OUTREACH_QUEUE_STATES),
+  state: queueStateEchoSchema,
 });
 
 export const salesOutreachQueueSchema = commonReadSchema.extend({
@@ -560,14 +699,14 @@ export const salesOutreachDetailSchema = commonReadSchema.extend({
   subject: z.object({
     subject_id: salesOutreachSubjectIdSchema,
     lead_model: z.enum(SALES_OUTREACH_LEAD_MODELS),
-    status: z.enum(SALES_OUTREACH_SUBJECT_STATUSES),
+    status: subjectStatusSchema,
     review_reasons: z.array(z.string()).max(50),
     received_at: nullableInstant,
     received_date: salesOutreachBusinessDateSchema.nullable(),
-    received_quality: z.enum(SALES_OUTREACH_RECEIVED_QUALITIES),
+    received_quality: receivedQualitySchema,
     enrollment: z.object({
       cohort_id: z.string(),
-      kind: z.enum(SALES_OUTREACH_ENROLLMENT_KINDS),
+      kind: enrollmentKindSchema,
       enrolled_at: instant,
       activation_at: instant,
     }),
@@ -580,7 +719,7 @@ export const salesOutreachDetailSchema = commonReadSchema.extend({
   }),
   priority: z.object({
     raw: z.string().nullable(),
-    basis: z.enum(SALES_OUTREACH_PRIORITY_BASES),
+    basis: priorityBasisSchema,
     accepted_at: nullableInstant,
     uncertain: z.boolean(),
   }),
@@ -600,10 +739,10 @@ export const salesOutreachDetailSchema = commonReadSchema.extend({
     history: z.array(planRowSchema).max(50),
   }),
   policy: z.object({
-    projection_state: z.enum(SALES_OUTREACH_PROJECTION_STATES),
+    projection_state: projectionStateSchema,
     exposure: z.enum(SALES_OUTREACH_CADENCE_EXPOSURES).nullable(),
     enforcement_labels: z.boolean(),
-    workflow: z.enum(SALES_OUTREACH_WORKFLOWS).nullable(),
+    workflow: workflowSchema.nullable(),
     engine_state: z.string().nullable(),
     policy_version: z.string().nullable(),
     configuration_version: z.string().nullable(),
@@ -611,8 +750,8 @@ export const salesOutreachDetailSchema = commonReadSchema.extend({
     period: z
       .object({
         period_id: salesOutreachObjectIdSchema,
-        workflow: z.enum(SALES_OUTREACH_WORKFLOWS),
-        start_kind: z.enum(SALES_OUTREACH_PERIOD_START_KINDS),
+        workflow: workflowSchema,
+        start_kind: periodStartKindSchema,
         priority: z.string().nullable(),
         started_at: instant,
       })
@@ -642,8 +781,8 @@ export const salesOutreachDetailSchema = commonReadSchema.extend({
   last_interaction_at: nullableInstant,
   shadow_labels: z
     .object({
-      call_status: z.enum(SALES_OUTREACH_CHANNEL_STATUSES),
-      sms_status: z.enum(SALES_OUTREACH_CHANNEL_STATUSES),
+      call_status: channelStatusSchema,
+      sms_status: channelStatusSchema,
       overdue: z.boolean(),
     })
     .nullable(),
@@ -653,7 +792,7 @@ export const salesOutreachDetailSchema = commonReadSchema.extend({
         z.object({
           business_date: salesOutreachBusinessDateSchema,
           schedule_day: z.number().int().nullable(),
-          workflow: z.enum(SALES_OUTREACH_WORKFLOWS).nullable(),
+          workflow: workflowSchema.nullable(),
           closed_date: z.boolean(),
           call: windowChannelSchema,
           sms: windowChannelSchema,
@@ -789,9 +928,14 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
+/** The read answered, but its body does not match the mirror (a server change the admin does not know yet). */
+export const SALES_OUTREACH_READ_SHAPE_MISMATCH = "READ_SHAPE_MISMATCH" as const;
+
 /**
  * A desk read through the BFF (`/api/proxy/api/v1/admin/sales-outreach/<path>`). `path` is relative, with its
- * own query (e.g. `queue?state=all_active`). Returns the validated `data`; throws `SalesOutreachApiError`.
+ * own query (e.g. `queue?state=all_active`). Returns the validated `data`; throws `SalesOutreachApiError` — also
+ * when the body does not match the mirror (`READ_SHAPE_MISMATCH`, not retried: the same body fails again), so a
+ * view can say the read failed instead of waiting on a skeleton.
  */
 export async function salesOutreachRead<T>(path: string, schema: z.ZodType<T>, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${SALES_OUTREACH_BFF_PATH}/${path.replace(/^\//, "")}`, { signal, cache: "no-store" });
@@ -799,7 +943,13 @@ export async function salesOutreachRead<T>(path: string, schema: z.ZodType<T>, s
   if (!response.ok || !body || (body as { ok?: unknown }).ok !== true) {
     throw salesOutreachErrorFromBody(response.status, body, "READ_FAILED");
   }
-  return salesOutreachEnvelope(schema).parse(body).data;
+  const parsed = salesOutreachEnvelope(schema).safeParse(body);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.slice(0, 10).map((issue) => ({ path: issue.path.join("."), code: issue.code, message: issue.message }));
+    if (process.env.NODE_ENV === "development") console.warn(`[outreach-desk] ${path} did not match the admin mirror`, issues);
+    throw new SalesOutreachApiError(response.status, SALES_OUTREACH_READ_SHAPE_MISMATCH, "The desk read didn't match this version of the admin.", null, issues);
+  }
+  return parsed.data.data;
 }
 
 /** A desk command through the BFF. Every write carries an `Idempotency-Key` (the server refuses without one). */
@@ -1011,17 +1161,24 @@ export type SalesOutreachRestrictionsResponse = z.infer<typeof salesOutreachRest
 
 const minuteOfDay = z.number().int().min(0).max(1440);
 const isoWeekday = z.number().int().min(1).max(7);
-const rule = <const T extends readonly [string, ...string[]]>(values: T) => z.enum(values).nullable();
+/** A policy or evidence rule: kept as text, so a rule value the mirror does not know survives the Settings PATCH. */
+const rule = <const T extends EnumValues>(key: string, values: T) => openEnum(`configuration ${key}`, values).nullable();
 
-export const salesOutreachConfigurationValueSchema = z.object({
-  controls: z.object({
+/**
+ * The configuration value as the Owner's Settings edits it. Every `PATCH /configuration` replaces the whole value,
+ * so this schema must never drop or rewrite what the server sent: every object is loose (an unknown key at any
+ * level is kept) and every enum is kept as text (`openEnum`). Parsing a value and spreading an edit into it
+ * therefore sends back every key the admin does not know yet (lifecycle repair ADM-0, R1).
+ */
+export const salesOutreachConfigurationValueSchema = z.looseObject({
+  controls: z.looseObject({
     desk_enabled: z.boolean(),
     cadence_shadow_enabled: z.boolean(),
     cadence_enforcement_enabled: z.boolean(),
     rep_sms_capture_enabled: z.boolean(),
     goal_metrics_enabled: z.boolean(),
   }),
-  transition: z.object({
+  transition: z.looseObject({
     legacy_planning_paused: z.boolean(),
     migrated_cohort_id: z.string().nullable(),
     activation_at: nullableInstant,
@@ -1031,80 +1188,80 @@ export const salesOutreachConfigurationValueSchema = z.object({
     backfill_lookback_days: z.number().int().nullable(),
     backfill_include_upcoming_moves: z.boolean().nullable(),
   }),
-  cadence: z.object({
+  cadence: z.looseObject({
     policy_version: z.string().nullable(),
     approval_ref: z.string().nullable(),
     timezone: z.literal(SALES_OUTREACH_TIMEZONE),
-    calendar_mode: rule(["new_york_calendar_date"]),
-    working_days: z.array(z.object({ iso_weekday: isoWeekday, open_minute: minuteOfDay, close_minute: minuteOfDay })).nullable(),
+    calendar_mode: rule("cadence.calendar_mode", ["new_york_calendar_date"]),
+    working_days: z.array(z.looseObject({ iso_weekday: isoWeekday, open_minute: minuteOfDay, close_minute: minuteOfDay })).nullable(),
     holidays: z.array(salesOutreachBusinessDateSchema).nullable(),
     initial_response_working_minutes: z.number().int().nullable(),
-    new_days_1_3_calls: z.object({ required: z.number().int(), optional: z.number().int() }).nullable(),
+    new_days_1_3_calls: z.looseObject({ required: z.number().int(), optional: z.number().int() }).nullable(),
     new_call_slots: z
-      .array(z.object({ from_day: z.number().int(), to_day: z.number().int().nullable(), deadline_minutes: z.array(minuteOfDay) }))
+      .array(z.looseObject({ from_day: z.number().int(), to_day: z.number().int().nullable(), deadline_minutes: z.array(minuteOfDay) }))
       .nullable(),
     new_call_min_spacing_minutes: z.number().int().nullable(),
     sms_cutoff_minute: minuteOfDay.nullable(),
-    sms_mode: rule(["fixed_sequence"]),
+    sms_mode: rule("cadence.sms_mode", ["fixed_sequence"]),
     sms_sequence: z
-      .object({ initial_days: z.array(z.number().int()), repeat_from_day: z.number().int(), repeat_every_days: z.number().int() })
+      .looseObject({ initial_days: z.array(z.number().int()), repeat_from_day: z.number().int(), repeat_every_days: z.number().int() })
       .nullable(),
     quoted_open_minute: minuteOfDay.nullable(),
     quoted_due_minute: minuteOfDay.nullable(),
     quoted_same_day_cutoff_minute: minuteOfDay.nullable(),
-    return_to_new_mode: rule(["original_age_partial_day"]),
+    return_to_new_mode: rule("cadence.return_to_new_mode", ["original_age_partial_day"]),
     late_arrival_rule: z
-      .object({ two_calls_before_minute: minuteOfDay, one_call_through_minute: minuteOfDay, sms_through_minute: minuteOfDay })
+      .looseObject({ two_calls_before_minute: minuteOfDay, one_call_through_minute: minuteOfDay, sms_through_minute: minuteOfDay })
       .nullable(),
-    catchup_mode: rule(["one_per_channel"]),
-    restriction_clock_rule: rule(["waive_pause_resume_next_working_date"]),
+    catchup_mode: rule("cadence.catchup_mode", ["one_per_channel"]),
+    restriction_clock_rule: rule("cadence.restriction_clock_rule", ["waive_pause_resume_next_working_date"]),
     callback_window_minutes: z.number().int().nullable(),
-    callback_mode: rule(["explicit_human_appointment"]),
+    callback_mode: rule("cadence.callback_mode", ["explicit_human_appointment"]),
     cooldown_warning_threshold: z.number().int().nullable(),
     cooldown_warning_hours: z.number().int().nullable(),
-    cooldown_mode: rule(["advisory_warning"]),
-    assignment_timeline_rule: rule(["continuous_timeline"]),
+    cooldown_mode: rule("cadence.cooldown_mode", ["advisory_warning"]),
+    assignment_timeline_rule: rule("cadence.assignment_timeline_rule", ["continuous_timeline"]),
     intake_default_rule: z
-      .object({
-        website_form: z.enum(["new", "review"]),
-        best_relocation: z.enum(["new", "review"]),
-        ringcentral_call: z.enum(["new", "review"]),
-        manual: z.enum(["new", "review"]),
-        granot_created: z.enum(["new", "review"]),
+      .looseObject({
+        website_form: openEnum("configuration cadence.intake_default_rule.website_form", ["new", "review"]),
+        best_relocation: openEnum("configuration cadence.intake_default_rule.best_relocation", ["new", "review"]),
+        ringcentral_call: openEnum("configuration cadence.intake_default_rule.ringcentral_call", ["new", "review"]),
+        manual: openEnum("configuration cadence.intake_default_rule.manual", ["new", "review"]),
+        granot_created: openEnum("configuration cadence.intake_default_rule.granot_created", ["new", "review"]),
       })
       .nullable(),
-    uncertain_priority_rule: rule(["retain_last_verified"]),
+    uncertain_priority_rule: rule("cadence.uncertain_priority_rule", ["retain_last_verified"]),
     priority_map: z
-      .object({
+      .looseObject({
         codes: z.array(
-          z.object({
+          z.looseObject({
             code: z.string(),
-            workflow: z.enum(["new", "quoted", "discretion", "closed", "none"]),
-            closure_reason: z.enum(["granot_booked", "crm_bad_disposition", "crm_dead_disposition"]).nullable(),
+            workflow: openEnum("configuration cadence.priority_map.codes[].workflow", ["new", "quoted", "discretion", "closed", "none"]),
+            closure_reason: openEnum("configuration cadence.priority_map.codes[].closure_reason", ["granot_booked", "crm_bad_disposition", "crm_dead_disposition"]).nullable(),
           }),
         ),
-        unmapped_workflow: z.enum(["none"]),
-        official_booking_workflow: z.enum(["closed"]),
+        unmapped_workflow: openEnum("configuration cadence.priority_map.unmapped_workflow", ["none"]),
+        official_booking_workflow: openEnum("configuration cadence.priority_map.official_booking_workflow", ["closed"]),
       })
       .nullable(),
-    transition_day_rule: rule(["partial_day_allowance"]),
-    move_date_rule: rule(["review_label_only"]),
-    lead_eligibility_rule: rule(["no_sync_viable_duplicates_excluded"]),
-    precedence_rule: rule(["closure_restriction_schedule_priority"]),
+    transition_day_rule: rule("cadence.transition_day_rule", ["partial_day_allowance"]),
+    move_date_rule: rule("cadence.move_date_rule", ["review_label_only"]),
+    lead_eligibility_rule: rule("cadence.lead_eligibility_rule", ["no_sync_viable_duplicates_excluded"]),
+    precedence_rule: rule("cadence.precedence_rule", ["closure_restriction_schedule_priority"]),
   }),
-  evidence: z.object({
-    qualifying_call_rule: rule(["terminal_call_log_attempt"]),
-    goal_rep_rule: rule(["reviewed_initiator_only"]),
-    helping_rep_rule: rule(["reviewed_helper_cadence_only"]),
-    sms_success_rule: rule(["sent_or_delivered"]),
-    sms_failure_correction_rule: rule(["revoke_on_confirmed_failure"]),
+  evidence: z.looseObject({
+    qualifying_call_rule: rule("evidence.qualifying_call_rule", ["terminal_call_log_attempt"]),
+    goal_rep_rule: rule("evidence.goal_rep_rule", ["reviewed_initiator_only"]),
+    helping_rep_rule: rule("evidence.helping_rep_rule", ["reviewed_helper_cadence_only"]),
+    sms_success_rule: rule("evidence.sms_success_rule", ["sent_or_delivered"]),
+    sms_failure_correction_rule: rule("evidence.sms_failure_correction_rule", ["revoke_on_confirmed_failure"]),
     roster_version: z.string().nullable(),
-    event_time_rule: rule(["outbound_start_inbound_handled_sms_sent"]),
-    operating_window_rule: rule(["goal_full_date_cadence_open_hours"]),
-    originating_inbound_rule: rule(["unique_association_initial_response"]),
-    restricted_contact_rule: rule(["history_only_zero_credit"]),
+    event_time_rule: rule("evidence.event_time_rule", ["outbound_start_inbound_handled_sms_sent"]),
+    operating_window_rule: rule("evidence.operating_window_rule", ["goal_full_date_cadence_open_hours"]),
+    originating_inbound_rule: rule("evidence.originating_inbound_rule", ["unique_association_initial_response"]),
+    restricted_contact_rule: rule("evidence.restricted_contact_rule", ["history_only_zero_credit"]),
   }),
-  migration: z.object({
+  migration: z.looseObject({
     paused: z.boolean(),
     batch_size: z.number().int(),
     batch_ceiling: z.number().int(),
@@ -1117,23 +1274,23 @@ export const salesOutreachConfigurationValueSchema = z.object({
     max_consumer_lag_seconds: z.number().int().nullable(),
     max_incremental_write_bytes_per_second: z.number().int().nullable(),
   }),
-  goals: z.object({
+  goals: z.looseObject({
     roster_version: z.string().nullable(),
     rep_work_schedules: z
-      .array(z.object({ agent_id: salesOutreachAgentIdSchema, working_days: z.array(isoWeekday), scheduled_goal: z.number().int().nullable() }))
+      .array(z.looseObject({ agent_id: salesOutreachAgentIdSchema, working_days: z.array(isoWeekday), scheduled_goal: z.number().int().nullable() }))
       .nullable(),
     default_scheduled_goal: z.number().int().nullable(),
     effective_day_overrides: z
       .array(
-        z.object({
+        z.looseObject({
           agent_id: salesOutreachAgentIdSchema,
           business_date: salesOutreachBusinessDateSchema,
           goal: z.number().int(),
-          reason: z.enum(["absence", "partial_day"]),
+          reason: openEnum("configuration goals.effective_day_overrides[].reason", ["absence", "partial_day"]),
         }),
       )
       .nullable(),
-    zero_goal_rule: rule(["no_goal_today_excluded_from_denominator"]),
+    zero_goal_rule: rule("goals.zero_goal_rule", ["no_goal_today_excluded_from_denominator"]),
   }),
 });
 export type SalesOutreachConfigurationValue = z.infer<typeof salesOutreachConfigurationValueSchema>;
@@ -1143,7 +1300,7 @@ export const salesOutreachConfigurationReadSchema = z.object({
   contract_version: contract,
   as_of: instant,
   timezone: z.literal(SALES_OUTREACH_TIMEZONE),
-  configuration_state: z.enum(SALES_OUTREACH_CONFIGURATION_STATES),
+  configuration_state: configurationStateSchema,
   revision: count,
   version: z.string().nullable(),
   content_hash: z.string().nullable(),
@@ -1208,7 +1365,7 @@ export type SalesOutreachEnrollmentApplyRequest = z.infer<typeof salesOutreachEn
 export const salesOutreachEnrollmentVerifyRequestSchema = z.object({ run_key: z.string().trim().regex(/^[A-Za-z0-9:._-]{1,120}$/) });
 
 const enrollmentScopeSchema = z.object({
-  mode: z.enum(["backfill_scope", "selected"]),
+  mode: enrollmentScopeModeSchema,
   today: z.string(),
   cutoff_date: z.string().optional(),
   lookback_days: z.number().int().optional(),
@@ -1217,9 +1374,9 @@ const enrollmentScopeSchema = z.object({
 
 export const salesOutreachEnrollmentCandidateSchema = z.object({
   lead: salesOutreachLeadRefSchema,
-  partition: z.enum(SALES_OUTREACH_ENROLLMENT_PARTITIONS),
+  partition: enrollmentPartitionSchema,
   reason: z.string(),
-  workflow: z.enum(SALES_OUTREACH_WORKFLOWS).nullable(),
+  workflow: workflowSchema.nullable(),
   priority_raw: z.string().nullable(),
   received_date: z.string().nullable(),
   move_date: z.string().nullable(),
@@ -1231,7 +1388,7 @@ export type SalesOutreachEnrollmentCandidate = z.infer<typeof salesOutreachEnrol
 export const salesOutreachEnrollmentCandidatesSchema = z.object({
   contract_version: contract,
   as_of: z.string(),
-  partition: z.enum(SALES_OUTREACH_ENROLLMENT_PARTITIONS),
+  partition: enrollmentPartitionSchema,
   scope: enrollmentScopeSchema,
   items: z.array(salesOutreachEnrollmentCandidateSchema),
   next_cursor: z.string().nullable(),
@@ -1243,7 +1400,7 @@ export const salesOutreachEnrollmentReportSchema = z.object({
   contract_version: contract,
   mode: z.literal("report"),
   as_of: z.string(),
-  kind: z.enum(["pilot", "expansion"]),
+  kind: enrollmentRunKindSchema,
   cohort_id: z.string(),
   configuration_version: z.string(),
   configuration_revision: z.number().int(),
@@ -1263,7 +1420,7 @@ export const salesOutreachEnrollmentApplySchema = z.object({
   contract_version: contract,
   mode: z.literal("apply"),
   run_key: z.string(),
-  status: z.enum(["running", "completed", "paused", "lease_held", "failed"]),
+  status: enrollmentApplyStatusSchema,
   activation_at: z.string(),
   manifest_hash: z.string(),
   selected: z.number().int(),
@@ -1279,7 +1436,7 @@ export const salesOutreachEnrollmentVerifySchema = z.object({
   contract_version: contract,
   mode: z.literal("verify"),
   run_key: z.string(),
-  run_status: z.enum(["running", "completed", "failed", "paused"]),
+  run_status: enrollmentVerifyStatusSchema,
   complete: z.boolean(),
   consistent: z.boolean(),
   counts: z.record(z.string(), z.number().int()),

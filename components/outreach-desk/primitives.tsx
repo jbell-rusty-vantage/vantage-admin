@@ -4,9 +4,9 @@
  * paired with text or an icon; progress bars cap at 100% and expose their value to assistive technology.
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ClipboardCopy, Search, type LucideIcon } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, ClipboardCopy, RefreshCw, Search, type LucideIcon } from "lucide-react";
 import type { SalesOutreachFreshness } from "@/lib/api/salesOutreach";
-import { fillPercent, freshnessChips } from "./lib/format";
+import { absoluteTime, fillPercent, freshnessChips, readFailureText } from "./lib/format";
 import { deskCopy } from "./outreach-desk-copy";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -225,6 +225,53 @@ export function Notice({ icon, title, children, tone = "gray" }: { icon: LucideI
         {children ? <div className="od-notice__body">{children}</div> : null}
       </div>
     </section>
+  );
+}
+
+/**
+ * A desk read that failed inside a view. Without data it says what failed and why (in place of skeletons that
+ * would never resolve); with older data still shown (`staleAsOf`) it says the view could not refresh.
+ */
+export function ReadFailure({
+  what,
+  error,
+  onRetry,
+  staleAsOf = null,
+  inset = false,
+  testId,
+}: {
+  what: string;
+  error: unknown;
+  onRetry?: () => void;
+  staleAsOf?: string | null;
+  /** Inside another card (no card frame of its own). */
+  inset?: boolean;
+  testId?: string;
+}) {
+  const r = deskCopy.readErrors;
+  const retry = onRetry ? (
+    <button type="button" className="od-button od-button--quiet" onClick={onRetry}>
+      <RefreshCw aria-hidden="true" width={14} height={14} />
+      {r.retry}
+    </button>
+  ) : null;
+  if (staleAsOf) {
+    return (
+      <p className="od-read-error od-read-error--stale" role="status" data-testid={testId}>
+        <CircleAlert aria-hidden="true" width={15} height={15} />
+        <span>{r.stale(absoluteTime(staleAsOf))}</span>
+        {retry}
+      </p>
+    );
+  }
+  return (
+    <div className={cx(!inset && "od-card", "od-read-error")} role="alert" data-testid={testId}>
+      <CircleAlert aria-hidden="true" width={18} height={18} />
+      <p>
+        <strong>{what}</strong> {readFailureText(error)}
+      </p>
+      {retry}
+    </div>
   );
 }
 

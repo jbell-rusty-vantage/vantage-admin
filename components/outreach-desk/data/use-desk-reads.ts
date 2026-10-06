@@ -21,7 +21,10 @@ import {
 import { outreachKeys } from "@/lib/query/salesOutreach";
 import { useDeskPollInterval } from "./use-desk-live";
 
-/** Retry only transient failures (network, 5xx other than 503), at most twice. */
+/**
+ * Retry only transient failures (network, 5xx other than 503), at most twice. A body the mirror can't read is a
+ * `READ_SHAPE_MISMATCH` with the response's 2xx status, so it is not retried: the view says so at once.
+ */
 export function retryDeskRead(failureCount: number, error: unknown): boolean {
   if (isSalesOutreachApiError(error) && (error.status < 500 || error.status === 503)) return false;
   return failureCount < 2;

@@ -6,9 +6,10 @@
  *
  * The headline is today's goal across all eligible work, independent of the queue's search, tab or move date (§6.3).
  * Selection is `lead=<subject_id>` in the URL; a lead that leaves the filtered list stays selected and says so.
+ * A failed `GET /rep-days`, `GET /team` (rep list) or queue read is said in words, never left as a skeleton (ADM-0).
  */
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarRange, ClipboardCopy, Info, Users } from "lucide-react";
 import type { SalesOutreachCapabilitiesDto, SalesOutreachQueueRowDto, SalesOutreachRepDayDto } from "@/lib/api/salesOutreach";
 import { isSalesOutreachApiError } from "@/lib/api/salesOutreach";
@@ -31,7 +32,7 @@ import {
   relativeDay,
 } from "../lib/format";
 import { deskCopy } from "../outreach-desk-copy";
-import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, SearchBox, SkeletonLine, Track } from "../primitives";
+import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, ReadFailure, SearchBox, SkeletonLine, Track } from "../primitives";
 import { LeadPanel, type RepOption } from "./lead-panel";
 
 const c = deskCopy.my;
@@ -43,11 +44,17 @@ type SortValue = "urgency" | "lead_received" | "last_interaction";
 
 function GoalCard({
   rep,
+  loaded,
+  failure,
   goalMetricsEnabled,
   businessDay,
   isToday,
 }: {
   rep: SalesOutreachRepDayDto | null;
+  /** The read answered (a missing row then means no goal row today, not loading). */
+  loaded: boolean;
+  /** Said in place of the skeleton when the read failed with nothing cached. */
+  failure: ReactNode;
   goalMetricsEnabled: boolean;
   businessDay: string | null;
   isToday: boolean;
@@ -84,7 +91,7 @@ function GoalCard({
         {!goalMetricsEnabled ? (
           <p className="od-goal__off">{deskCopy.team.goals.unavailable}</p>
         ) : !rep ? (
-          <SkeletonLine width={240} height={34} />
+          (failure ?? (loaded ? <p className="od-goal__off">{c.noGoal}</p> : <SkeletonLine width={240} height={34} />))
         ) : (
           <div className="od-goal__row">
             <p className="od-goal__count">
@@ -114,6 +121,7 @@ function GoalCard({
             ) : null}
           </div>
         )}
+        {rep && failure ? failure : null}
       </div>
       <div className="od-goal__metrics">
         {metric(rep?.overdue_leads ?? null, c.overdue, "od-text-red")}
@@ -219,6 +227,8 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
   );
   const queueError = queue.query.error;
   const queueUnavailable = !cadenceOn || (isSalesOutreachApiError(queueError) && queueError.unavailable);
+  // A failed queue read (other than 503, which reads "unavailable") is said, never shown as an empty list.
+  const queueFailed = Boolean(queueError) && !queueUnavailable;
   const rows = queue.rows;
   const first = queue.first;
 
@@ -261,6 +271,9 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
           subtitle={repDays.data ? businessDateLabel(repDays.data.business_day) : team.data ? businessDateLabel(team.data.business_day) : null}
           right={<FreshnessChips freshness={freshness} />}
         />
+        {coordinator && team.error && !team.data ? (
+          <ReadFailure what={deskCopy.readErrors.reps} error={team.error} onRetry={() => void team.refetch()} testId="team-read-error" />
+        ) : null}
         {coordinator ? (
           <div className="od-toolbar">
             <DeskSelect
@@ -278,6 +291,12 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
         {!coordinator || agent ? (
           <GoalCard
             rep={rep}
+            loaded={Boolean(repDays.data)}
+            failure={
+              repDays.error ? (
+                <ReadFailure inset what={deskCopy.readErrors.goal} error={repDays.error} staleAsOf={repDays.data?.as_of ?? null} onRetry={() => void repDays.refetch()} testId="goal-read-error" />
+              ) : null
+            }
             goalMetricsEnabled={repDays.data ? repDays.data.goal_metrics_enabled : capabilities.controls.goal_metrics_enabled}
             businessDay={repDays.data?.business_day ?? null}
             isToday={isToday}
@@ -366,6 +385,16 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
                   <Info aria-hidden="true" width={14} height={14} /> {c.excludedUnknown(first.counts.excluded_unknown_move_date)}
                 </p>
               ) : null}
+              {queueFailed ? (
+                <ReadFailure
+                  inset
+                  what={deskCopy.readErrors.queue}
+                  error={queueError}
+                  staleAsOf={rows.length ? (first?.as_of ?? null) : null}
+                  onRetry={() => void queue.query.refetch()}
+                  testId="queue-read-error"
+                />
+              ) : null}
               {queueUnavailable ? (
                 <p className="od-empty">{c.queueUnavailable}</p>
               ) : (
@@ -393,7 +422,7 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
                       ) : rows.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="od-empty">
-                            {work === "needs_contact" && !q ? c.emptyNeeds : c.empty}
+                            {queueFailed ? t.unavailable : work === "needs_contact" && !q ? c.emptyNeeds : c.empty}
                           </td>
                         </tr>
                       ) : (
