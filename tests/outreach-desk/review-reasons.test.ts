@@ -119,7 +119,7 @@ test("unknown codes are logged once in development and never in production", (t)
 });
 
 test("the lead panel of a review subject says 'Needs review: <reason>' for each reason", () => {
-  for (const { n, reasons } of SYNTHETIC_REVIEW_SUBJECTS) {
+  for (const { n, reasons, evaluated } of SYNTHETIC_REVIEW_SUBJECTS) {
     const detail = syntheticDetail({ subjectId: syntheticSubjectId(n), role: "owner" });
     assert.ok(detail, `review subject ${n}`);
     assert.doesNotThrow(() => salesOutreachEnvelope(salesOutreachDetailSchema).parse({ ok: true, data: detail }), "the synthetic review detail parses through the mirror");
@@ -134,7 +134,14 @@ test("the lead panel of a review subject says 'Needs review: <reason>' for each 
       result.lines.filter((line) => line.startsWith("Needs review")),
       expected,
     );
-    assert.ok(result.lines.includes("Still being evaluated"), result.lines.join(" | "));
+    // Not evaluated yet: "Still being evaluated"; evaluated (C2c steady state): the review hold, and no "Today" line.
+    if (evaluated) {
+      assert.ok(result.lines.includes("The schedule is on hold until the review is resolved"), result.lines.join(" | "));
+      assert.ok(!result.lines.includes("Still being evaluated"), result.lines.join(" | "));
+      assert.ok(!result.lines.some((line) => line.startsWith("Today:")), result.lines.join(" | "));
+    } else {
+      assert.ok(result.lines.includes("Still being evaluated"), result.lines.join(" | "));
+    }
     for (const line of [result.next.text, ...result.lines]) {
       assert.doesNotMatch(line, SNAKE, `no snake_case on screen: ${line}`);
       for (const reason of reasons) assert.ok(!line.includes(reason), `raw code ${reason} on screen: ${line}`);

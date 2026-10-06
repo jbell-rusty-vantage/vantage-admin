@@ -226,10 +226,62 @@ export const deskCopy = {
       awaiting: (n: number) => `+${n} unconfirmed`,
       awaitingTitle: "Seen live but not yet in the RingCentral Call Log; not counted until confirmed.",
       callsOnly: (n: number) => `${plural(n, "call", "calls")}`,
-      coverage: "Call capture incomplete",
+      /**
+       * A rep-day's call capture coverage (`coverage.state`): `complete` says nothing; `partial` = capture is behind the
+       * clock, so a count can still grow; `unknown` = capture hasn't reported this day at all.
+       */
+      coverageStates: {
+        partial: "Call capture catching up",
+        partialTitle: (through: string | null) =>
+          through
+            ? `RingCentral call capture is complete through ${through}. Calls after that may still arrive, so these counts can still grow.`
+            : "RingCentral call capture is behind, so these counts can still grow.",
+        unknown: "Call capture not reported yet",
+        unknownTitle: "RingCentral hasn't reported call capture for this day yet, so calls may be missing from these counts.",
+      },
+      /**
+       * Both counts (lifecycle repair C1b): the headline under the configured scope, then the other scope as a secondary
+       * figure — "97 outbound · 12 to enrolled Leads". A scope this desk has no words for reads neutrally.
+       */
+      scopeCount: {
+        all_outbound: (n: string) => `${n} outbound`,
+        eligible_new_quoted: (n: string) => `${n} to enrolled Leads`,
+      } as Record<string, (n: string) => string>,
+      scopeCountFallback: (n: string) => `${n} in the other count`,
+      scopeCountsTitle: {
+        all_outbound:
+          "The goal counts every outbound call. “To enrolled Leads” are the calls that reached a lead on the desk while it was New or Quoted.",
+        eligible_new_quoted:
+          "The goal counts calls that reached a lead on the desk while it was New or Quoted. “Outbound” is every outbound call.",
+      } as Record<string, string>,
+      scopeCountsTitleFallback: "The second figure counts the same calls a different way; only the first counts toward the goal.",
+      /**
+       * “Other outbound” by reason (lifecycle repair C8, the contact events' association reasons). Lower case: they read
+       * after a count ("51 lead not on the desk"). `eligible` never appears in a breakdown; listed so every reason has words.
+       */
+      otherReasons: {
+        eligible: "reached an enrolled New or Quoted lead",
+        no_lead: "no lead for the number",
+        lead_not_enrolled: "lead not on the desk",
+        lead_closed: "lead already closed",
+        before_activation: "before the desk started on the lead",
+        ambiguous: "more than one possible lead",
+        not_new_quoted: "lead not New or Quoted",
+        unknown: "recorded before reasons were kept",
+      } as Record<string, string>,
+      otherReasonFallback: "another reason",
+      otherBreakdownTitle: "Other outbound by reason",
+      otherBreakdownPending: "The reasons for these calls aren't recorded for this day yet.",
+      otherBreakdownPart: (n: number, words: string) => `${n} ${words}`,
+      otherBreakdownFoot: (parts: string) => `Other outbound by reason: ${parts}.`,
       noActivityTitle: "No calls recorded yet — RingCentral call capture is complete for this time, so this is a real 0.",
       footnote: "Call totals can exceed the goal. Progress bars cap at 100%.",
-      otherFootnote: "“Other outbound” are calls to numbers with no eligible New or Quoted lead; they don't count toward the goal.",
+      otherFootnote: "“Other outbound” are calls that didn't reach an enrolled New or Quoted lead.",
+      /** The footnote under the configured scope: whether Other outbound is part of the goal count. */
+      otherFootnoteByScope: {
+        all_outbound: "“Other outbound” are calls that didn't reach an enrolled New or Quoted lead; they still count toward the all-outbound goal.",
+        eligible_new_quoted: "“Other outbound” are calls that didn't reach an enrolled New or Quoted lead; they don't count toward the goal.",
+      } as Record<string, string>,
       empty: "No rep is on today's roster yet.",
       unavailable: "Goal tracking is switched off in Settings.",
       setGoal: "Attendance",
