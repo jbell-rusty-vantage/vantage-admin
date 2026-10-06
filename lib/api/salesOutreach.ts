@@ -131,6 +131,17 @@ export const SALES_OUTREACH_COUNT_SCOPE_LABELS = {
   eligible_new_quoted: "Outbound calls (New/Quoted leads)",
 } as const satisfies Record<SalesOutreachGoalCountScope, string>;
 export const SALES_OUTREACH_OTHER_OUTBOUND_LABEL = "Other outbound" as const;
+/**
+ * Why one call is (or is not) credited to an enrolled New/Quoted Lead (server contact events' `association_reason`,
+ * lifecycle repair C8). Stored server-side only; the admin sees them as the keys of an "Other outbound" breakdown.
+ */
+export const SALES_OUTREACH_ASSOCIATION_REASONS = ["eligible", "not_new_quoted", "ambiguous", "no_lead", "lead_not_enrolled", "before_activation", "lead_closed"] as const;
+/**
+ * The buckets of a rep-day's `other_outbound.breakdown` (server `SALES_OUTREACH_OTHER_OUTBOUND_BUCKETS`): every
+ * association reason except `eligible`, plus `unknown` for calls derived before the reason was stored.
+ */
+export const SALES_OUTREACH_OTHER_OUTBOUND_BUCKETS = ["no_lead", "lead_not_enrolled", "lead_closed", "before_activation", "ambiguous", "not_new_quoted", "unknown"] as const;
+export type SalesOutreachOtherOutboundBucket = (typeof SALES_OUTREACH_OTHER_OUTBOUND_BUCKETS)[number];
 export const SALES_OUTREACH_GOAL_STATE_LABELS = {
   goal: null,
   no_goal_today: "No goal today",
@@ -260,6 +271,8 @@ const projectionStateSchema = tolerantEnum("detail policy.projection_state", SAL
 const periodStartKindSchema = tolerantEnum("detail policy.period.start_kind", SALES_OUTREACH_PERIOD_START_KINDS, "activation");
 const countScopeSchema = tolerantEnum("rep-day count_scope", SALES_OUTREACH_GOAL_COUNT_SCOPES, "all_outbound");
 const countScopeOrMixedSchema = tolerantEnum("count_scope (rep-days and team goals)", [...SALES_OUTREACH_GOAL_COUNT_SCOPES, "mixed"], "mixed");
+/** The secondary count's scope is kept as text: an unknown scope reads with neutral copy, never as another scope's words. */
+const alternateCountScopeSchema = openEnum("alternate count_scope (rep-day alternate_scope, team outbound_calls.alternate)", SALES_OUTREACH_GOAL_COUNT_SCOPES);
 const actualBasisSchema = tolerantEnum("rep-day actual_basis", SALES_OUTREACH_ACTUAL_BASES, "pending");
 const goalStateSchema = tolerantEnum("rep-day goal_state", SALES_OUTREACH_GOAL_STATES, "no_goal_today");
 const goalBasisSchema = tolerantEnum("rep-day goal_provenance.basis", SALES_OUTREACH_GOAL_BASES, "not_scheduled");
@@ -509,6 +522,36 @@ export const salesOutreachGoalProvenanceSchema = z.object({
     .nullable(),
 });
 
+/**
+ * "Other outbound" by why the calls did not reach an enrolled New/Quoted Lead (lifecycle repair C8); sums to the
+ * matching `other_outbound` count. The reasons are object keys, so a bucket this mirror does not list yet is kept
+ * (`catchall`) and read with neutral copy instead of vanishing from a tooltip that must add up.
+ */
+export const salesOutreachOtherOutboundBreakdownSchema = z
+  .object({
+    no_lead: count,
+    lead_not_enrolled: count,
+    lead_closed: count,
+    before_activation: count,
+    ambiguous: count,
+    not_new_quoted: count,
+    unknown: count,
+  } satisfies Record<SalesOutreachOtherOutboundBucket, typeof count>)
+  .catchall(count);
+export type SalesOutreachOtherOutboundBreakdown = z.infer<typeof salesOutreachOtherOutboundBreakdownSchema>;
+
+/**
+ * The same day counted under the other scope (lifecycle repair C1b): a secondary figure that never drives `remaining`,
+ * `progress` or `goal_reached`. Same honesty rule as the headline: null is pending, never 0.
+ */
+export const salesOutreachAlternateScopeSchema = z.object({
+  count_scope: alternateCountScopeSchema,
+  count_scope_label: z.string(),
+  actual_confirmed: count.nullable(),
+  actual_awaiting_confirmation: count.nullable(),
+});
+export type SalesOutreachAlternateScope = z.infer<typeof salesOutreachAlternateScopeSchema>;
+
 export const salesOutreachRepDaySchema = z.object({
   agent_id: salesOutreachAgentIdSchema,
   agent_name: z.string().nullable(),
@@ -528,7 +571,17 @@ export const salesOutreachRepDaySchema = z.object({
   /** Capped at 1 by the server; null without a positive goal or a known actual. */
   progress: z.number().min(0).max(1).nullable(),
   goal_reached: z.boolean().nullable(),
-  other_outbound: z.object({ count: count.nullable(), label: otherOutboundLabelSchema }),
+  /**
+   * Calls that did not reach an enrolled New/Quoted Lead (all outbound − eligible, in both scopes). `breakdown` (C8) is
+   * null while `count` is null and for a row written before reasons were stored; optional so an older server parses.
+   */
+  other_outbound: z.object({
+    count: count.nullable(),
+    label: otherOutboundLabelSchema,
+    breakdown: salesOutreachOtherOutboundBreakdownSchema.nullable().optional(),
+  }),
+  /** C1b secondary count; null for a row written before both counts were stored; optional for an older server. */
+  alternate_scope: salesOutreachAlternateScopeSchema.nullable().optional(),
   coverage: salesOutreachCoverageSchema,
   unknown_reason: z.string().nullable(),
   projection_revision: count.nullable(),
@@ -571,9 +624,16 @@ export const salesOutreachTeamGoalsSchema = z.object({
     incomplete: z.boolean(),
     pending_agent_ids: z.array(salesOutreachAgentIdSchema),
     unknown_reason: z.string().nullable(),
+    /**
+     * C1b: roster reps' confirmed calls under the other scope. Null on a mixed-scope day; `actual` null when any roster
+     * rep's alternate is unknown (never a partial sum). Optional for an older server.
+     */
+    alternate: z.object({ count_scope: alternateCountScopeSchema, actual: count.nullable() }).nullable().optional(),
   }),
   reps_at_goal: z.object({ count, of: count, pending: count }),
   other_outbound_total: count.nullable(),
+  /** C8: roster reps' breakdowns summed; null when any roster rep's is null. Optional for an older server. */
+  other_outbound_breakdown: salesOutreachOtherOutboundBreakdownSchema.nullable().optional(),
   roster_size: count,
 });
 

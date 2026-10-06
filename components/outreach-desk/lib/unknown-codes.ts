@@ -1,11 +1,12 @@
 /**
- * Server codes the desk has no copy for (review reasons, explanation codes and their values, freshness reasons). Server text is never
- * rendered raw: the caller shows a safe fallback ("Needs review", or drops the line) and reports the code here. In
+ * Server codes the desk has no copy for (review reasons, explanation codes and their values, freshness reasons,
+ * "Other outbound" association reasons). Server text is never rendered raw: the caller shows a safe fallback
+ * ("Needs review", "another reason", or drops the line) and reports the code here. In
  * development each unknown code is logged once so the copy map in `outreach-desk-copy.ts` can be extended; in
  * production nothing is logged. Tests observe reports through `onUnknownDeskCode`.
  */
 
-export type UnknownDeskCodeKind = "review_reason" | "explanation_code" | "explanation_value" | "freshness_reason";
+export type UnknownDeskCodeKind = "review_reason" | "explanation_code" | "explanation_value" | "freshness_reason" | "association_reason";
 
 export type UnknownDeskCode = {
   kind: UnknownDeskCodeKind;

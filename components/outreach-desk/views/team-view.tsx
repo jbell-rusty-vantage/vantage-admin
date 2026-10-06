@@ -23,10 +23,14 @@ import { deskViewHref } from "../data/desk-url";
 import type { DeskViewer } from "../shell/desk-shell";
 import {
   absoluteTime,
+  alternateCountText,
   businessDateLabel,
   cadenceMetricText,
   countText,
+  goalCoverageNote,
   nyDate,
+  otherOutboundFootnote,
+  otherOutboundTitle,
   ownerText,
   percentText,
   priorityPill,
@@ -59,6 +63,9 @@ function GoalRow({ row, workflow }: { row: SalesOutreachDailyCallGoalRow; workfl
   const progress = repProgressLabel(row);
   const overdue = cadenceMetricText(row.overdue_leads);
   const hasGoal = row.goal_state === "goal";
+  // The other scope's count ("12 to enrolled Leads", C1b) and capture coverage in words (partial vs unknown).
+  const alternate = alternateCountText(row.count_scope, row.alternate_scope ? { count_scope: row.alternate_scope.count_scope, actual: row.alternate_scope.actual_confirmed } : null);
+  const coverage = hasGoal ? goalCoverageNote(row.coverage) : null;
   return (
     <tr data-agent={row.agent_id}>
       <th scope="row" className="od-strong">
@@ -73,8 +80,13 @@ function GoalRow({ row, workflow }: { row: SalesOutreachDailyCallGoalRow; workfl
             {c.goals.awaiting(row.actual_awaiting_confirmation)}
           </span>
         ) : null}
+        {alternate ? (
+          <span className="od-cell__sub od-nowrap" title={alternate.title} data-testid="goal-row-alternate">
+            {alternate.text}
+          </span>
+        ) : null}
         {row.other_outbound.count ? (
-          <span className="od-cell__sub" title={c.goals.otherFootnote}>
+          <span className="od-cell__sub" title={otherOutboundTitle(row.other_outbound, row.count_scope)} data-testid="goal-row-other">
             {c.cards.otherOutbound(String(row.other_outbound.count))}
           </span>
         ) : null}
@@ -88,9 +100,9 @@ function GoalRow({ row, workflow }: { row: SalesOutreachDailyCallGoalRow; workfl
         ) : (
           <span className="od-text-muted">{row.goal_label}</span>
         )}
-        {row.coverage.state !== "complete" && hasGoal ? (
-          <span className="od-cell__sub" title={row.coverage.known_complete_through ? absoluteTime(row.coverage.known_complete_through) : undefined}>
-            {c.goals.coverage}
+        {coverage ? (
+          <span className="od-cell__sub" title={coverage.title}>
+            {coverage.text}
           </span>
         ) : null}
       </td>
@@ -259,6 +271,20 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
     : goals
       ? { actual: goals.outbound_calls.actual, goal: goals.outbound_calls.goal, progress: goals.outbound_calls.progress, pending: goals.outbound_calls.pending_agent_ids.length, done: false }
       : null;
+  // Card 1's secondary figure: the other scope's count for the team (or the selected rep), never the goal's.
+  const outboundAlternate = selectedRep
+    ? alternateCountText(selectedRep.count_scope, selectedRep.alternate_scope ? { count_scope: selectedRep.alternate_scope.count_scope, actual: selectedRep.alternate_scope.actual_confirmed } : null)
+    : goals
+      ? alternateCountText(goals.count_scope, goals.outbound_calls.alternate)
+      : null;
+  const outboundCaption = outbound
+    ? outbound.pending
+      ? c.cards.partial(outbound.pending)
+      : percentText(outbound.progress)
+        ? c.cards.ofGoal(percentText(outbound.progress) as string)
+        : null
+    : null;
+  const otherFoot = goals ? otherOutboundFootnote(goals.count_scope, goals.other_outbound_total, goals.other_outbound_breakdown) : null;
   const atGoal = selectedRep
     ? { count: selectedRep.goal_reached ? 1 : 0, of: selectedRep.goal_state === "goal" ? 1 : 0, pending: selectedRep.goal_reached === null && selectedRep.goal_state === "goal" ? 1 : 0 }
     : (goals?.reps_at_goal ?? null);
@@ -322,13 +348,18 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
               value={goalsOff ? t.unavailable : outbound ? `${countText(outbound.actual)} / ${outbound.goal}` : loading(90)}
               progress={goalsOff || !outbound ? null : { value: outbound.progress, done: outbound.done, label: scopeLabel }}
               caption={
-                goalsOff
-                  ? c.goals.unavailable
-                  : outbound
-                    ? outbound.pending
-                      ? c.cards.partial(outbound.pending)
-                      : (percentText(outbound.progress) ? c.cards.ofGoal(percentText(outbound.progress) as string) : null)
-                    : null
+                goalsOff ? (
+                  c.goals.unavailable
+                ) : outboundCaption || outboundAlternate ? (
+                  <>
+                    {outboundCaption}
+                    {outboundAlternate ? (
+                      <span className="od-summary__alt" title={outboundAlternate.title} data-testid="card-outbound-alternate">
+                        {outboundAlternate.text}
+                      </span>
+                    ) : null}
+                  </>
+                ) : null
               }
             />
             <SummaryCard
@@ -431,7 +462,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
             )}
             <p className="od-card__foot">
               {c.goals.footnote}
-              {goals?.other_outbound_total ? ` ${c.goals.otherFootnote}` : ""}
+              {otherFoot ? <span data-testid="goals-other-footnote">{` ${otherFoot}`}</span> : null}
             </p>
           </section>
 
