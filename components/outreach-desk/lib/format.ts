@@ -443,20 +443,45 @@ export function reviewReasonText(reason: unknown): string {
 
 const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
+/** An intake refusal reason in lower-case words, or undefined when it has no copy. */
+function refusalReasonText(reason: string): string | undefined {
+  const a = deskCopy.settingsExtra.admissions;
+  const reviewReasons = deskCopy.lead.reviewReasons;
+  if (Object.hasOwn(a.reasons, reason)) return a.reasons[reason];
+  const review = reason.startsWith("review:") ? reason.slice("review:".length) : null;
+  if (review !== null && Object.hasOwn(reviewReasons, review)) return a.reviewReason(reviewReasons[review]!);
+  return undefined;
+}
+
+/**
+ * The part after `expansion:` (server `expansionAdmissionOf`): a gate code (`admission_disabled`, `migration_paused`,
+ * `policy_unavailable`) or `<partition>:<reason>` from the enrollment classifier — `older:outside_backfill_scope`,
+ * `closed:<closure>` (including `closed:closed_priority`), `excluded:<reason>`, `review:<reason>`.
+ */
+function expansionRefusalText(reason: string): string | undefined {
+  const expansion = deskCopy.settingsExtra.admissions.expansionReasons;
+  if (Object.hasOwn(expansion, reason)) return expansion[reason];
+  const direct = refusalReasonText(reason);
+  if (direct !== undefined) return direct;
+  const closed = reason.startsWith("closed:") ? reason.slice("closed:".length) : null;
+  return closed === null ? undefined : refusalReasonText(closed);
+}
+
 /**
  * Why an intake refusal happened, in words ("Already booked") — `GET /enrollment/admissions` `not_admitted` keys and
- * `recent_refusals[].reason` (olr B8; free text on the server). `review:<reason>` reads the review-reason copy. An
- * unknown reason reads "Another reason" and is reported (logged once in development); the code never shows.
+ * `recent_refusals[].reason` (olr B8; free text on the server). `review:<reason>` reads the review-reason copy.
+ * Automatic-admission refusals (olr B6, `expansion:<reason>` / `expansion:<partition>:<reason>`) read
+ * "Automatic admission — <reason>", composed from the same copy. An unknown reason reads "Another reason" and is
+ * reported (logged once in development); the code never shows.
  */
 export function admissionReasonText(reason: unknown): string {
   const a = deskCopy.settingsExtra.admissions;
-  const reviewReasons = deskCopy.lead.reviewReasons;
   let text: string | undefined;
   if (typeof reason === "string") {
-    if (Object.hasOwn(a.reasons, reason)) text = a.reasons[reason];
-    else if (reason.startsWith("review:") && Object.hasOwn(reviewReasons, reason.slice("review:".length))) {
-      text = a.reviewReason(reviewReasons[reason.slice("review:".length)]!);
-    }
+    if (reason.startsWith("expansion:")) {
+      const inner = expansionRefusalText(reason.slice("expansion:".length));
+      text = inner === undefined ? undefined : a.expansion(inner);
+    } else text = refusalReasonText(reason);
   }
   if (text) return sentence(text);
   reportUnknownDeskCode({ kind: "admission_reason", code: null, value: reason });

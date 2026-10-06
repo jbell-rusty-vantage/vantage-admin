@@ -4,6 +4,8 @@
  * - Three lists over `GET /enrollment/candidates` (server B7): "Ready to enroll" (`in_scope`, the report's selection
  *   inside the backfill scope), "Older" (`older`) — both with a one-click Enroll — and a read-only "Needs review"
  *   (`review`) with the reason in words. Pages follow the opaque `next_cursor`; a `CURSOR_EXPIRED` reloads page one.
+ *   A page can be empty yet carry a cursor (the server checks at most 1,000 Leads a page): `enrollmentScanOf` keeps
+ *   looking, bounded, and the empty text shows only when `next_cursor` is null.
  * - One-click Enroll = `POST /enrollment/report` for the one Lead (zero writes, a manifest) then `POST /enrollment/apply`
  *   of exactly that manifest, in the cohort `owner-enroll-<New York date>`.
  * - The day's new-lead intake over `GET /enrollment/admissions?business_day` (server B8): counts, refusals by reason and
@@ -101,6 +103,60 @@ export function enrollmentListHint(list: EnrollmentList, scope: SalesOutreachEnr
 
 export function enrollmentEmptyText(list: EnrollmentList): string {
   return list === "review" ? x.noReview : list === "older" ? x.noOlder : x.noReady;
+}
+
+/**
+ * Pages one request (the first load or one Load more) may fetch on its own while they bring no new row. The server
+ * checks at most 1,000 Leads per page (`CANDIDATE_SCAN_BUDGET`), so a page can be `items: []` with a `next_cursor`;
+ * 10 pages ≈ 10,000 Leads checked before the list stops and asks the Owner to Load more.
+ */
+export const ENROLLMENT_AUTO_PAGES = 10;
+
+/** Where the current request started: rows shown and pages loaded when it was made. */
+export type EnrollmentRequest = { rowsBefore: number; fromPage: number };
+export const ENROLLMENT_FIRST_REQUEST: EnrollmentRequest = { rowsBefore: 0, fromPage: 0 };
+
+export type EnrollmentScan = {
+  /** Fetch the next page now: the request found nothing yet, the server has more to check, and the bound isn't hit. */
+  keepLooking: boolean;
+  /** The bound was hit with nothing found; the server still has more to check. */
+  stoppedEmpty: boolean;
+  /** Leads the server checked for this request (sum of `scanned` since it started). */
+  scanned: number;
+  /** Leads the server checked for every page loaded. */
+  scannedTotal: number;
+};
+
+/**
+ * The paging state of one list. A page with no rows but a cursor is not the end of the list: keep looking (bounded) and
+ * only show the empty text when `next_cursor` is null.
+ */
+export function enrollmentScanOf(
+  pages: readonly Pick<SalesOutreachEnrollmentCandidatesDto, "items" | "next_cursor" | "scanned">[],
+  rowCount: number,
+  request: EnrollmentRequest,
+): EnrollmentScan {
+  const from = pages.length < request.fromPage ? 0 : request.fromPage;
+  const rowsBefore = pages.length < request.fromPage ? 0 : request.rowsBefore;
+  const hasNext = pages.length > 0 && pages[pages.length - 1]!.next_cursor !== null;
+  const found = rowCount > rowsBefore;
+  const spent = pages.length - from;
+  const scanned = pages.slice(from).reduce((sum, page) => sum + page.scanned, 0);
+  return {
+    keepLooking: hasNext && !found && spent < ENROLLMENT_AUTO_PAGES,
+    stoppedEmpty: hasNext && !found && spent >= ENROLLMENT_AUTO_PAGES,
+    scanned,
+    scannedTotal: pages.reduce((sum, page) => sum + page.scanned, 0),
+  };
+}
+
+/**
+ * The note when a request stopped with nothing found: "None found in the first <all checked> …" while the list is
+ * empty, "No more found in the next <checked by this request> …" once it has rows.
+ */
+export function enrollmentStoppedText(rowCount: number, scan: Pick<EnrollmentScan, "scanned" | "scannedTotal">): string {
+  const words = (n: number) => n.toLocaleString("en-US");
+  return rowCount === 0 ? x.noneFoundYet(words(scan.scannedTotal)) : x.noMoreFoundYet(words(scan.scanned));
 }
 
 /** The Settings one-click cohort: one per New York day, whichever list the Lead came from. */

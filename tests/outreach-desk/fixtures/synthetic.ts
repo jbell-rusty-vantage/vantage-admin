@@ -1028,7 +1028,7 @@ export function syntheticEnrollmentReportFor(body: { selection?: { mode?: string
 /**
  * One day's new-lead intake (olr B8 `GET /enrollment/admissions`): today has a mix of admissions and refusals; older
  * days inside the 14-day retention have none. Reasons are the server's free text (intake gate codes, `closed:` and
- * `excluded:` eligibility codes).
+ * `excluded:` eligibility codes, and one olr B6 automatic-admission refusal `expansion:<partition>:<reason>`).
  */
 export function syntheticAdmissions(businessDay: string = SYNTHETIC_BUSINESS_DAY): SalesOutreachAdmissionsDto {
   const today = businessDay === SYNTHETIC_BUSINESS_DAY;
@@ -1045,7 +1045,7 @@ export function syntheticAdmissions(businessDay: string = SYNTHETIC_BUSINESS_DAY
           admitted_review: 1,
           admitted_expansion: 0,
           deferred: 0,
-          not_admitted: { closed_priority: 1, "excluded:duplicate": 2, "closed:official_booking": 1, historical_import: 1 },
+          not_admitted: { closed_priority: 1, "excluded:duplicate": 2, "closed:official_booking": 1, historical_import: 1, "expansion:older:outside_backfill_scope": 1 },
         }
       : { admitted_intake: 0, admitted_review: 0, admitted_expansion: 0, deferred: 0, not_admitted: {} },
     recent_refusals: today
@@ -1055,6 +1055,7 @@ export function syntheticAdmissions(businessDay: string = SYNTHETIC_BUSINESS_DAY
           { lead: lead("FormLead", 3), reason: "historical_import", at: "2026-10-01T14:30:00.000Z" },
           { lead: lead("FormLead", 4), reason: "excluded:duplicate", at: "2026-10-01T13:55:00.000Z" },
           { lead: lead("CallLead", 5), reason: "closed_priority", at: "2026-10-01T13:10:00.000Z" },
+          { lead: lead("FormLead", 6), reason: "expansion:older:outside_backfill_scope", at: "2026-10-01T12:40:00.000Z" },
         ]
       : [],
   };

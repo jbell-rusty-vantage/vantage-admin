@@ -363,7 +363,7 @@ export const deskCopy = {
      * kind `intake` the new-lead gate.
      */
     enrollment: {
-      admission: (day: string) => `Added automatically on ${day}, when it became eligible (automatic admission is on)`,
+      admission: (day: string) => `Added automatically on ${day}, when it became eligible (automatic admission)`,
       owner: (day: string) => `Enrolled by the Owner on ${day}`,
       intake: (day: string) => `Added when it came in (${day})`,
       pilot: (day: string) => `Enrolled in the pilot on ${day}`,
@@ -568,6 +568,13 @@ export const deskCopy = {
     noReview: "No leads need review.",
     loadMore: "Load more",
     loadingMore: "Loading…",
+    /**
+     * The server checks at most 1,000 Leads per page, so a page can come back empty with more to check. The list keeps
+     * looking on its own (bounded) and only says "none" once the server has nothing left to check.
+     */
+    stillLooking: "Still looking…",
+    noneFoundYet: (checked: string) => `None found in the first ${checked} leads checked. Load more to keep looking.`,
+    noMoreFoundYet: (checked: string) => `No more found in the next ${checked} leads checked. Load more to keep looking.`,
     shownOf: (shown: number) => `${plural(shown, "lead", "leads")} shown`,
     listRestarted: "The list changed while you were paging, so it was reloaded from the top.",
     enroll: "Enroll",
@@ -625,6 +632,21 @@ export const deskCopy = {
         "excluded:duplicate": "marked as a duplicate lead",
         "excluded:unmatched_booking_anchor": "created from a booking that matched no lead",
         unknown: "no reason was recorded",
+      } as Record<string, string>,
+      /**
+       * Automatic admission of a lead that became eligible later (olr B6, switch D7) stores its refusals as
+       * `expansion:<reason>` or `expansion:<partition>:<reason>`. They read "Automatic admission — <reason>" so they stay
+       * apart from new-lead intake refusals. Partition reasons not listed here read from `reasons` above
+       * (`closed:*`, `excluded:*`, `closed_priority`) or from `lead.reviewReasons` (`review:*`).
+       */
+      expansion: (reason: string) => `automatic admission — ${reason}`,
+      expansionReasons: {
+        admission_disabled: "automatic admission was off",
+        migration_paused: "enrollment is paused in the configuration",
+        policy_unavailable: "the schedule policy isn't set up",
+        "older:outside_backfill_scope": "outside the backfill window",
+        "not_new_or_quoted:priority_discretion": "its priority leaves follow-up to the rep",
+        "already_enrolled:subject_exists": "already on the desk",
       } as Record<string, string>,
     },
     attendanceOwner: "Record an absence or a partial day. Owners may also correct past days.",

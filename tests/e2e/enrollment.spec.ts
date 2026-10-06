@@ -87,6 +87,48 @@ test("Owner: Load more follows next_cursor; an expired cursor reloads the list f
   await expect(ready.locator("tbody tr")).toHaveCount(2);
 });
 
+test("Owner: a page with no rows but a cursor keeps looking; 'none' shows only when the server is done or the bound is hit", async ({ page }) => {
+  // The server checks at most 1,000 Leads a page, so pages can come back empty with a cursor (LEDGER OPS-2: the
+  // ready Leads sit near the end of the walk; older = 0 across tens of thousands of Leads).
+  const empty = (partition: "in_scope" | "older", cursor: string | null) => ({ ...syntheticEnrollmentCandidates(partition), items: [], next_cursor: cursor, scanned: 1000 });
+  const olderCalls: string[] = [];
+  await page.route(`${DESK_API}/enrollment/candidates**`, async (route) => {
+    const url = new URL(route.request().url());
+    const partition = url.searchParams.get("partition");
+    const cursor = url.searchParams.get("cursor");
+    if (partition === "in_scope") {
+      if (!cursor) return route.fulfill({ json: { ok: true, data: empty("in_scope", "ready-2") } });
+      if (cursor === "ready-2") return route.fulfill({ json: { ok: true, data: empty("in_scope", "ready-3") } });
+      return route.fulfill({ json: { ok: true, data: { ...syntheticEnrollmentCandidates("in_scope"), next_cursor: null } } });
+    }
+    if (partition === "older") {
+      olderCalls.push(cursor ?? "");
+      // Page n answers the cursor older-n (page 1 has none): thirteen empty pages, then the end of the walk.
+      const n = cursor ? Number(cursor.slice("older-".length)) : 1;
+      return route.fulfill({ json: { ok: true, data: empty("older", n < 13 ? `older-${n + 1}` : null) } });
+    }
+    return route.fallback();
+  });
+  await openSettings(page);
+  const panel = page.getByTestId("settings-enrollment");
+  const ready = panel.getByTestId("enrollment-list-in_scope");
+  // Two empty pages, then the rows: they show without a click, and the empty text never claims there are none.
+  await expect(ready.locator("tbody tr[data-lead]")).toHaveCount(3);
+  await expect(panel).not.toContainText("No leads are waiting to be enrolled.");
+  await expect(panel.getByRole("button", { name: "Load more" })).toHaveCount(0);
+
+  await panel.getByRole("tab", { name: "Older" }).click();
+  const empty10 = panel.getByTestId("enrollment-empty");
+  await expect(empty10).toHaveText("None found in the first 10,000 leads checked. Load more to keep looking.");
+  // Distinct pages (a dev-mode remount may ask for page one twice).
+  expect(new Set(olderCalls).size).toBe(10);
+  await panel.getByRole("button", { name: "Load more" }).click();
+  // The walk ends on page 13: now the server has nothing left to check, and only now does the list say "none".
+  await expect(empty10).toHaveText("No older eligible leads.");
+  expect(new Set(olderCalls).size).toBe(13);
+  await expect(panel.getByRole("button", { name: "Load more" })).toHaveCount(0);
+});
+
 test("Owner: the day's new-lead intake reads counts and refusals in words; an old day says the retention", async ({ page }) => {
   await openSettings(page);
   const panel = page.getByTestId("settings-admissions");
@@ -94,15 +136,19 @@ test("Owner: the day's new-lead intake reads counts and refusals in words; an ol
   const counts = panel.getByTestId("admissions-counts");
   await expect(counts.locator('[data-key="admitted_intake"]')).toContainText("6");
   await expect(counts.locator('[data-key="admitted_intake"]')).toContainText("Added to the desk");
-  await expect(counts.locator('[data-key="not_admitted"]')).toContainText("5");
+  await expect(counts.locator('[data-key="not_admitted"]')).toContainText("6");
   await expect(panel.getByTestId("admissions-by-reason").locator("li").first()).toHaveText("2 · Marked as a duplicate lead");
   const refusals = panel.getByTestId("admissions-refusals").locator("tbody tr");
-  await expect(refusals).toHaveCount(5);
+  await expect(refusals).toHaveCount(6);
   await expect(refusals.first()).toContainText("Form lead");
   await expect(refusals.first()).toContainText("Marked as a duplicate lead");
   await expect(refusals.nth(1)).toContainText("Already booked");
+  // An olr B6 automatic-admission refusal reads apart from the intake refusals.
+  await expect(refusals.nth(5)).toContainText("Automatic admission — outside the backfill window");
+  await expect(panel.getByTestId("admissions-by-reason")).toContainText("1 · Automatic admission — outside the backfill window");
   expect(await panel.innerText()).not.toMatch(SNAKE);
   expect(await panel.innerText()).not.toContain("excluded:");
+  expect(await panel.innerText()).not.toContain("expansion:");
   await panel.screenshot({ path: path.join(EVIDENCE, "adm4-admissions-today.png") });
 
   const [request] = await Promise.all([
@@ -114,14 +160,14 @@ test("Owner: the day's new-lead intake reads counts and refusals in words; an ol
   await panel.getByTestId("admissions-day").fill("2026-09-10");
   await expect(panel.getByTestId("admissions-error")).toHaveText("Only the last 14 days are kept. Choose a later day.");
   await panel.getByRole("button", { name: "Today" }).click();
-  await expect(panel.getByTestId("admissions-refusals").locator("tbody tr")).toHaveCount(5);
+  await expect(panel.getByTestId("admissions-refusals").locator("tbody tr")).toHaveCount(6);
 });
 
 test("Owner: the lead panel says a lead was added by automatic admission; the cohort id never shows", async ({ page }) => {
   await signIn(page, "owner");
   await page.goto(`/outreach-desk?view=team&lead=${syntheticSubjectId(SYNTHETIC_ADMITTED_ROW)}`);
   const panel = page.locator(".od-lead");
-  await expect(panel.getByTestId("lead-enrollment")).toHaveText("Added automatically on Sep 28, when it became eligible (automatic admission is on)");
+  await expect(panel.getByTestId("lead-enrollment")).toHaveText("Added automatically on Sep 28, when it became eligible (automatic admission)");
   await expect(panel).not.toContainText("admission:");
   await page.goto(`/outreach-desk?view=team&lead=${syntheticSubjectId(1)}`);
   await expect(page.locator(".od-lead").getByTestId("lead-enrollment")).toHaveText("Enrolled on Sep 30");

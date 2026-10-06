@@ -4,11 +4,13 @@
  * `../lib/enrollment`).
  * - EnrollmentPanel: tabs "Ready to enroll" (`in_scope`), "Older" (`older`) — both with a one-click Enroll — and a
  *   read-only "Needs review" (`review`) with the reason in words. Load more follows the opaque `next_cursor`; a
- *   `CURSOR_EXPIRED` reloads the list from the top and says so.
+ *   `CURSOR_EXPIRED` reloads the list from the top and says so. The server checks at most 1,000 Leads a page, so a
+ *   page with no rows but a cursor makes the list keep looking on its own (bounded, `ENROLLMENT_AUTO_PAGES`); the
+ *   empty text shows only when the server has nothing left to check.
  * - AdmissionsPanel: `GET /enrollment/admissions` for a New York business day (today by default; the server keeps 14
  *   days): counts, refusals by reason and the newest refusals, every reason in words.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { isSalesOutreachApiError, type SalesOutreachEnrollmentCandidate } from "@/lib/api/salesOutreach";
 import { outreachKeys } from "@/lib/query/salesOutreach";
@@ -21,13 +23,17 @@ import {
   enrollmentEmptyText,
   enrollmentListHint,
   enrollmentRowsOf,
+  enrollmentScanOf,
+  enrollmentStoppedText,
   enrollOneLead,
   enrollOutcomeText,
+  ENROLLMENT_FIRST_REQUEST,
   ENROLLMENT_LISTS,
   nextEnrollmentCursor,
   readAdmissions,
   readEnrollmentPage,
   type EnrollmentList,
+  type EnrollmentRequest,
 } from "../lib/enrollment";
 import { deskCopy } from "../outreach-desk-copy";
 import { SkeletonLine } from "../primitives";
@@ -41,6 +47,7 @@ const DEFAULT_RETENTION_DAYS = 14;
 function useEnrollmentList(list: EnrollmentList) {
   const queryClient = useQueryClient();
   const [restarted, setRestarted] = useState(false);
+  const [request, setRequest] = useState<EnrollmentRequest>(ENROLLMENT_FIRST_REQUEST);
   const key = outreachKeys.enrollmentCandidatePages(list);
   const query = useInfiniteQuery({
     queryKey: key,
@@ -52,6 +59,7 @@ function useEnrollmentList(list: EnrollmentList) {
         if (pageParam && isSalesOutreachApiError(error) && error.code === "CURSOR_EXPIRED") {
           // The list changed under the cursor: drop the pages and reload page one.
           setRestarted(true);
+          setRequest(ENROLLMENT_FIRST_REQUEST);
           queueMicrotask(() => void queryClient.resetQueries({ queryKey: key as QueryKey, exact: true }));
         }
         throw error;
@@ -60,7 +68,21 @@ function useEnrollmentList(list: EnrollmentList) {
     getNextPageParam: nextEnrollmentCursor,
     retry: retryDeskRead,
   });
-  return { query, restarted };
+  const pages = query.data?.pages ?? [];
+  const rows = enrollmentRowsOf(pages);
+  const scan = enrollmentScanOf(pages, rows.length, request);
+  const { isFetching, error, fetchNextPage } = query;
+  // A page with no new row but a cursor: keep looking on our own, up to the bound, unless a page failed.
+  useEffect(() => {
+    if (scan.keepLooking && !isFetching && !error) void fetchNextPage();
+  }, [scan.keepLooking, isFetching, error, fetchNextPage]);
+  // Load more starts a new request and the effect above fetches it (one path, so a page is never asked for twice);
+  // after a failed page the effect holds off, so Load more retries it itself.
+  const loadMore = () => {
+    setRequest({ rowsBefore: rows.length, fromPage: pages.length });
+    if (error) void fetchNextPage();
+  };
+  return { query, pages, rows, scan, loadMore, restarted };
 }
 
 function useEnrollOne() {
@@ -72,10 +94,9 @@ function useEnrollOne() {
 }
 
 function EnrollmentList({ list }: { list: EnrollmentList }) {
-  const { query, restarted } = useEnrollmentList(list);
+  const { query, pages, rows, scan, loadMore, restarted } = useEnrollmentList(list);
   const enroll = useEnrollOne();
-  const pages = query.data?.pages ?? [];
-  const rows = enrollmentRowsOf(pages);
+  const looking = scan.keepLooking && !query.error;
   const readOnly = list === "review";
   if (!query.data && query.error) return <p className="od-lead__error">{deskCopy.errors.failed(null)}</p>;
   if (!query.data) return <SkeletonLine />;
@@ -100,8 +121,8 @@ function EnrollmentList({ list }: { list: EnrollmentList }) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={columns} className="od-empty">
-                  {enrollmentEmptyText(list)}
+                <td colSpan={columns} className="od-empty" data-testid="enrollment-empty">
+                  {!query.hasNextPage ? enrollmentEmptyText(list) : looking || query.isFetching ? x.stillLooking : enrollmentStoppedText(0, scan)}
                 </td>
               </tr>
             ) : (
@@ -132,11 +153,16 @@ function EnrollmentList({ list }: { list: EnrollmentList }) {
       <div className="od-enroll__more">
         <span className="od-text-muted od-small">{rows.length ? x.shownOf(rows.length) : null}</span>
         {query.hasNextPage ? (
-          <button type="button" className="od-button od-button--quiet" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
-            {query.isFetchingNextPage ? x.loadingMore : x.loadMore}
+          <button type="button" className="od-button od-button--quiet" disabled={query.isFetchingNextPage || looking} onClick={loadMore}>
+            {looking ? x.stillLooking : query.isFetchingNextPage ? x.loadingMore : x.loadMore}
           </button>
         ) : null}
       </div>
+      {rows.length > 0 && scan.stoppedEmpty ? (
+        <p className="od-text-muted od-small" data-testid="enrollment-stopped">
+          {enrollmentStoppedText(rows.length, scan)}
+        </p>
+      ) : null}
       {query.error && query.data ? <p className="od-lead__error">{deskCopy.errors.failed(null)}</p> : null}
       {enroll.error ? (
         <p className="od-lead__error" role="alert">

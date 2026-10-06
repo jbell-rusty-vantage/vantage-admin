@@ -11,8 +11,12 @@ import {
   enrollmentEmptyText,
   enrollmentListHint,
   enrollmentRowsOf,
+  enrollmentScanOf,
+  enrollmentStoppedText,
   enrollOneLead,
   enrollOutcomeText,
+  ENROLLMENT_AUTO_PAGES,
+  ENROLLMENT_FIRST_REQUEST,
   ENROLLMENT_LISTS,
   nextEnrollmentCursor,
   ownerEnrollCohortId,
@@ -32,7 +36,14 @@ import {
   type SalesOutreachEnrollmentCandidatesDto,
 } from "../../lib/api/salesOutreach";
 import { mockSalesOutreachResponse } from "../../lib/api/salesOutreachMock";
-import { SYNTHETIC_ADMITTED_ROW, syntheticDetail, syntheticEnrollmentCandidateItems, syntheticEnrollmentReport, syntheticSubjectId } from "./fixtures/synthetic";
+import {
+  SYNTHETIC_ADMITTED_ROW,
+  syntheticDetail,
+  syntheticEnrollmentCandidateItems,
+  syntheticEnrollmentCandidates,
+  syntheticEnrollmentReport,
+  syntheticSubjectId,
+} from "./fixtures/synthetic";
 
 /**
  * Lifecycle repair ADM-4: the Owner's enrollment lists ("Ready to enroll" = `in_scope`, "Older", read-only "Needs
@@ -44,6 +55,17 @@ import { SYNTHETIC_ADMITTED_ROW, syntheticDetail, syntheticEnrollmentCandidateIt
 const SERVER_FIXTURES = path.join(process.cwd(), "tests", "outreach-desk", "fixtures", "server");
 const SNAKE = /\b[a-z]+_[a-z_]+\b/;
 const x = deskCopy.settingsExtra;
+
+/** An empty candidates page (no rows, no cursor) in the server's shape; tests set `next_cursor` and `scanned`. */
+function syntheticEmptyPage(): SalesOutreachEnrollmentCandidatesDto {
+  return { ...syntheticEnrollmentCandidates("in_scope"), items: [], next_cursor: null, scanned: 0 };
+}
+
+/** Today's intake as the desk mock serves it to the Owner. */
+function mockAdmissionsToday() {
+  const response = mockSalesOutreachResponse({ role: "owner", method: "GET", path: "enrollment/admissions" });
+  return salesOutreachEnvelope(salesOutreachAdmissionsSchema).parse(response.body).data;
+}
 
 type Call = { method: string; path: string; body: unknown; idempotencyKey: string | null };
 
@@ -188,6 +210,47 @@ test("Load more follows the opaque next_cursor to the end; an expired cursor is 
       return Response.json({ ok: true, data: page("eyJtIjoidyJ9", 0) });
     },
   );
+});
+
+test("a page with no rows but a cursor is not the end: keep looking (bounded), and say 'none' only when the server is done", () => {
+  // The server checks at most 1,000 Leads a page (CANDIDATE_SCAN_BUDGET), so an empty page can carry a cursor.
+  const empty = (cursor: string | null): SalesOutreachEnrollmentCandidatesDto => ({ ...syntheticEmptyPage(), next_cursor: cursor, scanned: 1000 });
+  const withRows = (cursor: string | null): SalesOutreachEnrollmentCandidatesDto => ({
+    ...syntheticEmptyPage(),
+    items: syntheticEnrollmentCandidateItems("in_scope").slice(0, 3),
+    next_cursor: cursor,
+    scanned: 1000,
+  });
+  const scanOf = (pages: SalesOutreachEnrollmentCandidatesDto[], request = ENROLLMENT_FIRST_REQUEST) => enrollmentScanOf(pages, enrollmentRowsOf(pages).length, request);
+
+  // Page one empty with a cursor: keep looking; the empty text is not shown yet.
+  assert.deepEqual(scanOf([empty("c1")]), { keepLooking: true, stoppedEmpty: false, scanned: 1000, scannedTotal: 1000 });
+  // An empty page followed by one with rows: the rows show and looking stops.
+  assert.equal(scanOf([empty("c1"), withRows("c2")]).keepLooking, false);
+  assert.equal(scanOf([empty("c1"), withRows("c2")]).stoppedEmpty, false);
+  // The bound: after ENROLLMENT_AUTO_PAGES empty pages the list stops and says how many leads were checked.
+  const bound = Array.from({ length: ENROLLMENT_AUTO_PAGES }, (_, index) => empty(`c${index + 1}`));
+  const stopped = scanOf(bound);
+  assert.deepEqual(stopped, { keepLooking: false, stoppedEmpty: true, scanned: 10_000, scannedTotal: 10_000 });
+  assert.equal(enrollmentStoppedText(0, stopped), "None found in the first 10,000 leads checked. Load more to keep looking.");
+  assert.equal(scanOf(bound.slice(0, ENROLLMENT_AUTO_PAGES - 1)).keepLooking, true);
+  // Load more after the bound starts a new bounded request; the note counts every lead checked so far.
+  const more = scanOf([...bound, empty("c11")], { rowsBefore: 0, fromPage: ENROLLMENT_AUTO_PAGES });
+  assert.deepEqual(more, { keepLooking: true, stoppedEmpty: false, scanned: 1000, scannedTotal: 11_000 });
+  // The server is done (next_cursor null): neither looking nor stopped, so the plain empty text shows.
+  assert.deepEqual(scanOf([empty("c1"), empty(null)]), { keepLooking: false, stoppedEmpty: false, scanned: 2000, scannedTotal: 2000 });
+  assert.equal(enrollmentEmptyText("in_scope"), "No leads are waiting to be enrolled.");
+  // Rows on screen, Load more brings only empty pages: keep looking, then "No more found in the next ...".
+  const after = { rowsBefore: 3, fromPage: 1 };
+  assert.equal(scanOf([withRows("c1"), empty("c2")], after).keepLooking, true);
+  const tail = [withRows("c1"), ...Array.from({ length: ENROLLMENT_AUTO_PAGES }, (_, index) => empty(`d${index}`))];
+  const tailScan = scanOf(tail, after);
+  assert.equal(tailScan.stoppedEmpty, true);
+  assert.equal(enrollmentStoppedText(3, tailScan), "No more found in the next 10,000 leads checked. Load more to keep looking.");
+  // Rows found by the first page never trigger looking on their own (Load more stays the Owner's choice).
+  assert.equal(scanOf([withRows("c1")]).keepLooking, false);
+  // The list was reloaded from the top under an old request: the request counts from page one again.
+  assert.equal(scanOf([empty("c1")], { rowsBefore: 3, fromPage: 4 }).keepLooking, true);
 });
 
 test("hints read the server's scope", () => {
@@ -340,6 +403,48 @@ test("admission reasons: every intake-gate code, closed:/excluded:/review: prefi
   assert.deepEqual(merged.byReason.map((row) => [row.text, row.count]), [["Another reason", 3], ["Its priority closes it", 1]]);
 });
 
+test("automatic-admission refusals (olr B6 expansion:*) read in words, apart from intake refusals", () => {
+  const cases: Array<[string, string]> = [
+    ["expansion:admission_disabled", "Automatic admission — automatic admission was off"],
+    ["expansion:migration_paused", "Automatic admission — enrollment is paused in the configuration"],
+    ["expansion:policy_unavailable", "Automatic admission — the schedule policy isn't set up"],
+    ["expansion:older:outside_backfill_scope", "Automatic admission — outside the backfill window"],
+    ["expansion:review:received_time_unreliable", "Automatic admission — needs review first: the time this lead came in isn't reliable"],
+    ["expansion:review:received_time_missing", "Automatic admission — needs review first: the time this lead came in is missing"],
+    ["expansion:review:ambiguous_identity", "Automatic admission — needs review first: identity ambiguous — another lead has this Job Number"],
+    ["expansion:review:unmapped_priority", "Automatic admission — needs review first: this priority code has no schedule set up"],
+    ["expansion:review:legacy_closed_reopening_required", "Automatic admission — needs review first: closed in the old Outreach; reopening needs a decision"],
+    ["expansion:closed:official_booking", "Automatic admission — already booked"],
+    ["expansion:closed:official_cancellation", "Automatic admission — already cancelled"],
+    ["expansion:closed:bad_lead", "Automatic admission — marked as a bad lead"],
+    ["expansion:closed:closed_priority", "Automatic admission — its priority closes it"],
+    ["expansion:excluded:duplicate", "Automatic admission — marked as a duplicate lead"],
+    ["expansion:excluded:unmatched_booking_anchor", "Automatic admission — created from a booking that matched no lead"],
+    ["expansion:not_new_or_quoted:priority_discretion", "Automatic admission — its priority leaves follow-up to the rep"],
+    ["expansion:already_enrolled:subject_exists", "Automatic admission — already on the desk"],
+  ];
+  const { result, unknown } = collectUnknown(() => cases.map(([code]) => admissionReasonText(code)));
+  assert.deepEqual(unknown, [], "every expansion refusal has copy");
+  assert.deepEqual(result, cases.map(([, text]) => text));
+  for (const text of result) {
+    assert.doesNotMatch(text, SNAKE, text);
+    assert.ok(!text.includes("expansion"), text);
+  }
+  // An expansion refusal never reads the same as the intake refusal of the same cause, so the counts stay apart.
+  assert.notEqual(admissionReasonText("expansion:closed:official_booking"), admissionReasonText("closed:official_booking"));
+  const odd = collectUnknown(() => [admissionReasonText("expansion:older:brand_new"), admissionReasonText("expansion:"), admissionReasonText("expansion:review:brand_new")]);
+  assert.deepEqual(odd.result, ["Another reason", "Another reason", "Another reason"]);
+  assert.deepEqual(
+    odd.unknown.map((event) => event.value),
+    ["expansion:older:brand_new", "expansion:", "expansion:review:brand_new"],
+  );
+  // The mock's intake day carries one; it groups on its own line.
+  const view = collectUnknown(() => admissionsViewOf(mockAdmissionsToday()));
+  assert.deepEqual(view.unknown, []);
+  assert.ok(view.result.byReason.some((row) => row.text === "Automatic admission — outside the backfill window" && row.count === 1));
+  assert.ok(view.result.refusals.some((row) => row.reason === "Automatic admission — outside the backfill window"));
+});
+
 test("admissions: today by default, a chosen day by business_day; retention and future-day refusals read by code", async () => {
   await throughMock(async (calls) => {
     const today = await readAdmissions(null);
@@ -371,7 +476,7 @@ test("the mock refuses enrollment admissions to a Manager, as the server does", 
 test("the lead panel says how the lead joined the desk; the cohort id never shows", () => {
   const at = "2026-09-28T17:10:00.000Z";
   const cases: Array<[{ cohort_id: string; kind: string }, string]> = [
-    [{ cohort_id: "admission:2026-09-28", kind: "expansion" }, "Added automatically on Sep 28, when it became eligible (automatic admission is on)"],
+    [{ cohort_id: "admission:2026-09-28", kind: "expansion" }, "Added automatically on Sep 28, when it became eligible (automatic admission)"],
     [{ cohort_id: "owner-enroll-2026-09-28", kind: "expansion" }, "Enrolled by the Owner on Sep 28"],
     [{ cohort_id: "owner-older-2026-09-28", kind: "expansion" }, "Enrolled by the Owner on Sep 28"],
     [{ cohort_id: "intake:2026-09-01T00:00:00Z", kind: "intake" }, "Added when it came in (Sep 28)"],
