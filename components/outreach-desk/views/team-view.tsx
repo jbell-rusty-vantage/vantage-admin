@@ -34,8 +34,10 @@ import {
   relativeDay,
   repGoalText,
   repProgressLabel,
+  repZeroActivityTitle,
   rowIssue,
   shortDateLabel,
+  unassignedCaption,
 } from "../lib/format";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, Pill, ReadFailure, SearchBox, Segmented, SkeletonLine, SummaryCard, Track } from "../primitives";
@@ -63,7 +65,9 @@ function GoalRow({ row, workflow }: { row: SalesOutreachDailyCallGoalRow; workfl
         {row.agent_name ?? t.unknownRep}
       </th>
       <td>
-        <span className="od-nowrap">{hasGoal ? repGoalText(row) : row.actual_confirmed !== null ? c.goals.callsOnly(row.actual_confirmed) : "—"}</span>
+        <span className="od-nowrap" title={repZeroActivityTitle(row)}>
+          {hasGoal ? repGoalText(row) : row.actual_confirmed !== null ? c.goals.callsOnly(row.actual_confirmed) : "—"}
+        </span>
         {row.actual_awaiting_confirmation ? (
           <span className="od-cell__sub" title={c.goals.awaitingTitle}>
             {c.goals.awaiting(row.actual_awaiting_confirmation)}
@@ -142,7 +146,7 @@ function AttentionRow({ row, asOf, selected, onSelect }: { row: SalesOutreachQue
         <Pill variant={pill.variant}>{pill.text}</Pill>
       </td>
       <td>
-        <span className={`od-issue od-issue--${issue.tone}`}>
+        <span className={`od-issue od-issue--${issue.tone}`} title={issue.title}>
           <IssueIcon aria-hidden="true" />
           {issue.text}
         </span>
@@ -261,7 +265,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
   const overdueMetric = selectedRep ? selectedRep.overdue_leads : (data?.distinct_overdue_leads ?? null);
   const overdue = overdueMetric ? cadenceMetricText(overdueMetric) : null;
   const quoted = data ? cadenceMetricText(data.quoted_overdue_leads) : null;
-  const unassignedCount = data?.unassigned.count ?? null;
+  const unassignedText = data ? unassignedCaption(data.unassigned) : null;
 
   const attentionRows = filtered ? (cadenceOn ? attentionQueue.rows.slice(0, 10) : null) : (data?.leads_needing_attention.rows ?? null);
   const attentionUnavailable = filtered ? !cadenceOn : data ? data.leads_needing_attention.rows === null : false;
@@ -353,9 +357,9 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
               caption={
                 <>
                   {overdue && !overdue.available ? <span>{overdue.reason}</span> : null}
-                  {unassignedCount !== null && unassignedCount > 0 ? (
-                    <button type="button" className="od-linkbutton" onClick={() => url.update({ unassigned: "true", agent: null })}>
-                      {c.cards.unassigned(String(unassignedCount))}
+                  {unassignedText ? (
+                    <button type="button" className="od-linkbutton" data-testid="card-overdue-unassigned" onClick={() => url.update({ unassigned: "true", agent: null })}>
+                      {unassignedText}
                     </button>
                   ) : null}
                 </>

@@ -216,7 +216,7 @@ test("(ii) a queue page with new channel, coverage, freshness, workflow and stat
   assert.equal(result.freshness.granot.state, "unknown");
   assert.equal(events.length, 7);
   // Never red, never "done": an unknown status reads as pending evidence.
-  assert.deepEqual(channelStatus(parsed.call, result.as_of, "call"), { text: deskCopy.text.pending, tone: "muted" });
+  assert.deepEqual(channelStatus(parsed.call, result.as_of, "call"), { text: deskCopy.text.pending, tone: "muted", title: deskCopy.text.pendingTitle });
   assert.notEqual(rowIssue(parsed, result.as_of).tone, "red");
 });
 

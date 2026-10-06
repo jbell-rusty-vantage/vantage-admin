@@ -87,6 +87,20 @@ export const deskCopy = {
     callAndSmsDue: "Call and SMS due today",
     contactBlocked: "Contact blocked",
     needsReview: "Needs review",
+    // A channel whose status is `pending`: the evidence is uncertain (records still arriving), not a review.
+    pendingTitle: "Waiting on RingCentral call or SMS records before this can be checked.",
+    recordsPending: "Pending — checking call and SMS records",
+    // A passed deadline RingCentral capture can't prove yet (`verification.state: unverified`): never "overdue".
+    notYetVerified: "Due — not yet verified",
+    notYetVerifiedFull: (knownThrough: string | null) =>
+      knownThrough ? `Due — not yet verified (activity known through ${knownThrough})` : "Due — not yet verified (waiting for RingCentral capture)",
+    notYetVerifiedTitle: (knownThrough: string | null) =>
+      `This deadline has passed, but RingCentral capture ${knownThrough ? `only covers activity through ${knownThrough}` : "hasn't reported this period yet"}. It isn't counted as overdue until capture catches up.`,
+    knownThrough: (time: string) => `known through ${time}`,
+    awaitingCapture: "waiting for capture",
+    callNotYetVerified: "Call due — not yet verified",
+    smsNotYetVerified: "SMS due — not yet verified",
+    callAndSmsNotYetVerified: "Call and SMS due — not yet verified",
     jobPending: "Job number pending",
     moveDatePassed: "Move date passed",
     noIssue: "On track",
@@ -120,6 +134,23 @@ export const deskCopy = {
     delayed: (source: string) => `${source} is delayed`,
     notConnected: (source: string) => `${source} is not connected`,
     unknown: (source: string) => `${source} status is unknown`,
+    /** The chip tooltip with the server's reason in words: "RingCentral calls is delayed — no live call events …". */
+    withReason: (base: string, reason: string) => `${base} — ${reason}`,
+    /**
+     * Server `freshness.calls/sms.reason` codes in words (lifecycle repair A3-fresh). A RingCentral error code or any
+     * other code not listed here reads as `reasonFallback`; the code itself never reaches the screen.
+     */
+    reasons: {
+      confirmation_stale: "RingCentral's call log hasn't confirmed recent calls in the last few minutes",
+      coverage_behind: "call capture is running behind the clock",
+      webhook_silent: "no live call events have arrived from RingCentral for a while",
+      capture_behind: "capture is running behind the clock",
+      no_capture_state: "capture hasn't run yet",
+      rep_sms_capture_disabled: "rep SMS capture is switched off",
+      no_mailbox_synced: "no rep SMS mailbox has synced yet",
+      mailbox_without_coverage: "a rep SMS mailbox hasn't synced yet",
+    } as Record<string, string>,
+    reasonFallback: "RingCentral reported a sync problem",
   },
   live: {
     updated: "Desk updated",
@@ -177,6 +208,7 @@ export const deskCopy = {
       partial: (n: number) => `${plural(n, "rep", "reps")} still pending`,
       otherOutbound: (n: string) => `Other outbound: ${n}`,
       unassigned: (n: string) => `${n} unassigned`,
+      unassignedOverdue: (n: string, overdue: number) => `${n} unassigned · ${overdue} overdue`,
       distinctLeads: "Distinct leads with an overdue call or SMS",
       quotedLeads: "Quoted leads with an overdue call",
       noGoals: "No rep has a goal today",
@@ -195,6 +227,7 @@ export const deskCopy = {
       awaitingTitle: "Seen live but not yet in the RingCentral Call Log; not counted until confirmed.",
       callsOnly: (n: number) => `${plural(n, "call", "calls")}`,
       coverage: "Call capture incomplete",
+      noActivityTitle: "No calls recorded yet — RingCentral call capture is complete for this time, so this is a real 0.",
       footnote: "Call totals can exceed the goal. Progress bars cap at 100%.",
       otherFootnote: "“Other outbound” are calls to numbers with no eligible New or Quoted lead; they don't count toward the goal.",
       empty: "No rep is on today's roster yet.",
@@ -280,7 +313,11 @@ export const deskCopy = {
     callDueBy: (time: string) => `Call due by ${time}`,
     smsOverdue: "SMS overdue",
     smsDue: "SMS due today",
-    allDone: "Today's contact is done",
+    callNotYetVerified: "Call due — not yet verified",
+    smsNotYetVerified: "SMS due — not yet verified",
+    knownThrough: (time: string) => `Activity known through ${time}`,
+    waitingCapture: "Waiting for RingCentral capture",
+    allDone:"Today's contact is done",
     spacing: "Space attempts across the day",
     recentActivity: "Recent activity",
     noActivity: "No calls or texts recorded yet.",
@@ -347,6 +384,44 @@ export const deskCopy = {
       cadence_disabled: "Cadence isn't running yet",
       policy_unavailable: "Policy unavailable",
       stale_policy: "Policy changed; recalculating",
+    } as Record<string, string>,
+    /** `projection_state` values (the panel's headline and schedule lines). */
+    projectionStates: {
+      pending: "Still being evaluated",
+      stale_policy: "Policy changed; recalculating",
+      cadence_disabled: "Cadence isn't running yet",
+      policy_unavailable: "Policy unavailable",
+    } as Record<string, string>,
+    /** `engine_state` values other than `active` (the server's `SubjectEngineState`). */
+    engineStates: {
+      closed: "This lead's schedule has ended",
+      review: "The schedule is on hold until the review is resolved",
+      no_routine_cadence: "This priority has no routine schedule",
+      no_policy_configured: "No schedule is set up for this priority yet",
+    } as Record<string, string>,
+    /** "Needs review: <reason>"; an unknown reason reads as plain "Needs review" (logged in development). */
+    needsReview: (reason: string | null) => (reason ? `Needs review: ${reason}` : "Needs review"),
+    moreReviewReasons: (n: number) => `${plural(n, "more reason", "more reasons")} listed below`,
+    /**
+     * Subject `review_reasons` and enrollment review reasons, in words (lower case: they follow "Needs review: ").
+     * Codes from the server's `subjectStatusOf`, `resolveDeskPolicy`, `evaluateDeskEligibility` and enrollment
+     * `classify`, plus `no_contact_number` (lane C2c switch).
+     */
+    reviewReasons: {
+      no_contact_number: "no phone number to call",
+      ambiguous_identity: "identity ambiguous — another lead has this Job Number",
+      received_time_missing: "the time this lead came in is missing",
+      received_time_unreliable: "the time this lead came in isn't reliable",
+      priority_needs_review: "no priority from the moving software yet",
+      malformed_priority: "the priority from the moving software isn't a recognized code",
+      unmapped_priority: "this priority code has no schedule set up",
+      unsupported_intake_source: "the lead's source has no default schedule",
+      policy_unavailable: "the schedule policy isn't set up",
+      duplicate: "marked as a duplicate lead",
+      unmatched_booking_anchor: "created from a booking that matched no lead",
+      legacy_closed_reopening_required: "closed in the old Outreach; reopening needs a decision",
+      number_only_unassociated: "phone number not linked to a lead",
+      lead_not_found: "the lead record wasn't found",
     } as Record<string, string>,
   },
   activity: {
