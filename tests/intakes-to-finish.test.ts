@@ -3,6 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ToFinishCard } from "../components/intakes/to-finish-card";
+import { GranotMessage, granotMessageRows, granotReadingGroups, humanizeKey } from "../components/intakes/granot-message";
 import { parseToFinishUrl } from "../components/intakes/to-finish-page";
 import { TO_FINISH_COPY } from "../components/intakes/to-finish-copy";
 import {
@@ -175,4 +176,40 @@ test("the URL contract is the case key only", () => {
   assert.deepEqual(parseToFinishUrl(new URLSearchParams("tab=cancellations&state=resolved")), { caseId: null });
   assert.deepEqual(parseToFinishUrl(new URLSearchParams("case=%20")), { caseId: null });
   assert.equal(TO_FINISH_COPY.title, "Bookings to finish");
+});
+
+test("the exact Granot message reads as labelled rows, never as JSON", () => {
+  const rows = granotMessageRows({
+    event_type: "Booked",
+    job_no: "5562365",
+    origin: { city: "Tucson", state: "AZ", zip: "" },
+    tags: ["long distance", "priority"],
+    password: "must-not-surface",
+    estimatedCubicFeet: 540,
+    empty: null,
+  });
+  assert.deepEqual(rows, [
+    { label: "Event type", value: "Booked" },
+    { label: "Job no", value: "5562365" },
+    { label: "Origin · City", value: "Tucson" },
+    { label: "Origin · State", value: "AZ" },
+    { label: "Tags", value: "long distance, priority" },
+    { label: "Estimated cubic feet", value: "540" },
+  ]);
+  assert.equal(humanizeKey("move_date_raw"), "Move date raw");
+  const groups = granotReadingGroups({
+    customer: { name: "Steve Dority", phone: "5205550142" },
+    move: { from: "Tucson, AZ", to: "Sterling, VA" },
+    money: { estimate: "1978.40" },
+    whatGranotCalledIt: "Booked",
+    granotPriority: "5",
+  });
+  assert.deepEqual(groups.map((group) => group.heading), ["Customer", "Move", "Money", "Granot details"]);
+  assert.equal(groups[2]?.rows[0]?.value, "$1,978.40");
+  const markup = renderToStaticMarkup(
+    createElement(GranotMessage, { statement: { customer: {}, move: {}, money: {} }, raw: { event_type: "Booked", password: "x" } }),
+  );
+  assert.match(markup, /Every field Granot sent/);
+  assert.match(markup, /Event type/);
+  assert.doesNotMatch(markup, /<pre|[{}]|must-not-surface|<dt>Password/);
 });

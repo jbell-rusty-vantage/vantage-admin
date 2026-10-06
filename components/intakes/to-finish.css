@@ -16,12 +16,121 @@
   color: var(--crm-muted);
 }
 
+.tf-sheet {
+  padding: 4px 0 16px;
+}
+
 .tf-sent {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   font-size: 13.5px;
   color: var(--crm-text);
+}
+
+/* The exact Granot message, read as labelled facts rather than printed as code. */
+.tf-message {
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-r-control);
+  background: var(--crm-card);
+}
+
+.tf-message > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-height: 44px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--crm-ink);
+  list-style: none;
+}
+
+.tf-message > summary::-webkit-details-marker {
+  display: none;
+}
+
+.tf-message > summary::before {
+  content: "▸";
+  color: var(--crm-muted);
+}
+
+.tf-message[open] > summary::before {
+  content: "▾";
+}
+
+.tf-message > summary .crm-subtitle {
+  margin: 0;
+  font-weight: 500;
+}
+
+.tf-message__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--crm-border);
+}
+
+.tf-message__groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.tf-message__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-r-control);
+  background: var(--crm-page);
+}
+
+.tf-message__group h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--crm-muted);
+}
+
+.tf-message__group--all {
+  background: var(--crm-card);
+}
+
+.tf-message__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+
+.tf-message__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 2fr) minmax(0, 3fr);
+  gap: 2px 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--crm-border);
+  font-size: 13px;
+}
+
+.tf-message__row:last-child {
+  border-bottom: 0;
+}
+
+.tf-message__row dt {
+  color: var(--crm-muted);
+}
+
+.tf-message__row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--crm-ink);
 }
 
 .tf-block {

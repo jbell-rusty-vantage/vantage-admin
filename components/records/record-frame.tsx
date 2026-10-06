@@ -235,6 +235,7 @@ export function RecordDrawer({
   children,
   tools,
   testId,
+  wide = false,
 }: {
   title: ReactNode;
   /** The dialog's accessible name when the title is not plain text. */
@@ -243,9 +244,11 @@ export function RecordDrawer({
   children: ReactNode;
   tools?: ReactNode;
   testId?: string;
+  /** A working sheet with numbered blocks (720 px) rather than a record panel (480 px). */
+  wide?: boolean;
 }) {
   return (
-    <div className="crm-drawer" role="dialog" aria-label={label ?? (typeof title === "string" ? title : undefined)} data-testid={testId}>
+    <div className={wide ? "crm-drawer crm-drawer--wide" : "crm-drawer"} role="dialog" aria-label={label ?? (typeof title === "string" ? title : undefined)} data-testid={testId}>
       <CrmCard
         title={title}
         tools={

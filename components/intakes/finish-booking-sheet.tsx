@@ -48,7 +48,7 @@ import { parseMoneyInput } from "@/lib/booking/parseMoneyInput";
 import { splitBinderEvenly } from "@/lib/booking/splitBinderEvenly";
 import { invalidateGranotLifecycleCommandViews } from "@/lib/query/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
-import { RawDrawer } from "./granot-booking-statement";
+import { GranotMessage } from "./granot-message";
 import { granotSentLine, readGranotStatement } from "./granot-statement-reading";
 import {
   INTAKE_COMMANDS_OFF,
@@ -74,8 +74,8 @@ export function FinishBookingSheet({ caseId, onClose }: { caseId: string; onClos
   const open = data?.state === "open";
 
   return (
-    <RecordDrawer title={data ? COPY.title(data.job_no) : COPY.titleLoading} onClose={onClose} testId="finish-booking-sheet">
-      <div className="crm-stack" style={{ padding: "4px 2px 16px" }}>
+    <RecordDrawer title={data ? COPY.title(data.job_no) : COPY.titleLoading} onClose={onClose} testId="finish-booking-sheet" wide>
+      <div className="crm-stack tf-sheet">
         {notice ? (
           <Notice icon={CircleCheck} tone="green" title={notice} testId="finish-booking-notice">
             <button type="button" className="crm-button crm-button--primary crm-button--sm" onClick={onClose}>
@@ -289,7 +289,7 @@ function FinishForm({ detail, onFiled }: { detail: GranotLifecycleCaseDetail; on
       {sent.data && statement ? (
         <div className="tf-sent" data-testid="finish-booking-sent">
           <strong>{COPY.whatGranotSent}:</strong> {granotSentLine(statement) || sent.data.job_no}
-          <RawDrawer title={`▸ ${COPY.exactMessage}`} hint={COPY.exactMessageHint} value={sent.data.granot_statement} />
+          <GranotMessage statement={statement} raw={sent.data.granot_statement} />
         </div>
       ) : null}
 

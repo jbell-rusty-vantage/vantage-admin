@@ -52,7 +52,7 @@ export function FactDrawer({ events, onClose }: { events: DailyOperationsEventIt
             </div>
           </div>
           <div className="crm-drawer__scroll">
-            <div className="crm-stack" style={{ padding: 14 }}>
+            <div className="crm-stack" style={{ padding: "8px 0 4px" }}>
               {events.length === 0 ? (
                 <p className="crm-empty">{DAILY_COPY.panelsEmpty}</p>
               ) : (
