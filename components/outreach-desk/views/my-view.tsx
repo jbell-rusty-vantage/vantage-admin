@@ -24,9 +24,12 @@ import {
   cadenceMetricText,
   channelStatus,
   countText,
+  goalCoverageNote,
+  goalScopeCounts,
   leadAgeText,
   moveDateRange,
   nyDate,
+  otherOutboundTitle,
   overdueByText,
   percentText,
   relativeDay,
@@ -74,6 +77,9 @@ function GoalCard({
           ? c.toGoal(rep.remaining)
           : c.waitingCapture;
   const scope = rep?.count_scope === "eligible_new_quoted" ? deskCopy.team.goals.scopeEligible : deskCopy.team.goals.scopeAll;
+  // Both counts ("97 outbound · 12 to enrolled Leads", C1b) and capture coverage in words (partial vs unknown).
+  const scopes = rep ? goalScopeCounts(rep) : null;
+  const coverage = rep ? goalCoverageNote(rep.coverage) : null;
   // The rep's cadence counts at `as_of` (Leads, call attempts, SMS sends); unavailable shows "—" with the reason.
   const metric = (value: SalesOutreachRepDayDto["overdue_leads"] | SalesOutreachRepDayDto["calls_due_today"] | null, label: string, tone: string) => {
     const shown = value ? cadenceMetricText(value) : null;
@@ -120,12 +126,28 @@ function GoalCard({
                   <span aria-hidden="true"> · </span>
                   {scope}
                   {rep.actual_awaiting_confirmation ? <span className="od-text-muted" title={deskCopy.team.goals.awaitingTitle}> · {deskCopy.team.goals.awaiting(rep.actual_awaiting_confirmation)}</span> : null}
-                  {rep.other_outbound.count ? <span className="od-text-muted"> · {deskCopy.team.cards.otherOutbound(String(rep.other_outbound.count))}</span> : null}
+                  {rep.other_outbound.count ? (
+                    <span className="od-text-muted" title={otherOutboundTitle(rep.other_outbound, rep.count_scope)} data-testid="goal-other-outbound">
+                      {" "}
+                      · {deskCopy.team.cards.otherOutbound(String(rep.other_outbound.count))}
+                    </span>
+                  ) : null}
                 </p>
               </div>
             ) : null}
           </div>
         )}
+        {goalMetricsEnabled && rep && (scopes || coverage) ? (
+          <p className="od-goal__scopes" data-testid="goal-scope-counts">
+            {scopes ? <span title={scopes.title}>{scopes.text}</span> : null}
+            {scopes && coverage ? <span aria-hidden="true"> · </span> : null}
+            {coverage ? (
+              <span className="od-text-amber" title={coverage.title}>
+                {coverage.text}
+              </span>
+            ) : null}
+          </p>
+        ) : null}
         {rep && failure ? failure : null}
       </div>
       <div className="od-goal__metrics">

@@ -11,6 +11,7 @@ import type {
   SalesOutreachChannelDto,
   SalesOutreachDueTodayMetric,
   SalesOutreachFreshness,
+  SalesOutreachOtherOutboundBreakdown,
   SalesOutreachQueueRowDto,
   SalesOutreachRepDayDto,
 } from "@/lib/api/salesOutreach";
@@ -203,6 +204,109 @@ export function repGoalText(rep: Pick<SalesOutreachRepDayDto, "actual_confirmed"
  */
 export function repZeroActivityTitle(rep: Pick<SalesOutreachRepDayDto, "actual_basis" | "actual_confirmed">): string | undefined {
   return rep.actual_basis === "no_activity_recorded" && rep.actual_confirmed === 0 ? deskCopy.team.goals.noActivityTitle : undefined;
+}
+
+/** One count under a named scope: "97 outbound", "12 to enrolled Leads"; a pending count reads "Pending" in place of the number. */
+export function scopeCountText(scope: string, value: number | null | undefined): string {
+  const g = deskCopy.team.goals;
+  const words = Object.hasOwn(g.scopeCount, scope) ? g.scopeCount[scope]! : g.scopeCountFallback;
+  return words(countText(value));
+}
+
+function scopeCountsTitle(headlineScope: string): string {
+  const g = deskCopy.team.goals;
+  return Object.hasOwn(g.scopeCountsTitle, headlineScope) ? g.scopeCountsTitle[headlineScope]! : g.scopeCountsTitleFallback;
+}
+
+/**
+ * The secondary count (lifecycle repair C1b) on its own: "12 to enrolled Leads", with a tooltip naming which count is
+ * the goal's. Null when the server sends no other scope (a row written before both counts were stored, a mixed day,
+ * an older server). A null count inside it is pending ("Pending to enrolled Leads"), never 0.
+ */
+export function alternateCountText(
+  headlineScope: string | null | undefined,
+  alternate: { count_scope: string; actual: number | null } | null | undefined,
+): { text: string; title: string } | null {
+  if (!alternate) return null;
+  return { text: scopeCountText(alternate.count_scope, alternate.actual), title: scopeCountsTitle(headlineScope ?? "") };
+}
+
+/**
+ * Both counts of a rep-day, headline first: "97 outbound · 12 to enrolled Leads". The headline is `actual_confirmed`
+ * under the configured `count_scope` (the one the goal uses); the other is `alternate_scope`. Null without one.
+ */
+export function goalScopeCounts(
+  rep: Pick<SalesOutreachRepDayDto, "count_scope" | "actual_confirmed" | "alternate_scope">,
+): { text: string; title: string } | null {
+  const alternate = alternateCountText(rep.count_scope, rep.alternate_scope ? { count_scope: rep.alternate_scope.count_scope, actual: rep.alternate_scope.actual_confirmed } : null);
+  if (!alternate) return null;
+  return { text: `${scopeCountText(rep.count_scope, rep.actual_confirmed)} · ${alternate.text}`, title: alternate.title };
+}
+
+/**
+ * A rep-day's call capture coverage in words: `partial` (behind the clock, the counts can still grow) and `unknown`
+ * (capture hasn't reported the day) read differently; `complete` says nothing.
+ */
+export function goalCoverageNote(coverage: Pick<SalesOutreachRepDayDto["coverage"], "state" | "known_complete_through">): { text: string; title: string } | null {
+  const copy = deskCopy.team.goals.coverageStates;
+  if (coverage.state === "complete") return null;
+  if (coverage.state === "partial") return { text: copy.partial, title: copy.partialTitle(coverage.known_complete_through ? absoluteTime(coverage.known_complete_through) : null) };
+  return { text: copy.unknown, title: copy.unknownTitle };
+}
+
+/**
+ * "Other outbound" by reason, largest first (ties in the server's bucket order), zero buckets left out:
+ * `[{reason, count, words}]`. A bucket this desk has no words for reads "another reason" and is reported.
+ */
+export function otherOutboundParts(breakdown: SalesOutreachOtherOutboundBreakdown | null | undefined): { reason: string; count: number; words: string }[] {
+  if (!breakdown) return [];
+  const g = deskCopy.team.goals;
+  const parts: { reason: string; count: number; words: string }[] = [];
+  for (const [reason, value] of Object.entries(breakdown)) {
+    if (typeof value !== "number" || value <= 0) continue;
+    let words = Object.hasOwn(g.otherReasons, reason) && reason !== "eligible" ? g.otherReasons[reason] : undefined;
+    if (!words) {
+      reportUnknownDeskCode({ kind: "association_reason", code: null, value: reason });
+      words = g.otherReasonFallback;
+    }
+    parts.push({ reason, count: value, words });
+  }
+  // Stable: equal counts keep the server's key order.
+  return parts.sort((a, b) => b.count - a.count);
+}
+
+/**
+ * The tooltip on an "Other outbound: N" figure: one line per reason ("Other outbound by reason" / "51 lead not on the
+ * desk" / …), or why there is none yet (a row written before reasons were stored).
+ */
+export function otherOutboundTitle(other: { count: number | null; breakdown?: SalesOutreachOtherOutboundBreakdown | null }, headlineScope: string | null | undefined): string {
+  const g = deskCopy.team.goals;
+  const footnote = otherFootnoteForScope(headlineScope);
+  if (!other.breakdown) return other.count ? `${footnote}\n${g.otherBreakdownPending}` : footnote;
+  const lines = otherOutboundParts(other.breakdown).map((part) => g.otherBreakdownPart(part.count, part.words));
+  return lines.length ? `${g.otherBreakdownTitle}:\n${lines.join("\n")}\n\n${footnote}` : footnote;
+}
+
+/** What "Other outbound" means under the day's headline scope (whether it is part of the goal count). */
+export function otherFootnoteForScope(headlineScope: string | null | undefined): string {
+  const g = deskCopy.team.goals;
+  return headlineScope && Object.hasOwn(g.otherFootnoteByScope, headlineScope) ? g.otherFootnoteByScope[headlineScope]! : g.otherFootnote;
+}
+
+/**
+ * The Daily call goals footnote's Other outbound part: what it means under the headline scope, then the team breakdown
+ * in words ("Other outbound by reason: 64 lead not on the desk, 38 before the desk started on the lead, …."). Empty when
+ * the team has no Other outbound calls.
+ */
+export function otherOutboundFootnote(
+  headlineScope: string | null | undefined,
+  total: number | null,
+  breakdown: SalesOutreachOtherOutboundBreakdown | null | undefined,
+): string | null {
+  if (!total) return null;
+  const g = deskCopy.team.goals;
+  const parts = otherOutboundParts(breakdown).map((part) => g.otherBreakdownPart(part.count, part.words));
+  return parts.length ? `${otherFootnoteForScope(headlineScope)} ${g.otherBreakdownFoot(parts.join(", "))}` : otherFootnoteForScope(headlineScope);
 }
 
 /** The progress cell: "Goal reached" (green), "64%" or "Pending". */

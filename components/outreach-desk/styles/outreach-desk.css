@@ -1228,6 +1228,18 @@
   font-size: 12.5px;
 }
 
+/* Card 1's secondary count ("246 to enrolled Leads") on its own line under the goal caption (ADM-2). */
+.od-summary__alt {
+  flex-basis: 100%;
+}
+
+/* Both counts ("97 outbound · 12 to enrolled Leads") and capture coverage under the goal row (lifecycle repair ADM-2). */
+.od-goal__scopes {
+  margin: 0;
+  color: var(--od-muted);
+  font-size: 12.5px;
+}
+
 .od-goal__off {
   margin: 4px 0 0;
   color: var(--od-muted);

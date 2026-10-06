@@ -122,6 +122,8 @@ test("a server queue row with A2 verification round-trips with no field dropped 
   row.sms = { ...(row.sms as object), verification: null };
   const second = data.rows[1] as Record<string, unknown>;
   second.sms = { ...(second.sms as object), verification: { state: "verified", verified_through: "2026-10-05T14:57:00.000Z", unverified_since: null } };
+  // The A2 server examples carry `verification` on every channel; a server before A2 sent none.
+  delete (second.call as Record<string, unknown>).verification;
   const { result, events } = collectUnknown(() => salesOutreachEnvelope(salesOutreachQueueSchema).parse(body));
   assert.deepEqual(events, []);
   assert.deepEqual(result, body, "verification is kept, absent stays absent");
@@ -307,7 +309,22 @@ test("the Overdue card names unassigned overdue leads when the server knows them
   assert.equal(unassignedCaption({ count: 3, overdue: { value: null, unknown_reason: "coverage_incomplete" } }), "3 unassigned");
   assert.equal(unassignedCaption({ count: 0, overdue: { value: 0, unknown_reason: null } }), null);
   assert.equal(unassignedCaption({ count: null, overdue: { value: 2, unknown_reason: null } }), null);
-  // The server example (1 unassigned, 1 overdue) renders both.
+  // The A2 server example (1 unassigned, 0 overdue once coverage proves it) reads the count alone; with an overdue it
+  // names both.
   const team = salesOutreachEnvelope(salesOutreachTeamSchema).parse(readServerExample("team.owner.cadence-enforcement.json"));
-  assert.equal(unassignedCaption(team.data.unassigned), "1 unassigned · 1 overdue");
+  assert.deepEqual(team.data.unassigned, { count: 1, overdue: { value: 0, unknown_reason: null } });
+  assert.equal(unassignedCaption(team.data.unassigned), "1 unassigned");
+  assert.equal(unassignedCaption({ ...team.data.unassigned, overdue: { value: 1, unknown_reason: null } }), "1 unassigned · 1 overdue");
+});
+
+test("the server's awaiting-capture queue example: verified overdue rows read red, unverified ones amber 'not yet verified'", () => {
+  const queue = salesOutreachEnvelope(salesOutreachQueueSchema).parse(readServerExample("queue.owner.awaiting-capture.json")).data;
+  const tones = queue.rows.map((row) => channelStatus(row.call, queue.as_of, "call").tone);
+  assert.deepEqual(tones.slice(0, 2), ["red", "red"], "verified overdue");
+  assert.deepEqual(tones.slice(2, 4), ["amber", "amber"], "unverified due");
+  for (const row of queue.rows.slice(2, 4)) {
+    assert.equal(isUnverified(row.call), true);
+    assert.equal(overdueByText(row.call, queue.as_of), null, "no overdue duration while unverified");
+    assert.match(verificationNote(row.call, queue.as_of)!.text, /^Due — not yet verified \(activity known through /);
+  }
 });

@@ -20,6 +20,7 @@ import type {
   SalesOutreachEnrollmentCandidatesDto,
   SalesOutreachEnrollmentReportDto,
   SalesOutreachFreshness,
+  SalesOutreachOtherOutboundBreakdown,
   SalesOutreachQueueRowDto,
   SalesOutreachRepDayDto,
   SalesOutreachRepDaysDto,
@@ -164,16 +165,43 @@ export function syntheticCapabilities(role: SalesOutreachRole, variant: Syntheti
 // Rep days and the team
 // ---------------------------------------------------------------------------------------------
 
-type GoalSpec = { key: SyntheticAgentKey; actual: number; awaiting: number; overdue: number; noGoal?: boolean };
+/**
+ * `other` (lifecycle repair C8) is the rep's "Other outbound" by reason; with the configured `all_outbound` scope the
+ * headline counts every call and the secondary count (C1b `alternate_scope`, "to enrolled Leads") is the headline
+ * minus Other outbound, the server's rule (`unattributed = confirmed_all − confirmed_eligible`).
+ */
+type GoalSpec = {
+  key: SyntheticAgentKey;
+  actual: number;
+  awaiting: number;
+  overdue: number;
+  noGoal?: boolean;
+  other?: Partial<SalesOutreachOtherOutboundBreakdown>;
+};
 const GOAL_SPECS: GoalSpec[] = [
-  { key: "alex", actual: 64, awaiting: 1, overdue: 8 },
-  { key: "jamie", actual: 108, awaiting: 0, overdue: 2 },
-  { key: "sam", actual: 83, awaiting: 2, overdue: 3 },
-  { key: "casey", actual: 22, awaiting: 0, overdue: 5 },
+  { key: "alex", actual: 64, awaiting: 1, overdue: 8, other: { lead_not_enrolled: 7, before_activation: 3, no_lead: 2 } },
+  { key: "jamie", actual: 108, awaiting: 0, overdue: 2, other: { lead_not_enrolled: 6, before_activation: 3, no_lead: 1, lead_closed: 1 } },
+  { key: "sam", actual: 83, awaiting: 2, overdue: 3, other: { lead_not_enrolled: 2, no_lead: 1, ambiguous: 1 } },
+  { key: "casey", actual: 22, awaiting: 0, overdue: 5, other: { before_activation: 2, not_new_quoted: 1, lead_not_enrolled: 1 } },
   { key: "drew", actual: 0, awaiting: 0, overdue: 0, noGoal: true },
 ];
 
 const cadenceOff = { value: null, unknown_reason: "cadence_disabled" as const };
+
+/** A full breakdown (every server bucket, zeros included) from a spec's non-zero reasons. */
+function otherBreakdown(other: GoalSpec["other"]): SalesOutreachOtherOutboundBreakdown {
+  return { no_lead: 0, lead_not_enrolled: 0, lead_closed: 0, before_activation: 0, ambiguous: 0, not_new_quoted: 0, unknown: 0, ...other };
+}
+
+function breakdownTotal(breakdown: SalesOutreachOtherOutboundBreakdown): number {
+  return Object.values(breakdown).reduce((sum, value) => sum + value, 0);
+}
+
+function sumBreakdowns(all: SalesOutreachOtherOutboundBreakdown[]): SalesOutreachOtherOutboundBreakdown {
+  const total = otherBreakdown({});
+  for (const one of all) for (const [key, value] of Object.entries(one)) total[key] = (total[key] ?? 0) + value;
+  return total;
+}
 
 /**
  * Rep-day call coverage (lifecycle repair C0): goal call coverage against `as_of` − the today coverage tolerance
@@ -194,6 +222,8 @@ function repDay(spec: GoalSpec, variant: SyntheticVariant): SalesOutreachRepDayD
   const agent = SYNTHETIC_AGENTS[spec.key];
   const goal = spec.noGoal ? 0 : 100;
   const enforcement = variant === "desk";
+  const other = otherBreakdown(spec.other);
+  const otherCount = breakdownTotal(other);
   return {
     agent_id: agent.id,
     agent_name: agent.name,
@@ -217,7 +247,13 @@ function repDay(spec: GoalSpec, variant: SyntheticVariant): SalesOutreachRepDayD
     remaining: Math.max(0, goal - spec.actual),
     progress: goal > 0 ? Math.min(1, Number((spec.actual / goal).toFixed(4))) : null,
     goal_reached: goal > 0 ? spec.actual >= goal : false,
-    other_outbound: { count: spec.key === "sam" ? 4 : 0, label: "Other outbound" },
+    other_outbound: { count: otherCount, label: "Other outbound", breakdown: other },
+    alternate_scope: {
+      count_scope: "eligible_new_quoted",
+      count_scope_label: "Outbound calls (New/Quoted leads)",
+      actual_confirmed: spec.actual - otherCount,
+      actual_awaiting_confirmation: spec.awaiting,
+    },
     coverage: { ...REP_DAY_COVERAGE, gaps: [] },
     unknown_reason: null,
     projection_revision: 57,
@@ -267,9 +303,18 @@ export function syntheticTeam(input: { role: Exclude<SalesOutreachRole, "rep">; 
     goals: {
       count_scope: "all_outbound",
       count_scope_label: "Outbound calls",
-      outbound_calls: { actual, goal, progress: Math.min(1, Number((actual / goal).toFixed(4))), incomplete: false, pending_agent_ids: [], unknown_reason: null },
+      outbound_calls: {
+        actual,
+        goal,
+        progress: Math.min(1, Number((actual / goal).toFixed(4))),
+        incomplete: false,
+        pending_agent_ids: [],
+        unknown_reason: null,
+        alternate: { count_scope: "eligible_new_quoted", actual: rows.reduce((sum, row) => sum + (row.alternate_scope?.actual_confirmed ?? 0), 0) },
+      },
       reps_at_goal: { count: goalReps.filter((spec) => spec.actual >= 100).length, of: goalReps.length, pending: 0 },
-      other_outbound_total: 4,
+      other_outbound_total: rows.reduce((sum, row) => sum + (row.other_outbound.count ?? 0), 0),
+      other_outbound_breakdown: sumBreakdowns(rows.map((row) => row.other_outbound.breakdown ?? otherBreakdown({}))),
       roster_size: GOAL_SPECS.length,
     },
     goals_unknown_reason: null,
