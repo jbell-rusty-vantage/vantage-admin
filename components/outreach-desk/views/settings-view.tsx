@@ -1,22 +1,23 @@
 "use client";
 /**
  * Settings (ADM-6). Role-scoped:
- * - Owner: desk controls and the intake gate, roster and daily goals, closures, contact restrictions (the inert
- *   AI-origin rows stay active and blocking until confirmed or lifted, P06c), enrollment ("Not enrolled — older" with
- *   a one-click Enroll), and attendance.
+ * - Owner: desk controls and the intake gate, roster and daily goals, closures, the configuration editor (lifecycle
+ *   repair ADM-5: goal counts, capture timing, lead re-evaluation and lead-change intake tunables, new-lead defaults,
+ *   the read-only priority map, lead rules; `./configuration-editor`), contact restrictions (the inert AI-origin rows
+ *   stay active and blocking until confirmed or lifted, P06c), enrollment ("Not enrolled — older" with a one-click
+ *   Enroll), and attendance.
  * - Manager: attendance only (prospective; the server refuses past days, P09b).
  * - Rep: a short note; reps have no desk settings.
  * Every write sends the revision it read and an Idempotency-Key. Configuration writes replace the whole value
  * (`PATCH /configuration`), so the Owner always edits the value just read; a stale write is a 409.
  */
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
-import { CalendarX2, ShieldAlert, SlidersHorizontal, UserCheck, Users } from "lucide-react";
+import { CalendarX2, Gauge, Inbox, ListOrdered, ShieldAlert, SlidersHorizontal, Target, Timer, ToggleRight, UserCheck, UserPlus, Users } from "lucide-react";
 import {
   isSalesOutreachApiError,
   newIdempotencyKey,
   salesOutreachCommand,
-  salesOutreachConfigurationPatchResponseSchema,
   salesOutreachConfigurationReadSchema,
   salesOutreachEnrollmentApplySchema,
   salesOutreachEnrollmentCandidatesSchema,
@@ -27,7 +28,6 @@ import {
   salesOutreachRestrictionsResponseSchema,
   type SalesOutreachCapabilitiesDto,
   type SalesOutreachConfigurationReadDto,
-  type SalesOutreachConfigurationValue,
   type SalesOutreachEnrollmentCandidate,
   type SalesOutreachRestrictionDto,
 } from "@/lib/api/salesOutreach";
@@ -36,9 +36,19 @@ import { useDayOverrideCommand } from "../data/use-desk-commands";
 import { retryDeskRead, useTeam } from "../data/use-desk-reads";
 import type { DeskViewer } from "../shell/desk-shell";
 import { absoluteTime, addDays, nyDate, shortDateLabel } from "../lib/format";
-import { CONFIGURATION_CONTROL_KEYS, configurationPatchBody, withDefaultGoal, withHolidays, withSwitchToggled, withWorkingDayToggled, type ConfigurationSwitchKey } from "../lib/configuration-patch";
+import { CONFIGURATION_CONTROL_KEYS, withDefaultGoal, withHolidays, withSwitchToggled, withWorkingDayToggled, type ConfigurationSwitchKey } from "../lib/configuration-patch";
 import { deskCopy } from "../outreach-desk-copy";
 import { DeskHeader, IconBadge, SkeletonLine } from "../primitives";
+import {
+  ConfigurationWriteError,
+  GoalCountsEditor,
+  IntakeDefaultsEditor,
+  LeadRulesEditor,
+  PriorityMapView,
+  SettingsPanel as Panel,
+  TunablesEditor,
+  useConfigurationWrite,
+} from "./configuration-editor";
 
 const s = deskCopy.settings;
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -53,49 +63,12 @@ function errorText(error: unknown): string | null {
   return deskCopy.errors.failed(null);
 }
 
-function Panel({ icon, title, hint, children, testId }: { icon: typeof Users; title: string; hint?: string; children: ReactNode; testId?: string }) {
-  const id = useId();
-  return (
-    <section className="od-card od-settings" aria-labelledby={id} data-testid={testId}>
-      <div className="od-settings__head">
-        <IconBadge icon={icon} tone="blue" size={40} />
-        <div>
-          <h2 id={id} className="od-card__title">
-            {title}
-          </h2>
-          {hint ? <p className="od-card__subtitle">{hint}</p> : null}
-        </div>
-      </div>
-      <div className="od-settings__body">{children}</div>
-    </section>
-  );
-}
-
 function useConfiguration(enabled: boolean) {
   return useQuery({
     queryKey: outreachKeys.configuration(),
     queryFn: ({ signal }) => salesOutreachRead(salesOutreachPaths.configuration(), salesOutreachConfigurationReadSchema, signal),
     enabled,
     retry: retryDeskRead,
-  });
-}
-
-/**
- * Replaces the configuration value (the server validates it and fails closed). `value` is always an edit of the
- * value just read (`../lib/configuration-patch`), so keys this admin does not know are sent back unchanged.
- */
-function useConfigurationWrite() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ config, value }: { config: SalesOutreachConfigurationReadDto; value: SalesOutreachConfigurationValue }) =>
-      salesOutreachCommand(
-        "PATCH",
-        salesOutreachPaths.configuration(),
-        configurationPatchBody(config, value),
-        newIdempotencyKey("configuration"),
-        salesOutreachConfigurationPatchResponseSchema,
-      ),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: outreachKeys.all as QueryKey }),
   });
 }
 
@@ -125,7 +98,7 @@ function ControlsPanel({ config }: { config: SalesOutreachConfigurationReadDto }
       <p className="od-text-muted od-small">
         {deskCopy.settingsExtra.policy(config.value?.cadence.policy_version ?? null, config.version, config.updated_at ? absoluteTime(config.updated_at) : null)}
       </p>
-      {write.error ? <p className="od-lead__error" role="alert">{errorText(write.error)}</p> : null}
+      <ConfigurationWriteError error={write.error} />
     </>
   );
 }
@@ -196,7 +169,7 @@ function RosterPanel({ config, names }: { config: SalesOutreachConfigurationRead
           </tbody>
         </table>
       </div>
-      {write.error ? <p className="od-lead__error" role="alert">{errorText(write.error)}</p> : null}
+      <ConfigurationWriteError error={write.error} />
     </>
   );
 }
@@ -232,7 +205,7 @@ function ClosuresPanel({ config, today }: { config: SalesOutreachConfigurationRe
           {s.save}
         </button>
       </div>
-      {write.error ? <p className="od-lead__error" role="alert">{errorText(write.error)}</p> : null}
+      <ConfigurationWriteError error={write.error} />
     </>
   );
 }
@@ -463,6 +436,41 @@ function AttendancePanel({ capabilities, reps, today }: { capabilities: SalesOut
   );
 }
 
+/**
+ * The ADM-5 editor panels. Keyed by the configuration revision in `SettingsView`, so drafts reset to the stored
+ * value after every committed write (or a write elsewhere).
+ */
+function ConfigurationEditor({ config, today }: { config: SalesOutreachConfigurationReadDto; today: string }) {
+  const value = config.value;
+  if (!value) return null;
+  const e = deskCopy.configEditor;
+  return (
+    <>
+      <Panel icon={Target} title={e.goalCounts.title} hint={e.goalCounts.hint} testId="settings-goal-counts">
+        <GoalCountsEditor config={config} value={value} today={today} />
+      </Panel>
+      <Panel icon={ToggleRight} title={e.rules.title} hint={e.rules.hint} testId="settings-lead-rules">
+        <LeadRulesEditor config={config} value={value} />
+      </Panel>
+      <Panel icon={UserPlus} title={e.intake.title} hint={e.intake.hint} testId="settings-intake-defaults">
+        <IntakeDefaultsEditor config={config} value={value} />
+      </Panel>
+      <Panel icon={ListOrdered} title={e.priorityMap.title} hint={e.priorityMap.hint} testId="settings-priority-map">
+        <PriorityMapView value={value} />
+      </Panel>
+      <Panel icon={Timer} title={e.capture.title} hint={e.capture.hint} testId="settings-capture-timing">
+        <TunablesEditor config={config} value={value} group="capture" />
+      </Panel>
+      <Panel icon={Gauge} title={e.drain.title} hint={e.drain.hint} testId="settings-evaluate-drain">
+        <TunablesEditor config={config} value={value} group="drain" />
+      </Panel>
+      <Panel icon={Inbox} title={e.migration.title} hint={e.migration.hint} testId="settings-lead-change-intake">
+        <TunablesEditor config={config} value={value} group="migration" />
+      </Panel>
+    </>
+  );
+}
+
 export function SettingsView({ viewer, capabilities }: { viewer: DeskViewer; capabilities: SalesOutreachCapabilitiesDto }) {
   const owner = viewer.role === "owner";
   const coordinator = viewer.role !== "rep";
@@ -503,6 +511,7 @@ export function SettingsView({ viewer, capabilities }: { viewer: DeskViewer; cap
               <Panel icon={CalendarX2} title={deskCopy.settingsExtra.closures} testId="settings-closures">
                 <ClosuresPanel config={config.data} today={today} />
               </Panel>
+              {config.data.value ? <ConfigurationEditor key={config.data.revision} config={config.data} today={today} /> : null}
             </>
           ) : (
             <p className="od-lead__error">{errorText(config.error)}</p>

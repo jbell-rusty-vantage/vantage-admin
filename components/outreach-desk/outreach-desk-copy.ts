@@ -489,7 +489,7 @@ export const deskCopy = {
   },
   settings: {
     title: "Settings",
-    ownerSubtitle: "Desk controls, goals and roster, contact restrictions and enrollment. Owner only.",
+    ownerSubtitle: "Desk controls, goals and roster, the desk configuration, contact restrictions and enrollment. Owner only.",
     managerSubtitle: "Attendance for today and upcoming days.",
     repSubtitle: "Your desk settings.",
     controls: "Desk controls",
@@ -551,6 +551,144 @@ export const deskCopy = {
     chooseRep: "Choose a rep",
     date: "Date",
     kind: "Type",
+  },
+  /**
+   * The Owner configuration editor (lifecycle repair ADM-5). Keys the server added after revision 5 are optional: an
+   * absent key runs on the server's code default, shown as "Default (n)". Server codes never show raw.
+   */
+  configEditor: {
+    save: "Save",
+    saved: "Saved.",
+    useDefault: "Leave blank for the default.",
+    defaultValue: (n: number, unit: string) => `Default (${n} ${unit})`,
+    setValue: (n: number, unit: string) => `Set to ${n} ${unit}`,
+    range: (min: number, max: number) => `${min}–${max}`,
+    invalid: (label: string, min: number, max: number) => `${label}: enter a whole number from ${min} to ${max}, or leave it blank for the default.`,
+    refusedSummary: "The server didn't accept this change:",
+    conflict: "The configuration changed while you were editing. The latest version is loaded — check it and try again.",
+    units: { minutes: "min", seconds: "s", jobs: "jobs", passes: "pages", loops: "at once", leads: "leads" } as Record<string, string>,
+    goalCounts: {
+      title: "Goal counts",
+      hint: "Which calls count toward each rep's daily goal. A change starts on a later day; days that have started keep their count.",
+      scopes: {
+        all_outbound: "Every outbound call",
+        eligible_new_quoted: "Calls to enrolled New or Quoted leads",
+      } as Record<string, string>,
+      scopeFallback: "A count this admin doesn't know yet",
+      none: "No schedule: every outbound call counts (the default).",
+      today: (label: string) => `Today the goal counts: ${label}.`,
+      todayDefault: "Today the goal counts every outbound call (the default).",
+      columns: { from: "From", counts: "Counts", status: "Status" },
+      states: { inEffect: "In effect", ended: "Replaced", upcoming: "Upcoming" },
+      locked: "Started days can't change",
+      from: "Starting on",
+      counts: "Count",
+      add: "Add",
+      remove: "Remove",
+      removeEntry: (day: string) => `Remove the count starting ${day}`,
+    },
+    capture: {
+      title: "Capture timing",
+      hint: "How long RingCentral call capture may lag before goal counts and freshness say so.",
+    },
+    drain: {
+      title: "Lead re-evaluation",
+      hint: "The every-minute run that re-checks leads whose cadence changed. Raise these when due leads wait more than a few minutes at 8 PM or midnight.",
+    },
+    migration: {
+      title: "Lead-change intake",
+      hint: "How much of the Granot lead-change feed each run reads, and how many lead decisions it re-checks.",
+    },
+    tunables: {
+      call_settlement_allowance_minutes: {
+        label: "Call settlement allowance",
+        hint: "How long RingCentral may take to settle a finished call before capture counts as behind.",
+      },
+      today_coverage_tolerance_minutes: {
+        label: "Today's coverage tolerance",
+        hint: "How far capture may trail the clock before today's goal counts read “catching up”. Must be more than the settlement allowance plus 15 minutes.",
+      },
+      capture_freshness_tolerance_minutes: {
+        label: "Capture freshness",
+        hint: "Age of the newest confirmed call at which call capture stops reading as fresh.",
+      },
+      webhook_silence_minutes: {
+        label: "Webhook silence",
+        hint: "How long RingCentral may stay silent before call freshness warns about it.",
+      },
+      evaluate_drain_max_jobs: { label: "Re-checks per run", hint: "Most lead re-checks one run handles." },
+      evaluate_drain_budget_seconds: { label: "Time per run", hint: "Time one run may spend before it stops for the next minute." },
+      evaluate_drain_concurrency: { label: "Re-checks at once", hint: "Re-checks one run handles in parallel." },
+      feed_budget_seconds: { label: "Time per run", hint: "Time one run may spend reading lead changes." },
+      feed_max_passes_per_run: { label: "Pages per run", hint: "Pages of 100 lead changes one run may read when changes pile up." },
+      decision_reconcile_per_run: { label: "Decision re-checks per run", hint: "Lead decisions re-checked per 5-minute run." },
+    } as Record<string, { label: string; hint: string }>,
+    intake: {
+      title: "New lead defaults",
+      hint: "How a lead without a Granot priority yet starts on the desk. While cadence runs, a change the cadence engine can't run is refused.",
+      notInstalled: "Intake defaults aren't installed in this configuration yet.",
+      sources: {
+        website_form: "Website form",
+        best_relocation: "Best Relocation",
+        ringcentral_call: "RingCentral call",
+        manual: "Entered manually",
+        granot_created: "Created in Granot",
+      } as Record<string, string>,
+      rules: { new: "New (cadence starts)", review: "Needs review (no cadence)" } as Record<string, string>,
+      ruleFallback: "A setting this admin doesn't know",
+    },
+    priorityMap: {
+      title: "Granot priority map",
+      hint: "How each Granot priority code places a lead on the desk. Read-only here.",
+      notInstalled: "No priority map is installed in this configuration yet.",
+      columns: { code: "Priority code", workflow: "Desk workflow", closes: "Closes as" },
+      workflows: { new: "New", quoted: "Quoted", discretion: "Rep's discretion", closed: "Closed", none: "No cadence" } as Record<string, string>,
+      closures: {
+        granot_booked: "Booked in Granot",
+        crm_bad_disposition: "Bad lead in Granot",
+        crm_dead_disposition: "Dead lead in Granot",
+      } as Record<string, string>,
+      fallback: "Not known to this admin",
+      unmapped: (workflow: string) => `Any other code: ${workflow}.`,
+      official: (workflow: string) => `An official booking or cancellation: ${workflow}.`,
+    },
+    rules: {
+      title: "Lead rules",
+      hint: "Optional rules from the lifecycle repair. Each is off unless switched on here.",
+      names: {
+        expansion_admission: "Admit leads that become eligible later",
+        no_contact_number: "No phone number → Needs review",
+        call_association: "Credit the one active lead on a shared number",
+      } as Record<string, string>,
+      hints: {
+        expansion_admission:
+          "When an older lead's Granot priority or duplicate status brings it into the backfill window, it joins the desk automatically.",
+        no_contact_number: "A lead with no number to call goes to Needs review, with no cadence, until a number is linked.",
+        call_association:
+          "When a number's lead is closed or not on the desk and exactly one active desk lead shares the number, its calls credit that lead. Changes how All Numbers attributes calls; an Owner decision.",
+      } as Record<string, string>,
+      other: "Set to a value this admin doesn't know; change it on the server.",
+      needsBackfill: "Install the backfill scope (lookback days and upcoming moves) first.",
+    },
+    fields: {
+      count_scope_schedule: "Goal counts",
+      cadence: "Cadence policy",
+      backfill: "Backfill scope",
+      intake: (source: string) => `${source} default`,
+      fallback: "this setting",
+    },
+    issues: {
+      count_scope_not_prospective: "Days that have already started keep their count. Start the new count from tomorrow or later.",
+      engine_policy_unavailable:
+        "The cadence engine can't run with this setting while cadence is on. Keep the native lead sources on New, or switch cadence off first.",
+      coverageBelowSettlement: "Today's coverage tolerance must be more than the call settlement allowance plus 15 minutes.",
+      backfillRequired: "Install the backfill scope (lookback days and upcoming moves) before turning on this rule.",
+      outOfRange: (field: string) => `${field} is outside the range the server accepts.`,
+      notAccepted: (field: string) => `${field} has a value the server doesn't accept.`,
+      failedCheck: (field: string) => `${field} doesn't pass the server's checks.`,
+      unknownKey: "The server doesn't know a setting in this configuration. Reload Settings and try again.",
+      refused: (field: string, code: string) => `The server refused ${field} (code ${code}).`,
+    },
   },
   numbers: {
     subtitle: "Every outside number that called us or that we called, and who it is.",

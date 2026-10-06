@@ -857,6 +857,8 @@ export function syntheticConfigurationValue(variant: SyntheticVariant = "desk"):
       move_date_rule: "review_label_only",
       lead_eligibility_rule: "no_sync_viable_duplicates_excluded",
       precedence_rule: "closure_restriction_schedule_priority",
+      // Production revision 6 (D-C2c on after the C2b mint); the M1 variant predates it.
+      ...(enforcement ? { no_contact_number_rule: "review_no_cadence" } : {}),
     },
     evidence: {
       qualifying_call_rule: "terminal_call_log_attempt",
