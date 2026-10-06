@@ -336,9 +336,31 @@ export const salesOutreachCaptureFreshnessSchema = z.object({
   last_webhook_at: nullableInstant.optional(),
 });
 
+/**
+ * Lifecycle repair C7 (`freshness.sms.pending`): SMS still `pending_identity` (the sending rep is not confirmed) or
+ * `pending_association` (not matched to one lead) over the last `window_days` (7) by event time, summed over the
+ * current rep mailboxes; `mailboxes` lists those with any (≤ 100, by extension; `agent_id` null when the mailbox is no
+ * longer a reviewed rep's). Null while rep SMS capture is off and before the first count.
+ */
+export const salesOutreachSmsPendingSchema = z.object({
+  identity: count,
+  association: count,
+  window_days: z.number().int().min(1),
+  mailboxes: z.array(
+    z.object({
+      extension_id: z.string(),
+      agent_id: salesOutreachAgentIdSchema.nullable(),
+      identity: count,
+      association: count,
+    }),
+  ),
+});
+export type SalesOutreachSmsPending = z.infer<typeof salesOutreachSmsPendingSchema>;
+
 export const salesOutreachFreshnessSchema = z.object({
   calls: salesOutreachCaptureFreshnessSchema,
-  sms: salesOutreachCaptureFreshnessSchema,
+  /** SMS adds `pending` (C7); optional because servers before C7 omit it. The calls block has no such field. */
+  sms: salesOutreachCaptureFreshnessSchema.extend({ pending: salesOutreachSmsPendingSchema.nullable().optional() }),
   granot: z.object({
     state: granotFreshnessStateSchema,
     last_observed_at: nullableInstant,

@@ -14,6 +14,7 @@ import type {
   SalesOutreachOtherOutboundBreakdown,
   SalesOutreachQueueRowDto,
   SalesOutreachRepDayDto,
+  SalesOutreachSmsPending,
 } from "@/lib/api/salesOutreach";
 import { deskCopy } from "../outreach-desk-copy";
 import { reportUnknownDeskCode } from "./unknown-codes";
@@ -186,8 +187,29 @@ export function freshnessChips(freshness: SalesOutreachFreshness): FreshnessChip
       title: granotAge ? deskCopy.freshness.observed(granotAge) : deskCopy.freshness.unknown(deskCopy.freshness.sources.granot),
     },
     captureChip("calls", deskCopy.freshness.sources.calls, freshness.calls),
-    captureChip("sms", deskCopy.freshness.sources.sms, freshness.sms),
+    withSmsPending(captureChip("sms", deskCopy.freshness.sources.sms, freshness.sms), freshness.sms.pending),
   ];
+}
+
+/**
+ * The SMS-pending note (lifecycle repair C7, `freshness.sms.pending`) in words — texts captured in the last
+ * `window_days` whose sending rep is not confirmed yet (`identity`) or that match no single lead yet (`association`) —
+ * or null when none are waiting, the count is null (capture off, not counted yet) or absent (a server before C7).
+ */
+export function smsPendingText(pending: SalesOutreachSmsPending | null | undefined): string | null {
+  if (!pending) return null;
+  const p = deskCopy.freshness.smsPending;
+  const parts = [pending.identity > 0 ? p.identity(pending.identity) : null, pending.association > 0 ? p.association(pending.association) : null].filter(
+    (part): part is string => part !== null,
+  );
+  if (parts.length === 0) return null;
+  return p.line(pending.window_days, parts, p.mailboxes(pending.mailboxes.length));
+}
+
+/** The SMS chip keeps its state, tone and label; its tooltip gains the pending note when any texts are waiting. */
+function withSmsPending(chip: FreshnessChip, pending: SalesOutreachSmsPending | null | undefined): FreshnessChip {
+  const note = smsPendingText(pending);
+  return note ? { ...chip, title: deskCopy.freshness.smsPending.join(chip.title, note) } : chip;
 }
 
 // ---------------------------------------------------------------------------------------------- goals

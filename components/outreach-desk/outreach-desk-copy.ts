@@ -151,6 +151,18 @@ export const deskCopy = {
       mailbox_without_coverage: "a rep SMS mailbox hasn't synced yet",
     } as Record<string, string>,
     reasonFallback: "RingCentral reported a sync problem",
+    /**
+     * Lifecycle repair C7 (`freshness.sms.pending`): texts the desk captured but cannot credit yet, added to the SMS
+     * chip tooltip whenever any are waiting: "… · Last 7 days: 1 text waiting for its sending rep to be confirmed,
+     * 1 text not yet matched to a lead (2 mailboxes)". Nothing is added when none are waiting or the count is absent.
+     */
+    smsPending: {
+      identity: (n: number) => `${plural(n, "text", "texts")} waiting for ${n === 1 ? "its" : "their"} sending rep to be confirmed`,
+      association: (n: number) => `${plural(n, "text", "texts")} not yet matched to a lead`,
+      mailboxes: (n: number) => (n > 1 ? ` (${plural(n, "mailbox", "mailboxes")})` : ""),
+      line: (days: number, parts: string[], mailboxes: string) => `Last ${plural(days, "day", "days")}: ${parts.join(", ")}${mailboxes}`,
+      join: (base: string, note: string) => `${base} · ${note}`,
+    },
   },
   live: {
     updated: "Desk updated",
