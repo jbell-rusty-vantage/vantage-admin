@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 
 /** Wait for full names / phone digits before hitting the API. */
@@ -34,20 +34,28 @@ export function DebouncedSearchInput({
   "aria-label": ariaLabel = "Search",
 }: DebouncedSearchInputProps) {
   const [draftState, setDraftState] = useState({ sourceValue: value, draft: value });
-  const draft = draftState.sourceValue === value ? draftState.draft : value;
+  // The value this input last committed: when it echoes back as `value` (after the URL navigation's delay) the
+  // draft keeps what was typed meanwhile; a value changed elsewhere (Reset, a chip) replaces the draft.
+  const [lastCommit, setLastCommit] = useState<string | null>(null);
+  const echoedOwnCommit = draftState.sourceValue !== value && lastCommit === value.trim();
+  const draft = draftState.sourceValue === value || echoedOwnCommit ? draftState.draft : value;
   const onCommitRef = useRef(onCommit);
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     onCommitRef.current = onCommit;
   }, [onCommit]);
+  const commit = useCallback((next: string) => {
+    setLastCommit(next);
+    onCommitRef.current(next);
+  }, []);
 
   useEffect(() => {
     const nextCommit = getCommittedSearchQuery(draft, minLength);
     const committed = getCommittedSearchQuery(value, minLength);
 
     if (nextCommit === "") {
-      onCommitRef.current("");
+      // A cleared field commits from the change handler, not from here.
       return;
     }
 
@@ -55,7 +63,7 @@ export function DebouncedSearchInput({
       if (value.trim()) {
         timerRef.current = window.setTimeout(() => {
           timerRef.current = null;
-          onCommitRef.current("");
+          commit("");
         }, debounceMs);
         return () => {
           if (timerRef.current !== null) {
@@ -73,7 +81,7 @@ export function DebouncedSearchInput({
 
     timerRef.current = window.setTimeout(() => {
       timerRef.current = null;
-      onCommitRef.current(nextCommit);
+      commit(nextCommit);
     }, debounceMs);
     return () => {
       if (timerRef.current !== null) {
@@ -81,7 +89,7 @@ export function DebouncedSearchInput({
         timerRef.current = null;
       }
     };
-  }, [draft, value, minLength, debounceMs]);
+  }, [draft, value, minLength, debounceMs, commit]);
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key !== "Enter") {
@@ -97,13 +105,18 @@ export function DebouncedSearchInput({
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    onCommitRef.current(nextCommit);
+    commit(nextCommit);
   }
 
   return (
     <Input
       value={draft}
-      onChange={(event) => setDraftState({ sourceValue: value, draft: event.target.value })}
+      onChange={(event) => {
+        const next = event.target.value;
+        setDraftState({ sourceValue: value, draft: next });
+        // Clearing applies at once (no debounce), but only when something was committed.
+        if (!next.trim() && getCommittedSearchQuery(value, minLength)) commit("");
+      }}
       onKeyDown={onKeyDown}
       placeholder={placeholder}
       aria-label={ariaLabel}

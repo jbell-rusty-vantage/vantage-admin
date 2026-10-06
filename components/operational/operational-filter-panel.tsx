@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import type { DateSortConfig, FilterConfig, ResourceConfig } from "@/components/operational/operational-configs";
 import { cn } from "@/lib/utils";
 import type { SelectOption, SortDirection, TableQueryParams } from "@/lib/api/types";
-import type { UrlStateUpdate } from "@/lib/api/url-state";
+import type { UrlStateUpdate, UrlStateUpdateOptions } from "@/lib/api/url-state";
 
 function FilterInput({
   filter,
@@ -83,7 +83,7 @@ function ConfigFilterFields({
 }: {
   fields: FilterConfig[];
   filters: TableQueryParams;
-  update: (next: UrlStateUpdate) => void;
+  update: (next: UrlStateUpdate, options?: UrlStateUpdateOptions) => void;
 }) {
   return (
     <>
@@ -163,7 +163,7 @@ export function GroupedFilterFields({
 }: {
   config: ResourceConfig;
   filters: TableQueryParams;
-  update: (next: UrlStateUpdate) => void;
+  update: (next: UrlStateUpdate, options?: UrlStateUpdateOptions) => void;
   setSort: (field: string, direction: SortDirection) => void;
 }) {
   return (
@@ -180,7 +180,7 @@ export function GroupedFilterFields({
                 <FilterField label={OPERATIONAL_COPY.filters.search}>
                   <DebouncedSearchInput
                     value={String(filters.q ?? "")}
-                    onCommit={(next) => update({ q: next || null })}
+                    onCommit={(next) => update({ q: next || null }, { resetPage: true, replace: true })}
                     placeholder={OPERATIONAL_COPY.filters.searchPlaceholder}
                   />
                 </FilterField>
@@ -240,7 +240,7 @@ export function ActiveFilterChips({
 }: {
   config: ResourceConfig;
   filters: TableQueryParams;
-  update: (next: UrlStateUpdate) => void;
+  update: (next: UrlStateUpdate, options?: UrlStateUpdateOptions) => void;
   reset: () => void;
 }) {
   const chips = getActiveFilterChips(config, filters);
@@ -279,7 +279,7 @@ export function OperationalFilterPanel({
 }: {
   config: ResourceConfig;
   filters: TableQueryParams;
-  update: (next: UrlStateUpdate) => void;
+  update: (next: UrlStateUpdate, options?: UrlStateUpdateOptions) => void;
   setSort: (field: string, direction: SortDirection) => void;
   reset: () => void;
   collapsed: boolean;

@@ -55,6 +55,7 @@ export const PUBLIC_ASSET_PATHS: ReadonlySet<string> = new Set([
   "/vercel.svg",
   "/window.svg",
   "/vantage/vantagelogo.png",
+  "/vantage/vantage-mark.png",
 ]);
 
 /** Next build output and the exact public assets: never gated by role. */

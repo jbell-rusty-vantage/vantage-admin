@@ -44,7 +44,8 @@
   --crm-r-pill: 999px;
   --crm-shadow-card: 0 1px 2px rgba(16, 28, 61, 0.04), 0 1px 3px rgba(16, 28, 61, 0.03);
   --crm-shadow-pop: 0 10px 30px rgba(16, 28, 61, 0.12);
-  --crm-focus: 0 0 0 3px rgba(47, 111, 230, 0.28);
+  --crm-focus: 0 0 0 3px rgba(47, 111, 230, 0.2);
+  --crm-focus-field: 0 0 0 2px rgba(47, 111, 230, 0.12);
   --crm-sidebar-w: 232px;
   --crm-rail-w: 64px;
   --crm-gap: 14px;
@@ -171,9 +172,31 @@
   background: var(--crm-blue);
 }
 
-[data-ui="crm"] :focus-visible {
+/* Keyboard focus on buttons, links and other controls: one soft ring. */
+[data-ui="crm"] :focus-visible:not(input):not(textarea):not(select) {
   outline: none;
   box-shadow: var(--crm-focus);
+}
+
+/* Text fields: a quiet border and a faint halo on the field itself, never a hard rectangle. */
+[data-ui="crm"] input:focus,
+[data-ui="crm"] input:focus-visible,
+[data-ui="crm"] textarea:focus,
+[data-ui="crm"] textarea:focus-visible,
+[data-ui="crm"] select:focus,
+[data-ui="crm"] select:focus-visible {
+  outline: none;
+  border-color: var(--crm-blue);
+  box-shadow: var(--crm-focus-field);
+}
+
+/* A field inside a search box or a dressed select: the container shows the focus, the field shows nothing. */
+[data-ui="crm"] .crm-search input:focus,
+[data-ui="crm"] .crm-search input:focus-visible,
+[data-ui="crm"] .crm-select select:focus,
+[data-ui="crm"] .crm-select select:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 @theme inline {

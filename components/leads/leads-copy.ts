@@ -29,6 +29,7 @@ export const LEADS_COPY = {
     { value: "bad", label: "Bad" },
   ],
   companyLabel: "Source company",
+  searching: "Searching…",
   sourceLabel: "Source",
   sourceAll: "Source: any",
   feedLabel: "Feed",

@@ -12,6 +12,7 @@ import type { SortDirection, TableQueryParams } from "./types";
 import { applyUrlStateUpdate, type UrlStateUpdate } from "./url-state-update";
 
 export type { UrlStateUpdate };
+export type UrlStateUpdateOptions = { resetPage?: boolean; replace?: boolean };
 export { applyUrlStateUpdate };
 
 export function useUrlTableState(defaults: Partial<TableQueryParams> = {}) {
@@ -45,12 +46,15 @@ export function useUrlTableState(defaults: Partial<TableQueryParams> = {}) {
   }, [defaults, searchParams]);
 
   const update = useCallback(
-    (next: UrlStateUpdate, options: { resetPage?: boolean } = { resetPage: true }) => {
-      const params = applyUrlStateUpdate(latestQueryRef.current, next, options);
+    (next: UrlStateUpdate, options: UrlStateUpdateOptions = { resetPage: true }) => {
+      const params = applyUrlStateUpdate(latestQueryRef.current, next, { resetPage: options.resetPage ?? true });
       const query = params.toString();
       latestQueryRef.current = query;
       pendingPushRef.current = true;
-      router.push(query ? `${pathname}?${query}` : pathname);
+      const href = query ? `${pathname}?${query}` : pathname;
+      // Typing in a search box replaces the entry so Back does not walk through every keystroke burst.
+      if (options.replace) router.replace(href);
+      else router.push(href);
     },
     [pathname, router],
   );

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, FileText, ListChecks, Phone, Plus, ShieldCheck, SlidersHorizontal, Users, X } from "lucide-react";
 import { CreateLeadForm } from "@/components/manual/create-lead-form";
 import { DASHBOARD_MAIN_ID } from "@/components/layout/dashboard-ids";
@@ -73,6 +73,8 @@ function useLeadList(kind: LeadKind, enabled: boolean, filters: ReturnType<typeo
     initialPageParam: 1,
     queryFn: ({ pageParam }) => fetchAdminList<AdminRecord>(resource, { ...filters, page: Number(pageParam) }),
     getNextPageParam: (lastPage) => (lastPage.has_next_page ? lastPage.page + 1 : undefined),
+    // A filter or search change keeps the current cards on screen until the next list arrives (no skeleton flash).
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -203,6 +205,8 @@ export function LeadsWorkspace() {
   }, [canFetchMore, visibleItems.length]);
 
   const isLoading = (formEnabled && formQuery.isLoading) || (callEnabled && callQuery.isLoading);
+  const isRefreshing =
+    (formEnabled && formQuery.isPlaceholderData && formQuery.isFetching) || (callEnabled && callQuery.isPlaceholderData && callQuery.isFetching);
   const loadError = (formEnabled && formQuery.isError ? formQuery.error : null) ?? (callEnabled && callQuery.isError ? callQuery.error : null);
 
   const lastTotal = (query: typeof formQuery) => query.data?.pages[query.data.pages.length - 1]?.total;
@@ -383,7 +387,7 @@ export function LeadsWorkspace() {
 
       <div className="crm-toolbar">
         <div style={{ flex: 1, minWidth: 260 }}>
-          <SearchBox value={state.q} onSearch={(q) => update({ q })} placeholder={LEADS_COPY.searchPlaceholder} />
+          <SearchBox value={state.q} onSearch={(q) => update({ q }, { replace: true })} placeholder={LEADS_COPY.searchPlaceholder} hint={isRefreshing ? LEADS_COPY.searching : undefined} />
         </div>
         <CrmSelect<LeadSort> label={LEADS_COPY.sortLabel} value={state.sort} options={LEADS_COPY.sortOptions} onChange={(sort) => update({ sort })} />
       </div>

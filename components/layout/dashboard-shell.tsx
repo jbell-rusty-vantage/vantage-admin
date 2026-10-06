@@ -7,8 +7,9 @@
  * the shared theme on for everything inside.
  */
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, Truck, X } from "lucide-react";
+import { ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-local-storage-boolean";
 import { Avatar, cx } from "@/components/ui/crm";
@@ -122,9 +123,12 @@ function SidebarBody({
   return (
     <>
       <div className="crm-sidebar__top">
-        <Link href="/" className="crm-brand" aria-label="Vantage Admin">
-          <Truck aria-hidden="true" />
-          <span>Vantage Admin</span>
+        <Link href="/" className="crm-brand" aria-label="Vantage Movers admin, home">
+          <Image src="/vantage/vantage-mark.png" alt="" width={34} height={34} priority className="crm-brand__mark" />
+          <span className="crm-brand__word">
+            <span className="crm-brand__name">Vantage</span>
+            <span className="crm-brand__suffix">Movers</span>
+          </span>
         </Link>
         {onClose ? (
           <button type="button" className="crm-button crm-button--quiet crm-button--icon" onClick={onClose} aria-label="Close navigation">

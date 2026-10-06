@@ -278,15 +278,28 @@ export function SearchBox({
 }) {
   const [draft, setDraft] = useState(value ?? "");
   const [seen, setSeen] = useState(value);
+  // The value this box last sent. When it comes back through the URL (after the navigation's own delay) the draft
+  // keeps whatever was typed meanwhile; only a change from elsewhere (Clear all, back) resets the field.
+  const [lastSent, setLastSent] = useState<string | null>(value);
   if (seen !== value) {
     setSeen(value);
-    setDraft(value ?? "");
+    if (value !== lastSent) {
+      setLastSent(value);
+      setDraft(value ?? "");
+    }
   }
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
+  const send = (next: string) => {
+    const normalized = next.trim() || null;
+    setLastSent((previous) => {
+      if (previous !== normalized) onSearch(normalized);
+      return normalized;
+    });
+  };
   const commit = (next: string) => {
     clearTimeout(timer.current);
-    onSearch(next.trim() || null);
+    send(next);
   };
   return (
     <form
@@ -310,10 +323,10 @@ export function SearchBox({
           setDraft(next);
           clearTimeout(timer.current);
           if (!next.trim()) {
-            if (value) onSearch(null);
+            send("");
             return;
           }
-          if (debounceMs !== null) timer.current = setTimeout(() => onSearch(next.trim() || null), debounceMs);
+          if (debounceMs !== null) timer.current = setTimeout(() => send(next), debounceMs);
         }}
       />
       {hint ? <span className="crm-search__hint">{hint}</span> : null}
