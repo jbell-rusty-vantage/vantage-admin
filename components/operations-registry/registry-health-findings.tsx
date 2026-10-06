@@ -1,28 +1,26 @@
 "use client";
-
+/**
+ * Registry health findings on the CRM primitives (Setup → Connections & health). Same data, same typed remediation:
+ * every link comes from `registryEntityLinks.ts` (now Setup routes), never from the finding's summary text. A role
+ * that cannot write sees the evidence and a line saying the fix needs the owner.
+ */
 import Link from "next/link";
-import { formatDateTime } from "@/components/data-table/formatters";
-import { StatusBadge } from "@/components/data-table/status-badge";
-import { FeedbackMessage } from "@/components/ui/feedback";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { useDashboardRole } from "@/components/layout/dashboard-role-context";
+import { Notice, Pill, type PillVariant } from "@/components/ui/crm/primitives";
+import { formatAbsolute } from "@/components/ui/crm/format";
 import type { RegistryHealthFinding } from "@/lib/api/operationsRegistry";
 import {
   humanizeRegistryKey,
   registryEntityHref,
   remediationTarget,
 } from "@/lib/api/registryEntityLinks";
-import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 
-function severityTone(severity: RegistryHealthFinding["severity"]) {
-  if (severity === "error") return "destructive" as const;
-  if (severity === "warn") return "warning" as const;
-  return "muted" as const;
-}
-
-function severityLabel(severity: RegistryHealthFinding["severity"]) {
-  if (severity === "error") return "Error";
-  if (severity === "warn") return "Warning";
-  return "Info";
-}
+const SEVERITY: Record<RegistryHealthFinding["severity"], { label: string; variant: PillVariant; icon: typeof Info }> = {
+  error: { label: "Error", variant: "red", icon: CircleAlert },
+  warn: { label: "Warning", variant: "amber", icon: TriangleAlert },
+  info: { label: "Info", variant: "gray", icon: Info },
+};
 
 function EvidenceList({ evidence }: { evidence: NonNullable<RegistryHealthFinding["evidence"]> }) {
   const entries = Object.entries(evidence);
@@ -30,13 +28,11 @@ function EvidenceList({ evidence }: { evidence: NonNullable<RegistryHealthFindin
     return null;
   }
   return (
-    <dl className="mt-3 grid gap-1 text-xs sm:grid-cols-2">
+    <dl className="cn-evidence">
       {entries.map(([key, value]) => (
-        <div key={key} className="rounded-md bg-muted/40 px-2 py-1">
-          <dt className="font-medium text-muted-foreground">{humanizeRegistryKey(key)}</dt>
-          <dd className="tabular-nums text-foreground">
-            {value === null || value === undefined ? "—" : String(value)}
-          </dd>
+        <div key={key} className="cn-evidence__item">
+          <dt>{humanizeRegistryKey(key)}</dt>
+          <dd>{value === null || value === undefined ? "None" : String(value)}</dd>
         </div>
       ))}
     </dl>
@@ -46,6 +42,7 @@ function EvidenceList({ evidence }: { evidence: NonNullable<RegistryHealthFindin
 function FindingCard({ finding }: { finding: RegistryHealthFinding }) {
   const role = useDashboardRole();
   const readOnly = role !== "owner";
+  const severity = SEVERITY[finding.severity];
   const entityLink = registryEntityHref(finding.entity_type, finding.entity_id);
   const remediation = remediationTarget(
     finding.remediation?.action,
@@ -56,31 +53,15 @@ function FindingCard({ finding }: { finding: RegistryHealthFinding }) {
     finding.actionable && remediation.ownerActionable && !readOnly && remediation.href;
 
   return (
-    <article
-      className="rounded-lg border bg-background p-4"
-      aria-label={`${severityLabel(finding.severity)}: ${finding.summary}`}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge tone={severityTone(finding.severity)}>
-              <span className="sr-only">Severity </span>
-              {severityLabel(finding.severity)}
-            </StatusBadge>
-            <span className="text-sm font-semibold text-navy">{finding.summary}</span>
-          </div>
-          <details className="text-xs text-muted-foreground">
-            <summary>Advanced</summary>
-            <p>
-              {finding.code}
-              {finding.entity_type ? ` · ${humanizeRegistryKey(finding.entity_type)}` : ""}
-              {finding.entity_id ? ` · ${finding.entity_id}` : ""}
-              {finding.actionable ? " · Actionable" : " · Informational"}
-            </p>
-          </details>
-        </div>
+    <article className="cn-finding" aria-label={`${severity.label}: ${finding.summary}`}>
+      <div className="cn-finding__head">
+        <Pill variant={severity.variant} icon={severity.icon}>
+          <span className="sr-only">Severity </span>
+          {severity.label}
+        </Pill>
+        <span className="cn-finding__summary">{finding.summary}</span>
         {entityLink ? (
-          <Link href={entityLink.href} className="text-xs font-medium text-primary hover:underline">
+          <Link href={entityLink.href} className="crm-link cn-finding__open">
             {entityLink.label}
           </Link>
         ) : null}
@@ -89,34 +70,41 @@ function FindingCard({ finding }: { finding: RegistryHealthFinding }) {
       {finding.evidence ? <EvidenceList evidence={finding.evidence} /> : null}
 
       {finding.remediation?.summary ? (
-        <p className="mt-3 text-sm text-muted-foreground">{finding.remediation.summary}</p>
+        <p className="cn-finding__text">{finding.remediation.summary}</p>
       ) : null}
 
       {showOwnerAction ? (
-        <p className="mt-2">
-          <Link
-            href={remediation.href!}
-            className="text-xs font-semibold text-primary hover:underline"
-          >
+        <p className="cn-finding__text">
+          <Link href={remediation.href!} className="crm-link crm-strong">
             {remediation.label}
           </Link>
         </p>
       ) : null}
 
       {readOnly && finding.actionable && remediation.ownerActionable ? (
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="cn-finding__text su-quiet">
           Remediation requires the owner role. Evidence remains available for inspection.
         </p>
       ) : null}
 
       {remediation.reviewGuidance ? (
-        <p className="mt-2 text-xs text-muted-foreground">{remediation.reviewGuidance}</p>
+        <p className="cn-finding__text su-quiet">{remediation.reviewGuidance}</p>
       ) : null}
 
-      <p className="mt-3 text-xs text-muted-foreground">
-        First observed {formatDateTime(finding.first_observed_at)} · Last observed{" "}
-        {formatDateTime(finding.last_observed_at)}
+      <p className="cn-finding__text su-quiet">
+        First observed {formatAbsolute(finding.first_observed_at)} · Last observed{" "}
+        {formatAbsolute(finding.last_observed_at)}
       </p>
+
+      <details className="cn-finding__advanced">
+        <summary>Advanced</summary>
+        <p>
+          {finding.code}
+          {finding.entity_type ? ` · ${humanizeRegistryKey(finding.entity_type)}` : ""}
+          {finding.entity_id ? ` · ${finding.entity_id}` : ""}
+          {finding.actionable ? " · Actionable" : " · Informational"}
+        </p>
+      </details>
     </article>
   );
 }
@@ -124,7 +112,9 @@ function FindingCard({ finding }: { finding: RegistryHealthFinding }) {
 export function RegistryHealthFindings({ findings }: { findings: RegistryHealthFinding[] }) {
   if (findings.length === 0) {
     return (
-      <FeedbackMessage tone="success">No health findings. Registry looks healthy.</FeedbackMessage>
+      <Notice icon={CircleCheck} tone="green" title="No health findings">
+        <p>Registry looks healthy.</p>
+      </Notice>
     );
   }
 
@@ -134,7 +124,7 @@ export function RegistryHealthFindings({ findings }: { findings: RegistryHealthF
   });
 
   return (
-    <div className="space-y-2" role="list" aria-label="Registry health findings">
+    <div className="cn-findings" role="list" aria-label="Registry health findings">
       {ordered.map((finding) => (
         <div key={`${finding.code}-${finding.entity_id ?? "global"}-${finding.last_observed_at}`} role="listitem">
           <FindingCard finding={finding} />

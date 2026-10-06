@@ -42,13 +42,13 @@ export function isOwnerDisplayName(value?: string): value is string {
 }
 
 export type InboundLabelCatalogs = {
-  companies?: Array<{
+  companies?: ReadonlyArray<{
     id?: string;
     _id?: string;
     name?: string;
     owner_label?: string;
   }>;
-  feeds?: Array<{
+  feeds?: ReadonlyArray<{
     id?: string;
     _id?: string;
     source_company?: string;

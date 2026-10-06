@@ -337,7 +337,8 @@ function runLabel(run: { at: string; status: "completed" | "failed" } | null): s
   return run ? `${run.status} at ${formatUtc(run.at)}` : "none";
 }
 
-export function LifecycleHealthPage() {
+/** The Granot Lifecycle health page. `showBackLink={false}` when embedded (Setup → Connections & health). */
+export function LifecycleHealthPage({ showBackLink = true }: { showBackLink?: boolean } = {}) {
   const query = useQuery({
     queryKey: queryKeys.granotLifecycle.health(),
     queryFn: fetchGranotLifecycleHealth,
@@ -347,9 +348,11 @@ export function LifecycleHealthPage() {
   const stale = query.isStale && !query.isFetching && Boolean(query.data);
   return (
     <div className="space-y-4">
-      <Link className="inline-flex h-10 items-center text-sm font-medium underline" href={GRANOT_LIFECYCLE_COPY.backToIntakesHref}>
-        {GRANOT_LIFECYCLE_COPY.backToIntakes}
-      </Link>
+      {showBackLink ? (
+        <Link className="inline-flex h-10 items-center text-sm font-medium underline" href={GRANOT_LIFECYCLE_COPY.backToIntakesHref}>
+          {GRANOT_LIFECYCLE_COPY.backToIntakes}
+        </Link>
+      ) : null}
       <LifecycleHealthView
         data={query.data}
         loading={query.isPending}

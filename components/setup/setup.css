@@ -1,0 +1,345 @@
+/*
+ * Setup (doc 19): the frame around the eight sections. Imported by `app/(dashboard)/setup/layout.tsx` together with the
+ * per-section stylesheets (a stylesheet import in a component breaks the node test runner). Colour rides on the
+ * `--crm-*` tokens and is always paired with words or an icon; list targets are 44 px, nav rows 40 px.
+ */
+.su-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--crm-gap);
+  align-items: start;
+}
+
+.su-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  position: sticky;
+  top: 0;
+}
+
+.su-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: #33405a;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.su-nav__item svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  color: #4b5873;
+  stroke-width: 1.8;
+}
+
+.su-nav__item:hover {
+  background: #f2f6fc;
+}
+
+.su-nav__item[aria-current="page"] {
+  background: var(--crm-blue-50);
+  color: var(--crm-blue-ink);
+}
+
+.su-nav__item[aria-current="page"] svg {
+  color: var(--crm-blue-ink);
+}
+
+.su-nav__label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.su-tabs {
+  display: none;
+}
+
+.su-outlet {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--crm-gap);
+}
+
+.su-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.su-section-head__titles {
+  min-width: 0;
+}
+
+.su-section-head__title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--crm-ink);
+}
+
+.su-section-head__purpose {
+  margin: 2px 0 0;
+  color: var(--crm-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.su-section-head__right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Shared sheet blocks (the finish sheet's numbered-block pattern) for every Setup sheet. */
+.su-sheet {
+  padding: 4px 0 16px;
+}
+
+.su-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--crm-border);
+}
+
+.su-block:first-child {
+  border-top: 0;
+  padding-top: 4px;
+}
+
+.su-block__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--crm-ink);
+}
+
+.su-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--crm-blue-100);
+  color: var(--crm-blue-strong);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.su-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.su-row {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: center;
+}
+
+.su-row__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--crm-ink);
+}
+
+.su-row__hint {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 12.5px;
+  color: var(--crm-muted);
+}
+
+.su-input,
+.su-textarea {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--crm-border-strong);
+  border-radius: var(--crm-r-control);
+  background: var(--crm-card);
+  color: var(--crm-ink);
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.su-textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.su-input:focus-visible,
+.su-textarea:focus-visible {
+  outline: none;
+  border-color: var(--crm-blue);
+  box-shadow: var(--crm-focus-field);
+}
+
+.su-input[aria-invalid="true"],
+.su-textarea[aria-invalid="true"] {
+  border-color: var(--crm-red);
+}
+
+.su-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-r-control);
+  background: var(--crm-card);
+  cursor: pointer;
+}
+
+.su-choice:has(input:checked) {
+  border-color: #b9d1fb;
+  background: var(--crm-blue-50);
+}
+
+.su-choice input {
+  margin-top: 3px;
+  accent-color: var(--crm-blue);
+}
+
+.su-choice__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13.5px;
+  color: var(--crm-ink);
+}
+
+.su-choice__hint {
+  color: var(--crm-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.su-errors {
+  padding: 10px 12px;
+  border: 1px solid var(--crm-red);
+  border-radius: var(--crm-r-control);
+  background: var(--crm-red-50);
+  color: var(--crm-ink);
+  font-size: 13px;
+}
+
+.su-errors ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.su-review {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--crm-ink);
+}
+
+.su-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+/* Lines under a card: a 44 px row with a leading icon, words, state chips and an Edit on the right. */
+.su-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-height: 44px;
+  padding: 6px 16px;
+  border-top: 1px solid var(--crm-divider);
+  font-size: 13.5px;
+  color: var(--crm-text);
+}
+
+.su-line > svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--crm-muted);
+}
+
+.su-line__label {
+  color: var(--crm-muted);
+  font-weight: 600;
+}
+
+.su-line__value {
+  color: var(--crm-ink);
+  font-weight: 700;
+}
+
+.su-line__right {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.su-missing {
+  color: var(--crm-amber-ink);
+  font-weight: 700;
+}
+
+.su-quiet {
+  color: var(--crm-muted);
+  font-size: 12.5px;
+}
+
+@media (max-width: 900px) {
+  .su-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .su-nav {
+    display: none;
+  }
+
+  .su-tabs {
+    display: block;
+  }
+
+  .su-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .su-row__hint {
+    grid-column: 1;
+  }
+}

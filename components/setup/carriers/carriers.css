@@ -1,0 +1,56 @@
+/* Setup carriers (doc 19): rules beyond the shared .crm-* and .su-* classes. Imported by app/(dashboard)/setup/layout.tsx. */
+.ca-toolbar {
+  padding: 4px 16px 12px;
+}
+
+.ca-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px 20px;
+}
+
+.ca-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.ca-row-button {
+  min-height: 44px;
+}
+
+.ca-file {
+  padding: 6px;
+}
+
+.ca-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ca-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ca-subhead {
+  margin: 4px 0 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--crm-ink);
+}
+
+.ca-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--crm-text);
+}
+
+.ca-confirm p {
+  margin: 4px 0 0;
+}

@@ -1,5 +1,6 @@
 import { permanentRedirect } from "next/navigation";
+import { SETUP_ROUTES } from "@/lib/setup/setup-links";
 
 export default function SettingsRedirectPage() {
-  permanentRedirect("/operations-registry?tab=moving-carriers");
+  permanentRedirect(SETUP_ROUTES.carriers);
 }

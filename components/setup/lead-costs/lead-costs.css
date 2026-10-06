@@ -1,0 +1,183 @@
+/* Setup lead-costs (doc 19): rules beyond the shared .crm-* and .su-* classes. Imported by app/(dashboard)/setup/layout.tsx. */
+.lc-table .lc-group th {
+  padding: 8px 16px;
+  background: var(--crm-blue-50);
+  color: var(--crm-ink);
+  font-size: 13.5px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.lc-table .lc-row td {
+  height: 44px;
+}
+
+.lc-table .lc-row[data-focused="true"] td {
+  background: var(--crm-blue-tint);
+}
+
+.lc-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--crm-ink);
+}
+
+.lc-input {
+  width: 120px;
+  min-height: 36px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lc-input[aria-invalid="true"] {
+  border-color: var(--crm-red);
+}
+
+.lc-input::placeholder {
+  color: var(--crm-amber-ink);
+  font-weight: 700;
+}
+
+.lc-off {
+  padding: 8px 16px 4px;
+}
+
+.lc-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.lc-saved {
+  margin: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--crm-divider);
+  background: var(--crm-green-50);
+  color: var(--crm-ink);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.lc-notice {
+  margin: 0;
+  padding: 10px 16px;
+  color: var(--crm-muted);
+  font-size: 13.5px;
+}
+
+.lc-savebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--crm-divider);
+}
+
+.lc-savebar__go {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: auto;
+  align-items: flex-end;
+}
+
+.lc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.lc-field--grow {
+  flex: 1 1 200px;
+}
+
+.lc-fix-fields,
+.lc-fix-actions {
+  padding: 4px 16px;
+}
+
+.lc-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.lc-facts div {
+  padding: 8px 12px;
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-r-control);
+}
+
+.lc-facts dt {
+  color: var(--crm-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.lc-facts dd {
+  margin: 2px 0 0;
+  color: var(--crm-ink);
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.lc-sample {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.lc-current {
+  margin: 0;
+  font-size: 14px;
+}
+
+.lc-current__amount {
+  color: var(--crm-ink);
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.lc-periods__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.lc-periods__groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.lc-periods__list {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.lc-replace-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+@media (max-width: 700px) {
+  .lc-savebar__go {
+    margin-left: 0;
+    align-items: stretch;
+  }
+
+  .lc-replace-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

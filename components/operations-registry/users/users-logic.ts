@@ -160,3 +160,10 @@ export function acceptOutcome(code: string): "invalid" | "weak" | "generic" {
   if (code === "invalid_input") return "weak";
   return "generic";
 }
+
+export type UserAction = "edit" | "setPassword" | "deactivate" | "invite";
+
+/** What a login offers: a deactivated user can't be deactivated or invited (reactivate in Edit first). */
+export function rowActions(user: AdminUser): UserAction[] {
+  return user.active ? ["edit", "setPassword", "deactivate", "invite"] : ["edit", "setPassword"];
+}

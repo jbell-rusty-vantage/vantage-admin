@@ -4,9 +4,14 @@ import path from "node:path";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { InviteResultView } from "../../components/operations-registry/users/invite-result";
-import { DeactivateDialog, SetPasswordDialog } from "../../components/operations-registry/users/user-dialogs";
-import { refusalState, UserFormDialog } from "../../components/operations-registry/users/user-form-dialog";
+// The Users tab became the Dashboard login line and sheet of the person card (doc 19): its dialogs, invite result and
+// refusal mapping now live in components/setup/people with the same rules and sentences.
+import { InviteLine, InviteResultView } from "../../components/setup/people/invite-result";
+import { DeactivateLogin, LoginBlock, PasswordAndInvite } from "../../components/setup/people/login-block";
+import { refusalState } from "../../components/setup/people/login-errors";
+import { PEOPLE_COPY } from "../../components/setup/people/people-copy";
+import { PersonCard } from "../../components/setup/people/person-card";
+import { buildPeople } from "../../components/setup/people/people-model";
 import {
   inviteResultSchema,
   parseUsersBody,
@@ -21,13 +26,12 @@ import {
   passwordBytes,
   passwordOk,
   pickerAgents,
+  rowActions,
   updateBody,
   validateDraft,
   type AgentOption,
 } from "../../components/operations-registry/users/users-logic";
-import { InviteCell, rowActions, UsersTableView } from "../../components/operations-registry/users/users-table";
-import { UsersLoadError } from "../../components/operations-registry/users/users-tab";
-import { parseRegistryTab, registryTabsFor, REGISTRY_TABS } from "../../components/operations-registry/registry-tabs";
+import { canOpenSetupSection, setupSectionsFor } from "../../components/setup/setup-sections";
 import { copy } from "../../components/sales-intelligence/sales-intelligence-copy";
 import { formatExactFull } from "../../components/sales-intelligence/lib/time";
 import { fixtureTest, ifFixtures, requireContracts } from "../sales-intelligence/contracts-dir";
@@ -69,44 +73,37 @@ const listed = ifFixtures(() => {
   return parseUsersBody(status, body, usersListSchema).users;
 });
 
-fixtureTest("list__after.json parses (no last_invite → null) and the table prints role words, Deactivated, Agent names and No invite", () => {
+// Reason: the users table is gone; the same facts (role word, Deactivated, no invite) are read from the person card's Dashboard line.
+fixtureTest("list__after.json parses (no last_invite → null) and the Dashboard line prints the email, the role word and the state", () => {
   assert.equal(listed.length, 3);
   assert.ok(listed.every((user) => user.last_invite === null));
-  const out = html(createElement(UsersTableView, { users: listed, agents: AGENTS, onAction: noop }));
-  for (const word of ["owner@example.invalid", "dana@example.invalid", "office@example.invalid", "Owner", "Rep", "Admin"]) {
-    assert.ok(out.includes(`>${word}<`), word);
-  }
-  assert.ok(out.includes(`>${u.inactive}<`), "Deactivated");
-  assert.equal(out.split(`>${u.active}<`).length - 1, 2, "two Active users");
-  assert.ok(out.includes(">Dana Reyes<"), "Agent name resolved from the Agent list");
-  assert.equal(out.split(`>${u.invite.none}<`).length - 1, 3, "invite column: No invite");
-  for (const column of Object.values(u.columns)) assert.ok(out.includes(`>${column}<`), `column ${column}`);
-  // A deactivated user offers Edit and Set password only.
-  const danaRow = out.slice(out.indexOf('data-user="000000000000000000a00001"'), out.indexOf('data-user="000000000000000000a00002"'));
-  assert.ok(!danaRow.includes(`>${u.actions.deactivate}<`) && !danaRow.includes(`>${u.actions.invite}<`));
-  assert.ok(danaRow.includes(`>${u.actions.setPassword}<`) && danaRow.includes(`>${u.actions.more}`));
+  const rep = listed.find((user) => user.role === "rep")!;
+  const agent = { id: rep.agent_id!, name: "Dana Reyes", normalized_name: "dana reyes", active: true, created_from: "test" };
+  const model = buildPeople({ agents: [agent], users: listed, extensionUsers: [], accounts: [] });
+  const out = html(createElement(PersonCard, { person: model.people[0]!, loaded: model.loaded, readOnly: false, onEdit: noop }));
+  assert.ok(out.includes(rep.email) && out.includes(PEOPLE_COPY.loginRoleWord.rep!));
+  assert.ok(html(createElement(InviteLine, { invite: null })).includes(u.invite.none));
 });
 
-fixtureTest("an unknown agent_id prints Agent not found; no Agent prints —; an inactive Agent is marked", () => {
-  const rep = { ...listed[1]!, agent_id: "6ab5ab0d72ee2eb383d94000" };
-  const out = html(createElement(UsersTableView, { users: [rep], agents: AGENTS, onAction: noop }));
-  assert.ok(out.includes(`>${u.unknownAgent}<`));
+fixtureTest("an unknown agent_id is Agent not found; no Agent prints —; an inactive Agent is marked", () => {
+  // Reason: the table cell is gone; the pure label it printed is still the rule.
+  assert.equal(agentLabel("6ab5ab0d72ee2eb383d94000", AGENTS), u.unknownAgent);
   assert.equal(agentLabel(null, AGENTS), u.noAgent);
   assert.equal(agentLabel("6ab5ab0d72ee2eb383d940a9", AGENTS), u.agentInactive("Tina Cho"));
   assert.equal(agentLabel(DANA_AGENT, null), DANA_AGENT, "Agent list not loaded: the id, not a wrong sentence");
 });
 
-test("the invite column prints each last_invite state; pending carries the exact ET expiry on a <time>", () => {
+test("the invite line prints each last_invite state; pending carries the exact ET expiry on a <time>", () => {
   const t = "2026-09-27T15:03:00.000Z";
-  const pending = html(createElement(InviteCell, { invite: { state: "pending", created_at: t, expires_at: t } }));
+  const pending = html(createElement(InviteLine, { invite: { state: "pending", created_at: t, expires_at: t } }));
   const exact = formatExactFull(t);
   assert.ok(pending.includes("Invite expires "));
   assert.ok(pending.includes(`title="${exact}"`) && pending.includes(`aria-label="${exact}"`));
   assert.ok(pending.includes(`>${exact}</time>`));
-  assert.ok(html(createElement(InviteCell, { invite: { state: "accepted", created_at: t, expires_at: t } })).includes(u.invite.accepted));
-  assert.ok(html(createElement(InviteCell, { invite: { state: "expired", created_at: t, expires_at: t } })).includes(u.invite.expired));
-  assert.ok(html(createElement(InviteCell, { invite: { state: "revoked", created_at: t, expires_at: t } })).includes(u.invite.revoked));
-  assert.ok(html(createElement(InviteCell, { invite: null })).includes(u.invite.none));
+  assert.ok(html(createElement(InviteLine, { invite: { state: "accepted", created_at: t, expires_at: t } })).includes(u.invite.accepted));
+  assert.ok(html(createElement(InviteLine, { invite: { state: "expired", created_at: t, expires_at: t } })).includes(u.invite.expired));
+  assert.ok(html(createElement(InviteLine, { invite: { state: "revoked", created_at: t, expires_at: t } })).includes(u.invite.revoked));
+  assert.ok(html(createElement(InviteLine, { invite: null })).includes(u.invite.none));
 });
 
 fixtureTest("A12: the Agent picker lists active Agents not held by another active rep; the edited rep keeps their own", () => {
@@ -120,11 +117,11 @@ fixtureTest("A12: the Agent picker lists active Agents not held by another activ
   const tinaRep: AdminUser = { ...activeRep, id: "000000000000000000a0000a", agent_id: AGENTS[2]!.id };
   assert.deepEqual(pickerAgents(AGENTS, [...users, tinaRep], tinaRep.id).map((agent) => agent.name), ["Dana Reyes", "Tina Cho"]);
 
-  const out = html(createElement(UserFormDialog, { mode: "add", inline: true, users, agents: AGENTS, onSubmit: async () => {}, onClose: noop, initialDraft: { ...emptyDraft(), role: "rep" } }));
+  const out = html(createElement(LoginBlock, { agent: null, user: null, users, agents: AGENTS, initialDraft: { ...emptyDraft(), role: "rep" } }));
   assert.ok(out.includes(">Dana Reyes<") && !out.includes(">Marcus Bell<") && !out.includes(">Tina Cho<"));
-  assert.ok(out.includes(u.form.agentHint));
-  const none = html(createElement(UserFormDialog, { mode: "add", inline: true, users, agents: AGENTS.slice(1), onSubmit: async () => {}, onClose: noop }));
-  assert.ok(none.includes(u.form.noAgentsFree));
+  assert.ok(out.includes(PEOPLE_COPY.loginSheet.agentHint));
+  const none = html(createElement(LoginBlock, { agent: null, user: null, users, agents: AGENTS.slice(1), initialDraft: { ...emptyDraft(), role: "rep" } }));
+  assert.ok(none.includes(PEOPLE_COPY.loginSheet.noAgentsFree));
 });
 
 fixtureTest("each refusal fixture maps to its sentence (and *__as-admin to forbidden)", () => {
@@ -159,19 +156,20 @@ fixtureTest("each refusal fixture maps to its sentence (and *__as-admin to forbi
 });
 
 fixtureTest("A12: agent_taken shows its sentence in the Add dialog; A14: last_owner shows its sentence in Deactivate", () => {
-  const add = html(createElement(UserFormDialog, {
-    mode: "add", inline: true, users: listed, agents: AGENTS, onSubmit: async () => {}, onClose: noop,
+  const add = html(createElement(LoginBlock, {
+    agent: null, user: null, users: listed, agents: AGENTS,
     initialDraft: { ...emptyDraft(), email: "second.dana@example.invalid", role: "rep", agentId: DANA_AGENT },
     initialError: refusal("create__rep-agent-taken"),
   }));
   assert.ok(add.includes(`role="alert">${u.errors.agent_taken}<`));
   assert.ok(add.includes('aria-invalid="true"'));
   const owner = listed[0]!;
-  const deactivate = html(createElement(DeactivateDialog, { user: owner, inline: true, onConfirm: async () => {}, onClose: noop, initialError: refusal("deactivate__last-owner") }));
+  const deactivate = html(createElement(DeactivateLogin, { user: owner, onFlash: noop, initialError: refusal("deactivate__last-owner") }));
   assert.ok(deactivate.includes(u.deactivate.title(owner.email)));
-  assert.ok(deactivate.includes(u.deactivate.body));
+  // Reason: the body now says "reactivate them here" (the login sheet's own Active box), not "in Edit".
+  assert.ok(deactivate.includes(PEOPLE_COPY.loginSheet.deactivateBody));
   assert.ok(deactivate.includes(u.errors.last_owner!));
-  const setPw = html(createElement(SetPasswordDialog, { user: owner, inline: true, onSubmit: async () => {}, onClose: noop }));
+  const setPw = html(createElement(PasswordAndInvite, { user: owner, onFlash: noop, onInvite: noop }));
   assert.ok(setPw.includes(u.setPassword.body) && setPw.includes(u.form.passwordPolicy));
 });
 
@@ -232,23 +230,14 @@ test("row actions: an active user has all four; a deactivated one Edit and Set p
   assert.deepEqual(rowActions({ ...base, active: false }), ["edit", "setPassword"]);
 });
 
-test("load error prints Couldn't load users., the code and Try again", () => {
-  const out = html(createElement(UsersLoadError, { code: "forbidden", onRetry: noop }));
-  assert.ok(out.includes(u.loadError) && out.includes(">forbidden<") && out.includes(u.tryAgain));
-  const empty = html(createElement(UsersTableView, { users: [], agents: [], onAction: noop }));
-  assert.ok(empty.includes(u.empty));
-});
+// Reason: the users table, its load error and its empty state are gone with the Users tab; the person card's reads say "not loaded" instead (tests/setup-people.test.ts).
 
-test("the Users tab is listed, and ?tab=users honoured, for the Owner only", () => {
-  assert.ok(registryTabsFor("owner").some((tab) => tab.id === "users"));
-  assert.equal(registryTabsFor("owner").find((tab) => tab.id === "users")?.label, u.tab);
-  assert.ok(!registryTabsFor("admin").some((tab) => tab.id === "users"));
-  assert.ok(!registryTabsFor(null).some((tab) => tab.id === "users"));
-  assert.ok(!REGISTRY_TABS.some((tab) => (tab.id as string) === "users"));
-  assert.equal(parseRegistryTab("users", "owner"), "users");
-  assert.equal(parseRegistryTab("users", "admin"), "overview");
-  assert.equal(parseRegistryTab("users", null), "overview");
-  assert.equal(parseRegistryTab("users"), "overview");
+test("People & access is one Setup section: every dashboard role sees it, the login lines are Owner-only (doc 19)", () => {
+  // The Owner-only Users tab became the Dashboard login line of the person card; Admin opens the section and reads the roster.
+  assert.ok(setupSectionsFor("owner").some((section) => section.key === "people"));
+  assert.ok(setupSectionsFor("admin").some((section) => section.key === "people"));
+  assert.equal(canOpenSetupSection("admin", "people"), true);
+  assert.equal(canOpenSetupSection(null, "people"), true);
 });
 
 test("an older list response without last_invite parses as null; a list response never needs a token", () => {

@@ -1,0 +1,61 @@
+/**
+ * Owner-visible strings of Setup → Connections & health (doc 19). Words: Granot, RingCentral, Google Sheets, Best
+ * Relocation, Inbound Number, Feed. Every string passes `lib/operations-registry/ownerLanguageDeck.ts`.
+ */
+export const CONNECTIONS_COPY = {
+  granot: {
+    title: "Granot",
+    subtitle: "Is Granot sending what we expect, and is every lead landing where it should.",
+    findingsTitle: "Granot findings from the registry",
+    findingsNone: "No registry findings about Granot names.",
+  },
+  ringcentral: {
+    title: "RingCentral",
+    subtitle: "Are the inbound numbers checked, and is the call log keeping up.",
+    numbersTitle: "Inbound numbers",
+    open: "Open inbound numbers",
+    total: (n: number) => `${n} ${n === 1 ? "number" : "numbers"}`,
+    verified: (n: number) => `${n} verified`,
+    notChecked: (n: number) => `${n} not checked`,
+    invalid: (n: number) => `${n} invalid`,
+    filing: (n: number) => `${n} filing calls`,
+    stopped: (n: number) => `${n} stopped`,
+    noNumbers: "No inbound numbers are set up yet.",
+    captureTitle: "Call log capture",
+    captureUnavailable: "Capture freshness is not available right now.",
+    lastConfirmed: (when: string) => `Last confirmed by the call log ${when}`,
+    readFailure: "The inbound numbers did not load.",
+    countsLabel: "Inbound number checks",
+    filingLabel: "Inbound number filing",
+  },
+  sheets: {
+    title: "Google Sheets",
+    subtitle: "The Master Sheets each lead source writes to.",
+    none: "No lead source has a Master Sheet set up.",
+    open: (name: string) => `Open ${name} Master Sheet`,
+    hint: "Sheet Sync fills these sheets in the background. The one sync signal shown here is the hint under Check Google Sheet contains on a lead.",
+    readFailure: "The lead sources did not load.",
+    noSheet: "No Master Sheet",
+  },
+  bestRelocation: {
+    title: "Best Relocation",
+    subtitle: "The lead feed pulled from Best Relocation.",
+  },
+  registry: {
+    title: "Registry",
+    subtitle: "Signing and health checks behind every Setup change.",
+    signingTitle: "Signing status",
+    secret: "Proxy signing secret configured",
+    previewUnsigned: "Preview unsigned allowed",
+    maxAge: "Signature max age",
+    yes: "Yes",
+    no: "No",
+    generated: (generated: string, health: string) => `Generated ${generated} · Health checked ${health}`,
+    findingsTitle: "Registry health",
+    findingsSummary: (errors: number, warnings: number, total: number) => `${errors} error · ${warnings} warning · ${total} total`,
+    refresh: "Refresh",
+    history: "View change history",
+    readFailure: "The registry health did not load.",
+  },
+  loading: "Loading",
+} as const;

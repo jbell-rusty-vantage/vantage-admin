@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { setupRedirectRows } from "./lib/setup/setup-redirects";
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -25,11 +26,10 @@ const nextConfig: NextConfig = {
         destination: "/intakes",
         permanent: true,
       },
-      {
-        source: "/settings",
-        destination: "/operations-registry?tab=moving-carriers",
-        permanent: true,
-      },
+      // Setup (doc 19): the Operations Registry's `?tab=` model, `/extension`, `/testimonials` and `/settings` became the
+      // eight Setup sections. The table lives in `lib/setup/setup-redirects.ts` so a test keeps it equal to the running
+      // page's own rewrite (`lib/setup/setup-links.ts`).
+      ...setupRedirectRows(),
       // Dashboard redesign (docs 01–03): eighteen destinations became six. Old routes keep working as redirects with
       // the query string translated (`?record=` → `?lead=` / `?record=`); other query values pass through.
       { source: "/form-leads", has: [{ type: "query", key: "record", value: "(?<id>.*)" }], destination: "/leads?kind=form&lead=:id&lk=form", permanent: true },

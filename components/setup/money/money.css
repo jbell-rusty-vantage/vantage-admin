@@ -1,0 +1,34 @@
+/* Setup money (doc 19): rules beyond the shared .crm-* and .su-* classes. Imported by app/(dashboard)/setup/layout.tsx. */
+
+.mn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mn-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mn-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mn-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mn-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--crm-ink);
+}

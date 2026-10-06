@@ -1,0 +1,63 @@
+/* Setup website (doc 19): rules beyond the shared .crm-* and .su-* classes. Imported by app/(dashboard)/setup/layout.tsx. */
+.ws-toolbar {
+  padding: 4px 16px 12px;
+  align-items: flex-end;
+}
+
+.ws-date {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ws-date__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--crm-muted);
+}
+
+.ws-date .su-input {
+  width: 160px;
+}
+
+.ws-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px 20px;
+}
+
+.ws-open {
+  min-height: 44px;
+  text-align: left;
+  font-weight: 700;
+}
+
+.ws-review {
+  max-width: 32rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px 14px;
+}
+
+.ws-pager__buttons {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.ws-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--crm-text);
+}

@@ -2,7 +2,7 @@
 /**
  * Today > Money (owner only). The Money endpoint (`GET api/v1/admin/money/spend`) is server work that has not shipped:
  * while it 404s or fails, the tab says so in words and falls back to the Overview report's 7-day and all-time lead
- * cost. Missing is not zero: unpriced Leads carry a warning that links to Lead costs in the Operations Registry.
+ * cost. Missing is not zero: unpriced Leads carry a warning that links to Setup → Lead costs.
  */
 import Link from "next/link";
 import { useState } from "react";

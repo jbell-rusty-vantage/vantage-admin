@@ -7,8 +7,10 @@
 import { useTeam } from "@/components/outreach-desk/data/use-desk-reads";
 import { freshnessChips } from "@/components/outreach-desk/lib/format";
 import { FreshnessChips } from "@/components/ui/crm";
+import { SETUP_ROUTES } from "@/lib/setup/setup-links";
 
-const HEALTH_HREF = "/granot-lifecycle/health";
+/** Setup → Connections & health (doc 19): the Owner-only page that holds every partner's state. */
+const HEALTH_HREF = SETUP_ROUTES.connections;
 
 export function TopbarFreshness() {
   const team = useTeam(null, true);

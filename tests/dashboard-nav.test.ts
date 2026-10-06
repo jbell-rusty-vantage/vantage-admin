@@ -10,7 +10,7 @@ import {
 } from "../components/layout/dashboard-nav";
 import { sidebarBadgeCounts } from "../components/layout/use-sidebar-badges";
 import { insightsTabForPath } from "../components/insights/insights-tabs";
-import { setupSectionsFor } from "../components/setup/setup-hub";
+import { setupSectionsFor } from "../components/setup/setup-sections";
 
 function hrefs(items: { href: string }[]): string[] {
   return items.map((item) => item.href);
@@ -136,13 +136,16 @@ test("Insights tabs: Sheets covers the reporting sub-pages", () => {
   assert.equal(insightsTabForPath("/reporting/destinations/x"), "sheets");
 });
 
-test("Setup sections: Admin does not see Users or the Extension", () => {
+test("Setup sections: Admin does not see Connections or Website (doc 19: sections are routes, People is one card)", () => {
   const owner = setupSectionsFor("owner");
   const admin = setupSectionsFor("admin");
   assert.deepEqual(
     owner.map((section) => section.key),
     ["lead-sources", "lead-costs", "people", "money", "carriers", "connections", "website", "changes"],
   );
-  assert.deepEqual(owner.find((section) => section.key === "people")!.links.map((link) => link.label), ["Agents", "Users", "Extension"]);
-  assert.deepEqual(admin.find((section) => section.key === "people")!.links.map((link) => link.label), ["Agents"]);
+  assert.deepEqual(
+    admin.map((section) => section.key),
+    ["lead-sources", "lead-costs", "people", "money", "carriers", "changes"],
+  );
+  assert.equal(owner.find((section) => section.key === "people")!.href, "/setup/people");
 });

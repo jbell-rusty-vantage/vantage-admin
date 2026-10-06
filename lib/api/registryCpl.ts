@@ -361,3 +361,208 @@ export function computeSimpleCplChanges(
 
   return changes;
 }
+
+/* ---- Setup → Lead costs helpers (additive; the Registry commands above are unchanged) ---- */
+
+/** How one snapshot row reads to the Owner. Missing is a state, never $0. */
+export type CplRowState =
+  | { kind: "resolved"; amount: number }
+  | { kind: "missing" }
+  | { kind: "recorded_twice" }
+  | { kind: "not_needed" };
+
+export function cplRowState(currentRate: CplCurrentRate): CplRowState {
+  switch (currentRate.status) {
+    case "resolved":
+      return { kind: "resolved", amount: currentRate.amount };
+    case "duplicate_zero":
+      return { kind: "recorded_twice" };
+    case "not_applicable":
+      return { kind: "not_needed" };
+    default:
+      return { kind: "missing" };
+  }
+}
+
+export type CplCompanyGroup = {
+  /** The source company id (a key, never printed). */
+  companyId: string;
+  /** The Owner label of the lead source. */
+  companyName: string;
+  items: CplSnapshotItem[];
+};
+
+/** Web forms before phone calls, long distance before local, then the stored priority. */
+function compareFeeds(a: CplSnapshotItem, b: CplSnapshotItem): number {
+  const left = a.source_granularity;
+  const right = b.source_granularity;
+  const channel = (left.channel === "form" ? 0 : 1) - (right.channel === "form" ? 0 : 1);
+  if (channel !== 0) return channel;
+  const local = (left.local === "local" ? 1 : 0) - (right.local === "local" ? 1 : 0);
+  if (local !== 0) return local;
+  return left.priority - right.priority;
+}
+
+/** One group per source company (alphabetical by Owner label), feeds ordered inside each. */
+export function groupCplSnapshotByCompany(
+  items: readonly CplSnapshotItem[],
+  companyName: (companyId: string) => string,
+): CplCompanyGroup[] {
+  const byCompany = new Map<string, CplSnapshotItem[]>();
+  for (const item of items) {
+    const key = item.source_granularity.source_company;
+    byCompany.set(key, [...(byCompany.get(key) ?? []), item]);
+  }
+  return [...byCompany.entries()]
+    .map(([companyId, rows]) => ({ companyId, companyName: companyName(companyId), items: [...rows].sort(compareFeeds) }))
+    .sort((a, b) => a.companyName.localeCompare(b.companyName));
+}
+
+/** A one-feed snapshot, so the sheet saves through the same pure diff as the grid. */
+export function singleFeedSnapshot(item: CplSnapshotItem, generatedAt = ""): CplSnapshot {
+  return { generated_at: generatedAt, items: [item] };
+}
+
+/** The body of the simple-schedule command: expected revisions come from the rows being changed, nothing else. */
+export function buildSimpleCplInput(
+  changes: readonly SimpleCplComputedChange[],
+  effectiveDate: string,
+  reason?: string,
+): SimpleCplScheduleInput {
+  const expected_revisions: Record<string, number> = {};
+  for (const change of changes) {
+    expected_revisions[change.source_granularity_id] = change.schedule_revision;
+  }
+  const trimmed = reason?.trim();
+  return {
+    effective_date: effectiveDate,
+    expected_revisions,
+    changes: changes.map(({ source_granularity_id, amount }) => ({ source_granularity_id, amount })),
+    ...(trimmed ? { reason: trimmed } : {}),
+  };
+}
+
+/** Past, current and future periods against a New York day (`today` is YYYY-MM-DD). */
+export function classifyCplPeriods(periods: readonly CplSchedulePeriod[], today: string) {
+  const past: CplSchedulePeriod[] = [];
+  const current: CplSchedulePeriod[] = [];
+  const future: CplSchedulePeriod[] = [];
+  for (const period of periods) {
+    const untilInclusive = exclusiveEndToInclusiveOwnerDate(period.effective_until_date_exclusive);
+    if (period.effective_from_date > today) {
+      future.push(period);
+    } else if (untilInclusive && untilInclusive < today) {
+      past.push(period);
+    } else {
+      current.push(period);
+    }
+  }
+  return { past, current, future };
+}
+
+/** The start date of the period the dashboard prices with today: the snapshot's period when known, else the current one. */
+export function currentCplSince(
+  periods: readonly CplSchedulePeriod[],
+  today: string,
+  periodId?: string,
+): string | null {
+  const byId = periodId ? periods.find((period) => period.id === periodId) : undefined;
+  const period = byId ?? classifyCplPeriods(periods, today).current[0];
+  return period?.effective_from_date ?? null;
+}
+
+export type AdvancedCplKind = "add_future" | "split" | "correct_period" | "replace_schedule";
+
+export type AdvancedCplForm = {
+  kind: AdvancedCplKind;
+  effectiveDate: string;
+  amount: string;
+  periodId: string;
+  reason: string;
+  replaceRows: Array<{ from: string; until: string; amount: string }>;
+};
+
+export type AdvancedCplBuild =
+  | { ok: true; command: AdvancedCplScheduleCommand }
+  | { ok: false; message: string };
+
+/**
+ * Validate the form and build the schedule command, with the same checks the Advanced tab ran: a loaded revision is
+ * required (never a fabricated 0), amounts are non-negative, a period is required to split or correct, and a
+ * correction always carries a reason ("Correction" when left empty).
+ */
+export function buildAdvancedCplCommand(
+  form: AdvancedCplForm,
+  expectedRevision: number | null,
+): AdvancedCplBuild {
+  if (expectedRevision === null) {
+    return { ok: false, message: "Wait for this lead cost to finish loading, then try again." };
+  }
+  const reason = form.reason.trim();
+  const amount = parseCplAmountInput(form.amount);
+  if (form.kind === "replace_schedule") {
+    if (form.replaceRows.length === 0) {
+      return { ok: false, message: "Add at least one period to the new schedule." };
+    }
+    const periods: Array<{ effective_from_date: string; effective_until_date?: string; amount: number }> = [];
+    for (const row of form.replaceRows) {
+      const rowAmount = parseCplAmountInput(row.amount);
+      if (!row.from || rowAmount === null) {
+        return { ok: false, message: "Every period needs a start date and an amount of $0 or more." };
+      }
+      periods.push({
+        effective_from_date: row.from,
+        ...(row.until ? { effective_until_date: row.until } : {}),
+        amount: rowAmount,
+      });
+    }
+    return {
+      ok: true,
+      command: { operation: "replace_schedule", expected_revision: expectedRevision, periods, ...(reason ? { reason } : {}) },
+    };
+  }
+  if (amount === null) {
+    return { ok: false, message: "Enter an amount of $0 or more." };
+  }
+  if (form.kind === "add_future") {
+    if (!form.effectiveDate) return { ok: false, message: "Pick the date the new amount starts." };
+    return {
+      ok: true,
+      command: {
+        operation: "add_future",
+        expected_revision: expectedRevision,
+        effective_date: form.effectiveDate,
+        amount,
+        ...(reason ? { reason } : {}),
+      },
+    };
+  }
+  const periodId = form.periodId.trim();
+  if (!periodId) {
+    return { ok: false, message: "Pick the period first." };
+  }
+  if (form.kind === "split") {
+    if (!form.effectiveDate) return { ok: false, message: "Pick the date to split the period at." };
+    return {
+      ok: true,
+      command: {
+        operation: "split",
+        expected_revision: expectedRevision,
+        period_id: periodId,
+        effective_date: form.effectiveDate,
+        amount,
+        ...(reason ? { reason } : {}),
+      },
+    };
+  }
+  return {
+    ok: true,
+    command: {
+      operation: "correct_period",
+      expected_revision: expectedRevision,
+      period_id: periodId,
+      amount,
+      reason: reason || "Correction",
+    },
+  };
+}

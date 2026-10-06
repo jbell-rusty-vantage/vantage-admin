@@ -1,9 +1,7 @@
-import { SetupHub } from "@/components/setup/setup-hub";
+import { redirect } from "next/navigation";
+import { SETUP_ROUTES } from "@/lib/setup/setup-links";
 
-/**
- * Setup (doc 01): everything the Owner configures once and touches rarely. The Operations Registry, Extension, Granot
- * Lifecycle, Ingestion and Testimonials pages keep their routes; this hub groups them the way doc 05 names them.
- */
+/** `/setup` keeps the hub for one release as a redirect to Lead sources (doc 19 "Routes"). */
 export default function SetupPage() {
-  return <SetupHub />;
+  redirect(SETUP_ROUTES.leadSources);
 }

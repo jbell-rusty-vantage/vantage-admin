@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { InboundNumberEditor } from "../components/operations-registry/inbound-numbers/inbound-number-editor";
+import { InboundNumberEditor } from "../components/setup/lead-sources/inbound-number-sheet";
 import type { RingCentralRoute } from "../lib/api/registryRingCentral";
 import {
   deriveInboundNumberStatus,

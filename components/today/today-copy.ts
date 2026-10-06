@@ -148,8 +148,8 @@ export const todayCopy = {
     bySource: {
       title: "By source company",
       columns: { company: "Source Company", leads: "Leads", dup: "Dup", rate: "Rate", spend: "Spend", booked: "Booked", perBooked: "$ / booked", unpriced: "Unpriced" },
-      unpricedHint: "Missing is not zero. Set the rate in Operations Registry → Lead costs.",
-      unpricedHref: "/operations-registry?tab=lead-costs",
+      unpricedHint: "Missing is not zero. Set the rate in Setup → Lead costs.",
+      unpricedHref: "/setup/lead-costs",
       rateMissing: "missing",
       empty: "No Leads in this range.",
       total: "Total",

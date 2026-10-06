@@ -1,7 +1,7 @@
 # Dashboard redesign — delivery notes (admin, 2026-10-06)
 
-Spec: the workspace-root packet `dashboard-redesign-proposal/` (docs 01, 02, 03, 06, 15 and 16 built here; the rest
-not yet). Built on `main` in this repository only, in two sessions on 2026-10-06. Server work the pages need is listed
+Spec: the workspace-root packet `dashboard-redesign-proposal/` (docs 01, 02, 03, 06, 15, 16 and 19 built here; the rest
+not yet). Built on `main` in this repository only, in three sessions on 2026-10-06. Server work the pages need is listed
 in [SERVER-WORK.md](SERVER-WORK.md).
 
 ## What shipped
@@ -18,6 +18,15 @@ in [SERVER-WORK.md](SERVER-WORK.md).
 | 03 | Cancellations (`/bookings/cancellations`): cancellation cards, Reason · Source · Agent + More, the Aug 2026 empty state, a card opens its booking's Cancellation tab; Record a cancellation as the one-screen sheet (`/cancellations/new`) with the booking picker | `components/cancellations/`, `app/(dashboard)/cancellations/new` |
 | 06 | Bookings to finish (`/intakes`): open booking cases as compact cards with one Finish, "Finished today" collapsed, the finish sheet (Customer · Official booking with Use buttons · File it with No action) on the existing lifecycle commands and rules | `components/intakes/` (`to-finish-page.tsx`, `to-finish-card.tsx`, `finish-booking-sheet.tsx`, `to-finish-copy.ts`), `lib/api/bookingsToFinish.ts` |
 | 16 | Today → Operations: Board (lane tiles, one live feed with Needs you / Everything / lane chips, spotlight cards, rows, burst folding, the "N new ↑" buffer, fact drawer) and Lanes (`?view=lanes`, rows that expand in place, `?lane=` solo); presentation tiers with per-viewer overrides in Colours & visibility; milestone cards, the 30-minute pin, Pulse Highlights (tier A + milestones), Reps today / Team marks, the bottom-right toast in the shell | `components/daily/`, `components/today/`, `lib/api/dailyOperationsBoard.ts`, `components/layout/dashboard-shell.tsx` (`MilestoneToastHost`) |
+| 19 | Setup (`/setup/*`): one route with a left sub-navigation, eight sections, Owner words, the CRM look | `app/(dashboard)/setup/`, `components/setup/` (`setup-shell.tsx`, `setup-sections.ts`, `setup-copy.ts`, `setup.css`), `lib/setup/setup-links.ts`, `lib/setup/setup-redirects.ts` |
+| 19 | Lead sources (`/setup/lead-sources`): Things that need you, the source tree (feeds → Granot names · inbound numbers · lead cost), the Granot names and Inbound numbers views, the Feed / Granot name / Inbound number / Lead cost sheets, Add a lead source in six screens, Turn it on with the default feed chosen explicitly | `components/setup/lead-sources/`, `lib/setup/readiness.ts` |
+| 19 | Lead costs (`/setup/lead-costs`): the grid by company with one effective date and one Save, Fix past leads, the read-only Old rate book; the per-feed Lead cost sheet with Periods | `components/setup/lead-costs/` |
+| 19 | People & access (`/setup/people`): one person, one card (Agent · Dashboard login · Extension · RingCentral · Pay), the four Edit sheets on the existing commands, Add person, Not matched to a person | `components/setup/people/` (`people-model.ts` is the client-side join) |
+| 19 | Money (`/setup/money`): Merchants as cards with rename / deactivate / reactivate | `components/setup/money/` |
+| 19 | Carriers (`/setup/carriers`): the table, create / edit, CSV import with Patch as the default and a browser preview | `components/setup/carriers/`, `lib/setup/carriers-preview.ts` |
+| 19 | Connections & health (`/setup/connections`, Owner): Granot · RingCentral · Google Sheets · Best Relocation cards, the Registry signing status, compatibility statement and health findings | `components/setup/connections/` |
+| 19 | Website (`/setup/website`, Owner): Testimonials re-homed | `components/setup/website/` |
+| 19 | Change history (`/setup/changes`): Entity · Who · When and the diff | `components/setup/changes/` |
 
 ## Redirects (permanent, query string translated)
 
@@ -34,9 +43,24 @@ in [SERVER-WORK.md](SERVER-WORK.md).
 | `/daily` | `/?tab=operations` (Board) |
 | `/daily?lane=X` | `/?tab=operations&view=lanes&lane=X` |
 | `/analytics` · `/reporting` | `/insights` · `/insights/sheets` |
+| `/operations-registry` (bare or an unknown `tab`) | `/setup/lead-sources` |
+| `?tab=lead-sources\|sources[&entity=X][&feed=Y]` | `/setup/lead-sources[?source=X][?feed=Y]` |
+| `?tab=granot-names\|granot-sources[&entity=X]` | `/setup/lead-sources?view=granot[&granot=X]` |
+| `?tab=inbound-numbers\|ringcentral[&entity=X]` | `/setup/lead-sources?view=numbers[&number=X]` |
+| `?tab=lead-costs\|cpl` · `…&cpl_mode=corrections` | `/setup/lead-costs` · `/setup/lead-costs?view=fix` |
+| `?tab=legacy-cpl` | `/setup/lead-costs?view=old` |
+| `?tab=agents[&entity=X]` · `?tab=users` | `/setup/people[?person=X]` |
+| `?tab=merchants` | `/setup/money` |
+| `?tab=moving-carriers` · `/settings` | `/setup/carriers` |
+| `?tab=changes` | `/setup/changes` |
+| `?tab=overview` | `/setup/connections` |
+| `/extension` · `/testimonials` | `/setup/people` · `/setup/website` |
+| `/setup` | `/setup/lead-sources` (a page redirect; the hub kept for one release) |
 
-`/cancellations/new`, `/bookings/new`, `/bookings/reconciliation`, `/intakes`, `/reporting/*`, `/operations-registry`, `/extension`,
-`/granot-lifecycle/*`, `/ingestion/*`, `/testimonials` keep their routes; the sidebar highlights the item that owns them.
+`/cancellations/new`, `/bookings/new`, `/bookings/reconciliation`, `/intakes`, `/reporting/*`, `/granot-lifecycle/*`, `/ingestion/*`
+keep their routes; the sidebar highlights the item that owns them. The table in `lib/setup/setup-redirects.ts` is the one `next.config.ts`
+installs; `tests/setup-shell.test.ts` keeps it equal to `rewriteRegistryHref` in `lib/setup/setup-links.ts`, which the sections use for
+server-produced deep links.
 
 ## URL contracts
 
@@ -53,13 +77,21 @@ in [SERVER-WORK.md](SERVER-WORK.md).
 - **Record a cancellation:** `/cancellations/new[?booked_lead=<id>]`.
 - **To finish:** `/intakes[?case=<id>]` (the finish sheet); the old `tab`, `state`, `job`, `cursor` keys are ignored.
 - **Reconciliation:** `/bookings/reconciliation?connect=1`.
+- **Setup → Lead sources:** `view=sources|granot|numbers` (default sources), `source=<company id>`, `feed=<feed id>`,
+  `edit=feed|granot|number|cost|source` (`source` is the company sheet: rename, Master Sheet, On / Off), `granot=<Granot name id>`,
+  `number=<inbound number id>`, `new=1` (Add a lead source); `feed=new`, `granot=new`, `number=new` open a blank sheet.
+- **Setup → Lead costs:** `view=grid|fix|old` (default grid), `focus=<feed id>` (the Set lead cost deep link).
+- **Setup → People & access:** `person=<agent id>`, `edit=roster|login|extension|ringcentral`, `new=1` (Add person).
+- **Setup → Carriers:** `import=1` (the CSV import sheet), `q`, `inactive=1`.
+- **Setup → Website:** the Testimonials keys unchanged (`q`, `reviewer_name`, `rating`, `from`, `to`, `direction`, `page`, `limit`).
+- **Setup → Change history:** `entity`, `who`, `from`, `to`, `page`, `limit`, `change=<id>` (the open diff).
 
 ## Roles
 
 | Role | Sidebar | Home |
 |---|---|---|
 | Owner | all six | `/` (Today) |
-| Admin | Leads, Bookings, Insights, Setup (read-only Registry) | `/leads` (Today redirects there) |
+| Admin | Leads, Bookings, Insights, Setup (read-only; People shows the roster only; no Connections or Website) | `/leads` (Today redirects there) |
 | Manager | Today → Operations only, Outreach Desk | `/` (Today, Operations tab) |
 | Rep | Outreach Desk | `/outreach-desk` |
 
@@ -72,7 +104,7 @@ the amendment is made in the server copy first and re-mirrored here. Not done in
 
 ## Not built (later docs)
 
-04 Granot case file, 05 Setup rename and sections (the hub links to today's pages), 07 Sheets, 09–14, 17 Granot
+04 Granot case file, 07 Sheets, 09–14, 17 Granot
 updates (the Leads badge stays empty until then), 18 Job Timeline chronicle (the full page moved to `/leads/timeline`;
 the panel tab is not built). The booking panel keeps the `DetailPanel` tabs (Summary · Contact · Cancellation · Actions ·
 Production · Source) until docs 04 and 18 land; the cancellation's own Edit stays in the cancellations panel reached

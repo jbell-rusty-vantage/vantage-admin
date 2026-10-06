@@ -2,14 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { buildSetupCommand, type SetupWizardState } from "../components/setup/lead-sources/add-source-flow";
 import {
-  buildSetupCommand,
   SetupStepGranotName,
   SetupStepHowLeadsArrive,
   SetupStepLeadSource,
   SetupStepReview,
-  type SetupWizardState,
-} from "../components/operations-registry/lead-sources/setup/lead-source-setup-wizard";
+} from "../components/setup/lead-sources/add-source-screens";
 
 const base: SetupWizardState = {
   name: "Paid Overflow",
@@ -17,11 +16,18 @@ const base: SetupWizardState = {
   aliasesText: "",
   channel: "form",
   splitMoveTypes: false,
+  alsoCalls: false,
   feed_display_name: "Web forms",
   crm_label: "Paid Overflow",
+  long_feed_display_name: "",
+  long_crm_label: "",
+  call_feed_display_name: "",
+  call_crm_label: "",
   includeGranot: null,
   granotName: "",
   when_lead_arrives: "existing_only",
+  landing: "both",
+  callGranotName: "",
   textConfigured: false,
   reason: "Owner created this draft lead source from the guided setup",
 };
@@ -41,7 +47,10 @@ test("setup steps use the specified copy and skippable Granot name", () => {
   assert.match(step2, /Where do these leads come from\?/);
   assert.match(step2, /Web forms/);
   assert.match(step2, /Inbound calls/);
-  assert.match(step2, /Do local and long-distance moves need to be tracked separately\?/);
+  // Changed: screen 2 now asks Web forms / Inbound calls / Both and offers Local and long distance as two feeds
+  // (doc 19 screen 2); this replaces the old "tracked separately" checkbox sentence.
+  assert.match(step2, /Local and long distance separately/);
+  assert.match(step2, /Both/);
   assert.match(step2, /What Vantage sends to Granot/);
   assert.match(step2, /Source Company column/);
 
@@ -92,7 +101,8 @@ test("review is preview-driven and Save as draft is the first commit", () => {
     }),
   );
   assert.match(markup, /You are creating/);
-  assert.match(markup, /Paid Overflow — lead source/);
+  // Changed: Owner copy uses "·" instead of an em-dash (Setup working rule: no em-dashes in UI copy).
+  assert.match(markup, /Paid Overflow · lead source/);
   assert.match(markup, /lands in: Paid Overflow → Web forms/);
   assert.match(markup, /Nothing is live yet/);
   assert.match(markup, /Set the lead cost/);

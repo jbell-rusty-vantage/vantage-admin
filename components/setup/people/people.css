@@ -1,0 +1,69 @@
+/* Setup people (doc 19): rules beyond the shared .crm-* and .su-* classes. Imported by app/(dashboard)/setup/layout.tsx. */
+
+.pp-linkrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pp-linkrow .su-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+
+.pp-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pp-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pp-label {
+  min-width: 96px;
+}
+
+.pp-value {
+  flex: 1 1 220px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pp-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.pp-toolbar > :first-child {
+  flex: 1 1 280px;
+}
+
+.pp-pick {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pp-pick select {
+  min-width: 200px;
+}
+
+@media (max-width: 640px) {
+  .pp-label {
+    min-width: 0;
+  }
+}

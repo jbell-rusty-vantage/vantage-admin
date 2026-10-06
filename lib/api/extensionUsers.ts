@@ -1,6 +1,6 @@
 "use client";
 
-import { EXTENSION_COPY } from "@/components/extension/extension-copy";
+import { EXTENSION_COPY } from "@/components/setup/people/extension-copy";
 import type { ApiResponse } from "./types";
 
 export type CurrentExtensionRole = "owner" | "sales" | "customer_service";

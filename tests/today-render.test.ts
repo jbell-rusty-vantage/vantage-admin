@@ -253,7 +253,8 @@ test("Money fallback: waiting notice, Overview lead cost table, unpriced warning
   assert.match(markup, /All time/);
   assert.match(markup, /Top10 Forms/);
   assert.match(markup, /\$1,845/);
-  assert.match(markup, /href="\/operations-registry\?tab=lead-costs"/);
+  // Setup (doc 19): the unpriced link opens Setup → Lead costs; the Registry route is now a permanent redirect.
+  assert.match(markup, /href="\/setup\/lead-costs"/);
   assert.match(markup, /Needs rep compensation \(server work\)/);
 });
 

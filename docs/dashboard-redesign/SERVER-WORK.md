@@ -71,6 +71,33 @@ emits the facts nothing appears. Items as doc 16 states them.
 | O10 | Record the fact after the rep-day transaction commits and swallow failures, like `publishGoalChangesSafely` | same | none | — |
 | O11 | Runtime configuration keys (Mongo, not env): `daily_operations.milestones.rep_goal`, `daily_operations.milestones.team_goal`, `daily_operations.milestones.toast`, default on | runtime configuration | none: the server stops emitting and the toast host receives nothing | trivial |
 
+## Setup (doc 19)
+
+Setup was built admin-only on 2026-10-06 (third session). Nothing below is required to ship; each item names the admin
+call site that switches over.
+
+| # | Item | Why | Admin call site | Size |
+|---|---|---|---|---|
+| S1 | `GET …/granot-crm-sources/observed-labels?days=30`: Granot names seen in the last 30 days of receipts | the wizard's screen 3 and the "lands nowhere" strip pick from a live list instead of free text | the Granot name field's suggestion list in `components/setup/lead-sources/` (today: `automation_sources` as suggestions) | small |
+| S2 | `GET /api/v1/admin/operations-registry/people` joining Agent, dashboard user, extension user and RingCentral link by agent id / email | the person card is one read instead of four joined in the browser | `components/setup/people/people-model.ts` (`buildPeople`) and `use-people.ts` (`usePeople`) | small |
+| S3 | `POST /api/v1/admin/moving-carriers/import/preview` (same body, no writes) | the import preview is the server's, not a browser diff | the Carriers import sheet's preview (today `lib/setup/carriers-preview.ts`, which says "the server does the final check") | small |
+| S4 | `set_range` lead-cost command (doc 05 "By date": Feed + From + Through or Ongoing + Amount) | one dated form instead of today's four Periods operations | the Periods block of `components/setup/lead-costs/lead-cost-sheet.tsx` | medium |
+| S5 | Rep compensation entity (doc 02 T3) | the person card's Pay line reads "not recorded" today | `components/setup/people/` Pay line; Setup → Money | medium |
+| S6 | Feed activation that does not take over the channel default (`make_default: false`) | the Turn-it-on step orders activations so the chosen default is last, because the command makes the activated feed the default | `lib/setup/readiness.ts` (`planReadiness`, default-last ordering) | small |
+| S7 | Drop `can_deactivate` from the RingCentral dependencies type (the server no longer returns it) | the admin type still declares it | `lib/api/registryRingCentral.ts` | trivial |
+| S8 | `effective_from_date` on `current_rate` in `GET cpl/snapshot` | the Lead costs grid shows Since from one request instead of one periods read per feed | `components/setup/lead-costs/lead-costs-grid.tsx` (the periods `useQueries` call goes) | trivial |
+| S9 | An Owner `reason` on a snapshot row the server calls invalid (today only `missing_rate`, `duplicate_zero`, `not_applicable`) | the grid says why, not "Needs a look" | `CurrentCell` in `lead-costs-grid.tsx` and the Lead cost line of the source tree | small |
+| S10 | `reviewed` / `reviewed_at` on the RingCentral accounts read | the person card's "reviewed ✓" chip stops inferring review from `link_id` + `role` | `accountReviewed` in `components/setup/people/people-model.ts` | trivial |
+| S11 | An `agent_id` (or email link) on Extension Users | the Not matched extension row gets a *Connect to…* command | `components/setup/people/not-matched.tsx` | small |
+| S12 | `GET …/operations-registry/changes/actors` (distinct people who made changes) | the Who filter lists everyone, not the actors of the 100 most recent rows | the actors query in `components/setup/changes/changes-section.tsx` | trivial |
+| S13 | A human `entity_label` stored on each change row | the Change history "What" cell can say which feed or Granot name, not only "Feed" | `components/setup/changes/changes-table.tsx` | small |
+| S14 | Leaf summaries and real finding counts on the lead sources **list** read (`blocking_finding_count` is hard-coded 0; the list carries only per-feed counts), or one bulk detail read | the tree reads one detail per source today (`useQueries` over `leadSourceDetail`) | `components/setup/lead-sources/lead-sources-section.tsx` | small |
+| S15 | The current lead cost amount and its start date on feed readiness | the tree reads `cplPeriods` per expanded feed today | `costByFeed` in `lead-sources-section.tsx` | trivial |
+| S16 | `is_default_for_channel` on the feed projection | the Default pill comes from the source companies read (`channelDefaultsOf`) today | `components/setup/lead-sources/lead-sources-model.ts` | trivial |
+| S17 | Per-number validation state, `active` and last seen on the detail's `inbound_numbers`; route status (wrong channel / wrong move type) on its Granot landings | the leaf lines join the inbound routes read and the Granot names read today | `leaf-lines.tsx`, `lead-sources-model.ts` | small |
+| S18 | One `needs-you` read (list + Granot names + routes, and S1's automation names with no landing) | the Things that need you strip and the sub-navigation badge make three reads | `components/setup/lead-sources/use-needs-you.ts` | small |
+
+
 ## Packet amendment (doc 15)
 
 Desk SPECIFICATION §5, the paragraph beginning "Desk look versus the rest of Admin (Owner instruction, 2026-10-04)",

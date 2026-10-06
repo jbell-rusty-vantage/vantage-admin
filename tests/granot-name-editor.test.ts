@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { GranotNameEditor } from "../components/operations-registry/granot-names/granot-name-editor";
+import { GranotNameEditor } from "../components/setup/lead-sources/granot-name-sheet";
 import {
   BEST_RELOCATION_MOVE_TYPE_REVIEW,
   TBM_PRIME_EXISTING_ONLY_REVIEW,

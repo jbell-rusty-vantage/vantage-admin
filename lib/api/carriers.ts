@@ -109,3 +109,25 @@ export async function importMovingCarriersFromCsv(input: {
     body: JSON.stringify(input),
   });
 }
+
+/**
+ * Every moving carrier, following the server's pages (the list read caps a page at 250). The Setup import preview
+ * diffs the file against this whole list, so a first page alone would call carriers beyond it "new".
+ */
+export async function fetchAllMovingCarriers(
+  options: { includeInactive?: boolean } = {},
+): Promise<MovingCarrier[]> {
+  const items: MovingCarrier[] = [];
+  for (let page = 1; page <= 40; page += 1) {
+    const search = new URLSearchParams({ limit: "250", page: String(page) });
+    if (options.includeInactive) {
+      search.set("include_inactive", "true");
+    }
+    const data = await requestJson<MovingCarrierListResponse>(
+      proxyUrl(`api/v1/admin/moving-carriers?${search.toString()}`),
+    );
+    items.push(...data.items);
+    if (!data.has_next_page) break;
+  }
+  return items;
+}
