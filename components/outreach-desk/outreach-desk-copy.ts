@@ -143,6 +143,19 @@ export const deskCopy = {
     notPermitted: "This page isn't part of your desk.",
     backToDesk: "Go to my desk",
   },
+  /** A desk read that failed inside a view (team, goal, queue): said in place of a skeleton that would never resolve. */
+  readErrors: {
+    team: "Team goals and lead counts couldn't load.",
+    goal: "This goal couldn't load.",
+    queue: "The lead list couldn't load.",
+    reps: "The rep list couldn't load.",
+    unavailable: "This part of the desk is unavailable right now. It will retry automatically.",
+    shape: "The server sent something this version of the desk doesn't understand yet. Reload the page; if it keeps happening, the desk needs an update.",
+    forbidden: "Your account can't open this part of the desk.",
+    failed: "Check your connection, then retry.",
+    stale: (at: string) => `Couldn't refresh — showing data as of ${at}.`,
+    retry: "Retry",
+  },
   team: {
     toolbar: "Team filters",
     today: "Today",
