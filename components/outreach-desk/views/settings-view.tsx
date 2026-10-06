@@ -1,34 +1,30 @@
 "use client";
 /**
  * Settings (ADM-6). Role-scoped:
- * - Owner: desk controls and the intake gate, roster and daily goals, closures, contact restrictions (the inert
- *   AI-origin rows stay active and blocking until confirmed or lifted, P06c), enrollment ("Not enrolled — older" with
- *   a one-click Enroll), and attendance.
+ * - Owner: desk controls and the intake gate, roster and daily goals, closures, the configuration editor (lifecycle
+ *   repair ADM-5: goal counts, capture timing, lead re-evaluation and lead-change intake tunables, new-lead defaults,
+ *   the read-only priority map, lead rules; `./configuration-editor`), contact restrictions (the inert AI-origin rows
+ *   stay active and blocking until confirmed or lifted, P06c), enrollment (ADM-4: "Ready to enroll" and "Older" with a
+ *   one-click Enroll, a read-only "Needs review", and the day's new-lead intake; `./enrollment-panels`), and attendance.
  * - Manager: attendance only (prospective; the server refuses past days, P09b).
  * - Rep: a short note; reps have no desk settings.
  * Every write sends the revision it read and an Idempotency-Key. Configuration writes replace the whole value
  * (`PATCH /configuration`), so the Owner always edits the value just read; a stale write is a 409.
  */
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
-import { CalendarX2, ShieldAlert, SlidersHorizontal, UserCheck, Users } from "lucide-react";
+import { CalendarX2, ClipboardList, Gauge, Inbox, ListOrdered, ShieldAlert, SlidersHorizontal, Target, Timer, ToggleRight, UserCheck, UserPlus, Users } from "lucide-react";
 import {
   isSalesOutreachApiError,
   newIdempotencyKey,
   salesOutreachCommand,
-  salesOutreachConfigurationPatchResponseSchema,
   salesOutreachConfigurationReadSchema,
-  salesOutreachEnrollmentApplySchema,
-  salesOutreachEnrollmentCandidatesSchema,
-  salesOutreachEnrollmentReportSchema,
   salesOutreachPaths,
   salesOutreachRead,
   salesOutreachRestrictionCommandResponseSchema,
   salesOutreachRestrictionsResponseSchema,
   type SalesOutreachCapabilitiesDto,
   type SalesOutreachConfigurationReadDto,
-  type SalesOutreachConfigurationValue,
-  type SalesOutreachEnrollmentCandidate,
   type SalesOutreachRestrictionDto,
 } from "@/lib/api/salesOutreach";
 import { outreachKeys } from "@/lib/query/salesOutreach";
@@ -36,9 +32,20 @@ import { useDayOverrideCommand } from "../data/use-desk-commands";
 import { retryDeskRead, useTeam } from "../data/use-desk-reads";
 import type { DeskViewer } from "../shell/desk-shell";
 import { absoluteTime, addDays, nyDate, shortDateLabel } from "../lib/format";
-import { CONFIGURATION_CONTROL_KEYS, configurationPatchBody, withDefaultGoal, withHolidays, withSwitchToggled, withWorkingDayToggled, type ConfigurationSwitchKey } from "../lib/configuration-patch";
+import { CONFIGURATION_CONTROL_KEYS, withDefaultGoal, withHolidays, withSwitchToggled, withWorkingDayToggled, type ConfigurationSwitchKey } from "../lib/configuration-patch";
 import { deskCopy } from "../outreach-desk-copy";
 import { DeskHeader, IconBadge, SkeletonLine } from "../primitives";
+import {
+  ConfigurationWriteError,
+  GoalCountsEditor,
+  IntakeDefaultsEditor,
+  LeadRulesEditor,
+  PriorityMapView,
+  SettingsPanel as Panel,
+  TunablesEditor,
+  useConfigurationWrite,
+} from "./configuration-editor";
+import { AdmissionsPanel, EnrollmentPanel } from "./enrollment-panels";
 
 const s = deskCopy.settings;
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -53,49 +60,12 @@ function errorText(error: unknown): string | null {
   return deskCopy.errors.failed(null);
 }
 
-function Panel({ icon, title, hint, children, testId }: { icon: typeof Users; title: string; hint?: string; children: ReactNode; testId?: string }) {
-  const id = useId();
-  return (
-    <section className="od-card od-settings" aria-labelledby={id} data-testid={testId}>
-      <div className="od-settings__head">
-        <IconBadge icon={icon} tone="blue" size={40} />
-        <div>
-          <h2 id={id} className="od-card__title">
-            {title}
-          </h2>
-          {hint ? <p className="od-card__subtitle">{hint}</p> : null}
-        </div>
-      </div>
-      <div className="od-settings__body">{children}</div>
-    </section>
-  );
-}
-
 function useConfiguration(enabled: boolean) {
   return useQuery({
     queryKey: outreachKeys.configuration(),
     queryFn: ({ signal }) => salesOutreachRead(salesOutreachPaths.configuration(), salesOutreachConfigurationReadSchema, signal),
     enabled,
     retry: retryDeskRead,
-  });
-}
-
-/**
- * Replaces the configuration value (the server validates it and fails closed). `value` is always an edit of the
- * value just read (`../lib/configuration-patch`), so keys this admin does not know are sent back unchanged.
- */
-function useConfigurationWrite() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ config, value }: { config: SalesOutreachConfigurationReadDto; value: SalesOutreachConfigurationValue }) =>
-      salesOutreachCommand(
-        "PATCH",
-        salesOutreachPaths.configuration(),
-        configurationPatchBody(config, value),
-        newIdempotencyKey("configuration"),
-        salesOutreachConfigurationPatchResponseSchema,
-      ),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: outreachKeys.all as QueryKey }),
   });
 }
 
@@ -125,7 +95,7 @@ function ControlsPanel({ config }: { config: SalesOutreachConfigurationReadDto }
       <p className="od-text-muted od-small">
         {deskCopy.settingsExtra.policy(config.value?.cadence.policy_version ?? null, config.version, config.updated_at ? absoluteTime(config.updated_at) : null)}
       </p>
-      {write.error ? <p className="od-lead__error" role="alert">{errorText(write.error)}</p> : null}
+      <ConfigurationWriteError error={write.error} />
     </>
   );
 }
@@ -196,7 +166,7 @@ function RosterPanel({ config, names }: { config: SalesOutreachConfigurationRead
           </tbody>
         </table>
       </div>
-      {write.error ? <p className="od-lead__error" role="alert">{errorText(write.error)}</p> : null}
+      <ConfigurationWriteError error={write.error} />
     </>
   );
 }
@@ -232,7 +202,7 @@ function ClosuresPanel({ config, today }: { config: SalesOutreachConfigurationRe
           {s.save}
         </button>
       </div>
-      {write.error ? <p className="od-lead__error" role="alert">{errorText(write.error)}</p> : null}
+      <ConfigurationWriteError error={write.error} />
     </>
   );
 }
@@ -325,88 +295,6 @@ function RestrictionsPanel() {
   );
 }
 
-/** One-click Enroll for an eligible older Lead: report (zero writes, manifest) then apply that exact manifest. */
-function useEnrollOne() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (candidate: SalesOutreachEnrollmentCandidate) => {
-      const cohort = `owner-older-${nyDate(new Date())}`;
-      const report = await salesOutreachCommand(
-        "POST",
-        salesOutreachPaths.enrollmentReport(),
-        { selection: { mode: "selected", lead_refs: [candidate.lead] }, kind: "expansion", cohort_id: cohort },
-        newIdempotencyKey("enroll-report"),
-        salesOutreachEnrollmentReportSchema,
-      );
-      if (report.lead_refs.length === 0) throw new Error(deskCopy.settingsExtra.notEligible);
-      return salesOutreachCommand(
-        "POST",
-        salesOutreachPaths.enrollmentApply(),
-        { kind: "expansion", cohort_id: report.cohort_id, lead_refs: report.lead_refs, manifest_hash: report.manifest_hash },
-        newIdempotencyKey("enroll-apply"),
-        salesOutreachEnrollmentApplySchema,
-      );
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: outreachKeys.all as QueryKey }),
-  });
-}
-
-function EnrollmentPanel() {
-  const query = useQuery({
-    queryKey: outreachKeys.enrollmentCandidates("older", null),
-    queryFn: ({ signal }) => salesOutreachRead(salesOutreachPaths.enrollmentCandidates({ partition: "older", limit: 25 }), salesOutreachEnrollmentCandidatesSchema, signal),
-    retry: retryDeskRead,
-  });
-  const enroll = useEnrollOne();
-  if (query.error) return <p className="od-lead__error">{errorText(query.error)}</p>;
-  if (!query.data) return <SkeletonLine />;
-  const items = query.data.items;
-  return (
-    <>
-      <p className="od-text-muted od-small">{deskCopy.settingsExtra.olderHint(query.data.scope.lookback_days ?? null)}</p>
-      <div className="od-table-wrap">
-        <table className="od-table od-table--compact">
-          <thead>
-            <tr>
-              <th scope="col">{deskCopy.team.attention.columns.job}</th>
-              <th scope="col">{deskCopy.settingsExtra.received}</th>
-              <th scope="col">{deskCopy.team.attention.columns.priority}</th>
-              <th scope="col">{deskCopy.team.goals.columns.action}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="od-empty">
-                  {deskCopy.settingsExtra.noOlder}
-                </td>
-              </tr>
-            ) : (
-              items.map((item) => (
-                <tr key={item.lead.id}>
-                  <td>
-                    <span className="od-strong">{item.job_no ?? deskCopy.lead.jobPending}</span>
-                    {item.name ? <span className="od-cell__sub">{item.name}</span> : null}
-                  </td>
-                  <td>{item.received_date ? shortDateLabel(item.received_date) : deskCopy.text.unknown}</td>
-                  <td>{item.workflow === "quoted" ? deskCopy.workflows.quoted : item.workflow === "new" ? deskCopy.workflows.new : (item.priority_raw ?? deskCopy.text.unknown)}</td>
-                  <td>
-                    <button type="button" className="od-button" disabled={enroll.isPending} onClick={() => enroll.mutate(item)}>
-                      {deskCopy.settingsExtra.enroll}
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-      {enroll.error ? <p className="od-lead__error" role="alert">{isSalesOutreachApiError(enroll.error) && enroll.error.issues?.some((issue) => issue.code === "migration_paused") ? deskCopy.settingsExtra.migrationPaused : errorText(enroll.error)}</p> : null}
-      {enroll.data ? <p className="od-text-green" role="status">{deskCopy.settingsExtra.enrolled(enroll.data.status)}</p> : null}
-    </>
-  );
-}
-
 function AttendancePanel({ capabilities, reps, today }: { capabilities: SalesOutreachCapabilitiesDto; reps: { id: string; name: string }[]; today: string }) {
   const command = useDayOverrideCommand();
   const [agent, setAgent] = useState("");
@@ -463,6 +351,41 @@ function AttendancePanel({ capabilities, reps, today }: { capabilities: SalesOut
   );
 }
 
+/**
+ * The ADM-5 editor panels. Keyed by the configuration revision in `SettingsView`, so drafts reset to the stored
+ * value after every committed write (or a write elsewhere).
+ */
+function ConfigurationEditor({ config, today }: { config: SalesOutreachConfigurationReadDto; today: string }) {
+  const value = config.value;
+  if (!value) return null;
+  const e = deskCopy.configEditor;
+  return (
+    <>
+      <Panel icon={Target} title={e.goalCounts.title} hint={e.goalCounts.hint} testId="settings-goal-counts">
+        <GoalCountsEditor config={config} value={value} today={today} />
+      </Panel>
+      <Panel icon={ToggleRight} title={e.rules.title} hint={e.rules.hint} testId="settings-lead-rules">
+        <LeadRulesEditor config={config} value={value} />
+      </Panel>
+      <Panel icon={UserPlus} title={e.intake.title} hint={e.intake.hint} testId="settings-intake-defaults">
+        <IntakeDefaultsEditor config={config} value={value} />
+      </Panel>
+      <Panel icon={ListOrdered} title={e.priorityMap.title} hint={e.priorityMap.hint} testId="settings-priority-map">
+        <PriorityMapView value={value} />
+      </Panel>
+      <Panel icon={Timer} title={e.capture.title} hint={e.capture.hint} testId="settings-capture-timing">
+        <TunablesEditor config={config} value={value} group="capture" />
+      </Panel>
+      <Panel icon={Gauge} title={e.drain.title} hint={e.drain.hint} testId="settings-evaluate-drain">
+        <TunablesEditor config={config} value={value} group="drain" />
+      </Panel>
+      <Panel icon={Inbox} title={e.migration.title} hint={e.migration.hint} testId="settings-lead-change-intake">
+        <TunablesEditor config={config} value={value} group="migration" />
+      </Panel>
+    </>
+  );
+}
+
 export function SettingsView({ viewer, capabilities }: { viewer: DeskViewer; capabilities: SalesOutreachCapabilitiesDto }) {
   const owner = viewer.role === "owner";
   const coordinator = viewer.role !== "rep";
@@ -503,6 +426,7 @@ export function SettingsView({ viewer, capabilities }: { viewer: DeskViewer; cap
               <Panel icon={CalendarX2} title={deskCopy.settingsExtra.closures} testId="settings-closures">
                 <ClosuresPanel config={config.data} today={today} />
               </Panel>
+              {config.data.value ? <ConfigurationEditor key={config.data.revision} config={config.data} today={today} /> : null}
             </>
           ) : (
             <p className="od-lead__error">{errorText(config.error)}</p>
@@ -519,9 +443,14 @@ export function SettingsView({ viewer, capabilities }: { viewer: DeskViewer; cap
           </Panel>
         ) : null}
         {owner ? (
-          <Panel icon={Users} title={s.enrollment} hint={deskCopy.settingsExtra.enrollmentHint} testId="settings-enrollment">
-            <EnrollmentPanel />
-          </Panel>
+          <>
+            <Panel icon={Users} title={s.enrollment} hint={deskCopy.settingsExtra.enrollmentHint} testId="settings-enrollment">
+              <EnrollmentPanel />
+            </Panel>
+            <Panel icon={ClipboardList} title={deskCopy.settingsExtra.admissions.title} hint={deskCopy.settingsExtra.admissions.hint} testId="settings-admissions">
+              <AdmissionsPanel today={today} />
+            </Panel>
+          </>
         ) : null}
       </div>
     </div>

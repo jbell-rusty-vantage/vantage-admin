@@ -37,6 +37,9 @@ export const outreachKeys = {
   restrictions: (state?: string | null, cursor?: string | null) => [ROOT, "restrictions", stable({ state, cursor })] as const,
   enrollmentAll: () => [ROOT, "enrollment"] as const,
   enrollmentCandidates: (partition: string, cursor?: string | null) => [ROOT, "enrollment", "candidates", stable({ partition, cursor })] as const,
+  /** Every page of one partition (the Settings list pages over `next_cursor` with an infinite query). */
+  enrollmentCandidatePages: (partition: string) => [ROOT, "enrollment", "candidates", "pages", partition] as const,
+  enrollmentAdmissions: (businessDay?: string | null) => [ROOT, "enrollment", "admissions", stable({ business_day: businessDay })] as const,
 } as const;
 
 export type OutreachKeyPrefix = readonly unknown[];

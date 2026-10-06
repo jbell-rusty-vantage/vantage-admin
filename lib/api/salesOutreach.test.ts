@@ -10,6 +10,7 @@ import {
   salesOutreachAssignmentRequestSchema,
   salesOutreachAssignmentResponseSchema,
   salesOutreachCallbackRequestSchema,
+  salesOutreachAdmissionsSchema,
   salesOutreachCapabilitiesSchema,
   salesOutreachCommand,
   salesOutreachConfigurationReadSchema,
@@ -51,6 +52,8 @@ const READ_RULES: Array<[RegExp, z.ZodType]> = [
   [/^outreach\./, salesOutreachEnvelope(salesOutreachDetailSchema)],
   [/^live\./, salesOutreachLiveFrameSchema],
   [/^error\./, salesOutreachErrorEnvelopeSchema],
+  // olr B8 (ADM-4): `GET /enrollment/admissions`.
+  [/^enrollment-admissions\./, salesOutreachEnvelope(salesOutreachAdmissionsSchema)],
   // Requested from the server (LANE-D §5, §6); listed ahead so the examples land without a red guard.
   [/^enrollment\.candidates\./, salesOutreachEnvelope(salesOutreachEnrollmentCandidatesSchema)],
   [/^configuration\./, salesOutreachEnvelope(salesOutreachConfigurationReadSchema)],

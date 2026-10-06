@@ -11,6 +11,7 @@
  *   rows, the queue answers 503 PROJECTION_PENDING).
  */
 import type {
+  SalesOutreachAdmissionsDto,
   SalesOutreachCapabilitiesDto,
   SalesOutreachChannelDto,
   SalesOutreachConfigurationReadDto,
@@ -20,12 +21,14 @@ import type {
   SalesOutreachEnrollmentCandidatesDto,
   SalesOutreachEnrollmentReportDto,
   SalesOutreachFreshness,
+  SalesOutreachLeadRef,
   SalesOutreachOtherOutboundBreakdown,
   SalesOutreachQueueRowDto,
   SalesOutreachRepDayDto,
   SalesOutreachRepDaysDto,
   SalesOutreachRestrictionsResponse,
   SalesOutreachRole,
+  SalesOutreachSmsPending,
   SalesOutreachTeamDto,
 } from "@/lib/api/salesOutreach";
 
@@ -54,9 +57,25 @@ const agentName = (id: string | null) => Object.values(SYNTHETIC_AGENTS).find((a
 // ---------------------------------------------------------------------------------------------
 
 /**
+ * Lifecycle repair C7 (`freshness.sms.pending`) with capture on: one text from Alex's mailbox not yet matched to a lead,
+ * and one from a mailbox that is no longer a reviewed rep's waiting for its sender (`agent_id` null), as the server's
+ * `team.owner.sms-capture.json` example serves them.
+ */
+export const SYNTHETIC_SMS_PENDING: SalesOutreachSmsPending = {
+  identity: 1,
+  association: 1,
+  window_days: 7,
+  mailboxes: [
+    { extension_id: "101", agent_id: SYNTHETIC_AGENTS.alex.id, identity: 0, association: 1 },
+    { extension_id: "109", agent_id: null, identity: 1, association: 0 },
+  ],
+};
+
+/**
  * Header freshness in the A3-fresh shape (lifecycle repair): calls carry the last Call Log confirmation and the newest
  * call webhook, and "Calls updated" (`last_updated_at`) is the earlier of the two in staffed hours; SMS carries both as
- * null.
+ * null. SMS also carries the C7 pending counters (`SYNTHETIC_SMS_PENDING`) while rep SMS capture is on, null while
+ * it is off (the M1 variant), as the server serves them.
  */
 function freshness(variant: SyntheticVariant): SalesOutreachFreshness {
   return {
@@ -71,8 +90,26 @@ function freshness(variant: SyntheticVariant): SalesOutreachFreshness {
     },
     sms:
       variant === "desk"
-        ? { state: "fresh", last_updated_at: "2026-10-01T15:58:50.000Z", known_complete_through: "2026-10-01T15:58:30.000Z", age_seconds: 70, reason: null, last_confirmation_at: null, last_webhook_at: null }
-        : { state: "not_connected", last_updated_at: null, known_complete_through: null, age_seconds: null, reason: "rep_sms_capture_disabled", last_confirmation_at: null, last_webhook_at: null },
+        ? {
+            state: "fresh",
+            last_updated_at: "2026-10-01T15:58:50.000Z",
+            known_complete_through: "2026-10-01T15:58:30.000Z",
+            age_seconds: 70,
+            reason: null,
+            last_confirmation_at: null,
+            last_webhook_at: null,
+            pending: structuredClone(SYNTHETIC_SMS_PENDING),
+          }
+        : {
+            state: "not_connected",
+            last_updated_at: null,
+            known_complete_through: null,
+            age_seconds: null,
+            reason: "rep_sms_capture_disabled",
+            last_confirmation_at: null,
+            last_webhook_at: null,
+            pending: null,
+          },
     granot: { state: "observed", last_observed_at: "2026-10-01T15:57:10.000Z", age_seconds: 170 },
   };
 }
@@ -541,10 +578,13 @@ export function syntheticQueueRows(variant: SyntheticVariant = "desk"): SalesOut
 // Selected-lead detail
 // ---------------------------------------------------------------------------------------------
 
+/** The queue row whose subject joined through the Owner's automatic admission (olr B6 cohort `admission:<date>`). */
+export const SYNTHETIC_ADMITTED_ROW = 3;
+
 export function syntheticDetail(input: { subjectId: string; role: SalesOutreachRole; variant?: SyntheticVariant }): SalesOutreachDetailDto | null {
   const variant = input.variant ?? "desk";
   const review = SYNTHETIC_REVIEW_SUBJECTS.find((candidate) => syntheticSubjectId(candidate.n) === input.subjectId);
-  if (review) return syntheticReviewDetail({ n: review.n, reasons: review.reasons, evaluated: review.evaluated, role: input.role, variant });
+  if (review) return syntheticReviewDetail({ n: review.n, reasons: review.reasons, evaluated: review.evaluated, hold: review.hold, role: input.role, variant });
   const row = syntheticQueueRows(variant).find((candidate) => candidate.subject_id === input.subjectId);
   if (!row) return null;
   const spec = ROW_SPECS.find((candidate) => syntheticSubjectId(candidate.n) === input.subjectId)!;
@@ -593,7 +633,9 @@ export function syntheticDetail(input: { subjectId: string; role: SalesOutreachR
       received_at: spec.received,
       received_date: spec.received.slice(0, 10),
       received_quality: "instant",
-      enrollment: { cohort_id: "backfill:2026-09-30", kind: "expansion", enrolled_at: "2026-09-30T12:00:00.000Z", activation_at: "2026-09-30T12:00:00.000Z" },
+      enrollment: spec.n === SYNTHETIC_ADMITTED_ROW
+        ? { cohort_id: "admission:2026-09-28", kind: "expansion", enrolled_at: "2026-09-28T17:10:00.000Z", activation_at: "2026-09-28T17:10:00.000Z" }
+        : { cohort_id: "backfill:2026-09-30", kind: "expansion", enrolled_at: "2026-09-30T12:00:00.000Z", activation_at: "2026-09-30T12:00:00.000Z" },
       job_no: row.job_no,
       job_pending: row.job_pending,
       phone: row.phone,
@@ -705,14 +747,23 @@ export function syntheticDetail(input: { subjectId: string; role: SalesOutreachR
  * only the Owner/Manager open them (`?view=team&lead=<id>` in mock mode). One per review-reason family the desk has
  * copy for; 905 carries a reason no copy map knows, to show the safe fallback. 901 is the C2c steady state (an
  * evaluated review subject, `evaluated: true`); the others have no projection yet.
+ *
+ * `hold: true` is the olr B8 admission hold: a fresh Lead whose identity is ambiguous or whose received time is missing
+ * or unreliable is admitted by intake as a held `review` subject with no period (cohort `intake:<gate>`, kind
+ * `intake`) instead of being refused. 902 is held and not evaluated yet; 906 (`received_time_missing`) is held and
+ * evaluated: the engine's dateless review state (olr A4: no period, no workflow, nothing due).
  */
-export const SYNTHETIC_REVIEW_SUBJECTS: ReadonlyArray<{ n: number; reasons: string[]; evaluated?: boolean }> = [
+export const SYNTHETIC_REVIEW_SUBJECTS: ReadonlyArray<{ n: number; reasons: string[]; evaluated?: boolean; hold?: boolean }> = [
   { n: 901, reasons: ["no_contact_number"], evaluated: true },
-  { n: 902, reasons: ["ambiguous_identity", "received_time_unreliable"] },
+  { n: 902, reasons: ["ambiguous_identity", "received_time_unreliable"], hold: true },
   { n: 903, reasons: ["priority_needs_review"] },
   { n: 904, reasons: ["unmapped_priority"] },
   { n: 905, reasons: ["some_future_reason"] },
+  { n: 906, reasons: ["received_time_missing"], evaluated: true, hold: true },
 ];
+
+/** The intake gate the synthetic B8-held subjects were admitted under (`transition.intake_admission_at`). */
+export const SYNTHETIC_INTAKE_GATE = "2026-09-30T12:00:00.000Z";
 
 /**
  * A review subject as the server's `reads/detail.ts` reads it, with one `review` explanation code per reason (first
@@ -722,11 +773,16 @@ export const SYNTHETIC_REVIEW_SUBJECTS: ReadonlyArray<{ n: number; reasons: stri
  * - Evaluated (C2c `no_contact_number` once the evaluator has run): `projection_state: current`, `engine_state: review`
  *   on a planned New period, no obligations (the engine derives none in review), so both channels are `not_required`
  *   with nothing counted; SMS counts are null while SMS capture has no coverage.
+ * - Held at intake (olr B8, `hold`): enrolled by intake (`intake:<gate>`, kind `intake`, at the received time, or at
+ *   the gate when the received time is missing), never given a period; a missing received time reads `received_at:
+ *   null` / `received_quality: missing`, an unreliable one keeps its instant with `received_quality: unreliable`.
+ *   Evaluated, it is the engine's dateless review state (olr A4): no workflow, `engine_state: review`, nothing due.
  */
 export function syntheticReviewDetail(input: {
   n: number;
   reasons: string[];
   evaluated?: boolean;
+  hold?: boolean;
   role?: SalesOutreachRole;
   variant?: SyntheticVariant;
 }): SalesOutreachDetailDto {
@@ -746,17 +802,39 @@ export function syntheticReviewDetail(input: {
     verification: null,
   };
   const evaluated = input.evaluated === true;
+  const hold = input.hold === true;
+  const missing = input.reasons.includes("received_time_missing");
+  const unreliable = input.reasons.includes("received_time_unreliable");
+  const heldAt = missing ? SYNTHETIC_INTAKE_GATE : base.subject.received_at;
+  const subjectFacts = hold
+    ? {
+        received_at: missing ? null : base.subject.received_at,
+        received_date: missing ? null : base.subject.received_date,
+        received_quality: missing ? ("missing" as const) : unreliable ? ("unreliable" as const) : base.subject.received_quality,
+        enrollment: { cohort_id: `intake:${SYNTHETIC_INTAKE_GATE}`, kind: "intake" as const, enrolled_at: heldAt ?? SYNTHETIC_INTAKE_GATE, activation_at: heldAt ?? SYNTHETIC_INTAKE_GATE },
+      }
+    : {};
+  // Held and evaluated: no period, so no workflow (the server reads it from the projection or the period).
+  const workflow = evaluated ? (hold ? null : "new") : "none";
   const requirements: SalesOutreachDetailDto["requirements"] = evaluated
     ? { call: channel(0, 0, "not_required", null), sms: { ...channel(0, null, "not_required", null), coverage: liveSms } }
     : { call: pending, sms: { ...pending, coverage: liveSms } };
   return {
     ...base,
-    subject: { ...base.subject, subject_id: syntheticSubjectId(input.n), status: "review", review_reasons: input.reasons, job_no: `P55690${input.n}`, name: `Review lead ${input.n}` },
+    subject: {
+      ...base.subject,
+      ...subjectFacts,
+      subject_id: syntheticSubjectId(input.n),
+      status: "review",
+      review_reasons: input.reasons,
+      job_no: `P55690${input.n}`,
+      name: `Review lead ${input.n}`,
+    },
     priority: { raw: null, basis: "none", accepted_at: null, uncertain: false },
     policy: {
       ...base.policy,
       projection_state: evaluated ? "current" : "pending",
-      workflow: evaluated ? "new" : "none",
+      workflow,
       engine_state: evaluated ? "review" : null,
       schedule_day: null,
       period: null,
@@ -765,12 +843,8 @@ export function syntheticReviewDetail(input: {
       catch_up: { call: { outstanding: false, missed_count: 0, state: null }, sms: { outstanding: false, missed_count: 0, state: null } },
       explanation: [
         { code: "projection_state", value: evaluated ? "current" : "pending" },
-        ...(evaluated
-          ? [
-              { code: "workflow", value: "new" },
-              { code: "engine_state", value: "review" },
-            ]
-          : []),
+        ...(workflow && evaluated ? [{ code: "workflow", value: workflow }] : []),
+        ...(evaluated ? [{ code: "engine_state", value: "review" }] : []),
         { code: "priority_basis", value: "none" },
         ...input.reasons.slice(0, 5).map((reason) => ({ code: "review", value: reason })),
       ],
@@ -788,6 +862,13 @@ export function syntheticReviewDetail(input: {
 // ---------------------------------------------------------------------------------------------
 
 const ALL_WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
+
+/**
+ * The olr A5 drain budget the RELEASE operator proposes for the Owner's `operations` PATCH (A5 integrator handoff; the
+ * production value is absent = defaults 100 / 40 s / 1, which the synthetic configuration keeps). Tests apply it to the
+ * stored value to check the editor reads and round-trips it.
+ */
+export const SYNTHETIC_A5_OPERATIONS = { evaluate_drain_max_jobs: 300, evaluate_drain_budget_seconds: 50, evaluate_drain_concurrency: 2 } as const;
 
 export function syntheticConfigurationValue(variant: SyntheticVariant = "desk"): SalesOutreachConfigurationValue {
   const enforcement = variant === "desk";
@@ -857,6 +938,8 @@ export function syntheticConfigurationValue(variant: SyntheticVariant = "desk"):
       move_date_rule: "review_label_only",
       lead_eligibility_rule: "no_sync_viable_duplicates_excluded",
       precedence_rule: "closure_restriction_schedule_priority",
+      // Production revision 6 (D-C2c on after the C2b mint); the M1 variant predates it.
+      ...(enforcement ? { no_contact_number_rule: "review_no_cadence" } : {}),
     },
     evidence: {
       qualifying_call_rule: "terminal_call_log_attempt",
@@ -991,6 +1074,67 @@ export function syntheticEnrollmentCandidates(
     items,
     next_cursor: more ? `mock:${partition}:${offset + limit}` : null,
     scanned: items.length,
+  };
+}
+
+/**
+ * The report for a request: `backfill_scope` is the whole scope; `selected` (the Settings one-click Enroll) selects the
+ * named Leads that are eligible — a Ready or Older candidate — and none in review.
+ */
+export function syntheticEnrollmentReportFor(body: { selection?: { mode?: string; lead_refs?: SalesOutreachLeadRef[] }; cohort_id?: string } = {}): SalesOutreachEnrollmentReportDto {
+  const report = syntheticEnrollmentReport();
+  if (body.selection?.mode !== "selected") return report;
+  const eligible = [...syntheticEnrollmentCandidateItems("in_scope"), ...syntheticEnrollmentCandidateItems("older")];
+  const wanted = new Set((body.selection.lead_refs ?? []).map((ref) => `${ref.model}:${ref.id}`));
+  const selected = eligible.filter((item) => wanted.has(`${item.lead.model}:${item.lead.id}`));
+  const review = syntheticEnrollmentCandidateItems("review").filter((item) => wanted.has(`${item.lead.model}:${item.lead.id}`));
+  return {
+    ...report,
+    cohort_id: body.cohort_id ?? report.cohort_id,
+    scope: { mode: "selected", today: SYNTHETIC_BUSINESS_DAY },
+    counts: { in_scope: selected.length, older: 0, already_enrolled: 0, closed: 0, excluded: 0, review: review.length, not_new_or_quoted: 0 },
+    reasons: Object.fromEntries(review.map((item) => [item.reason, 1])),
+    lead_refs: selected.map((item) => item.lead),
+    review,
+  };
+}
+
+/**
+ * One day's new-lead intake (olr B8 `GET /enrollment/admissions`): today has a mix of admissions and refusals; older
+ * days inside the 14-day retention have none. Reasons are the server's free text (intake gate codes, `closed:` and
+ * `excluded:` eligibility codes, and one olr B6 automatic-admission refusal `expansion:<partition>:<reason>`).
+ * `admitted_review` counts the B8 admission holds (a held review subject such as 902); with the B6 switch on, one
+ * older Lead was admitted automatically (`admitted_expansion`, cohort `admission:<day>`) and one automatic admission
+ * of a fresh Lead was left to intake (`deferred`, server reason `deferred_to_intake`, never listed as a refusal).
+ */
+export function syntheticAdmissions(businessDay: string = SYNTHETIC_BUSINESS_DAY): SalesOutreachAdmissionsDto {
+  const today = businessDay === SYNTHETIC_BUSINESS_DAY;
+  const lead = (model: "FormLead" | "CallLead", n: number) => ({ model, id: syntheticSubjectId(1300 + n) });
+  return {
+    contract_version: "sod-v1",
+    business_day: businessDay,
+    as_of: SYNTHETIC_AS_OF,
+    timezone: "America/New_York",
+    retention_days: 14,
+    counts: today
+      ? {
+          admitted_intake: 6,
+          admitted_review: 1,
+          admitted_expansion: 1,
+          deferred: 1,
+          not_admitted: { closed_priority: 1, "excluded:duplicate": 2, "closed:official_booking": 1, historical_import: 1, "expansion:older:outside_backfill_scope": 1 },
+        }
+      : { admitted_intake: 0, admitted_review: 0, admitted_expansion: 0, deferred: 0, not_admitted: {} },
+    recent_refusals: today
+      ? [
+          { lead: lead("FormLead", 1), reason: "excluded:duplicate", at: "2026-10-01T15:40:00.000Z" },
+          { lead: lead("CallLead", 2), reason: "closed:official_booking", at: "2026-10-01T15:05:00.000Z" },
+          { lead: lead("FormLead", 3), reason: "historical_import", at: "2026-10-01T14:30:00.000Z" },
+          { lead: lead("FormLead", 4), reason: "excluded:duplicate", at: "2026-10-01T13:55:00.000Z" },
+          { lead: lead("CallLead", 5), reason: "closed_priority", at: "2026-10-01T13:10:00.000Z" },
+          { lead: lead("FormLead", 6), reason: "expansion:older:outside_backfill_scope", at: "2026-10-01T12:40:00.000Z" },
+        ]
+      : [],
   };
 }
 

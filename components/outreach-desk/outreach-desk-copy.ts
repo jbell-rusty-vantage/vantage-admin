@@ -151,6 +151,18 @@ export const deskCopy = {
       mailbox_without_coverage: "a rep SMS mailbox hasn't synced yet",
     } as Record<string, string>,
     reasonFallback: "RingCentral reported a sync problem",
+    /**
+     * Lifecycle repair C7 (`freshness.sms.pending`): texts the desk captured but cannot credit yet, added to the SMS
+     * chip tooltip whenever any are waiting: "… · Last 7 days: 1 text waiting for its sending rep to be confirmed,
+     * 1 text not yet matched to a lead (2 mailboxes)". Nothing is added when none are waiting or the count is absent.
+     */
+    smsPending: {
+      identity: (n: number) => `${plural(n, "text", "texts")} waiting for ${n === 1 ? "its" : "their"} sending rep to be confirmed`,
+      association: (n: number) => `${plural(n, "text", "texts")} not yet matched to a lead`,
+      mailboxes: (n: number) => (n > 1 ? ` (${plural(n, "mailbox", "mailboxes")})` : ""),
+      line: (days: number, parts: string[], mailboxes: string) => `Last ${plural(days, "day", "days")}: ${parts.join(", ")}${mailboxes}`,
+      join: (base: string, note: string) => `${base} · ${note}`,
+    },
   },
   live: {
     updated: "Desk updated",
@@ -357,6 +369,18 @@ export const deskCopy = {
     newLead: "New lead",
     quotedLead: "Quoted lead",
     dayN: (n: number) => `Day ${n}`,
+    /**
+     * How the lead joined the desk (ADM-4), from `subject.enrollment`. The cohort id is never shown: `admission:<date>`
+     * is the Owner's automatic-admission switch (olr B6), `owner-enroll-`/`owner-older-` the Settings one-click Enroll,
+     * kind `intake` the new-lead gate.
+     */
+    enrollment: {
+      admission: (day: string) => `Added automatically on ${day}, when it became eligible (automatic admission)`,
+      owner: (day: string) => `Enrolled by the Owner on ${day}`,
+      intake: (day: string) => `Added when it came in (${day})`,
+      pilot: (day: string) => `Enrolled in the pilot on ${day}`,
+      other: (day: string) => `Enrolled on ${day}`,
+    },
     todayNeeds: (calls: string, sms: string) => `Today: ${calls} + ${sms}`,
     callsUnit: (n: number | null) => (n === null ? "calls pending" : `${n} ${n === 1 ? "call" : "calls"}`),
     smsUnit: (n: number | null) => (n === null ? "SMS pending" : `${n} SMS`),
@@ -489,7 +513,7 @@ export const deskCopy = {
   },
   settings: {
     title: "Settings",
-    ownerSubtitle: "Desk controls, goals and roster, contact restrictions and enrollment. Owner only.",
+    ownerSubtitle: "Desk controls, goals and roster, the desk configuration, contact restrictions and enrollment. Owner only.",
     managerSubtitle: "Attendance for today and upcoming days.",
     repSubtitle: "Your desk settings.",
     controls: "Desk controls",
@@ -539,18 +563,258 @@ export const deskCopy = {
     until: "Until",
     noEnd: "No end date",
     noRestrictions: "No active contact restrictions.",
-    enrollmentHint: "Eligible leads outside the backfill window are listed here as “Not enrolled — older”. Enroll adds one lead to the desk.",
+    enrollmentHint: "Leads that aren't on the desk yet. Enroll adds one lead; leads that need review can't be enrolled until the reason is resolved.",
+    /** The three lists (ADM-4): server partitions `in_scope`, `older`, `review`. */
+    enrollmentTabsLabel: "Enrollment lists",
+    enrollmentTabs: { in_scope: "Ready to enroll", older: "Older", review: "Needs review" } as Record<string, string>,
+    readyHint: (days: number | null, upcomingMoves: boolean) =>
+      `Eligible and not on the desk yet: received ${days ? `in the last ${days} days` : "inside the backfill window"}${upcomingMoves ? ", or moving from today on" : ""}.`,
     olderHint: (days: number | null) => (days ? `Not enrolled — older than ${days} days, with no upcoming move.` : "Not enrolled — older."),
+    reviewHint: "Read only. The desk can't set a schedule for these leads until the reason is resolved in the moving software or the configuration.",
     received: "Received",
+    why: "Why",
+    /** `in_scope` reasons (enrollment `classify`): why a lead is ready. */
+    readyReasons: { received_window: "Received recently", upcoming_move: "Upcoming move", selected: "Selected" } as Record<string, string>,
     noOlder: "No older eligible leads.",
+    noReady: "No leads are waiting to be enrolled.",
+    noReview: "No leads need review.",
+    loadMore: "Load more",
+    loadingMore: "Loading…",
+    /**
+     * The server checks at most 1,000 Leads per page, so a page can come back empty with more to check. The list keeps
+     * looking on its own (bounded) and only says "none" once the server has nothing left to check.
+     */
+    stillLooking: "Still looking…",
+    noneFoundYet: (checked: string) => `None found in the first ${checked} leads checked. Load more to keep looking.`,
+    noMoreFoundYet: (checked: string) => `No more found in the next ${checked} leads checked. Load more to keep looking.`,
+    noneLeftShown: "Nothing left to show from the leads checked so far. Load more to keep looking.",
+    shownOf: (shown: number) => `${plural(shown, "lead", "leads")} shown`,
+    listRestarted: "The list changed while you were paging, so it was reloaded from the top.",
     enroll: "Enroll",
     notEligible: "This lead isn't eligible any more.",
     migrationPaused: "Enrollment is paused in the configuration (migration paused).",
-    enrolled: (status: string) => `Enrollment ${status}.`,
+    /** Apply `status` in words; an unknown status reads as the generic line. */
+    enrolledStatus: {
+      completed: "Enrolled — the lead is on the desk now.",
+      running: "Enrollment started — the lead appears on the desk in a moment.",
+      paused: "Enrollment is paused in the configuration.",
+      lease_held: "Another enrollment is running. Try again in a minute.",
+      failed: "Enrollment failed. Try again.",
+    } as Record<string, string>,
+    enrolledOther: "Enrollment sent.",
+    /** `GET /enrollment/admissions` (olr B8): the day's new-lead intake. */
+    admissions: {
+      title: "New-lead intake",
+      hint: "What happened to each new lead that wasn't on the desk yet, for one New York business day. Every refusal shows its reason.",
+      day: "Business day",
+      today: "Today",
+      counts: {
+        admitted_intake: "Added to the desk",
+        admitted_review: "Added for review",
+        admitted_expansion: "Added later (automatic admission)",
+        deferred: "Waiting to be decided",
+        not_admitted: "Not added",
+      } as Record<string, string>,
+      byReason: "Not added, by reason",
+      recent: "Recent refusals, newest first",
+      noRefusals: "No new lead was refused this day.",
+      lead: "Lead",
+      reason: "Reason",
+      when: "When",
+      leadModel: { FormLead: "Form lead", CallLead: "Call lead" } as Record<string, string>,
+      asOf: (at: string, days: number) => `As of ${at}. Kept ${days} days.`,
+      retentionExceeded: (days: number) => `Only the last ${days} days are kept. Choose a later day.`,
+      futureDay: "That day hasn't happened yet.",
+      otherReason: "another reason",
+      reviewReason: (reason: string) => `needs review first: ${reason}`,
+      /**
+       * Refusal reasons (lower case; they follow "Not added: "). The server stores free text: the intake gate's codes,
+       * `closed:<reason>`, `excluded:<reason>` and `review:<reason>` (the review part reads from `lead.reviewReasons`).
+       * `closed:<reason>` is either a desk-eligibility closure (`official_booking`, `official_cancellation`,
+       * `bad_lead`) or a priority-map `closure_reason` (`granot_booked`, `crm_bad_disposition`,
+       * `crm_dead_disposition`, server `salesOutreach.ts` priority map). A `closed:<reason>` not listed here reads
+       * from `configEditor.priorityMap.closures` (lower-cased), so a closure added to that map reads in words too.
+       */
+      reasons: {
+        intake_disabled: "automatic admission of new leads was off",
+        created_before_intake: "created before automatic admission started",
+        received_before_intake: "received before automatic admission started",
+        historical_import: "imported from history, not a new lead",
+        policy_unavailable: "the schedule policy isn't set up",
+        closed_priority: "its priority closes it",
+        unsupported_intake_source: "the lead's source has no default schedule",
+        "closed:official_booking": "already booked",
+        "closed:official_cancellation": "already cancelled",
+        "closed:bad_lead": "marked as a bad lead",
+        "closed:granot_booked": "booked in Granot",
+        "closed:crm_bad_disposition": "marked a bad lead in Granot",
+        "closed:crm_dead_disposition": "marked a dead lead in Granot",
+        "excluded:duplicate": "marked as a duplicate lead",
+        "excluded:unmatched_booking_anchor": "created from a booking that matched no lead",
+        unknown: "no reason was recorded",
+      } as Record<string, string>,
+      /**
+       * Automatic admission of a lead that became eligible later (olr B6, switch D7) stores its refusals as
+       * `expansion:<reason>` or `expansion:<partition>:<reason>`. They read "Automatic admission — <reason>" so they stay
+       * apart from new-lead intake refusals. Partition reasons not listed here read from `reasons` above
+       * (`closed:*` — eligibility closures, priority-map closures such as `closed:granot_booked`, and
+       * `closed:closed_priority` for a closed code with no closure reason — `excluded:*`) or from
+       * `lead.reviewReasons` (`review:*`). The full B6 vocabulary: the gate codes below, `older:outside_backfill_scope`,
+       * `not_new_or_quoted:priority_discretion`, `already_enrolled:subject_exists`, `closed:*`, `excluded:*`,
+       * `review:*` (server `classifyEnrollmentCandidate`).
+       */
+      expansion: (reason: string) => `automatic admission — ${reason}`,
+      expansionReasons: {
+        admission_disabled: "automatic admission was off",
+        migration_paused: "enrollment is paused in the configuration",
+        policy_unavailable: "the schedule policy isn't set up",
+        "older:outside_backfill_scope": "outside the backfill window",
+        "not_new_or_quoted:priority_discretion": "its priority leaves follow-up to the rep",
+        "already_enrolled:subject_exists": "already on the desk",
+      } as Record<string, string>,
+    },
     attendanceOwner: "Record an absence or a partial day. Owners may also correct past days.",
     chooseRep: "Choose a rep",
     date: "Date",
     kind: "Type",
+  },
+  /**
+   * The Owner configuration editor (lifecycle repair ADM-5). Keys the server added after revision 5 are optional: an
+   * absent key runs on the server's code default, shown as "Default (n)". Server codes never show raw.
+   */
+  configEditor: {
+    save: "Save",
+    saved: "Saved.",
+    useDefault: "Leave blank for the default.",
+    defaultValue: (n: number, unit: string) => `Default (${n} ${unit})`,
+    setValue: (n: number, unit: string) => `Set to ${n} ${unit}`,
+    range: (min: number, max: number) => `${min}–${max}`,
+    invalid: (label: string, min: number, max: number) => `${label}: enter a whole number from ${min} to ${max}, or leave it blank for the default.`,
+    refusedSummary: "The server didn't accept this change:",
+    conflict: "The configuration changed while you were editing. The latest version is loaded — check it and try again.",
+    units: { minutes: "min", seconds: "s", jobs: "jobs", passes: "pages", loops: "at once", leads: "leads" } as Record<string, string>,
+    goalCounts: {
+      title: "Goal counts",
+      hint: "Which calls count toward each rep's daily goal. A change starts on a later day; days that have started keep their count.",
+      scopes: {
+        all_outbound: "Every outbound call",
+        eligible_new_quoted: "Calls to enrolled New or Quoted leads",
+      } as Record<string, string>,
+      scopeFallback: "A count this admin doesn't know yet",
+      none: "No schedule: every outbound call counts (the default).",
+      today: (label: string) => `Today the goal counts: ${label}.`,
+      todayDefault: "Today the goal counts every outbound call (the default).",
+      columns: { from: "From", counts: "Counts", status: "Status" },
+      states: { inEffect: "In effect", ended: "Replaced", upcoming: "Upcoming" },
+      locked: "Started days can't change",
+      from: "Starting on",
+      counts: "Count",
+      add: "Add",
+      remove: "Remove",
+      removeEntry: (day: string) => `Remove the count starting ${day}`,
+    },
+    capture: {
+      title: "Capture timing",
+      hint: "How long RingCentral call capture may lag before goal counts and freshness say so.",
+    },
+    drain: {
+      title: "Lead re-evaluation",
+      hint: "The every-minute run that re-checks leads whose cadence changed. Raise these when due leads wait more than a few minutes at 8 PM or midnight.",
+    },
+    migration: {
+      title: "Lead-change intake",
+      hint: "How much of the Granot lead-change feed each run reads, and how many lead decisions it re-checks.",
+    },
+    tunables: {
+      call_settlement_allowance_minutes: {
+        label: "Call settlement allowance",
+        hint: "How long RingCentral may take to settle a finished call before capture counts as behind.",
+      },
+      today_coverage_tolerance_minutes: {
+        label: "Today's coverage tolerance",
+        hint: "How far capture may trail the clock before today's goal counts read “catching up”. Must be more than the settlement allowance plus 15 minutes.",
+      },
+      capture_freshness_tolerance_minutes: {
+        label: "Capture freshness",
+        hint: "Age of the newest confirmed call at which call capture stops reading as fresh.",
+      },
+      webhook_silence_minutes: {
+        label: "Webhook silence",
+        hint: "How long RingCentral may stay silent before call freshness warns about it.",
+      },
+      evaluate_drain_max_jobs: { label: "Re-checks per run", hint: "Most lead re-checks one run handles." },
+      evaluate_drain_budget_seconds: { label: "Time per run", hint: "Time one run may spend before it stops for the next minute." },
+      evaluate_drain_concurrency: { label: "Re-checks at once", hint: "Re-checks one run handles in parallel." },
+      feed_budget_seconds: { label: "Time per run", hint: "Time one run may spend reading lead changes." },
+      feed_max_passes_per_run: { label: "Pages per run", hint: "Pages of 100 lead changes one run may read when changes pile up." },
+      decision_reconcile_per_run: { label: "Decision re-checks per run", hint: "Lead decisions re-checked per 5-minute run." },
+    } as Record<string, { label: string; hint: string }>,
+    intake: {
+      title: "New lead defaults",
+      hint: "How a lead without a Granot priority yet starts on the desk. While cadence runs, a change the cadence engine can't run is refused.",
+      notInstalled: "Intake defaults aren't installed in this configuration yet.",
+      sources: {
+        website_form: "Website form",
+        best_relocation: "Best Relocation",
+        ringcentral_call: "RingCentral call",
+        manual: "Entered manually",
+        granot_created: "Created in Granot",
+      } as Record<string, string>,
+      rules: { new: "New (cadence starts)", review: "Needs review (no cadence)" } as Record<string, string>,
+      ruleFallback: "A setting this admin doesn't know",
+    },
+    priorityMap: {
+      title: "Granot priority map",
+      hint: "How each Granot priority code places a lead on the desk. Read-only here.",
+      notInstalled: "No priority map is installed in this configuration yet.",
+      columns: { code: "Priority code", workflow: "Desk workflow", closes: "Closes as" },
+      workflows: { new: "New", quoted: "Quoted", discretion: "Rep's discretion", closed: "Closed", none: "No cadence" } as Record<string, string>,
+      closures: {
+        granot_booked: "Booked in Granot",
+        crm_bad_disposition: "Bad lead in Granot",
+        crm_dead_disposition: "Dead lead in Granot",
+      } as Record<string, string>,
+      fallback: "Not known to this admin",
+      unmapped: (workflow: string) => `Any other code: ${workflow}.`,
+      official: (workflow: string) => `An official booking or cancellation: ${workflow}.`,
+    },
+    rules: {
+      title: "Lead rules",
+      hint: "Optional rules from the lifecycle repair. Each is off unless switched on here.",
+      names: {
+        expansion_admission: "Admit leads that become eligible later",
+        no_contact_number: "No phone number → Needs review",
+        call_association: "Credit the one active lead on a shared number",
+      } as Record<string, string>,
+      hints: {
+        expansion_admission:
+          "When an older lead's Granot priority or duplicate status brings it into the backfill window, it joins the desk automatically.",
+        no_contact_number: "A lead with no number to call goes to Needs review, with no cadence, until a number is linked.",
+        call_association:
+          "When a number's lead is closed or not on the desk and exactly one active desk lead shares the number, its calls credit that lead. Changes how All Numbers attributes calls; an Owner decision.",
+      } as Record<string, string>,
+      other: "Set to a value this admin doesn't know; change it on the server.",
+      needsBackfill: "Install the backfill scope (lookback days and upcoming moves) first.",
+    },
+    fields: {
+      count_scope_schedule: "Goal counts",
+      cadence: "Cadence policy",
+      backfill: "Backfill scope",
+      intake: (source: string) => `${source} default`,
+      fallback: "this setting",
+    },
+    issues: {
+      count_scope_not_prospective: "Days that have already started keep their count. Start the new count from tomorrow or later.",
+      engine_policy_unavailable:
+        "The cadence engine can't run with this setting while cadence is on. Keep the native lead sources on New, or switch cadence off first.",
+      coverageBelowSettlement: "Today's coverage tolerance must be more than the call settlement allowance plus 15 minutes.",
+      backfillRequired: "Install the backfill scope (lookback days and upcoming moves) before turning on this rule.",
+      outOfRange: (field: string) => `${field} is outside the range the server accepts.`,
+      notAccepted: (field: string) => `${field} has a value the server doesn't accept.`,
+      failedCheck: (field: string) => `${field} doesn't pass the server's checks.`,
+      unknownKey: "The server doesn't know a setting in this configuration. Reload Settings and try again.",
+      refused: (field: string, code: string) => `The server refused ${field} (code ${code}).`,
+    },
   },
   numbers: {
     subtitle: "Every outside number that called us or that we called, and who it is.",
