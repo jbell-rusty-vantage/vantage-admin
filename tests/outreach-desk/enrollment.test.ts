@@ -10,6 +10,7 @@ import {
   enrollErrorText,
   enrollmentEmptyText,
   enrollmentListHint,
+  enrollmentRequestAfter,
   enrollmentRowsOf,
   enrollmentScanOf,
   enrollmentStoppedText,
@@ -22,6 +23,7 @@ import {
   ownerEnrollCohortId,
   readAdmissions,
   readEnrollmentPage,
+  withoutEnrolledLead,
   type EnrollmentList,
 } from "../../components/outreach-desk/lib/enrollment";
 import { admissionReasonText, enrollmentSourceText } from "../../components/outreach-desk/lib/format";
@@ -224,21 +226,21 @@ test("a page with no rows but a cursor is not the end: keep looking (bounded), a
   const scanOf = (pages: SalesOutreachEnrollmentCandidatesDto[], request = ENROLLMENT_FIRST_REQUEST) => enrollmentScanOf(pages, enrollmentRowsOf(pages).length, request);
 
   // Page one empty with a cursor: keep looking; the empty text is not shown yet.
-  assert.deepEqual(scanOf([empty("c1")]), { keepLooking: true, stoppedEmpty: false, scanned: 1000, scannedTotal: 1000 });
+  assert.deepEqual(scanOf([empty("c1")]), { found: false, keepLooking: true, stoppedEmpty: false, scanned: 1000, scannedTotal: 1000 });
   // An empty page followed by one with rows: the rows show and looking stops.
   assert.equal(scanOf([empty("c1"), withRows("c2")]).keepLooking, false);
   assert.equal(scanOf([empty("c1"), withRows("c2")]).stoppedEmpty, false);
   // The bound: after ENROLLMENT_AUTO_PAGES empty pages the list stops and says how many leads were checked.
   const bound = Array.from({ length: ENROLLMENT_AUTO_PAGES }, (_, index) => empty(`c${index + 1}`));
   const stopped = scanOf(bound);
-  assert.deepEqual(stopped, { keepLooking: false, stoppedEmpty: true, scanned: 10_000, scannedTotal: 10_000 });
+  assert.deepEqual(stopped, { found: false, keepLooking: false, stoppedEmpty: true, scanned: 10_000, scannedTotal: 10_000 });
   assert.equal(enrollmentStoppedText(0, stopped), "None found in the first 10,000 leads checked. Load more to keep looking.");
   assert.equal(scanOf(bound.slice(0, ENROLLMENT_AUTO_PAGES - 1)).keepLooking, true);
   // Load more after the bound starts a new bounded request; the note counts every lead checked so far.
   const more = scanOf([...bound, empty("c11")], { rowsBefore: 0, fromPage: ENROLLMENT_AUTO_PAGES });
-  assert.deepEqual(more, { keepLooking: true, stoppedEmpty: false, scanned: 1000, scannedTotal: 11_000 });
+  assert.deepEqual(more, { found: false, keepLooking: true, stoppedEmpty: false, scanned: 1000, scannedTotal: 11_000 });
   // The server is done (next_cursor null): neither looking nor stopped, so the plain empty text shows.
-  assert.deepEqual(scanOf([empty("c1"), empty(null)]), { keepLooking: false, stoppedEmpty: false, scanned: 2000, scannedTotal: 2000 });
+  assert.deepEqual(scanOf([empty("c1"), empty(null)]), { found: false, keepLooking: false, stoppedEmpty: false, scanned: 2000, scannedTotal: 2000 });
   assert.equal(enrollmentEmptyText("in_scope"), "No leads are waiting to be enrolled.");
   // Rows on screen, Load more brings only empty pages: keep looking, then "No more found in the next ...".
   const after = { rowsBefore: 3, fromPage: 1 };
@@ -251,6 +253,51 @@ test("a page with no rows but a cursor is not the end: keep looking (bounded), a
   assert.equal(scanOf([withRows("c1")]).keepLooking, false);
   // The list was reloaded from the top under an old request: the request counts from page one again.
   assert.equal(scanOf([empty("c1")], { rowsBefore: 3, fromPage: 4 }).keepLooking, true);
+});
+
+test("after an Enroll the list does not page on its own: a request that found rows stays done, and the row leaves the cache", () => {
+  const page = (items: SalesOutreachEnrollmentCandidatesDto["items"], cursor: string | null): SalesOutreachEnrollmentCandidatesDto => ({
+    ...syntheticEnrollmentCandidates("in_scope"),
+    items,
+    next_cursor: cursor,
+    scanned: 1000,
+  });
+  const items = syntheticEnrollmentCandidateItems("in_scope");
+  // Page 1: 3 rows and a cursor; the Owner's Load more brings page 2 with 2 more rows (5 shown).
+  const p1 = page(items.slice(0, 3), "c2");
+  const p2 = page([{ ...items[0]!, lead: { ...items[0]!.lead, id: "a".repeat(24) } }, { ...items[1]!, lead: { ...items[1]!.lead, id: "b".repeat(24) } }], "c3");
+  let request = { rowsBefore: 3, fromPage: 1 };
+  let scan = enrollmentScanOf([p1, p2], 5, request);
+  assert.equal(scan.found, true);
+  assert.equal(scan.keepLooking, false);
+  const settled = enrollmentRequestAfter(request, scan, 2);
+  assert.deepEqual(settled, { rowsBefore: 3, fromPage: 1, found: true });
+  assert.equal(enrollmentRequestAfter(settled, enrollmentScanOf([p1, p2], 5, settled), 2), settled, "no change, same object");
+  // The Owner enrolls the two rows page 2 brought: they leave the cache, the row count drops under rowsBefore …
+  let data: { pages: SalesOutreachEnrollmentCandidatesDto[]; pageParams: (string | null)[] } | undefined = { pages: [p1, p2], pageParams: [null, "c2"] };
+  data = withoutEnrolledLead(data, p2.items[0]!.lead);
+  data = withoutEnrolledLead(data, { ...p2.items[1]!.lead, id: p2.items[1]!.lead.id.toUpperCase() });
+  assert.deepEqual(data!.pages.map((one) => one.items.length), [3, 0]);
+  assert.deepEqual(data!.pageParams, [null, "c2"]);
+  assert.equal(withoutEnrolledLead(undefined, p1.items[0]!.lead), undefined);
+  const rows = enrollmentRowsOf(data!.pages).length;
+  assert.equal(rows, 3);
+  // … but the request that found them stays done: no paging on its own, no "No more found" note.
+  scan = enrollmentScanOf(data!.pages, rows, settled);
+  assert.deepEqual([scan.found, scan.keepLooking, scan.stoppedEmpty], [true, false, false]);
+  // Without the sticky mark (the defect), the same pages would page on their own.
+  assert.equal(enrollmentScanOf(data!.pages, rows, request).keepLooking, true);
+  // A request that stopped at the bound with nothing found keeps its note after an Enroll of an earlier row.
+  const bound = [p1, ...Array.from({ length: ENROLLMENT_AUTO_PAGES }, (_, index) => page([], `e${index}`))];
+  request = { rowsBefore: 3, fromPage: 1 };
+  const before = enrollmentScanOf(bound, 3, request);
+  assert.equal(before.stoppedEmpty, true);
+  assert.equal(enrollmentRequestAfter(request, before, bound.length), request);
+  const afterEnroll = enrollmentScanOf(bound, 2, request);
+  assert.deepEqual([afterEnroll.keepLooking, afterEnroll.stoppedEmpty], [false, true]);
+  // Pages dropped under a sticky request (a reset): read as the first request again.
+  assert.equal(enrollmentScanOf([page([], "c2")], 0, { rowsBefore: 3, fromPage: 4, found: true }).keepLooking, true);
+  assert.equal(enrollmentRequestAfter({ rowsBefore: 3, fromPage: 4 }, { found: true }, 1).found, undefined);
 });
 
 test("hints read the server's scope", () => {
@@ -365,6 +412,9 @@ test("admission reasons: every intake-gate code, closed:/excluded:/review: prefi
     "closed:official_booking",
     "closed:official_cancellation",
     "closed:bad_lead",
+    "closed:granot_booked",
+    "closed:crm_bad_disposition",
+    "closed:crm_dead_disposition",
     "excluded:duplicate",
     "excluded:unmatched_booking_anchor",
     "review:legacy_closed_reopening_required",
@@ -418,6 +468,10 @@ test("automatic-admission refusals (olr B6 expansion:*) read in words, apart fro
     ["expansion:closed:official_cancellation", "Automatic admission — already cancelled"],
     ["expansion:closed:bad_lead", "Automatic admission — marked as a bad lead"],
     ["expansion:closed:closed_priority", "Automatic admission — its priority closes it"],
+    // Priority-map closures (closure_reason for codes 5, 7, 8): the classifier returns closed:<closure_reason>.
+    ["expansion:closed:granot_booked", "Automatic admission — booked in Granot"],
+    ["expansion:closed:crm_bad_disposition", "Automatic admission — marked a bad lead in Granot"],
+    ["expansion:closed:crm_dead_disposition", "Automatic admission — marked a dead lead in Granot"],
     ["expansion:excluded:duplicate", "Automatic admission — marked as a duplicate lead"],
     ["expansion:excluded:unmatched_booking_anchor", "Automatic admission — created from a booking that matched no lead"],
     ["expansion:not_new_or_quoted:priority_discretion", "Automatic admission — its priority leaves follow-up to the rep"],
@@ -430,6 +484,23 @@ test("automatic-admission refusals (olr B6 expansion:*) read in words, apart fro
     assert.doesNotMatch(text, SNAKE, text);
     assert.ok(!text.includes("expansion"), text);
   }
+  // Every closure the priority map can carry reads in words, at intake and in automatic admission, and never as
+  // "Another reason" (the server's priority map: granot_booked, crm_bad_disposition, crm_dead_disposition).
+  const closures = Object.keys(deskCopy.configEditor.priorityMap.closures);
+  assert.deepEqual(closures.sort(), ["crm_bad_disposition", "crm_dead_disposition", "granot_booked"]);
+  const closed = collectUnknown(() => closures.flatMap((code) => [admissionReasonText(`closed:${code}`), admissionReasonText(`expansion:closed:${code}`)]));
+  assert.deepEqual(closed.unknown, []);
+  assert.ok(closed.result.every((text) => text !== "Another reason" && !SNAKE.test(text)), closed.result.join(" | "));
+  assert.equal(admissionReasonText("closed:granot_booked"), "Booked in Granot");
+  // A booked-in-Granot refusal from automatic admission groups on its own line, apart from unknown refusals.
+  const booked = collectUnknown(() =>
+    admissionsViewOf({
+      ...mockAdmissionsToday(),
+      counts: { admitted_intake: 0, admitted_review: 0, admitted_expansion: 0, deferred: 0, not_admitted: { "expansion:closed:granot_booked": 4, mystery: 1 } },
+      recent_refusals: [],
+    }),
+  );
+  assert.deepEqual(booked.result.byReason.map((row) => [row.text, row.count]), [["Automatic admission — booked in Granot", 4], ["Another reason", 1]]);
   // An expansion refusal never reads the same as the intake refusal of the same cause, so the counts stay apart.
   assert.notEqual(admissionReasonText("expansion:closed:official_booking"), admissionReasonText("closed:official_booking"));
   const odd = collectUnknown(() => [admissionReasonText("expansion:older:brand_new"), admissionReasonText("expansion:"), admissionReasonText("expansion:review:brand_new")]);

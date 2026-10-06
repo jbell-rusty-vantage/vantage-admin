@@ -575,6 +575,7 @@ export const deskCopy = {
     stillLooking: "Still looking…",
     noneFoundYet: (checked: string) => `None found in the first ${checked} leads checked. Load more to keep looking.`,
     noMoreFoundYet: (checked: string) => `No more found in the next ${checked} leads checked. Load more to keep looking.`,
+    noneLeftShown: "Nothing left to show from the leads checked so far. Load more to keep looking.",
     shownOf: (shown: number) => `${plural(shown, "lead", "leads")} shown`,
     listRestarted: "The list changed while you were paging, so it was reloaded from the top.",
     enroll: "Enroll",
@@ -617,6 +618,10 @@ export const deskCopy = {
       /**
        * Refusal reasons (lower case; they follow "Not added: "). The server stores free text: the intake gate's codes,
        * `closed:<reason>`, `excluded:<reason>` and `review:<reason>` (the review part reads from `lead.reviewReasons`).
+       * `closed:<reason>` is either a desk-eligibility closure (`official_booking`, `official_cancellation`,
+       * `bad_lead`) or a priority-map `closure_reason` (`granot_booked`, `crm_bad_disposition`,
+       * `crm_dead_disposition`, server `salesOutreach.ts` priority map). A `closed:<reason>` not listed here reads
+       * from `configEditor.priorityMap.closures` (lower-cased), so a closure added to that map reads in words too.
        */
       reasons: {
         intake_disabled: "automatic admission of new leads was off",
@@ -629,6 +634,9 @@ export const deskCopy = {
         "closed:official_booking": "already booked",
         "closed:official_cancellation": "already cancelled",
         "closed:bad_lead": "marked as a bad lead",
+        "closed:granot_booked": "booked in Granot",
+        "closed:crm_bad_disposition": "marked a bad lead in Granot",
+        "closed:crm_dead_disposition": "marked a dead lead in Granot",
         "excluded:duplicate": "marked as a duplicate lead",
         "excluded:unmatched_booking_anchor": "created from a booking that matched no lead",
         unknown: "no reason was recorded",
@@ -637,7 +645,11 @@ export const deskCopy = {
        * Automatic admission of a lead that became eligible later (olr B6, switch D7) stores its refusals as
        * `expansion:<reason>` or `expansion:<partition>:<reason>`. They read "Automatic admission — <reason>" so they stay
        * apart from new-lead intake refusals. Partition reasons not listed here read from `reasons` above
-       * (`closed:*`, `excluded:*`, `closed_priority`) or from `lead.reviewReasons` (`review:*`).
+       * (`closed:*` — eligibility closures, priority-map closures such as `closed:granot_booked`, and
+       * `closed:closed_priority` for a closed code with no closure reason — `excluded:*`) or from
+       * `lead.reviewReasons` (`review:*`). The full B6 vocabulary: the gate codes below, `older:outside_backfill_scope`,
+       * `not_new_or_quoted:priority_discretion`, `already_enrolled:subject_exists`, `closed:*`, `excluded:*`,
+       * `review:*` (server `classifyEnrollmentCandidate`).
        */
       expansion: (reason: string) => `automatic admission — ${reason}`,
       expansionReasons: {

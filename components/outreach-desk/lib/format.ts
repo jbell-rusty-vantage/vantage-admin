@@ -442,21 +442,29 @@ export function reviewReasonText(reason: unknown): string {
 }
 
 const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
-/** An intake refusal reason in lower-case words, or undefined when it has no copy. */
+/**
+ * An intake refusal reason in lower-case words, or undefined when it has no copy. A `closed:<closure_reason>` the
+ * refusal copy doesn't list reads the priority map's closure copy (`configEditor.priorityMap.closures`, lower-cased).
+ */
 function refusalReasonText(reason: string): string | undefined {
   const a = deskCopy.settingsExtra.admissions;
   const reviewReasons = deskCopy.lead.reviewReasons;
+  const closures = deskCopy.configEditor.priorityMap.closures;
   if (Object.hasOwn(a.reasons, reason)) return a.reasons[reason];
   const review = reason.startsWith("review:") ? reason.slice("review:".length) : null;
   if (review !== null && Object.hasOwn(reviewReasons, review)) return a.reviewReason(reviewReasons[review]!);
+  const closure = reason.startsWith("closed:") ? reason.slice("closed:".length) : null;
+  if (closure !== null && Object.hasOwn(closures, closure)) return lowerFirst(closures[closure]!);
   return undefined;
 }
 
 /**
  * The part after `expansion:` (server `expansionAdmissionOf`): a gate code (`admission_disabled`, `migration_paused`,
  * `policy_unavailable`) or `<partition>:<reason>` from the enrollment classifier — `older:outside_backfill_scope`,
- * `closed:<closure>` (including `closed:closed_priority`), `excluded:<reason>`, `review:<reason>`.
+ * `closed:<closure>` (eligibility closures, priority-map closures such as `closed:granot_booked`, and
+ * `closed:closed_priority` for a closed code without a closure reason), `excluded:<reason>`, `review:<reason>`.
  */
 function expansionRefusalText(reason: string): string | undefined {
   const expansion = deskCopy.settingsExtra.admissions.expansionReasons;

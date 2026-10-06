@@ -112,11 +112,17 @@ export function enrollmentEmptyText(list: EnrollmentList): string {
  */
 export const ENROLLMENT_AUTO_PAGES = 10;
 
-/** Where the current request started: rows shown and pages loaded when it was made. */
-export type EnrollmentRequest = { rowsBefore: number; fromPage: number };
+/**
+ * Where the current request started: rows shown and pages loaded when it was made. `found` is sticky: once the
+ * request has brought a new row it is done, even if rows later leave the list (an Enroll removes its row, a refetch
+ * returns fewer), so the list never pages on its own after the Owner acts on it.
+ */
+export type EnrollmentRequest = { rowsBefore: number; fromPage: number; found?: boolean };
 export const ENROLLMENT_FIRST_REQUEST: EnrollmentRequest = { rowsBefore: 0, fromPage: 0 };
 
 export type EnrollmentScan = {
+  /** The request has brought at least one new row (sticky through `EnrollmentRequest.found`). */
+  found: boolean;
   /** Fetch the next page now: the request found nothing yet, the server has more to check, and the bound isn't hit. */
   keepLooking: boolean;
   /** The bound was hit with nothing found; the server still has more to check. */
@@ -136,18 +142,40 @@ export function enrollmentScanOf(
   rowCount: number,
   request: EnrollmentRequest,
 ): EnrollmentScan {
-  const from = pages.length < request.fromPage ? 0 : request.fromPage;
-  const rowsBefore = pages.length < request.fromPage ? 0 : request.rowsBefore;
+  // Fewer pages than the request started from: the pages were dropped (a reset), so read it as the first request.
+  const stale = pages.length < request.fromPage;
+  const from = stale ? 0 : request.fromPage;
+  const rowsBefore = stale ? 0 : request.rowsBefore;
   const hasNext = pages.length > 0 && pages[pages.length - 1]!.next_cursor !== null;
-  const found = rowCount > rowsBefore;
+  const found = (!stale && request.found === true) || rowCount > rowsBefore;
   const spent = pages.length - from;
   const scanned = pages.slice(from).reduce((sum, page) => sum + page.scanned, 0);
   return {
+    found,
     keepLooking: hasNext && !found && spent < ENROLLMENT_AUTO_PAGES,
     stoppedEmpty: hasNext && !found && spent >= ENROLLMENT_AUTO_PAGES,
     scanned,
     scannedTotal: pages.reduce((sum, page) => sum + page.scanned, 0),
   };
+}
+
+/** The request marked found once it has brought a row (the same object when nothing changes, so React can skip it). */
+export function enrollmentRequestAfter(request: EnrollmentRequest, scan: Pick<EnrollmentScan, "found">, pageCount: number): EnrollmentRequest {
+  if (!scan.found || request.found === true || pageCount < request.fromPage) return request;
+  return { ...request, found: true };
+}
+
+/**
+ * The loaded pages with one Lead taken out — after a successful Enroll the row leaves the list without a refetch,
+ * which would walk every loaded page again (up to ~10,000 Leads per auto-paged request).
+ */
+export function withoutEnrolledLead<T extends { pages: SalesOutreachEnrollmentCandidatesDto[] }>(
+  data: T | undefined,
+  lead: SalesOutreachEnrollmentCandidate["lead"],
+): T | undefined {
+  if (!data) return data;
+  const same = (other: SalesOutreachEnrollmentCandidate["lead"]) => other.model === lead.model && other.id.toLowerCase() === lead.id.toLowerCase();
+  return { ...data, pages: data.pages.map((page) => ({ ...page, items: page.items.filter((item) => !same(item.lead)) })) };
 }
 
 /**

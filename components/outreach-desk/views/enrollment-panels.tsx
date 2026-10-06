@@ -11,8 +11,8 @@
  *   days): counts, refusals by reason and the newest refusals, every reason in words.
  */
 import { useEffect, useState } from "react";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
-import { isSalesOutreachApiError, type SalesOutreachEnrollmentCandidate } from "@/lib/api/salesOutreach";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryKey } from "@tanstack/react-query";
+import { isSalesOutreachApiError, type SalesOutreachEnrollmentCandidate, type SalesOutreachEnrollmentCandidatesDto } from "@/lib/api/salesOutreach";
 import { outreachKeys } from "@/lib/query/salesOutreach";
 import { retryDeskRead } from "../data/use-desk-reads";
 import {
@@ -22,6 +22,7 @@ import {
   enrollErrorText,
   enrollmentEmptyText,
   enrollmentListHint,
+  enrollmentRequestAfter,
   enrollmentRowsOf,
   enrollmentScanOf,
   enrollmentStoppedText,
@@ -32,6 +33,7 @@ import {
   nextEnrollmentCursor,
   readAdmissions,
   readEnrollmentPage,
+  withoutEnrolledLead,
   type EnrollmentList,
   type EnrollmentRequest,
 } from "../lib/enrollment";
@@ -72,6 +74,11 @@ function useEnrollmentList(list: EnrollmentList) {
   const rows = enrollmentRowsOf(pages);
   const scan = enrollmentScanOf(pages, rows.length, request);
   const { isFetching, error, fetchNextPage } = query;
+  // Once the request has brought a row it is done, even if rows later leave the list (Enroll, a refetch).
+  // State adjusted while rendering (React's "storing information from previous renders"), not in an effect: the next
+  // render reads the marked request before any effect could page.
+  const settled = enrollmentRequestAfter(request, scan, pages.length);
+  if (settled !== request) setRequest(settled);
   // A page with no new row but a cursor: keep looking on our own, up to the bound, unless a page failed.
   useEffect(() => {
     if (scan.keepLooking && !isFetching && !error) void fetchNextPage();
@@ -85,17 +92,32 @@ function useEnrollmentList(list: EnrollmentList) {
   return { query, pages, rows, scan, loadMore, restarted };
 }
 
-function useEnrollOne() {
+/**
+ * One-click Enroll. On success the row leaves the open list in the cache: a refetch of the candidate lists would walk
+ * every loaded page again, so they are only marked stale (another tab reloads when it opens). Everything else on the
+ * desk refreshes. A refused Enroll refreshes everything, the open list included, so a lead that is no longer eligible
+ * drops out.
+ */
+function useEnrollOne(list: EnrollmentList) {
   const queryClient = useQueryClient();
+  const candidates = [...outreachKeys.enrollmentCandidatePages(list)].slice(0, -1) as QueryKey;
+  const isCandidates = (key: QueryKey) => candidates.every((part, i) => key[i] === part);
   return useMutation({
     mutationFn: (lead: SalesOutreachEnrollmentCandidate["lead"]) => enrollOneLead(lead),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: outreachKeys.all as QueryKey }),
+    onSuccess: (_data, lead) => {
+      queryClient.setQueryData<InfiniteData<SalesOutreachEnrollmentCandidatesDto, string | null>>(outreachKeys.enrollmentCandidatePages(list), (data) =>
+        withoutEnrolledLead(data, lead),
+      );
+      void queryClient.invalidateQueries({ queryKey: candidates, refetchType: "none" });
+      void queryClient.invalidateQueries({ queryKey: outreachKeys.all as QueryKey, predicate: (q) => !isCandidates(q.queryKey) });
+    },
+    onError: () => void queryClient.invalidateQueries({ queryKey: outreachKeys.all as QueryKey }),
   });
 }
 
 function EnrollmentList({ list }: { list: EnrollmentList }) {
   const { query, pages, rows, scan, loadMore, restarted } = useEnrollmentList(list);
-  const enroll = useEnrollOne();
+  const enroll = useEnrollOne(list);
   const looking = scan.keepLooking && !query.error;
   const readOnly = list === "review";
   if (!query.data && query.error) return <p className="od-lead__error">{deskCopy.errors.failed(null)}</p>;
@@ -122,7 +144,13 @@ function EnrollmentList({ list }: { list: EnrollmentList }) {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={columns} className="od-empty" data-testid="enrollment-empty">
-                  {!query.hasNextPage ? enrollmentEmptyText(list) : looking || query.isFetching ? x.stillLooking : enrollmentStoppedText(0, scan)}
+                  {!query.hasNextPage
+                    ? enrollmentEmptyText(list)
+                    : looking || query.isFetching
+                      ? x.stillLooking
+                      : scan.stoppedEmpty
+                        ? enrollmentStoppedText(0, scan)
+                        : x.noneLeftShown}
                 </td>
               </tr>
             ) : (

@@ -129,6 +129,52 @@ test("Owner: a page with no rows but a cursor keeps looking; 'none' shows only w
   await expect(panel.getByRole("button", { name: "Load more" })).toHaveCount(0);
 });
 
+test("Owner: an Enroll after Load more takes the row out without paging on its own or re-reading the list", async ({ page }) => {
+  // Page 1: the 3 ready leads and a cursor; Load more brings 2 more (5 shown) and another cursor.
+  const first = { ...syntheticEnrollmentCandidates("in_scope"), next_cursor: "ready-2" };
+  const second = { ...syntheticEnrollmentCandidates("in_scope"), items: syntheticEnrollmentCandidates("older").items.slice(0, 2), next_cursor: "ready-3" };
+  const candidateCalls: string[] = [];
+  await page.route(`${DESK_API}/enrollment/candidates**`, async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("partition") !== "in_scope") return route.fallback();
+    const cursor = url.searchParams.get("cursor");
+    candidateCalls.push(cursor ?? "");
+    if (!cursor) return route.fulfill({ json: { ok: true, data: first } });
+    if (cursor === "ready-2") return route.fulfill({ json: { ok: true, data: second } });
+    return route.fulfill({ json: { ok: true, data: { ...syntheticEnrollmentCandidates("in_scope"), items: [], next_cursor: `ready-${candidateCalls.length + 3}`, scanned: 1000 } } });
+  });
+  await page.route(`${DESK_API}/enrollment/apply`, (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        data: { contract_version: "sod-v1", mode: "apply", run_key: "k", status: "completed", activation_at: "2026-10-01T16:00:00.000Z", manifest_hash: "a".repeat(64), selected: 1, next_index: 1, batches_this_call: 1, counts: { enrolled: 1 }, pause_reason: null, replayed: false },
+      },
+    }),
+  );
+  await openSettings(page);
+  const panel = page.getByTestId("settings-enrollment");
+  const ready = panel.getByTestId("enrollment-list-in_scope");
+  await expect(ready.locator("tbody tr[data-lead]")).toHaveCount(3);
+  await panel.getByRole("button", { name: "Load more" }).click();
+  await expect(ready.locator("tbody tr[data-lead]")).toHaveCount(5);
+  // Distinct pages (a dev-mode remount may ask for page one twice); the raw count is what must not grow.
+  expect(new Set(candidateCalls).size).toBe(2);
+  const callsBefore = candidateCalls.length;
+
+  // Enroll the two rows Load more brought.
+  for (const remaining of [4, 3]) {
+    await ready.locator("tbody tr[data-lead]").last().getByRole("button", { name: "Enroll" }).click();
+    await expect(panel.getByRole("status")).toHaveText("Enrolled — the lead is on the desk now.");
+    await expect(ready.locator("tbody tr[data-lead]")).toHaveCount(remaining);
+  }
+  // The rows left the list in place: no refetch of the loaded pages, no paging on its own, no "No more found" note.
+  await page.waitForTimeout(1500);
+  expect(candidateCalls.length).toBe(callsBefore);
+  await expect(panel.getByRole("button", { name: "Load more" })).toHaveText("Load more");
+  await expect(panel.getByTestId("enrollment-stopped")).toHaveCount(0);
+  await expect(panel).not.toContainText("Still looking");
+});
+
 test("Owner: the day's new-lead intake reads counts and refusals in words; an old day says the retention", async ({ page }) => {
   await openSettings(page);
   const panel = page.getByTestId("settings-admissions");
