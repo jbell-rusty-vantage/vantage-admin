@@ -189,8 +189,40 @@ export function repProgressLabel(rep: Pick<SalesOutreachRepDayDto, "progress" | 
 
 // ---------------------------------------------------------------------------------------------- channels
 
-/** One channel's status for a row: the label and its tone (always text, never color alone). */
-export function channelStatus(channel: SalesOutreachChannelDto, asOf: string, kind: "call" | "sms"): { text: string; tone: Tone } {
+/**
+ * A passed deadline RingCentral capture can't prove yet (server `verification.state: "unverified"`, lifecycle repair
+ * A2). The server keeps such a channel `due`; an `overdue` that arrives unverified is treated the same way, so an
+ * unverified channel never reads red or overdue.
+ */
+export function isUnverified(channel: Pick<SalesOutreachChannelDto, "status" | "verification">): boolean {
+  return channel.verification?.state === "unverified" && (channel.status === "due" || channel.status === "overdue");
+}
+
+/** Overdue as the server proved it: status `overdue` and not unverified (servers before A2 send no verification). */
+export function isVerifiedOverdue(channel: Pick<SalesOutreachChannelDto, "status" | "verification">): boolean {
+  return channel.status === "overdue" && !isUnverified(channel);
+}
+
+/** A "known through" instant in words, from `as_of`: "11:43 AM" on the same New York day, otherwise "Oct 5, 7:58 PM". */
+export function knownThroughTime(instant: string | null | undefined, asOf: string): string | null {
+  if (!instant) return null;
+  const time = timeFormatter.format(new Date(instant));
+  return nyDate(instant) === nyDate(asOf) ? time : `${monthDayFormatter.format(new Date(instant))}, ${time}`;
+}
+
+/**
+ * The note for an unverified channel: "Due — not yet verified (activity known through 11:43 AM)" plus its tooltip;
+ * null for any other channel. Never a countdown and never "overdue".
+ */
+export function verificationNote(channel: SalesOutreachChannelDto, asOf: string): { text: string; title: string } | null {
+  if (!isUnverified(channel)) return null;
+  const known = knownThroughTime(channel.verification?.verified_through, asOf);
+  return { text: t.notYetVerifiedFull(known), title: t.notYetVerifiedTitle(known) };
+}
+
+/** One channel's status for a row: the label, its tone (always text, never color alone) and an optional tooltip. */
+export function channelStatus(channel: SalesOutreachChannelDto, asOf: string, kind: "call" | "sms"): { text: string; tone: Tone; title?: string } {
+  if (isUnverified(channel)) return { text: t.notYetVerified, tone: "amber", title: t.notYetVerifiedTitle(knownThroughTime(channel.verification?.verified_through, asOf)) };
   switch (channel.status) {
     case "overdue":
       return { text: t.overdue, tone: "red" };
@@ -208,7 +240,8 @@ export function channelStatus(channel: SalesOutreachChannelDto, asOf: string, ki
     case "blocked":
       return { text: t.blocked, tone: "muted" };
     case "pending":
-      return { text: t.pending, tone: "muted" };
+      // Evidence uncertainty (records still arriving), not a review.
+      return { text: t.pending, tone: "muted", title: t.pendingTitle };
     case "not_required":
       return { text: t.notRequired, tone: "muted" };
   }
@@ -221,9 +254,12 @@ export function callsTodayText(channel: SalesOutreachChannelDto): string {
   return `${countText(channel.verified_completed)} / ${channel.required}`;
 }
 
-/** "2 days overdue" under the calls cell, from the oldest unmet deadline and `as_of` (display interpolation only). */
+/**
+ * "2 days overdue" under the calls cell, from the oldest unmet deadline and `as_of` (display interpolation only).
+ * Null unless the server proved the channel overdue: an unverified deadline has no overdue duration.
+ */
 export function overdueByText(channel: SalesOutreachChannelDto, asOf: string): string | null {
-  if (channel.status !== "overdue") return null;
+  if (!isVerifiedOverdue(channel)) return null;
   const since = channel.oldest_actionable_due_at ?? channel.due_at;
   if (!since) return null;
   return t.overdueBy(durationWords(Date.parse(asOf) - Date.parse(since)));
@@ -279,25 +315,55 @@ export function reviewReasonText(reason: unknown): string {
  * The attention table's concise issue: from the server's statuses and flags only (no browser cadence). The overdue
  * duration is interpolated from `as_of`.
  */
-export function rowIssue(row: SalesOutreachQueueRowDto, asOf: string): { text: string; tone: Tone; icon: "alert" | "clock" | "info" } {
+export function rowIssue(row: SalesOutreachQueueRowDto, asOf: string): { text: string; tone: Tone; icon: "alert" | "clock" | "info"; title?: string } {
   const f = row.status_flags;
-  const callOver = row.call.status === "overdue";
-  const smsOver = row.sms.status === "overdue";
+  const callOver = isVerifiedOverdue(row.call);
+  const smsOver = isVerifiedOverdue(row.sms);
+  const callUnverified = isUnverified(row.call);
+  const smsUnverified = isUnverified(row.sms);
   if (callOver && smsOver) return { text: t.callAndSmsOverdue, tone: "red", icon: "alert" };
   if (callOver) {
     const since = row.call.oldest_actionable_due_at ?? row.call.due_at;
     return { text: since ? t.callOverdueBy(durationWords(Date.parse(asOf) - Date.parse(since))) : t.callOverdue, tone: "red", icon: "alert" };
   }
   if (smsOver) return { text: t.smsOverdue, tone: "red", icon: "alert" };
-  if (f.overdue) return { text: t.overdueWork, tone: "red", icon: "alert" };
+  if (rowOverdue(row)) return { text: t.overdueWork, tone: "red", icon: "alert" };
   if (f.blocked) return { text: t.contactBlocked, tone: "muted", icon: "info" };
-  if (f.pending || row.subject_status === "review") return { text: t.needsReview, tone: "amber", icon: "info" };
+  if (row.subject_status === "review") return { text: t.needsReview, tone: "amber", icon: "info" };
+  if (callUnverified || smsUnverified) {
+    const note = verificationNote(callUnverified ? row.call : row.sms, asOf);
+    const text = callUnverified && smsUnverified ? t.callAndSmsNotYetVerified : callUnverified ? t.callNotYetVerified : t.smsNotYetVerified;
+    return { text, tone: "amber", icon: "clock", title: note?.title };
+  }
+  // `pending` is evidence uncertainty (call or SMS records still arriving), not a review.
+  if (f.pending) return { text: t.recordsPending, tone: "muted", icon: "info", title: t.pendingTitle };
   if (row.call.status === "due" && row.sms.status === "due") return { text: t.callAndSmsDue, tone: "amber", icon: "clock" };
   if (row.call.status === "due") return { text: t.callDueToday, tone: "amber", icon: "clock" };
   if (row.sms.status === "due") return { text: t.smsDueToday, tone: "amber", icon: "clock" };
   if (f.job_pending) return { text: t.jobPending, tone: "muted", icon: "info" };
   if (f.move_date_passed) return { text: t.moveDatePassed, tone: "muted", icon: "info" };
   return { text: t.noIssue, tone: "muted", icon: "info" };
+}
+
+/**
+ * Whether a row reads overdue (the red lead age, "Contact overdue"): a channel the server proved overdue, or the
+ * row's `overdue` flag when no channel is waiting on verification (the server keeps the flag false while it can't
+ * verify; an unverified channel never turns the row red).
+ */
+export function rowOverdue(row: Pick<SalesOutreachQueueRowDto, "call" | "sms" | "status_flags">): boolean {
+  if (isVerifiedOverdue(row.call) || isVerifiedOverdue(row.sms)) return true;
+  return row.status_flags.overdue && !isUnverified(row.call) && !isUnverified(row.sms);
+}
+
+/**
+ * The Overdue card's unassigned link: "3 unassigned", or "3 unassigned · 1 overdue" when the server's
+ * `unassigned.overdue` is known and above 0 (an unavailable value is left out, never shown as 0). Null with none.
+ */
+export function unassignedCaption(unassigned: { count: number | null; overdue: SalesOutreachCadenceMetric }): string | null {
+  if (unassigned.count === null || unassigned.count <= 0) return null;
+  const overdue = unassigned.overdue.value;
+  const cards = deskCopy.team.cards;
+  return overdue !== null && overdue > 0 ? cards.unassignedOverdue(String(unassigned.count), overdue) : cards.unassigned(String(unassigned.count));
 }
 
 /** The assigned rep, or Unassigned. */

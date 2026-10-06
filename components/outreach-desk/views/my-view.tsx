@@ -30,6 +30,8 @@ import {
   overdueByText,
   percentText,
   relativeDay,
+  rowOverdue,
+  verificationNote,
 } from "../lib/format";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, ReadFailure, SearchBox, SkeletonLine, Track } from "../primitives";
@@ -146,6 +148,7 @@ function QueueRow({
   onMove: (from: HTMLTableRowElement, step: 1 | -1) => void;
 }) {
   const overdueBy = overdueByText(row.call, asOf);
+  const callNote = verificationNote(row.call, asOf);
   const sms = channelStatus(row.sms, asOf, "sms");
   const toneClass = (tone: string) => (tone === "red" ? "od-text-red" : tone === "amber" ? "od-text-amber" : tone === "green" ? "od-text-green" : "od-text-muted");
   return (
@@ -169,7 +172,7 @@ function QueueRow({
         <span className="od-strong od-job">{row.job_no ?? deskCopy.lead.jobPending}</span>
         {row.phone ? <span className="od-cell__sub">{row.phone}</span> : null}
       </td>
-      <td className={row.status_flags.overdue ? "od-text-red od-strong-red" : undefined} title={absoluteTime(row.received_at)}>
+      <td className={rowOverdue(row) ? "od-text-red od-strong-red" : undefined} title={absoluteTime(row.received_at)}>
         {leadAgeText(row, asOf)}
       </td>
       <td className="od-text-muted" title={absoluteTime(row.last_interaction_at)}>
@@ -178,8 +181,15 @@ function QueueRow({
       <td>
         <span>{callsTodayText(row.call)}</span>
         {overdueBy ? <span className="od-cell__sub od-text-red">{overdueBy}</span> : null}
+        {callNote ? (
+          <span className="od-cell__sub od-text-amber" data-testid="call-not-yet-verified" title={callNote.title}>
+            {callNote.text}
+          </span>
+        ) : null}
       </td>
-      <td className={toneClass(sms.tone)}>{sms.text}</td>
+      <td className={toneClass(sms.tone)} title={sms.title}>
+        {sms.text}
+      </td>
       <td>
         <CopyJobButton jobNo={row.job_pending ? null : row.job_no} />
       </td>

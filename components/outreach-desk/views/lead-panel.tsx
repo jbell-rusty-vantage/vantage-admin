@@ -27,7 +27,18 @@ import {
   useCallbackCommand,
   useQuotedFollowupCommand,
 } from "../data/use-desk-commands";
-import { absoluteTime, cadenceSummaryLines, durationWords, nyDate, relativeDay, reviewReasonText, shortDateLabel } from "../lib/format";
+import {
+  absoluteTime,
+  cadenceSummaryLines,
+  durationWords,
+  isUnverified,
+  isVerifiedOverdue,
+  knownThroughTime,
+  nyDate,
+  relativeDay,
+  reviewReasonText,
+  shortDateLabel,
+} from "../lib/format";
 import { reportUnknownDeskCode } from "../lib/unknown-codes";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, SkeletonLine } from "../primitives";
@@ -65,11 +76,17 @@ export function nextAction(detail: Pick<SalesOutreachDetailDto, "requirements" |
   const { call, sms } = detail.requirements;
   const since = (channel: SalesOutreachChannelDto) => channel.oldest_actionable_due_at ?? channel.due_at;
   const cooldown = detail.policy.advisory_cooldown.warning ? c.explanation.advisory_cooldown : null;
-  if (call.status === "overdue") {
+  if (isVerifiedOverdue(call)) {
     const from = since(call);
     return { text: c.callOverdue, sub: from ? t.overdueBy(durationWords(Date.parse(detail.as_of) - Date.parse(from))) : cooldown, tone: "red", icon: CircleAlert };
   }
-  if (sms.status === "overdue") return { text: c.smsOverdue, sub: cooldown, tone: "red", icon: CircleAlert };
+  if (isVerifiedOverdue(sms)) return { text: c.smsOverdue, sub: cooldown, tone: "red", icon: CircleAlert };
+  // A passed deadline capture can't prove yet: amber "not yet verified", never "overdue" or "due now".
+  const unverified = isUnverified(call) ? call : isUnverified(sms) ? sms : null;
+  if (unverified) {
+    const known = knownThroughTime(unverified.verification?.verified_through, detail.as_of);
+    return { text: unverified === call ? c.callNotYetVerified : c.smsNotYetVerified, sub: known ? c.knownThrough(known) : c.waitingCapture, tone: "amber", icon: Clock3 };
+  }
   if (call.status === "due") {
     const due = call.due_at && Date.parse(call.due_at) > Date.parse(detail.as_of) && nyDate(call.due_at) === nyDate(detail.as_of);
     // Due now (or with no later deadline today) reads as the reference's red "Next call due now"; due later today is amber.

@@ -14,8 +14,9 @@ import { z } from "zod";
  * parses every one of them (the drift guard: no field dropped, no unknown enum value reported).
  *
  * Honesty rules the admin renders (server handoff): a `null` count is pending, never 0; the cadence
- * unknown reasons (`cadence_disabled`, `cadence_shadow`, `policy_unavailable`) mean unavailable; overdue
- * and ordering are never computed in the browser.
+ * unknown reasons (`cadence_disabled`, `cadence_shadow`, `policy_unavailable`, `coverage_incomplete`) mean
+ * unavailable; a channel whose `verification.state` is `unverified` never reads overdue; overdue and ordering are
+ * never computed in the browser.
  */
 
 // ---------------------------------------------------------------------------------------------
@@ -92,11 +93,22 @@ export const SALES_OUTREACH_COVERAGE_STATES = ["complete", "partial", "unknown"]
 export const SALES_OUTREACH_CAPTURE_FRESHNESS_STATES = ["fresh", "delayed", "not_connected", "unknown"] as const;
 export const SALES_OUTREACH_GRANOT_FRESHNESS_STATES = ["observed", "unknown"] as const;
 export const SALES_OUTREACH_CONFIGURATION_STATES = ["uninitialized", "active", "unavailable"] as const;
-export const SALES_OUTREACH_CADENCE_UNKNOWN_REASONS = ["cadence_disabled", "cadence_shadow", "policy_unavailable"] as const;
+/**
+ * Cadence metric reasons (overdue, quoted with gaps, unassigned overdue, the attention list). `coverage_incomplete`
+ * (lifecycle repair A2, listed admin-first) means RingCentral capture coverage can't prove which deadlines have
+ * passed, so the count is unknown, never 0.
+ */
+export const SALES_OUTREACH_CADENCE_UNKNOWN_REASONS = ["cadence_disabled", "cadence_shadow", "policy_unavailable", "coverage_incomplete"] as const;
 export type SalesOutreachCadenceUnknownReason = (typeof SALES_OUTREACH_CADENCE_UNKNOWN_REASONS)[number];
-/** Due-count reasons (rep-days `calls_due_today` / `sms_due_today`): the cadence reasons plus `coverage_incomplete`. */
-export const SALES_OUTREACH_DUE_TODAY_UNKNOWN_REASONS = [...SALES_OUTREACH_CADENCE_UNKNOWN_REASONS, "coverage_incomplete"] as const;
+/** Due-count reasons (rep-days `calls_due_today` / `sms_due_today`): the same values (`coverage_incomplete` when a due requirement's remaining is unknown). */
+export const SALES_OUTREACH_DUE_TODAY_UNKNOWN_REASONS = [...SALES_OUTREACH_CADENCE_UNKNOWN_REASONS] as const;
 export type SalesOutreachDueTodayUnknownReason = (typeof SALES_OUTREACH_DUE_TODAY_UNKNOWN_REASONS)[number];
+/**
+ * A channel's read-time verification (lifecycle repair A2): `unverified` = a deadline has passed but capture coverage
+ * can't prove it yet, so the channel reads "Due — not yet verified", never overdue.
+ */
+export const SALES_OUTREACH_VERIFICATION_STATES = ["verified", "unverified"] as const;
+export type SalesOutreachVerificationState = (typeof SALES_OUTREACH_VERIFICATION_STATES)[number];
 export const SALES_OUTREACH_MOVE_DATE_REVIEWS = ["passed", "unknown"] as const;
 export const SALES_OUTREACH_VIEWS = ["team", "my", "activity", "settings", "numbers", "accounts"] as const;
 export type SalesOutreachView = (typeof SALES_OUTREACH_VIEWS)[number];
@@ -229,6 +241,8 @@ function tolerantLiteral<const T extends string>(field: string, value: T) {
 
 // Read enums the repair may grow (research/LANE-D-admin-consumers.md §2–§6) and the parts of every read.
 const channelStatusSchema = tolerantEnum("channel.status (queue rows, team attention rows, detail requirements, shadow labels)", SALES_OUTREACH_CHANNEL_STATUSES, "pending");
+/** An unknown verification state reads `unverified`: the safe side (amber "not yet verified", never red overdue). */
+const verificationStateSchema = tolerantEnum("channel verification.state (queue rows, team attention rows, detail requirements)", SALES_OUTREACH_VERIFICATION_STATES, "unverified");
 const coverageStateSchema = tolerantEnum("coverage.state (channel and rep-day coverage)", SALES_OUTREACH_COVERAGE_STATES, "unknown");
 const captureFreshnessStateSchema = tolerantEnum("freshness.calls/sms.state (every read)", SALES_OUTREACH_CAPTURE_FRESHNESS_STATES, "unknown");
 const granotFreshnessStateSchema = tolerantEnum("freshness.granot.state (every read)", SALES_OUTREACH_GRANOT_FRESHNESS_STATES, "unknown");
@@ -340,7 +354,23 @@ export const salesOutreachDueTodayMetricSchema = z.object({
 });
 export type SalesOutreachDueTodayMetric = z.infer<typeof salesOutreachDueTodayMetricSchema>;
 
-/** One channel's requirement; `status` is already derived at `as_of` by the server. */
+/**
+ * Read-time verification of a passed deadline (lifecycle repair A2). `verified`: coverage proves the deadline, so the
+ * status may be `overdue`. `unverified`: the deadline passed at `unverified_since` but capture coverage
+ * (`verified_through`, null = no capture coverage yet) is behind it; the status stays `due`.
+ */
+export const salesOutreachChannelVerificationSchema = z.object({
+  state: verificationStateSchema,
+  verified_through: nullableInstant,
+  unverified_since: nullableInstant,
+});
+export type SalesOutreachChannelVerification = z.infer<typeof salesOutreachChannelVerificationSchema>;
+
+/**
+ * One channel's requirement; `status` is already derived at `as_of` by the server. From A2 a passed deadline reads
+ * `overdue` only when coverage proves it, otherwise `due` with `verification.state = unverified`. `verification` is
+ * absent from servers before A2 and null when no deadline has passed (and in shadow).
+ */
 export const salesOutreachChannelSchema = z.object({
   required: count.nullable(),
   verified_completed: count.nullable(),
@@ -355,8 +385,9 @@ export const salesOutreachChannelSchema = z.object({
     gaps: z.array(z.unknown()).max(50),
   }),
   blocked_reason: z.string().nullable(),
+  verification: salesOutreachChannelVerificationSchema.nullable().optional(),
 });
-export type SalesOutreachChannelDto = z.infer<typeof salesOutreachChannelSchema>;
+export type SalesOutreachChannelDto =z.infer<typeof salesOutreachChannelSchema>;
 
 export const salesOutreachStatusFlagsSchema = z.object({
   needs_contact: z.boolean(),

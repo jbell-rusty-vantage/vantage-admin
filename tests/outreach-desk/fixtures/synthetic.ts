@@ -282,13 +282,32 @@ function channel(
     oldest_actionable_due_at: oldest,
     status,
     completion_kind: status === "completed" ? "verified" : null,
-    coverage: { state: "complete", known_complete_through: "2026-10-01T15:59:00.000Z", gaps: [] },
+    coverage: { state: "complete", known_complete_through: SYNTHETIC_COVERAGE, gaps: [] },
     blocked_reason: null,
+    // SYNTHETIC, built from the A2 design's DTO shape (research/LANE-A §A2/§10) until the server examples exist: an
+    // overdue channel is verified by coverage; a channel with no passed deadline carries null.
+    verification: status === "overdue" ? { state: "verified", verified_through: SYNTHETIC_COVERAGE, unverified_since: null } : null,
   };
 }
 
+/**
+ * SYNTHETIC (A2 shape): a channel whose deadline has passed but capture coverage is behind it. The server keeps it
+ * `due` with `verification.state: "unverified"` and a live `partial` coverage block.
+ */
+function unverifiedChannel(required: number, done: number, dueAt: string, verifiedThrough: string | null): SalesOutreachChannelDto {
+  return {
+    ...channel(required, done, "due", dueAt),
+    coverage: { state: verifiedThrough ? "partial" : "unknown", known_complete_through: verifiedThrough, gaps: [] },
+    verification: { state: "unverified", verified_through: verifiedThrough, unverified_since: dueAt },
+  };
+}
+
+const SYNTHETIC_COVERAGE = "2026-10-01T15:59:00.000Z";
 const TODAY_CLOSE = "2026-10-02T00:00:00.000Z"; // 20:00 New York on Oct 1
 const TODAY_NOON = "2026-10-01T16:00:00.000Z";
+/** Row 9's passed call deadline (11:00 AM New York) and the capture coverage behind it (10:43 AM). */
+export const SYNTHETIC_UNVERIFIED_DUE = "2026-10-01T15:00:00.000Z";
+export const SYNTHETIC_UNVERIFIED_THROUGH = "2026-10-01T14:43:00.000Z";
 
 type RowSpec = {
   n: number;
@@ -367,7 +386,8 @@ const ROW_SPECS: RowSpec[] = [
   {
     n: 9, job: "P5561044", phone: "(602) 555-0144", name: "Jordan Lee", agent: "alex", workflow: "new", priority: "0",
     received: "2026-09-28T14:00:00.000Z", last: "2026-09-30T19:00:00.000Z", move: "2026-10-18",
-    call: channel(2, 1, "due", TODAY_CLOSE),
+    // ADM-1: the 11:00 AM call deadline has passed but capture only covers 10:43 AM → "Due — not yet verified".
+    call: unverifiedChannel(2, 1, SYNTHETIC_UNVERIFIED_DUE, SYNTHETIC_UNVERIFIED_THROUGH),
     sms: channel(0, 0, "not_required", null),
   },
   {
