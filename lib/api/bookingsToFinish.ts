@@ -1,7 +1,7 @@
 /**
- * Pure helpers for Bookings to finish (doc 06): the card's lines, the Finished-today day filter, the "Use Granot's
- * value" copy rule, the override-reason length rule, the agent suggestion and the review line. No React and no
- * network: the cards, the finish sheet and the Lead picker import these, and `tests/intakes-to-finish.test.ts` pins them.
+ * Pure helpers for Bookings to finish (doc 06): the card's lines, the Finished-today day filter, the override-reason
+ * length rule, the remembered merchant and the review line. No React and no network: the cards, the finish sheet and
+ * the Lead picker import these, and `tests/intakes-to-finish.test.ts` pins them.
  */
 import { formatAge, formatMoney, formatShortDate, newYorkDayKey } from "@/components/ui/crm/format";
 import { parseMoneyInput } from "@/lib/booking/parseMoneyInput";
@@ -133,40 +133,10 @@ export function finishedToday<T extends Pick<GranotLifecycleCaseListItem, "resol
 
 // ---- The "Use" buttons ---------------------------------------------------------------------------------------------
 
-export type GranotUseField = "book_date" | "binder" | "deposit";
-
-/**
- * What a Use button writes into a field, or undefined when Granot's value cannot be read (no button then). Nothing
- * is ever pre-filled: the Owner presses Use. Money drops "$" and "," ("$1,978.40" becomes "1978.40"); a date becomes
- * its New York calendar day ("2026-10-05").
- */
-export function granotValueForInput(field: GranotUseField, raw: string | null | undefined): string | undefined {
-  const text = raw?.trim();
-  if (!text) return undefined;
-  if (field === "book_date") {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
-    const day = newYorkDayKey(text);
-    return day || undefined;
-  }
-  const amount = parseMoneyInput(text);
-  if (amount === undefined) return undefined;
-  return Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
-}
-
-// ---- Agent and merchant suggestion -----------------------------------------------------------------------------------
-
-/**
- * The Agent whose Granot CRM username matches the case file's rep. undefined when the payload carries no rep or no
- * active Agent has that username; "suggested" is shown only when this returns an id.
- */
-export function suggestedAgentId(
-  agents: readonly { id: string; granot_crm_username?: string; active?: boolean }[],
-  granotRep: string | null | undefined,
-): string | undefined {
-  const rep = granotRep?.trim().toLowerCase();
-  if (!rep) return undefined;
-  return agents.find((agent) => agent.active !== false && agent.granot_crm_username?.trim().toLowerCase() === rep)?.id;
-}
+// ---- Merchant memory ------------------------------------------------------------------------------------------------------
+// The Use buttons (Granot's book date, binder and deposit beside each field) and the suggested agent were removed on
+// 2026-10-06 at the Owner's ask: Granot's figures are shown as facts in "What Granot sent" and never offered as a
+// recommendation, so the Owner's manager is not nudged into copying them.
 
 /** The remembered merchant, only while it is still an active choice. */
 export function rememberedMerchantId(

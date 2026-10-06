@@ -6,17 +6,18 @@
  */
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, RefreshCw } from "lucide-react";
 import { RecordList, useInfiniteScroll, useUrlState } from "@/components/records";
 import { formatRelative } from "@/components/ui/crm/format";
-import { IconBadge, PageHeader, ReadFailure } from "@/components/ui/crm/primitives";
+import { IconBadge, Notice, PageHeader, ReadFailure } from "@/components/ui/crm/primitives";
 import {
   finishedToday,
   TO_FINISH_OPEN_FILTERS,
   TO_FINISH_RESOLVED_FILTERS,
 } from "@/lib/api/bookingsToFinish";
-import { fetchGranotLifecycleCases, type GranotLifecycleCaseListItem } from "@/lib/api/granotLifecycle";
+import { fetchGranotLifecycleCases, fetchGranotLifecycleHealth, type GranotLifecycleCaseListItem } from "@/lib/api/granotLifecycle";
+import { invalidateGranotLifecycleCommandViews } from "@/lib/query/granotLifecycle";
 import { queryKeys } from "@/lib/query/keys";
 import { type UrlStateUpdate } from "@/lib/api/url-state-update";
 import { FinishBookingSheet } from "./finish-booking-sheet";
@@ -36,6 +37,17 @@ export function ToFinishPage() {
   const searchParams = useSearchParams();
   const { caseId } = useMemo(() => parseToFinishUrl(searchParams), [searchParams]);
   const update = useUrlState<ToFinishUrlPatch>(toUpdate);
+  const queryClient = useQueryClient();
+
+  // No action on the card (2026-10-06): one panel open at a time; the closed job is said in a notice above the list.
+  const [noActionCaseId, setNoActionCaseId] = useState<string | null>(null);
+  const [closedNotice, setClosedNotice] = useState<string | null>(null);
+  const health = useQuery({ queryKey: queryKeys.granotLifecycle.health(), queryFn: fetchGranotLifecycleHealth });
+  const commandsEnabled = health.data?.flags.GRANOT_LIFECYCLE_BOOKING_COMMANDS_ENABLED === true;
+  const invalidateCase = async (item: GranotLifecycleCaseListItem) => {
+    await invalidateGranotLifecycleCommandViews(queryClient, { caseId: item.case_id, jobNo: item.normalized_job_no });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.dailyOperations.snapshot() });
+  };
 
   const open = useInfiniteQuery({
     queryKey: queryKeys.granotLifecycle.cases({ ...TO_FINISH_OPEN_FILTERS, view: "to-finish" }),
@@ -67,10 +79,32 @@ export function ToFinishPage() {
         }
       />
 
+      {closedNotice ? (
+        <Notice icon={CircleCheck} tone="green" title={closedNotice} testId="to-finish-closed-notice">
+          <button type="button" className="crm-button crm-button--quiet crm-button--sm" onClick={() => setClosedNotice(null)}>
+            {COPY.dismiss}
+          </button>
+        </Notice>
+      ) : null}
+
       <RecordList<GranotLifecycleCaseListItem>
         items={items}
         keyOf={(item) => item.case_id}
-        renderItem={(item) => <ToFinishCard item={item} active={item.case_id === caseId} onOpen={(row) => update({ case: row.case_id })} />}
+        renderItem={(item) => (
+          <ToFinishCard
+            item={item}
+            active={item.case_id === caseId}
+            onOpen={(row) => update({ case: row.case_id })}
+            noActionOpen={item.case_id === noActionCaseId}
+            commandsEnabled={commandsEnabled}
+            onToggleNoAction={(row) => setNoActionCaseId((current) => (current === row.case_id ? null : row.case_id))}
+            onNoActionDone={(row) => {
+              setNoActionCaseId(null);
+              setClosedNotice(COPY.noActionClosed(row.job_no));
+            }}
+            invalidate={invalidateCase}
+          />
+        )}
         loading={open.isPending}
         error={open.error}
         onRetry={() => void open.refetch()}

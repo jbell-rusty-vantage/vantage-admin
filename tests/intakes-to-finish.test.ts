@@ -11,7 +11,6 @@ import {
   finishedToday,
   finishModeOf,
   granotAgeLine,
-  granotValueForInput,
   isFinishedToday,
   moneyText,
   moveMoneyLine,
@@ -20,7 +19,6 @@ import {
   rememberedMerchantId,
   reviewLine,
   sheetLabel,
-  suggestedAgentId,
   TO_FINISH_OPEN_FILTERS,
 } from "../lib/api/bookingsToFinish";
 import type { GranotLifecycleCaseListItem } from "../lib/api/granotLifecycle";
@@ -55,7 +53,7 @@ test("the list read is the open booking cases, newest Granot evidence first", ()
   );
 });
 
-test("a card shows the job, customer, source, Granot age, updates and one Finish button", () => {
+test("a card shows the job, customer, source, Granot age, updates, one Finish button and No action on the card", () => {
   const markup = render(base);
   assert.match(markup, /5562365/);
   assert.match(markup, /Steve Dority/);
@@ -63,8 +61,27 @@ test("a card shows the job, customer, source, Granot age, updates and one Finish
   assert.match(markup, /Granot booked 1h ago/);
   assert.match(markup, /3 updates/);
   assert.equal((markup.match(/>Finish</g) ?? []).length, 1);
+  // 2026-10-06: No action is an operator on the card, so the Owner's manager closes a case without opening the sheet.
+  assert.equal((markup.match(/>No action</g) ?? []).length, 1);
+  assert.match(markup, /aria-label="No action for job 5562365"/);
+  assert.equal(markup.includes("finish-booking-no-action"), false);
   assert.equal(markup.includes("Two possible customers"), false);
   assert.equal(markup.includes("Intake"), false);
+});
+
+test("No action opens in place on the card with the reasons, a note, Close with no action and Keep it", () => {
+  const markup = renderToStaticMarkup(
+    createElement(ToFinishCard, { item: base, now: NOW, noActionOpen: true, commandsEnabled: true, onToggleNoAction: () => undefined, onNoActionDone: () => undefined, invalidate: async () => undefined }),
+  );
+  assert.match(markup, /finish-booking-no-action/);
+  assert.match(markup, /Close with no action/);
+  assert.match(markup, /Already handled elsewhere/);
+  assert.match(markup, /Keep it/);
+  assert.match(markup, /aria-expanded="true"/);
+  const off = renderToStaticMarkup(
+    createElement(ToFinishCard, { item: base, now: NOW, noActionOpen: true, commandsEnabled: false, onToggleNoAction: () => undefined, onNoActionDone: () => undefined, invalidate: async () => undefined }),
+  );
+  assert.match(off, /not ready to close bookings/);
 });
 
 test("the move and money line renders only when the case file summary arrives, with no placeholder when absent", () => {
@@ -88,10 +105,11 @@ test("two possible customers shows the warning and only on create cases", () => 
   assert.equal(render({ ...base, customer_label: "Betty Raban / John Donahue", mode: "review_existing_booking" }).includes("Two possible customers"), false);
 });
 
-test("a review case says Vantage already has a booking and offers Review, not Finish", () => {
+test("a review case says Vantage already has a booking and offers No action and Review, not Finish", () => {
   const markup = render({ ...base, mode: "review_existing_booking", deterministic_booking: { present: true, id: "b1" } });
   assert.match(markup, /Vantage already has a booking for this job/);
   assert.match(markup, />Review</);
+  assert.match(markup, />No action</);
   assert.equal(markup.includes(">Finish<"), false);
   assert.equal(finishModeOf("create_referral_booking"), "referral");
   assert.equal(finishModeOf("create_missing_booking"), "create");
@@ -114,17 +132,8 @@ test("Finished today keeps only cases resolved on today's New York day", () => {
   assert.equal(isFinishedToday({ resolved_at: "garbage" }, NOW), false);
 });
 
-test("a Use button writes Granot's value only as an explicit copy: money drops $ and commas, a date becomes its New York day", () => {
-  assert.equal(granotValueForInput("binder", "$1,978.40"), "1978.40");
-  assert.equal(granotValueForInput("deposit", "$578"), "578");
-  assert.equal(granotValueForInput("deposit", " 578.5 "), "578.50");
-  assert.equal(granotValueForInput("binder", "call me"), undefined);
-  assert.equal(granotValueForInput("binder", undefined), undefined);
-  assert.equal(granotValueForInput("book_date", "2026-10-05T14:39:00Z"), "2026-10-05");
-  assert.equal(granotValueForInput("book_date", "2026-10-06T02:00:00Z"), "2026-10-05");
-  assert.equal(granotValueForInput("book_date", "2026-10-05"), "2026-10-05");
-  assert.equal(granotValueForInput("book_date", ""), undefined);
-});
+// 2026-10-06: the Use buttons and the suggested agent were removed at the Owner's ask (Granot's figures are facts, not
+// recommendations), so their helper tests went with them; the merchant memory stays.
 
 test("the override reason must be 10 to 500 characters once trimmed", () => {
   assert.ok(overrideReasonProblem(""));
@@ -150,15 +159,7 @@ test("the review line reads like the booking it files", () => {
   assert.equal(sheetLabel("create", false), "Sheet: Master Booked (leadless)");
 });
 
-test("the agent is suggested only when a Granot username matches an active agent; the merchant only while still active", () => {
-  const agents = [
-    { id: "a1", granot_crm_username: "AUSTIN", active: true },
-    { id: "a2", granot_crm_username: "sam", active: false },
-  ];
-  assert.equal(suggestedAgentId(agents, "austin"), "a1");
-  assert.equal(suggestedAgentId(agents, "sam"), undefined);
-  assert.equal(suggestedAgentId(agents, undefined), undefined);
-  assert.equal(suggestedAgentId(agents, "nobody"), undefined);
+test("the merchant is remembered only while still active", () => {
   assert.equal(rememberedMerchantId([{ id: "m1", active: true }], "m1"), "m1");
   assert.equal(rememberedMerchantId([{ id: "m1", active: false }], "m1"), undefined);
   assert.equal(rememberedMerchantId([{ id: "m1" }], ""), undefined);

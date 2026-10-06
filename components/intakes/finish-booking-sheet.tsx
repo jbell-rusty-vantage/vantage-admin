@@ -3,18 +3,18 @@
  * The finish sheet (doc 06): one drawer, three numbered blocks. The business rules are the old workbench's, kept
  * exactly: the `expected_case_revision` lock, the out-of-scope override reason (10 to 500 characters), the matched
  * lead standing in unless the Owner picks someone else or "No lead" (Leadless Booking), the booking-commands flag, the
- * 409 copy, and the idempotency key that survives a retry of the same body. Granot's numbers sit beside each field with
- * a Use button; nothing is pre-filled.
+ * 409 copy, and the idempotency key that survives a retry of the same body. Nothing is pre-filled or suggested from
+ * Granot (2026-10-06, the Owner's ask): what Granot sent is shown as facts above the form, never beside a field.
  */
 import Link from "next/link";
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck } from "lucide-react";
 import { useMatchedLead } from "@/components/granot-lifecycle/use-matched-lead";
 import { candidateLeadName } from "@/components/granot-lifecycle/candidate-lead-facts";
 import { LeadPicker } from "@/components/records/lead-picker";
 import { RecordDrawer } from "@/components/records";
-import { formatPhone, formatShortDate } from "@/components/ui/crm/format";
+import { formatPhone } from "@/components/ui/crm/format";
 import { CrmSelect, EvidenceChip, Notice, Pill, ReadFailure, SkeletonLine } from "@/components/ui/crm/primitives";
 import {
   confirmGranotBooking,
@@ -23,24 +23,18 @@ import {
   fetchGranotLifecycleCase,
   fetchGranotLifecycleHealth,
   GranotLifecycleApiError,
-  resolveGranotBookingNoAction,
   updateGranotBooking,
-  type BookingNoActionBody,
-  type BookingNoActionReasonCode,
   type GranotLifecycleCaseDetail,
 } from "@/lib/api/granotLifecycle";
 import {
   contactSyncChip,
   finishModeOf,
-  granotValueForInput,
   moneyText,
   overrideReasonProblem,
   rememberedMerchantId,
   reviewLine,
   sheetLabel,
-  suggestedAgentId,
   type FinishMode,
-  type GranotUseField,
 } from "@/lib/api/bookingsToFinish";
 import { useCatalogOptions } from "@/lib/api/use-catalog-options";
 import { parseOfficialBookingDetails } from "@/lib/booking/officialBookingDetails";
@@ -59,7 +53,8 @@ import {
 } from "./intake-copy";
 import { IntakeReferenceDrawers } from "./intake-reference";
 import { rememberMerchant, useLastMerchant } from "./last-merchant";
-import { FINISH_SHEET_COPY as COPY, NO_ACTION_NOTE_MAX, NO_ACTION_REASONS } from "./to-finish-copy";
+import { NoActionPanel, useAttempt } from "./no-action-panel";
+import { FINISH_SHEET_COPY as COPY } from "./to-finish-copy";
 
 const REFRESH_WHILE_OPEN_MS = 15_000;
 
@@ -110,20 +105,6 @@ export function FinishBookingSheet({ caseId, onClose }: { caseId: string; onClos
   );
 }
 
-function useAttempt() {
-  const ref = useRef<{ canonical: string; key: string } | undefined>(undefined);
-  return {
-    /** The same body keeps its Idempotency-Key across a retry; a changed body gets a new one. */
-    keyFor(canonical: string): string {
-      if (ref.current?.canonical !== canonical) ref.current = { canonical, key: crypto.randomUUID() };
-      return ref.current.key;
-    },
-    clear() {
-      ref.current = undefined;
-    },
-  };
-}
-
 function FinishForm({ detail, onFiled }: { detail: GranotLifecycleCaseDetail; onFiled: (message: string) => void }) {
   const queryClient = useQueryClient();
   const mode: FinishMode = finishModeOf(detail.mode);
@@ -158,30 +139,14 @@ function FinishForm({ detail, onFiled }: { detail: GranotLifecycleCaseDetail; on
 
   const agents = catalog.agents.filter((item) => item.active);
   const merchants = catalog.merchants.filter((item) => item.active);
-  const granotRep = detail.case_file_summary?.rep ?? detail.observed_context.granot_username ?? statement?.granotUser;
-  const suggestedAgent = mode === "review" ? undefined : suggestedAgentId(agents, granotRep);
-  const agentId = agentChoice ?? suggestedAgent ?? "";
-  const agentIsSuggestion = agentChoice === null && suggestedAgent !== undefined;
+  // The agent is never suggested from Granot's rep; the Owner picks one.
+  const agentId = agentChoice ?? "";
   const remembered = rememberedMerchantId(merchants, lastMerchant);
   const merchantId = merchantChoice ?? remembered ?? "";
   const merchantIsRemembered = merchantChoice === null && remembered !== undefined;
   const agentName = agents.find((item) => item.id === agentId)?.name;
   const splitName = agents.find((item) => item.id === splitId)?.name;
   const merchantName = merchants.find((item) => item.id === merchantId)?.name;
-
-  // Granot's values, shown beside the fields.
-  const bookedAt = detail.evidence
-    .filter((entry) => entry.action === "booked")
-    .map((entry) => entry.captured_at)
-    .sort()
-    .at(-1) ?? detail.last_evidence_at;
-  const estimateRaw = detail.observed_context.estimate ?? statement?.money.estimate;
-  const paymentRaw = detail.observed_context.payment ?? statement?.money.payment;
-  const granotValue: Record<GranotUseField, string | undefined> = {
-    book_date: granotValueForInput("book_date", bookedAt),
-    binder: granotValueForInput("binder", estimateRaw),
-    deposit: granotValueForInput("deposit", paymentRaw),
-  };
 
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -396,28 +361,16 @@ function FinishForm({ detail, onFiled }: { detail: GranotLifecycleCaseDetail; on
             label={COPY.bookDate}
             id="tf-book-date"
             input={<input id="tf-book-date" type="date" className="crm-input" value={bookDate} onChange={(event) => setBookDate(event.target.value)} />}
-            hint={granotValue.book_date ? COPY.granotSays(formatShortDate(bookedAt)) : COPY.noGranotValue}
-            use={granotValue.book_date}
-            current={bookDate}
-            onUse={setBookDate}
           />
           <FieldRow
             label={COPY.binder}
             id="tf-binder"
             input={<input id="tf-binder" inputMode="decimal" className="crm-input" value={binder} onChange={(event) => setBinder(event.target.value)} />}
-            hint={granotValue.binder ? COPY.granotEstimate(estimateRaw?.trim() ?? "") : COPY.noGranotValue}
-            use={granotValue.binder}
-            current={binder}
-            onUse={setBinder}
           />
           <FieldRow
             label={COPY.deposit}
             id="tf-deposit"
             input={<input id="tf-deposit" inputMode="decimal" className="crm-input" value={deposit} onChange={(event) => setDeposit(event.target.value)} />}
-            hint={granotValue.deposit ? COPY.granotPayment(paymentRaw?.trim() ?? "") : COPY.noGranotValue}
-            use={granotValue.deposit}
-            current={deposit}
-            onUse={setDeposit}
           />
           <FieldRow
             label={COPY.agent}
@@ -429,12 +382,6 @@ function FinishForm({ detail, onFiled }: { detail: GranotLifecycleCaseDetail; on
                 options={[{ value: "", label: COPY.chooseAgent }, ...agents.map((item) => ({ value: item.id, label: item.name }))]}
                 onChange={setAgentChoice}
               />
-            }
-            hint={
-              <>
-                {granotRep ? COPY.granotRep(granotRep, agentIsSuggestion ? agentName : undefined) : null}
-                {agentIsSuggestion ? <Pill variant="blue">{COPY.suggested}</Pill> : null}
-              </>
             }
           />
           <FieldRow
@@ -518,116 +465,27 @@ function FinishForm({ detail, onFiled }: { detail: GranotLifecycleCaseDetail; on
             {submitting ? filing.busy : filing.idle}
           </button>
         </div>
-        {noActionOpen ? <NoActionPanel detail={detail} commandsEnabled={commandsEnabled} onFiled={onFiled} invalidate={invalidate} /> : null}
+        {noActionOpen ? (
+          <NoActionPanel caseId={detail.case_id} caseRevision={detail.case_revision} commandsEnabled={commandsEnabled} onFiled={onFiled} invalidate={invalidate} />
+        ) : null}
       </section>
     </div>
   );
 }
 
-function FieldRow({
-  label,
-  id,
-  input,
-  hint,
-  use,
-  current,
-  onUse,
-}: {
-  label: string;
-  id: string;
-  input: ReactNode;
-  hint?: ReactNode;
-  /** The value the Use button writes; absent hides the button. */
-  use?: string;
-  current?: string;
-  onUse?: (value: string) => void;
-}) {
-  const used = use !== undefined && current === use;
+/** One labelled field. No Granot value beside it: the figures Granot sent sit in "What Granot sent" above, as facts. */
+function FieldRow({ label, id, input, hint }: { label: string; id: string; input: ReactNode; hint?: ReactNode }) {
   return (
     <div className="tf-row">
       <label htmlFor={id} className="tf-row__label">
         {label}
       </label>
       <div className="tf-row__control">{input}</div>
-      {hint || use !== undefined ? (
+      {hint ? (
         <div className="tf-row__hint">
-          {hint ? <span>{hint}</span> : null}
-          {use !== undefined && onUse ? (
-            <button type="button" className="crm-button crm-button--quiet crm-button--sm" disabled={used} onClick={() => onUse(use)} aria-label={`${COPY.use} Granot's value for ${label}`}>
-              {used ? COPY.used : COPY.use}
-            </button>
-          ) : null}
+          <span>{hint}</span>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function NoActionPanel({
-  detail,
-  commandsEnabled,
-  onFiled,
-  invalidate,
-}: {
-  detail: GranotLifecycleCaseDetail;
-  commandsEnabled: boolean;
-  onFiled: (message: string) => void;
-  invalidate: () => Promise<void>;
-}) {
-  const [reason, setReason] = useState<BookingNoActionReasonCode | "">("");
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const attempt = useAttempt();
-
-  const close = async () => {
-    const text = note.trim();
-    if (text.length > NO_ACTION_NOTE_MAX) {
-      setError(`The note can be at most ${NO_ACTION_NOTE_MAX} characters.`);
-      return;
-    }
-    const body: BookingNoActionBody = {
-      expected_case_revision: detail.case_revision,
-      ...(reason ? { reason_code: reason } : {}),
-      ...(text ? { reason_text: text } : {}),
-    };
-    setBusy(true);
-    setError(null);
-    try {
-      await resolveGranotBookingNoAction(detail.case_id, body, attempt.keyFor(JSON.stringify(body)));
-      attempt.clear();
-      onFiled(COPY.noActionDone);
-      await invalidate();
-    } catch (caught) {
-      if (caught instanceof GranotLifecycleApiError && caught.status === 409) {
-        setError(intakeOwnerCommandConflictCopy(caught.code));
-        await invalidate();
-      } else {
-        setError(caught instanceof Error ? caught.message : "Unable to close this booking.");
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="tf-noaction" data-testid="finish-booking-no-action">
-      <strong>{COPY.noActionTitle}</strong>
-      <p className="crm-subtitle" style={{ margin: 0 }}>{COPY.noActionHint}</p>
-      <CrmSelect<BookingNoActionReasonCode | "">
-        label={COPY.noActionReason}
-        value={reason}
-        options={[{ value: "", label: COPY.noActionNone }, ...NO_ACTION_REASONS]}
-        onChange={setReason}
-      />
-      <label htmlFor="tf-no-action-note" className="tf-row__label">
-        {COPY.noActionNote}
-      </label>
-      <textarea id="tf-no-action-note" className="crm-input" rows={3} maxLength={NO_ACTION_NOTE_MAX} value={note} onChange={(event) => setNote(event.target.value)} />
-      {error ? <p role="alert" className="tf-errors">{error}</p> : null}
-      <button type="button" className="crm-button crm-button--sm" style={{ minHeight: 44 }} disabled={busy || !commandsEnabled} onClick={() => void close()}>
-        {busy ? COPY.noActionClosing : COPY.noActionConfirm}
-      </button>
     </div>
   );
 }

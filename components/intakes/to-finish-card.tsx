@@ -1,8 +1,9 @@
 "use client";
 /**
  * One booking to finish (doc 06 / doc 03 "One card frame, three kinds"): the amber clock circle with the age, the job
- * number, the customer, the source, what Granot did and when, the move and money line, the two-customers warning and
- * one Finish button. Pure over props.
+ * number, the customer, the source, what Granot did and when, the move and money line, the two-customers warning,
+ * **No action** (closes the case in place, without opening the sheet; 2026-10-06) and one Finish / Review button.
+ * Pure over props: the page owns which card has its No action panel open.
  */
 import type { KeyboardEvent, MouseEvent } from "react";
 import { Clock } from "lucide-react";
@@ -12,6 +13,7 @@ import { finishModeOf, granotAgeLine, moveMoneyLine, possibleCustomerCount } fro
 import type { GranotLifecycleCaseListItem } from "@/lib/api/granotLifecycle";
 import { buildJobTimelineHref } from "@/lib/api/jobNumberTimeline";
 import { granotUpdateCountLine } from "./intake-copy";
+import { NoActionPanel } from "./no-action-panel";
 import { TO_FINISH_COPY } from "./to-finish-copy";
 
 const stop = (event: MouseEvent | KeyboardEvent) => event.stopPropagation();
@@ -21,11 +23,23 @@ export function ToFinishCard({
   active = false,
   onOpen,
   now,
+  noActionOpen = false,
+  commandsEnabled = false,
+  onToggleNoAction,
+  onNoActionDone,
+  invalidate,
 }: {
   item: GranotLifecycleCaseListItem;
   active?: boolean;
   onOpen?: (item: GranotLifecycleCaseListItem) => void;
   now?: Date;
+  /** Whether this card's No action panel is open (the page keeps one open at a time). */
+  noActionOpen?: boolean;
+  /** The booking-commands flag; the panel says so when it is off. */
+  commandsEnabled?: boolean;
+  onToggleNoAction?: (item: GranotLifecycleCaseListItem) => void;
+  onNoActionDone?: (item: GranotLifecycleCaseListItem, message: string) => void;
+  invalidate?: (item: GranotLifecycleCaseListItem) => Promise<void>;
 }) {
   const mode = finishModeOf(item.mode);
   const summary = item.case_file_summary;
@@ -96,10 +110,32 @@ export function ToFinishCard({
             items={timeline ? [{ key: "timeline", label: TO_FINISH_COPY.openTimeline, href: timeline }] : []}
           />
           <CopyJobButton jobNo={item.job_no} />
+          <button
+            type="button"
+            className="crm-button crm-button--quiet"
+            style={{ minHeight: 44 }}
+            aria-label={TO_FINISH_COPY.noActionFor(item.job_no)}
+            aria-expanded={noActionOpen}
+            onClick={() => onToggleNoAction?.(item)}
+          >
+            {TO_FINISH_COPY.noAction}
+          </button>
           <button type="button" className="crm-button crm-button--primary" style={{ minHeight: 44 }} onClick={open}>
             {mode === "review" ? TO_FINISH_COPY.review : TO_FINISH_COPY.finish}
           </button>
         </div>
+        {noActionOpen ? (
+          <div onClick={stop} onKeyDown={stop}>
+            <NoActionPanel
+              caseId={item.case_id}
+              caseRevision={item.case_revision}
+              commandsEnabled={commandsEnabled}
+              onFiled={(message) => onNoActionDone?.(item, message)}
+              invalidate={() => invalidate?.(item) ?? Promise.resolve()}
+              onCancel={() => onToggleNoAction?.(item)}
+            />
+          </div>
+        ) : null}
       </div>
     </article>
   );
