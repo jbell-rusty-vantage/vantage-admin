@@ -7,16 +7,16 @@ import { isBookingsTabActive } from "../components/bookings/bookings-subnav";
 test("All Bookings is active only on the exact bookings list", () => {
   assert.equal(isBookingsTabActive("/bookings", "/bookings"), true);
   assert.equal(isBookingsTabActive("/bookings/reconciliation", "/bookings"), false);
-  assert.equal(isBookingsTabActive("/bookings/new", "/bookings"), false);
+  // New booking is a button on All bookings, not a tab, so All bookings stays lit on that page.
+  assert.equal(isBookingsTabActive("/bookings/new", "/bookings"), true);
 });
 
 test("child bookings tabs do not stay highlighted together", () => {
   assert.equal(isBookingsTabActive("/bookings/reconciliation", "/bookings/reconciliation"), true);
-  assert.equal(isBookingsTabActive("/bookings/reconciliation", "/bookings/new"), false);
-  assert.equal(isBookingsTabActive("/bookings/new", "/bookings/new"), true);
   assert.equal(isBookingsTabActive("/bookings/new", "/bookings/reconciliation"), false);
   assert.equal(isBookingsTabActive("/bookings", "/bookings/reconciliation"), false);
-  assert.equal(isBookingsTabActive("/bookings", "/bookings/new"), false);
+  assert.equal(isBookingsTabActive("/bookings/cancellations", "/bookings"), false);
+  assert.equal(isBookingsTabActive("/bookings/cancellations", "/bookings/cancellations"), true);
 });
 
 test("dashboard chrome scrolls the page body, not the navbar", () => {

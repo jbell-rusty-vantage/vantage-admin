@@ -64,11 +64,16 @@ export const todayCopy = {
 
   highlights: {
     title: "Highlights",
+    subtitle: "What needs you, and goals reached",
     empty: "Nothing yet today.",
     loadError: "The latest facts could not load.",
     seeAll: "See everything → Operations",
     seeAllHref: "/?tab=operations",
     open: "Open",
+  },
+
+  milestones: {
+    goalReached: (time: string) => `Goal reached ${time}`,
   },
 
   reps: {

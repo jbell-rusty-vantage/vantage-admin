@@ -62,15 +62,28 @@ test("tileTrend: vs yesterday by now; no baseline is no chip", () => {
   assert.equal(tileTrend(undefined), null);
 });
 
-test("highlightEvents: strictly the newest 8, newest first, quiet priorities left out", () => {
-  const events = Array.from({ length: 12 }, (_, index) => event(`e${index}`, index));
+test("highlightEvents: tier A only, the newest 8 first, quiet priorities and rows left out", () => {
+  const events = Array.from({ length: 12 }, (_, index) => event(`e${index}`, index, "booking.created", "booking"));
   events.push(event("quiet", 59, "granot.priority_updated", "granot"));
+  events.push(event("row", 58, "form_lead.created", "lead"));
+  events.push(event("counted", 57, "form_lead.duplicate", "lead"));
   const picked = highlightEvents(events);
   assert.equal(picked.length, 8);
   assert.deepEqual(picked.map((item) => item.event_id), ["e11", "e10", "e9", "e8", "e7", "e6", "e5", "e4"]);
   assert.equal(highlightEvents([]).length, 0);
   assert.equal(isCelebration({ kind: "booking.created" }), true);
+  assert.equal(isCelebration({ kind: "outreach.rep_goal_met" }), true);
   assert.equal(isCelebration({ kind: "form_lead.created" }), false);
+});
+
+test("highlightEvents: a milestone inside its 30 minute pin goes first; later it takes its place in time", () => {
+  const goal = event("goal", 0, "outreach.rep_goal_met", "outreach");
+  const events = [goal, event("b1", 20, "booking.created", "booking"), event("x1", 25, "exception.crm_failed", "exception"), event("lead", 26)];
+  const goalAt = Date.parse(goal.occurred_at);
+  assert.deepEqual(highlightEvents(events, 8, goalAt + 26 * 60_000).map((item) => item.event_id), ["goal", "x1", "b1"]);
+  assert.deepEqual(highlightEvents(events, 8, goalAt + 31 * 60_000).map((item) => item.event_id), ["x1", "b1", "goal"]);
+  assert.deepEqual(highlightEvents(events).map((item) => item.event_id), ["x1", "b1", "goal"], "no clock, no pin");
+  assert.deepEqual(highlightEvents(events, 2, goalAt + 26 * 60_000).map((item) => item.event_id), ["goal", "x1"]);
 });
 
 test("resyncAge: just now, minutes, hours; unknown clock is null", () => {

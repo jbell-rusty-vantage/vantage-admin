@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  badgeToneForKindTone,
   DAILY_KIND_COLORS_STORAGE_KEY,
   DAILY_OPERATIONS_KIND_LANES,
   DAILY_OPERATIONS_KIND_TONES,
@@ -72,4 +73,16 @@ test("overrides persist under one storage key, drop defaults, and reset to empty
     { "text.sent": "amber" },
   );
   assert.deepEqual(readKindToneOverrides(null), {});
+});
+
+test("every Owner tone folds onto a CRM badge tone, and the badge tone keeps its family", () => {
+  const badge = new Set(["blue", "green", "red", "amber", "gray", "purple"]);
+  for (const tone of DAILY_OPERATIONS_TONES) {
+    assert.ok(badge.has(badgeToneForKindTone(tone)), tone);
+  }
+  assert.equal(badgeToneForKindTone("emerald"), "green");
+  assert.equal(badgeToneForKindTone("red"), "red");
+  assert.equal(badgeToneForKindTone("violet"), "purple");
+  assert.equal(badgeToneForKindTone("slate"), "gray");
+  assert.equal(badgeToneForKindTone("orange"), "amber");
 });

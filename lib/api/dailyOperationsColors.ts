@@ -391,3 +391,33 @@ export function withKindTone(
   }
   return next;
 }
+
+/** The CRM icon-circle tones (`IconBadge`) the board can draw; gold is reserved for Booked moments and milestones. */
+export type DailyOperationsBadgeTone = "blue" | "green" | "red" | "amber" | "gray" | "purple";
+
+/**
+ * The icon circle of a Spotlight card wears the kind's colour. The twelve Owner tones fold onto the six CRM badge
+ * tones (a badge is a soft circle, not a swatch), so a custom colour in the Colours panel still reads as that family.
+ */
+export function badgeToneForKindTone(tone: DailyOperationsTone): DailyOperationsBadgeTone {
+  switch (tone) {
+    case "blue":
+    case "sky":
+    case "indigo":
+      return "blue";
+    case "violet":
+      return "purple";
+    case "teal":
+    case "emerald":
+    case "lime":
+      return "green";
+    case "amber":
+    case "orange":
+      return "amber";
+    case "rose":
+    case "red":
+      return "red";
+    case "slate":
+      return "gray";
+  }
+}

@@ -24,10 +24,7 @@ test("duplicate read-only banner copy is resource-aware", () => {
     OPERATIONAL_COPY.duplicateReadOnlyBanner.callLeads,
   );
 
-  const page = readFileSync(
-    path.join(process.cwd(), "components/operational/operational-resource-page.tsx"),
-    "utf8",
-  );
+  const page = readFileSync(path.join(process.cwd(), "components/leads/leads-workspace.tsx"), "utf8");
   assert.match(page, /duplicateReadOnlyBannerCopy/);
   assert.doesNotMatch(page, /Duplicate form leads are read-only/);
   assert.doesNotMatch(page, /"Duplicate Form Leads are read-only/);
@@ -42,11 +39,4 @@ test("sheet contains idle hint tells the owner to select a record first", () => 
   assert.match(sheetContainsIdleHint("cancellations"), /checkboxes to select a cancellation/);
   assert.match(OPERATIONAL_COPY.sheetContains.hintReady, /in the Google Sheet/);
   assert.match(OPERATIONAL_COPY.sheetContains.action, /Check Google Sheet contains/);
-
-  const page = readFileSync(
-    path.join(process.cwd(), "components/operational/operational-resource-page.tsx"),
-    "utf8",
-  );
-  assert.match(page, /sheetContainsIdleHint/);
-  assert.match(page, /selectedCount === 0/);
 });

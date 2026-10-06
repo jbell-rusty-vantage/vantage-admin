@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CategoryPanels } from "../components/daily/category-panels";
+import { LanesView } from "../components/daily/lanes-view";
 import { CompaniesTable } from "../components/daily/companies-table";
 import { DAILY_COPY } from "../components/daily/daily-copy";
 import { OriginsPanel } from "../components/daily/origins-panel";
@@ -102,7 +102,7 @@ test("tiles and panels show percent versus yesterday at this hour plus both prio
   assert.match(tiles, /Day before<\/span> 40 by now · 50/);
   assert.match(tiles, /data-sparkline="leads"/);
   const panels = renderToStaticMarkup(
-    createElement(CategoryPanels, {
+    createElement(LanesView, {
       events: [],
       snapshot,
       sessionDeltas: EMPTY_DAILY_OPERATIONS_SESSION_DELTAS,
@@ -127,7 +127,7 @@ test("tiles and panels show percent versus yesterday at this hour plus both prio
   assert.match(panels, new RegExp(`${DAILY_COPY.allPanels}: ${DAILY_COPY.panelsLabels.booking}`));
 
   const all = renderToStaticMarkup(
-    createElement(CategoryPanels, {
+    createElement(LanesView, {
       events: [],
       snapshot,
       sessionDeltas: EMPTY_DAILY_OPERATIONS_SESSION_DELTAS,
@@ -182,7 +182,7 @@ test("empty snapshot still shows WordPress form at 0 and silent Source Company r
   assert.match(tiles, /Waiting for you/);
   assert.match(tiles, /—/);
   const panels = renderToStaticMarkup(
-    createElement(CategoryPanels, {
+    createElement(LanesView, {
       events: [],
       snapshot: emptySnapshot,
       sessionDeltas: EMPTY_DAILY_OPERATIONS_SESSION_DELTAS,
@@ -191,8 +191,6 @@ test("empty snapshot still shows WordPress form at 0 and silent Source Company r
       quietPriorities: false,
       sheetSyncOptIn: false,
       onSelectLane: () => undefined,
-      onToggleQuietPriorities: () => undefined,
-      onToggleSheetSync: () => undefined,
     }),
   );
   assert.match(panels, new RegExp(DAILY_COPY.panelsEmpty));

@@ -281,3 +281,51 @@ test("Money live: header cards, source table with missing rate, rep table with m
   assert.match(markup, /no rate/);
   assert.match(markup, /Missing is not zero/);
 });
+
+const goalEvent = {
+  event_id: "goal-1",
+  day: "2026-10-05",
+  occurred_at: "2026-10-05T18:30:00.000Z",
+  lane: "outreach",
+  kind: "outreach.rep_goal_met",
+  title: "Rep goal reached",
+  source_company: null,
+  ingestion_origin: null,
+  lead_kind: null,
+  job_no: null,
+  entity_type: null,
+  entity_id: null,
+  parent_receipt_id: null,
+  links: {},
+  card: { agent_id: "a2", agent_name: "Jamie Cole", actual: 108, goal: 100, reached_at: "2026-10-05T18:29:00.000Z", rank: 1 },
+  metric_touches: [],
+} as unknown as DailyOperationsEventItem;
+
+const rowEvent = { ...bookingEvent, event_id: "lead-1", kind: "form_lead.created", lane: "lead", title: "Form Lead created", occurred_at: "2026-10-05T18:40:30.000Z" } as DailyOperationsEventItem;
+
+test("Pulse highlights: tier A and goals only, a goal first with its numbers and the queue link", () => {
+  const markup = pulse({ events: [bookingEvent, rowEvent, goalEvent] });
+  assert.match(markup, /data-kind="outreach\.rep_goal_met"/);
+  assert.match(markup, /Jamie Cole hit today&#x27;s call goal/);
+  assert.match(markup, /108 \/ 100 calls/);
+  assert.match(markup, /1st rep at goal today/);
+  assert.match(markup, /href="\/outreach-desk\?view=my&amp;agent=a2"[^>]*>View queue</);
+  assert.doesNotMatch(markup, /data-kind="form_lead\.created"/, "a plain Lead is a row on Operations, not a highlight");
+  assert.ok(markup.indexOf('data-kind="outreach.rep_goal_met"') < markup.indexOf('data-kind="booking.created"'), "the goal is pinned first");
+  assert.match(markup, /See everything → Operations/);
+});
+
+test("Pulse: the rep who reached the goal is marked on Reps today", () => {
+  const markup = pulse({ events: [goalEvent] });
+  assert.match(markup, /Goal reached 2:29 PM/);
+  assert.equal((markup.match(/Goal reached 2:29 PM/g) ?? []).length, 1);
+  assert.doesNotMatch(pulse({ events: [bookingEvent] }), /Goal reached/);
+});
+
+test("Team tab: the goal mark sits on the rep's row", () => {
+  const marks = new Map([["a2", "2026-10-05T18:29:00.000Z"]]);
+  const markup = withQuery(createElement(TeamSummaryView, { team, goalReachedAt: marks }));
+  assert.match(markup, /Goal reached 2:29 PM/);
+  assert.match(markup, /crm-pill--gold/);
+  assert.doesNotMatch(withQuery(createElement(TeamSummaryView, { team })), /Goal reached d/);
+});

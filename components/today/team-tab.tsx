@@ -5,7 +5,8 @@
  * callbacks and overrides stay in the desk where they are audited.
  */
 import Link from "next/link";
-import { CircleAlert, NotebookText, Phone, Users } from "lucide-react";
+import { CircleAlert, NotebookText, Phone, Star, Users } from "lucide-react";
+import { repGoalReachedAtById } from "@/components/daily/milestone";
 import {
   CrmCard,
   Notice,
@@ -15,6 +16,7 @@ import {
   SkeletonLine,
   SummaryCard,
   Track,
+  formatTime,
 } from "@/components/ui/crm";
 import { deskViewHref } from "@/components/outreach-desk/data/desk-url";
 import { useCapabilities, useTeam } from "@/components/outreach-desk/data/use-desk-reads";
@@ -35,6 +37,7 @@ import type {
   SalesOutreachQueueRowDto,
   SalesOutreachTeamDto,
 } from "@/lib/api/salesOutreach";
+import { usePulseEvents } from "./pulse-view";
 import { todayCopy } from "./today-copy";
 
 const c = todayCopy.team;
@@ -46,7 +49,7 @@ function unavailableReason(capabilities: SalesOutreachCapabilitiesDto): string {
   return reason && reason in reasons ? (reasons[reason as keyof typeof reasons] as string) : reasons.error;
 }
 
-function GoalRow({ row }: { row: SalesOutreachDailyCallGoalRow }) {
+function GoalRow({ row, goalReachedAt }: { row: SalesOutreachDailyCallGoalRow; goalReachedAt?: string }) {
   const name = row.agent_name ?? deskCopy.text.unknownRep;
   const hasGoal = row.goal_state === "goal";
   const overdue = cadenceMetricText(row.overdue_leads);
@@ -55,6 +58,13 @@ function GoalRow({ row }: { row: SalesOutreachDailyCallGoalRow }) {
     <tr data-agent={row.agent_id}>
       <th scope="row">
         <Person name={row.agent_name} fallback={deskCopy.text.unknownRep} />
+        {goalReachedAt ? (
+          <div>
+            <Pill variant="gold" icon={Star}>
+              {todayCopy.milestones.goalReached(formatTime(goalReachedAt))}
+            </Pill>
+          </div>
+        ) : null}
       </th>
       <td className="crm-nowrap">{hasGoal ? repGoalText(row) : row.actual_confirmed !== null ? String(row.actual_confirmed) : "—"}</td>
       <td style={{ minWidth: 160 }}>
@@ -113,10 +123,13 @@ export function TeamSummaryView({
   team,
   error,
   onRetry,
+  goalReachedAt,
 }: {
   team: SalesOutreachTeamDto | undefined;
   error?: unknown;
   onRetry?: () => void;
+  /** Rep id -> when that rep reached today's goal (the Outreach milestone facts); marks the row "Goal reached 2:41 PM". */
+  goalReachedAt?: ReadonlyMap<string, string>;
 }) {
   const failed = Boolean(error) && !team;
   const goals = team?.goals ?? null;
@@ -221,7 +234,7 @@ export function TeamSummaryView({
                     </td>
                   </tr>
                 ) : (
-                  rows.map((row) => <GoalRow key={row.agent_id} row={row} />)
+                  rows.map((row) => <GoalRow key={row.agent_id} row={row} goalReachedAt={goalReachedAt?.get(row.agent_id)} />)
                 )}
               </tbody>
             </table>
@@ -281,6 +294,7 @@ export function TeamTab() {
   const capabilities = useCapabilities();
   const deskAvailable = capabilities.data?.desk_available !== false;
   const team = useTeam(null, deskAvailable);
+  const events = usePulseEvents();
 
   if (capabilities.data && capabilities.data.desk_available === false) {
     return (
@@ -294,5 +308,12 @@ export function TeamTab() {
       </Notice>
     );
   }
-  return <TeamSummaryView team={team.data} error={team.error} onRetry={() => void team.refetch()} />;
+  return (
+    <TeamSummaryView
+      team={team.data}
+      error={team.error}
+      onRetry={() => void team.refetch()}
+      goalReachedAt={repGoalReachedAtById(events.data?.items ?? [])}
+    />
+  );
 }

@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { LayoutGrid, Rows3 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrivalsStream } from "@/components/daily/arrivals-stream";
-import { CategoryPanels } from "@/components/daily/category-panels";
 import { CompaniesTable } from "@/components/daily/companies-table";
 import {
   DAILY_COPY,
@@ -19,16 +18,23 @@ import {
   type DailyOperationsOverlayScope,
 } from "@/components/daily/events-overlay";
 import { HeadlineTiles } from "@/components/daily/headline-tiles";
+import { DailyBoardStyle } from "@/components/daily/daily-board-style";
+import { FactDrawer } from "@/components/daily/fact-drawer";
 import { HourlyRhythm } from "@/components/daily/hourly-rhythm";
 import { KindColorsProvider, useStoredKindTones } from "@/components/daily/kind-colors-context";
 import { KindColorsPanel } from "@/components/daily/kind-colors-panel";
+import { KindTiersProvider, useStoredKindTiers } from "@/components/daily/kind-tiers-context";
+import { LaneTiles } from "@/components/daily/lane-tiles";
+import { LanesView } from "@/components/daily/lanes-view";
 import { LiveDot } from "@/components/daily/live-dot";
+import { LiveFeed } from "@/components/daily/live-feed";
 import { OriginsPanel } from "@/components/daily/origins-panel";
 import { useArrivalHighlights } from "@/components/daily/use-arrival-highlights";
 import { useNowMs } from "@/components/daily/use-now";
 import { useStoredPreferenceFlag } from "@/components/daily/use-preference-flag";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
+import { Segmented } from "@/components/ui/crm";
 import {
   dailyOperationsDayKey,
   fetchDailyOperationsEvents,
@@ -47,8 +53,11 @@ import {
   focusLaneFromSearch,
   lanesNeedingBackfill,
   pairGranotEvents,
+  parseDailyOperationsView,
   readPreferenceFlag,
   visibleDailyOperationsPanels,
+  writeDailyOperationsView,
+  type DailyOperationsView,
 } from "@/lib/api/dailyOperationsBoard";
 import {
   applyDailyOperationsSsePayload,
@@ -150,6 +159,9 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
   const lane = searchParams.get("lane");
   const company = searchParams.get("company");
   const quietFromUrl = searchParams.get("quiet_priorities") === "1";
+  // `?view=board|lanes`; a link that names a lane and no view means Lanes (old /daily?lane= links, Pulse tiles).
+  const view = parseDailyOperationsView(searchParams.get("view"), lane);
+  const laneInView = view === "lanes" ? lane : null;
   const [board, setBoard] = useState(EMPTY_DAILY_OPERATIONS_LIVE_BOARD);
   const [streamStatus, setStreamStatus] = useState<DailyOperationsLiveStatus>("reconnecting");
   const [tabHidden, setTabHidden] = useState(false);
@@ -161,12 +173,14 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
   const [exhaustedScopes, setExhaustedScopes] = useState<ReadonlySet<string>>(new Set());
   const [overlay, setOverlay] = useState<DailyOperationsOverlayScope | null>(null);
   const { overrides: kindTones, pick: pickKindTone, reset: resetKindTones } = useStoredKindTones();
+  const { overrides: kindTiers, pick: pickKindTier, reset: resetKindTiers } = useStoredKindTiers();
+  const [drawerIds, setDrawerIds] = useState<readonly string[] | null>(null);
   const [colorsOpen, setColorsOpen] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingFlashes = useRef<DailyOperationsTileId[]>([]);
   const preferencesSeeded = useRef(false);
   const hiddenSince = useRef<number | null>(null);
-  const focusedLane = focusLaneFromSearch(lane);
+  const focusedLane = focusLaneFromSearch(laneInView);
   const nowMs = useNowMs();
   const snapshotQuery = useQuery({
     queryKey: queryKeys.dailyOperations.snapshot(),
@@ -229,7 +243,7 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
       ? lanesNeedingBackfill({
           snapshot: board.snapshot,
           events: board.events,
-          panels: visibleDailyOperationsPanels({ lane, sheetSyncOptIn: storedSheet }),
+          panels: visibleDailyOperationsPanels({ lane: laneInView, sheetSyncOptIn: storedSheet }),
           attempted: backfilledLanes,
         })
       : []
@@ -397,8 +411,21 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
     replaceQuery(toggleSearchParam(searchParams, key, value));
   }
 
+  /** A headline tile or a lane tab: that lane alone on the Lanes view (the same lane again returns to every lane). */
+  function selectLane(nextLane: DailyOperationsLane) {
+    const next = toggleSearchParam(searchParams, "lane", nextLane);
+    next.set("view", "lanes");
+    replaceQuery(next);
+  }
+
+  function writeView(nextView: DailyOperationsView) {
+    replaceQuery(writeDailyOperationsView(searchParams, nextView));
+  }
+
   function showAllPanels() {
-    replaceQuery(writeSearchParam(searchParams, "lane", null));
+    const next = writeSearchParam(searchParams, "lane", null);
+    next.set("view", "lanes");
+    replaceQuery(next);
   }
 
   function writeQuietPriorities(nextValue: boolean) {
@@ -409,11 +436,13 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
   function writeSheetSync(nextValue: boolean) {
     writeStoredSheet(nextValue);
     if (nextValue) {
-      replaceQuery(writeSearchParam(searchParams, "lane", "sheet_sync"));
+      const next = writeSearchParam(searchParams, "lane", "sheet_sync");
+      next.set("view", "lanes");
+      replaceQuery(next);
       return;
     }
     if (lane === "sheet_sync") {
-      replaceQuery(writeSearchParam(searchParams, "lane", null));
+      showAllPanels();
     }
   }
 
@@ -452,6 +481,9 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
       : overlayLane
         ? eventsForDailyOperationsPanel({ events: board.events, lane: overlayLane, company, quietPriorities })
         : eventsForDailyOperationsArrivals({ events: board.events, company, quietPriorities, limit: null });
+  const drawerEvents = drawerIds
+    ? drawerIds.flatMap((id) => board.events.filter((event) => event.event_id === id))
+    : [];
   const overlayGrouped = new Set(
     overlayLane === "granot"
       ? pairGranotEvents(overlayEvents)
@@ -466,8 +498,12 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
         ? granotTileToday(snapshot)
         : dailyOperationsPanelCount(snapshot, overlayLane);
 
+  const boardPanels = visibleDailyOperationsPanels({ lane: null, sheetSyncOptIn: sheetSyncOn });
+
   return (
     <KindColorsProvider overrides={kindTones}>
+      <KindTiersProvider overrides={kindTiers}>
+      <DailyBoardStyle />
       <div className="space-y-5">
         <header className={cn("flex flex-wrap items-end gap-3", embedded ? "justify-end" : "justify-between")}>
           {embedded ? null : (
@@ -482,6 +518,15 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2" aria-label={DAILY_COPY.boardToolbar}>
+            <Segmented<DailyOperationsView>
+              label={DAILY_COPY.boardViews.label}
+              value={view}
+              onChange={writeView}
+              options={[
+                { value: "board", label: DAILY_COPY.boardViews.board, icon: LayoutGrid },
+                { value: "lanes", label: DAILY_COPY.boardViews.lanes, icon: Rows3 },
+              ]}
+            />
             <LiveChrome
               status={status}
               lastGoodAt={board.lastGoodAt}
@@ -519,9 +564,9 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
               onClick={() => setColorsOpen((current) => !current)}
             >
               {DAILY_COPY.colors}
-              {Object.keys(kindTones).length > 0 ? (
+              {Object.keys(kindTones).length + Object.keys(kindTiers).length > 0 ? (
                 <span className="ml-1 rounded-full bg-card/30 px-1 text-[10px] tabular-nums">
-                  {Object.keys(kindTones).length}
+                  {Object.keys(kindTones).length + Object.keys(kindTiers).length}
                 </span>
               ) : null}
             </Button>
@@ -531,8 +576,13 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
         {colorsOpen ? (
           <KindColorsPanel
             overrides={kindTones}
+            tiers={kindTiers}
             onPick={pickKindTone}
-            onReset={resetKindTones}
+            onPickTier={pickKindTier}
+            onReset={() => {
+              resetKindTones();
+              resetKindTiers();
+            }}
             onClose={() => setColorsOpen(false)}
           />
         ) : null}
@@ -547,58 +597,87 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
             snapshot={snapshot}
             sessionDeltas={board.sessionDeltas}
             flashedTiles={flashedTiles}
-            lane={lane}
+            lane={laneInView}
             loading={loading}
             nowHour={nowHour}
-            onSelectLane={(nextLane: DailyOperationsLane) => writeParam("lane", nextLane)}
+            onSelectLane={selectLane}
           />
         </section>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
-          <HourlyRhythm snapshot={snapshot} nowHour={nowHour} />
-          <OriginsPanel origins={snapshot?.origins} loading={loading} />
-          <CompaniesTable
-            companies={snapshot?.companies}
-            selectedCompany={company}
-            loading={loading}
-            onSelectCompany={(slug) => writeParam("company", slug)}
-          />
-        </div>
-
-        <div className="grid items-start gap-4 xl:grid-cols-[340px_minmax(0,1fr)] 2xl:grid-cols-[380px_minmax(0,1fr)]">
-          <ArrivalsStream
-            events={board.events}
-            company={company}
-            quietPriorities={quietPriorities}
-            hydrated={eventsHydrated}
-            liveState={status}
-            highlights={highlights}
-            onOpenFullStream={() => setOverlay("all")}
-            className="xl:sticky xl:top-4 xl:self-start"
-          />
-
-          <CategoryPanels
-            events={board.events}
-            snapshot={snapshot}
-            sessionDeltas={board.sessionDeltas}
-            lane={lane}
-            company={company}
-            quietPriorities={quietPriorities}
-            sheetSyncOptIn={sheetSyncOn}
-            loading={loading}
-            loadingEarlier={loadingEarlier}
-            canLoadEarlier={Boolean(focusedLane && canLoadEarlierFor(focusedLane as DailyOperationsPanelLane))}
-            highlights={highlights}
-            onSelectLane={(nextLane: DailyOperationsPanelLane) => writeParam("lane", nextLane)}
-            onShowAll={showAllPanels}
-            onLoadEarlier={() => {
-              if (focusedLane) {
-                void loadEarlier(focusedLane as DailyOperationsPanelLane);
-              }
-            }}
-            onOpenAll={(panel) => setOverlay(panel)}
-          />
-        </div>
+        {view === "board" ? (
+          <div className="dboard-grid" data-ops-view="board">
+            <div className="min-w-0 space-y-4">
+              <HourlyRhythm snapshot={snapshot} nowHour={nowHour} />
+              <section className="space-y-2" aria-label={DAILY_COPY.panels}>
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-navy">{DAILY_COPY.panels}</h2>
+                <LaneTiles
+                  lanes={boardPanels}
+                  events={board.events}
+                  snapshot={snapshot}
+                  company={company}
+                  quietPriorities={quietPriorities}
+                  loading={loading}
+                  nowHour={nowHour}
+                  highlights={highlights}
+                  onOpenLane={(panel) => setOverlay(panel)}
+                />
+              </section>
+              <div className="grid gap-4 md:grid-cols-2">
+                <CompaniesTable
+                  companies={snapshot?.companies}
+                  selectedCompany={company}
+                  loading={loading}
+                  onSelectCompany={(slug) => writeParam("company", slug)}
+                />
+                <OriginsPanel origins={snapshot?.origins} loading={loading} />
+              </div>
+            </div>
+            <LiveFeed
+              events={board.events}
+              company={company}
+              quietPriorities={quietPriorities}
+              lanes={boardPanels}
+              liveState={status}
+              highlights={highlights}
+              onOpenFact={setDrawerIds}
+              onOpenFullList={() => setOverlay("all")}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
+              <HourlyRhythm snapshot={snapshot} nowHour={nowHour} />
+              <OriginsPanel origins={snapshot?.origins} loading={loading} />
+              <CompaniesTable
+                companies={snapshot?.companies}
+                selectedCompany={company}
+                loading={loading}
+                onSelectCompany={(slug) => writeParam("company", slug)}
+              />
+            </div>
+            <LanesView
+              events={board.events}
+              snapshot={snapshot}
+              sessionDeltas={board.sessionDeltas}
+              lane={laneInView}
+              company={company}
+              quietPriorities={quietPriorities}
+              sheetSyncOptIn={sheetSyncOn}
+              loading={loading}
+              loadingEarlier={loadingEarlier}
+              canLoadEarlier={Boolean(focusedLane && canLoadEarlierFor(focusedLane as DailyOperationsPanelLane))}
+              highlights={highlights}
+              onSelectLane={(nextLane: DailyOperationsPanelLane) => selectLane(nextLane)}
+              onShowAll={showAllPanels}
+              onLoadEarlier={() => {
+                if (focusedLane) {
+                  void loadEarlier(focusedLane as DailyOperationsPanelLane);
+                }
+              }}
+              onOpenAll={(panel) => setOverlay(panel)}
+            />
+          </>
+        )}
 
         {overlay ? (
           <DailyOperationsEventsOverlay
@@ -607,19 +686,23 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
             todayCount={overlayToday}
             highlights={highlights}
             groupedIds={overlayGrouped}
-            nowMs={overlayLane ? undefined : nowMs}
             liveState={status}
             company={company}
+            quietPriorities={quietPriorities}
             loadingEarlier={loadingEarlier}
             canLoadEarlier={canLoadEarlierFor(overlayLane)}
             exhausted={exhaustedScopes.has(scopeKey(overlayLane))}
             onLoadEarlier={() => {
               void loadEarlier(overlayLane);
             }}
+            onOpenFact={setDrawerIds}
             onClose={() => setOverlay(null)}
           />
         ) : null}
+
+        {drawerIds ? <FactDrawer events={drawerEvents} onClose={() => setDrawerIds(null)} /> : null}
       </div>
+      </KindTiersProvider>
     </KindColorsProvider>
   );
 }

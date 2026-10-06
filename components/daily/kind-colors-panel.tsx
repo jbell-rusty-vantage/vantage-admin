@@ -5,6 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DAILY_OPERATIONS_DEFAULT_PANELS, type DailyOperationsPanelLane } from "@/lib/api/dailyOperations";
 import {
+  DAILY_OPERATIONS_MILESTONE_KINDS,
+  DAILY_OPERATIONS_TIERS,
+  defaultPresentationTier,
+  presentationTier,
+  type DailyOperationsTier,
+  type DailyOperationsTierOverrides,
+} from "@/lib/api/dailyOperationsBoard";
+import {
   DAILY_OPERATIONS_KIND_TONES,
   DAILY_OPERATIONS_TONES,
   kindsForLane,
@@ -18,23 +26,61 @@ import { cn } from "@/lib/utils";
 
 const LANES: readonly DailyOperationsPanelLane[] = [...DAILY_OPERATIONS_DEFAULT_PANELS, "sheet_sync"];
 
+function TierPicker({
+  kind,
+  tiers,
+  onPickTier,
+}: {
+  kind: string;
+  tiers: DailyOperationsTierOverrides;
+  onPickTier: (kind: string, tier: DailyOperationsTier) => void;
+}) {
+  const current = presentationTier(kind, { overrides: tiers });
+  return (
+    <span className="flex items-center gap-1" role="radiogroup" aria-label={`${DAILY_COPY.tierGroupLabel}: ${dailyOperationsKindLabel(kind)}`}>
+      {DAILY_OPERATIONS_TIERS.map((tier) => (
+        <button
+          key={tier}
+          type="button"
+          role="radio"
+          aria-checked={tier === current}
+          title={DAILY_COPY.tierHints[tier]}
+          data-tier-option={tier}
+          onClick={() => onPickTier(kind, tier)}
+          className={cn(
+            "rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+            tier === current ? "border-trust-blue bg-trust-blue/10 text-trust-blue" : "border-steel-200 text-muted-foreground hover:bg-steel-100",
+          )}
+        >
+          {DAILY_COPY.tierLabels[tier]}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 /**
- * Colours panel: one row per Event kind, grouped by lane, with a swatch per
- * tone. Picking a swatch calls `onPick`; the shell persists to localStorage.
- * A kind whose tone differs from the catalog default shows `custom`.
+ * Colours & visibility: one row per Event kind, grouped by lane, with a swatch per tone and a tier control
+ * (Card / Row / Counted). Picking calls `onPick` / `onPickTier`; the shell persists both to localStorage, per
+ * viewer. A kind whose tone or tier differs from the default shows `custom`. The two Outreach milestones sit in
+ * their own group: their colour is gold and fixed, but a viewer may still demote them.
  */
 export function KindColorsPanel({
   overrides,
+  tiers,
   onPick,
+  onPickTier,
   onReset,
   onClose,
 }: {
   overrides: DailyOperationsKindToneOverrides;
+  tiers: DailyOperationsTierOverrides;
   onPick: (kind: DailyOperationsKind, tone: DailyOperationsTone) => void;
+  onPickTier: (kind: string, tier: DailyOperationsTier) => void;
   onReset: () => void;
   onClose: () => void;
 }) {
-  const customCount = Object.keys(overrides).length;
+  const customCount = Object.keys(overrides).length + Object.keys(tiers).length;
   return (
     <Card data-panel="kind-colors" className="border-trust-blue/30 shadow-md">
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 p-4 pb-2">
@@ -43,13 +89,7 @@ export function KindColorsPanel({
           <p className="text-xs text-muted-foreground">{DAILY_COPY.colorsSubtitle}</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="h-8 px-3 text-xs"
-            disabled={customCount === 0}
-            onClick={onReset}
-          >
+          <Button type="button" variant="outline" className="h-8 px-3 text-xs" disabled={customCount === 0} onClick={onReset}>
             {DAILY_COPY.colorsReset}
           </Button>
           <Button type="button" className="h-8 px-3 text-xs" onClick={onClose}>
@@ -67,20 +107,19 @@ export function KindColorsPanel({
               {kindsForLane(lane).map((kind) => {
                 const current = kindToneFor(kind, overrides, lane);
                 const classes = toneClasses(current);
-                const isCustom = DAILY_OPERATIONS_KIND_TONES[kind] !== current;
+                const isCustom = DAILY_OPERATIONS_KIND_TONES[kind] !== current || presentationTier(kind, { overrides: tiers }) !== defaultPresentationTier(kind);
                 return (
                   <li
                     key={kind}
                     className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-steel-100 px-2 py-1.5"
                     data-kind={kind}
                     data-tone={current}
+                    data-tier={presentationTier(kind, { overrides: tiers })}
                   >
                     <span className={cn("size-2.5 rounded-full", classes.dot)} aria-hidden="true" />
                     <span className="text-xs font-medium text-navy">{dailyOperationsKindLabel(kind)}</span>
                     {isCustom ? (
-                      <span className="rounded-full bg-steel-100 px-1.5 text-[10px] text-muted-foreground">
-                        {DAILY_COPY.colorsCustom}
-                      </span>
+                      <span className="rounded-full bg-steel-100 px-1.5 text-[10px] text-muted-foreground">{DAILY_COPY.colorsCustom}</span>
                     ) : null}
                     <span className="ml-auto flex gap-1" role="radiogroup" aria-label={dailyOperationsKindLabel(kind)}>
                       {DAILY_OPERATIONS_TONES.map((tone) => {
@@ -104,12 +143,34 @@ export function KindColorsPanel({
                         );
                       })}
                     </span>
+                    <span className="basis-full">
+                      <TierPicker kind={kind} tiers={tiers} onPickTier={onPickTier} />
+                    </span>
                   </li>
                 );
               })}
             </ul>
           </section>
         ))}
+        <section className="space-y-1.5">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{DAILY_COPY.outreachLane}</h3>
+          <ul className="space-y-1">
+            {DAILY_OPERATIONS_MILESTONE_KINDS.map((kind) => (
+              <li
+                key={kind}
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-steel-100 px-2 py-1.5"
+                data-kind={kind}
+                data-tier={presentationTier(kind, { overrides: tiers })}
+              >
+                <span aria-hidden="true">★</span>
+                <span className="text-xs font-medium text-navy">{dailyOperationsKindLabel(kind)}</span>
+                <span className="basis-full">
+                  <TierPicker kind={kind} tiers={tiers} onPickTier={onPickTier} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       </CardContent>
     </Card>
   );

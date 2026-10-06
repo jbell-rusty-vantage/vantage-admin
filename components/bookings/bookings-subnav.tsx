@@ -1,6 +1,6 @@
 "use client";
 /**
- * Bookings tabs (doc 01): To finish · All bookings · Cancellations · Reconciliation, plus the Precise Booking Form.
+ * Bookings tabs (doc 01): To finish · All bookings · Cancellations · Reconciliation. The Precise Booking Form is the New booking button on All bookings.
  * To finish and Reconciliation are Owner-only (the booking intakes and the reconciliation workbench).
  */
 import { usePathname } from "next/navigation";
@@ -20,7 +20,6 @@ const tabs: BookingsTab[] = [
   { href: "/bookings", label: "All bookings" },
   { href: "/bookings/cancellations", label: "Cancellations" },
   { href: "/bookings/reconciliation", label: "Reconciliation", ownerOnly: true },
-  { href: "/bookings/new", label: "Precise Booking Form" },
 ];
 
 const tabHrefs = tabs.map((tab) => tab.href);

@@ -1,7 +1,8 @@
 # Dashboard redesign — delivery notes (admin, 2026-10-06)
 
-Spec: the workspace-root packet `dashboard-redesign-proposal/` (docs 01, 02, 03 and 15 built here; 04–18 not yet).
-Built on `main` in this repository only. Server work the pages need is listed in [SERVER-WORK.md](SERVER-WORK.md).
+Spec: the workspace-root packet `dashboard-redesign-proposal/` (docs 01, 02, 03, 06, 15 and 16 built here; the rest
+not yet). Built on `main` in this repository only, in two sessions on 2026-10-06. Server work the pages need is listed
+in [SERVER-WORK.md](SERVER-WORK.md).
 
 ## What shipped
 
@@ -12,6 +13,11 @@ Built on `main` in this repository only. Server work the pages need is listed in
 | 01 | Insights (`/insights` Analytics, `/insights/sheets` Sheets), Setup hub (`/setup`), Bookings tabs (To finish · All bookings · Cancellations · Reconciliation · Precise Booking Form), `/leads/timeline` | `app/(dashboard)/insights`, `app/(dashboard)/setup`, `components/setup/`, `components/bookings/bookings-subnav.tsx`, `app/(dashboard)/bookings/cancellations` |
 | 02 | Today (`/`): Pulse · Operations · Team · Money | `app/(dashboard)/page.tsx`, `components/today/`, `lib/api/money.ts` |
 | 03 | Leads workspace (`/leads`): one list over both lead kinds, filter chips, cards, right panel, Verify in Master Sheet, New lead sheet | `app/(dashboard)/leads`, `components/leads/`, `lib/api/leads.ts` |
+| 03 | The shared record frame: URL state, infinite load on the dashboard scroll root, search + sort row, filter chips, the select bar and verdicts of Verify in Master Sheet, the card stack states, the 480 px drawer; the shared Lead picker | `components/records/` |
+| 03 | All bookings (`/bookings`): booking cards per the doc 03 table, Status · Source · Agent + More filters, three sorts, summary strip, `DetailPanel` with a new Cancellation tab, New booking header button | `components/bookings/`, `lib/api/bookings.ts`, `components/operational/operational-detail-panel.tsx` (`CancellationTab`) |
+| 03 | Cancellations (`/bookings/cancellations`): cancellation cards, Reason · Source · Agent + More, the Aug 2026 empty state, a card opens its booking's Cancellation tab; Record a cancellation as the one-screen sheet (`/cancellations/new`) with the booking picker | `components/cancellations/`, `app/(dashboard)/cancellations/new` |
+| 06 | Bookings to finish (`/intakes`): open booking cases as compact cards with one Finish, "Finished today" collapsed, the finish sheet (Customer · Official booking with Use buttons · File it with No action) on the existing lifecycle commands and rules | `components/intakes/` (`to-finish-page.tsx`, `to-finish-card.tsx`, `finish-booking-sheet.tsx`, `to-finish-copy.ts`), `lib/api/bookingsToFinish.ts` |
+| 16 | Today → Operations: Board (lane tiles, one live feed with Needs you / Everything / lane chips, spotlight cards, rows, burst folding, the "N new ↑" buffer, fact drawer) and Lanes (`?view=lanes`, rows that expand in place, `?lane=` solo); presentation tiers with per-viewer overrides in Colours & visibility; milestone cards, the 30-minute pin, Pulse Highlights (tier A + milestones), Reps today / Team marks, the bottom-right toast in the shell | `components/daily/`, `components/today/`, `lib/api/dailyOperationsBoard.ts`, `components/layout/dashboard-shell.tsx` (`MilestoneToastHost`) |
 
 ## Redirects (permanent, query string translated)
 
@@ -25,7 +31,8 @@ Built on `main` in this repository only. Server work the pages need is listed in
 | `/manual` · `/manual?tab=attach` | `/leads?new=1` · `/bookings/reconciliation?connect=1` |
 | `/job-timeline?job=` | `/leads/timeline?job=` |
 | `/cancellations` · `/bookings?tab=cancellations` | `/bookings/cancellations` |
-| `/daily[?lane=…]` | `/?tab=operations[&lane=…]` |
+| `/daily` | `/?tab=operations` (Board) |
+| `/daily?lane=X` | `/?tab=operations&view=lanes&lane=X` |
 | `/analytics` · `/reporting` | `/insights` · `/insights/sheets` |
 
 `/cancellations/new`, `/bookings/new`, `/bookings/reconciliation`, `/intakes`, `/reporting/*`, `/operations-registry`, `/extension`,
@@ -33,11 +40,19 @@ Built on `main` in this repository only. Server work the pages need is listed in
 
 ## URL contracts
 
-- **Today:** `/?tab=pulse|operations|team|money`; Operations keeps the Daily Operations keys (`lane`, `company`, `quiet_priorities`).
+- **Today:** `/?tab=pulse|operations|team|money`; Operations adds `view=board|lanes` (default board; a `lane` with no
+  `view` means lanes) and keeps the Daily Operations keys (`lane` on the Lanes view, `company`, `quiet_priorities`).
 - **Leads:** `q`, `kind=form|call`, `show=duplicates|both`, `status=open|booked|cancelled|bad`, `company`, `feed`, `agent`, `from`, `to`,
   `date_field=timestamp|move_date`, `sort=received_desc|received_asc|move_soonest`, `lead=<id>&lk=form|call[&panel=…]`, `new=1`,
   plus `no_sync`, `move_size`, `local` from More filters.
-- **Bookings:** `/bookings?record=<id>`, `/bookings/cancellations?record=<id>`, `/bookings/reconciliation?connect=1`.
+- **All bookings:** `q`, `status=active|cancelled|all` (default active), `source`, `agent`, `merchant`, `from`, `to`,
+  `type=lead|leadless|referral`, `local`, `binder=2k|4k`, `sort=book_desc|book_asc|binder_desc`, `record=<id>[&panel=…]`
+  (`panel=cancellation` is the cancellation tab), `connect=1`.
+- **Cancellations:** `q`, `reason`, `source`, `agent`, `merchant`, `from`, `to`, `refund=yes|no`, `by`,
+  `sort=cancel_desc|cancel_asc|refund_desc`, `record=<id>[&panel=…]` (fallback panel when the booking is not populated).
+- **Record a cancellation:** `/cancellations/new[?booked_lead=<id>]`.
+- **To finish:** `/intakes[?case=<id>]` (the finish sheet); the old `tab`, `state`, `job`, `cursor` keys are ignored.
+- **Reconciliation:** `/bookings/reconciliation?connect=1`.
 
 ## Roles
 
@@ -57,6 +72,16 @@ the amendment is made in the server copy first and re-mirrored here. Not done in
 
 ## Not built (later docs)
 
-04 Granot case file, 05 Setup rename and sections (the hub links to today's pages), 06 Bookings to finish, 07 Sheets,
-09–14, 16 live-feed tiers and milestones, 17 Granot updates (the Leads badge stays empty until then), 18 Job Timeline
-chronicle (the full page moved to `/leads/timeline`; the panel tab is not built).
+04 Granot case file, 05 Setup rename and sections (the hub links to today's pages), 07 Sheets, 09–14, 17 Granot
+updates (the Leads badge stays empty until then), 18 Job Timeline chronicle (the full page moved to `/leads/timeline`;
+the panel tab is not built). The booking panel keeps the `DetailPanel` tabs (Summary · Contact · Cancellation · Actions ·
+Production · Source) until docs 04 and 18 land; the cancellation's own Edit stays in the cancellations panel reached
+from the Cancellation tab.
+
+## Not verified in a browser
+
+Both sessions were admin-only with no dev server walk. The Owner's first look is the acceptance check for: the booking
+and cancellation cards against production payloads (populated `cancelled`, `booked_lead`, `agent_allocations`,
+`sheet_sync`), the finish sheet against a real open case (Use buttons, suggested agent, File booking), the Record a
+cancellation submit, the Operations Board feed under live facts (buffer, folding, pairing), the Lanes expand-in-place,
+and the toast (which needs the server milestones).

@@ -1,15 +1,15 @@
-import { CancellationForm } from "@/components/forms/cancellation-form";
+import { cookies } from "next/headers";
+import { Suspense } from "react";
+import { RecordCancellationSheet } from "@/components/cancellations/record-cancellation-sheet";
+import { getAccessTokenCookie, getSessionUserFromAccessToken } from "@/server/auth";
 
-export default function NewCancellationPage() {
+/** Record a cancellation (doc 03): one screen under the Bookings tabs' Cancellations. The session email picks the default Recorded by. */
+export default async function NewCancellationPage() {
+  const accessToken = getAccessTokenCookie(await cookies());
+  const admin = accessToken ? await getSessionUserFromAccessToken(accessToken) : null;
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold">Create Cancellation</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Cancel from a selected booking, a booked source lead, or by entering identifiers directly.
-        </p>
-      </div>
-      <CancellationForm />
-    </div>
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+      <RecordCancellationSheet adminEmail={admin?.email ?? null} />
+    </Suspense>
   );
 }

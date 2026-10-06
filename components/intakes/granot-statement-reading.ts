@@ -1,4 +1,5 @@
 import type { BookingIntakeCreatingObservation } from "@/lib/api/granotLifecycle";
+import { formatShortDate, formatTime, parseInstant } from "@/components/ui/crm/format";
 
 /**
  * Granot sends one message per job update. Vantage keeps that message word for
@@ -107,4 +108,17 @@ function place(value: unknown): string | undefined {
   const location = record(value);
   const cityState = [text(location.city), text(location.state)].filter(Boolean).join(", ");
   return [cityState || undefined, text(location.zip)].filter(Boolean).join(" ") || undefined;
+}
+
+/** "Booked · Priority 5 · Oct 5 10:39 AM": the one line the finish sheet opens with (the exact message sits behind it). */
+export function granotSentLine(statement: GranotStatement): string {
+  const when = statement.capturedAt ? parseInstant(statement.capturedAt) : null;
+  const time = when ? `${formatShortDate(when)} ${formatTime(when)}` : undefined;
+  return [
+    statement.whatGranotCalledIt,
+    statement.granotPriority ? `Priority ${statement.granotPriority}` : undefined,
+    time,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }

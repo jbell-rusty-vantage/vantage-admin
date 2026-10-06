@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleAlert, FileText, ListChecks, Phone, Plus, ShieldCheck, SlidersHorizontal, Users, X } from "lucide-react";
+import { CircleAlert, FileText, ListChecks, Phone, Plus, Users } from "lucide-react";
 import { CreateLeadForm } from "@/components/manual/create-lead-form";
-import { DASHBOARD_MAIN_ID } from "@/components/layout/dashboard-ids";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import { operationalConfigs, withFacetOptions } from "@/components/operational/operational-configs";
 import { DetailPanel } from "@/components/operational/operational-detail-panel";
@@ -15,31 +14,35 @@ import { SheetContainsPanel } from "@/components/operational/sheet-contains-pane
 import type { DetailTabKey } from "@/components/operational/visible-detail-tabs";
 import { formatCount } from "@/components/ui/crm/format";
 import {
-  Chip,
-  CrmCard,
+  ActiveFilterChips,
+  MoreFiltersCard,
+  MoreFiltersChip,
+  RecordDrawer,
+  RecordList,
+  SearchRow,
+  SelectBar,
+  useInfiniteScroll,
+  useSheetVerify,
+  useUrlState,
+  VerifyToggleButton,
+} from "@/components/records";
+import {
   CrmSelect,
   DensityToggle,
   Notice,
   PageHeader,
   ReadFailure,
-  RemovableChip,
-  SearchBox,
   Segmented,
-  SkeletonLine,
   SummaryCard,
   useDensity,
 } from "@/components/ui/crm/primitives";
 import {
-  checkSheetContains,
   fetchAdminDetail,
   fetchAdminList,
   getRecordId,
   updateLeadNoSync,
   updateProductionRecord,
   type AdminRecord,
-  type SheetContainsEntityModel,
-  type SheetContainsItem,
-  type SheetContainsResult,
 } from "@/lib/api/admin";
 import { useFacetOptions } from "@/lib/api/facets";
 import {
@@ -54,16 +57,12 @@ import {
   type LeadStatus,
   type LeadShow,
 } from "@/lib/api/leads";
-import { applyUrlStateUpdate } from "@/lib/api/url-state-update";
 import { LOCAL_TYPE_OPTIONS, MOVE_SIZE_OPTIONS } from "@/lib/constants/domain";
 import { queryKeys } from "@/lib/query/keys";
-import { SHEET_CONTAINS_MAX_IDS } from "@/lib/sheet-contains";
 import { LeadCard } from "./lead-card";
 import { isBadLead, isUnassigned } from "./lead-card-model";
 import { LEADS_COPY } from "./leads-copy";
 import { activeLeadFilters, CLEAR_ALL_FILTERS, leadsUrlUpdate, parseLeadsUrl, type LeadsUrlState } from "./leads-url";
-
-const MIN_VISIBLE_BEFORE_SCROLL = 25;
 
 function useLeadList(kind: LeadKind, enabled: boolean, filters: ReturnType<typeof leadListFilters>) {
   const resource = kind === "form" ? "form-leads" : "call-leads";
@@ -78,17 +77,11 @@ function useLeadList(kind: LeadKind, enabled: boolean, filters: ReturnType<typeo
   });
 }
 
-function scrollRoot(): HTMLElement | null {
-  return typeof document === "undefined" ? null : document.getElementById(DASHBOARD_MAIN_ID);
-}
-
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
 export function LeadsWorkspace() {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const facets = useFacetOptions();
@@ -98,29 +91,7 @@ export function LeadsWorkspace() {
 
   const state = useMemo(() => parseLeadsUrl(searchParams), [searchParams]);
 
-  // Several updates in one tick (a filter plus its dependent feed) must build on each other, so keep the latest query.
-  const latestQuery = useRef(searchParams.toString());
-  const pendingPush = useRef(false);
-  useEffect(() => {
-    const current = searchParams.toString();
-    if (current === latestQuery.current) {
-      pendingPush.current = false;
-      return;
-    }
-    if (!pendingPush.current) latestQuery.current = current;
-  }, [searchParams]);
-  const update = useCallback(
-    (patch: Partial<LeadsUrlState>, options: { replace?: boolean } = {}) => {
-      const params = applyUrlStateUpdate(latestQuery.current, leadsUrlUpdate(patch));
-      const query = params.toString();
-      latestQuery.current = query;
-      pendingPush.current = true;
-      const href = query ? `${pathname}?${query}` : pathname;
-      if (options.replace) router.replace(href);
-      else router.push(href);
-    },
-    [pathname, router],
-  );
+  const update = useUrlState<Partial<LeadsUrlState>>(leadsUrlUpdate);
 
   // ---- Catalog: source granularities (grouped by Source Company), roster -------------------------------------
   const catalog = facets.catalog;
@@ -175,34 +146,13 @@ export function LeadsWorkspace() {
 
   const frontierQuery = merged.frontier === "form" ? formQuery : merged.frontier === "call" ? callQuery : null;
   const canFetchMore = Boolean(frontierQuery?.hasNextPage && !frontierQuery.isFetchingNextPage);
-  // The sentinel reads the latest frontier through refs (written in an effect, never during render).
-  const fetchMoreRef = useRef<() => void>(() => undefined);
-  const canFetchRef = useRef(false);
-  useEffect(() => {
-    fetchMoreRef.current = () => {
+  const sentinelRef = useInfiniteScroll({
+    canFetchMore,
+    fetchMore: () => {
       void frontierQuery?.fetchNextPage();
-    };
-    canFetchRef.current = canFetchMore;
+    },
+    visibleCount: visibleItems.length,
   });
-
-  // Keep filling until the first screen has cards, then let the sentinel drive the rest.
-  useEffect(() => {
-    if (canFetchMore && visibleItems.length < MIN_VISIBLE_BEFORE_SCROLL) fetchMoreRef.current();
-  }, [canFetchMore, visibleItems.length]);
-
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const node = sentinelRef.current;
-    if (!node || !canFetchMore) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting && canFetchRef.current) fetchMoreRef.current();
-      },
-      { root: scrollRoot(), rootMargin: "400px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [canFetchMore, visibleItems.length]);
 
   const isLoading = (formEnabled && formQuery.isLoading) || (callEnabled && callQuery.isLoading);
   const isRefreshing =
@@ -275,62 +225,9 @@ export function LeadsWorkspace() {
   });
 
   // ---- Verify in Master Sheet -------------------------------------------------------------------------------
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [verdicts, setVerdicts] = useState<ReadonlyMap<string, SheetContainsItem>>(() => new Map());
-  const [verifyResult, setVerifyResult] = useState<SheetContainsResult | null>(null);
-  const [verifyError, setVerifyError] = useState<string | null>(null);
-  const [verifyOpen, setVerifyOpen] = useState(false);
   const kindById = new Map<string, LeadKind>([...formItems, ...callItems].map((item) => [getRecordId(item), item.__kind]));
-  // Plain function: the React Compiler memoizes it (a manual useCallback with [] mismatched its inferred deps).
-  const toggleSelected = (id: string, checked: boolean) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (checked) {
-        if (next.size >= SHEET_CONTAINS_MAX_IDS && !next.has(id)) return current;
-        next.add(id);
-      } else {
-        next.delete(id);
-      }
-      return next;
-    });
-  };
-  const selectAllVisible = () =>
-    setSelectedIds(new Set(visibleItems.slice(0, SHEET_CONTAINS_MAX_IDS).map((item) => getRecordId(item))));
-  const verifyMutation = useMutation({
-    mutationFn: async (): Promise<SheetContainsResult> => {
-      const byModel = new Map<SheetContainsEntityModel, string[]>();
-      for (const id of selectedIds) {
-        const model: SheetContainsEntityModel = kindById.get(id) === "call" ? "CallLead" : "FormLead";
-        byModel.set(model, [...(byModel.get(model) ?? []), id]);
-      }
-      const results = await Promise.all([...byModel].map(([entity_model, ids]) => checkSheetContains({ entity_model, ids })));
-      return {
-        entity_model: results[0]?.entity_model ?? "FormLead",
-        checked_at: results[0]?.checked_at ?? new Date().toISOString(),
-        items: results.flatMap((result) => result.items),
-      };
-    },
-    onSuccess: (result) => {
-      setVerifyError(null);
-      setVerifyResult(result);
-      setVerifyOpen(true);
-      setVerdicts((current) => {
-        const next = new Map(current);
-        for (const item of result.items) next.set(item.id, item);
-        return next;
-      });
-    },
-    onError: (error) => {
-      setVerifyResult(null);
-      setVerifyError(errorMessage(error, "Google Sheet check failed."));
-      setVerifyOpen(true);
-    },
-  });
-  const exitSelect = () => {
-    setSelectMode(false);
-    setSelectedIds(new Set());
-  };
+  const verify = useSheetVerify({ modelFor: (id) => (kindById.get(id) === "call" ? "CallLead" : "FormLead") });
+  const visibleIds = visibleItems.map((item) => getRecordId(item));
 
   // ---- Filter row -------------------------------------------------------------------------------------------
   const [moreOpen, setMoreOpen] = useState(false);
@@ -366,17 +263,7 @@ export function LeadsWorkspace() {
         help={LEADS_COPY.help}
         right={
           <>
-            {isOwner ? (
-              <button
-                type="button"
-                className="crm-button crm-button--quiet"
-                aria-pressed={selectMode}
-                onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
-              >
-                <ShieldCheck aria-hidden="true" width={16} height={16} />
-                {selectMode ? LEADS_COPY.verifyDone : LEADS_COPY.verify}
-              </button>
-            ) : null}
+            {isOwner ? <VerifyToggleButton verify={verify} /> : null}
             <button type="button" className="crm-button crm-button--primary" onClick={() => update({ isNew: true })}>
               <Plus aria-hidden="true" width={16} height={16} />
               {LEADS_COPY.newLead}
@@ -385,12 +272,15 @@ export function LeadsWorkspace() {
         }
       />
 
-      <div className="crm-toolbar">
-        <div style={{ flex: 1, minWidth: 260 }}>
-          <SearchBox value={state.q} onSearch={(q) => update({ q }, { replace: true })} placeholder={LEADS_COPY.searchPlaceholder} hint={isRefreshing ? LEADS_COPY.searching : undefined} />
-        </div>
-        <CrmSelect<LeadSort> label={LEADS_COPY.sortLabel} value={state.sort} options={LEADS_COPY.sortOptions} onChange={(sort) => update({ sort })} />
-      </div>
+      <SearchRow<LeadSort>
+        q={state.q}
+        onSearch={(q) => update({ q }, { replace: true })}
+        placeholder={LEADS_COPY.searchPlaceholder}
+        refreshing={isRefreshing}
+        sort={state.sort}
+        sortOptions={LEADS_COPY.sortOptions}
+        onSort={(sort) => update({ sort })}
+      />
 
       <div className="crm-toolbar">
         <Segmented<"all" | LeadKind>
@@ -430,16 +320,13 @@ export function LeadsWorkspace() {
           active={state.show !== "regular"}
           onChange={(show) => update({ show })}
         />
-        <Chip icon={SlidersHorizontal} active={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
-          {LEADS_COPY.moreFilters}
-        </Chip>
+        <MoreFiltersChip open={moreOpen} onToggle={() => setMoreOpen((open) => !open)} />
         <span className="crm-toolbar__spacer" />
         <DensityToggle value={density} onChange={setDensity} />
       </div>
 
       {moreOpen ? (
-        <CrmCard title={LEADS_COPY.moreFilters} testId="leads-more-filters">
-          <div className="crm-toolbar">
+        <MoreFiltersCard testId="leads-more-filters">
             <CrmSelect
               label={LEADS_COPY.dateOn}
               value={state.dateField}
@@ -475,20 +362,10 @@ export function LeadsWorkspace() {
               active={Boolean(state.local)}
               onChange={(local) => update({ local: local || null })}
             />
-          </div>
-        </CrmCard>
+        </MoreFiltersCard>
       ) : null}
 
-      {chips.length > 0 ? (
-        <div className="crm-chips" data-testid="leads-active-filters">
-          {chips.map((chip) => (
-            <RemovableChip key={chip.key} label={chip.label} onRemove={() => update(chip.clear)} />
-          ))}
-          <button type="button" className="crm-button crm-button--quiet crm-button--sm" onClick={clearAll}>
-            {LEADS_COPY.clearAll}
-          </button>
-        </div>
-      ) : null}
+      <ActiveFilterChips chips={chips} onRemove={(patch) => update(patch)} onClearAll={clearAll} testId="leads-active-filters" />
 
       {needsFeedNote ? <p className="crm-subtitle" style={{ margin: 0 }}>{LEADS_COPY.feedServerNote}</p> : null}
       {state.show === "both" ? <p className="crm-subtitle" style={{ margin: 0 }}>{LEADS_COPY.showBothNote}</p> : null}
@@ -515,99 +392,52 @@ export function LeadsWorkspace() {
       ) : null}
       {actionError ? <ReadFailure what="Lead update failed." error={actionError} /> : null}
 
-      {selectMode ? (
-        <div className="crm-card" style={{ padding: "10px 14px" }} data-testid="leads-select-bar">
-          <div className="crm-toolbar">
-            <strong>{LEADS_COPY.selectedCount(selectedIds.size)}</strong>
-            <button
-              type="button"
-              className="crm-button crm-button--primary crm-button--sm"
-              disabled={selectedIds.size === 0 || verifyMutation.isPending}
-              onClick={() => verifyMutation.mutate()}
-            >
-              {verifyMutation.isPending ? LEADS_COPY.verifying : LEADS_COPY.verify}
-            </button>
-            <button type="button" className="crm-button crm-button--quiet crm-button--sm" onClick={() => setSelectedIds(new Set())}>
-              {LEADS_COPY.clearSelection}
-            </button>
-            <button type="button" className="crm-button crm-button--quiet crm-button--sm" onClick={selectAllVisible}>
-              {LEADS_COPY.selectAll}
-            </button>
-            <span className="crm-subtitle" style={{ margin: 0 }}>{LEADS_COPY.verifyUpTo}</span>
-            <button type="button" className="crm-button crm-button--quiet crm-button--sm" style={{ marginLeft: "auto" }} onClick={exitSelect} aria-label={LEADS_COPY.verifyDone}>
-              <X aria-hidden="true" width={14} height={14} />
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <SelectBar verify={verify} visibleIds={visibleIds} testId="leads-select-bar" />
 
-      {loadError ? (
-        <ReadFailure
-          what={LEADS_COPY.loadFailed}
-          error={loadError}
-          onRetry={() => {
-            void formQuery.refetch();
-            void callQuery.refetch();
-          }}
-        />
-      ) : null}
-
-      {isLoading && visibleItems.length === 0 ? (
-        <div className="crm-stack" data-density={density} aria-busy="true">
-          {Array.from({ length: 5 }, (_, index) => (
-            <div key={index} className="crm-card" style={{ padding: 16, display: "grid", gap: 10 }}>
-              <SkeletonLine width="40%" height={16} />
-              <SkeletonLine width="70%" />
-              <SkeletonLine width="55%" />
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {!isLoading && !loadError && visibleItems.length === 0 && !canFetchMore ? (
-        <CrmCard testId="leads-empty">
-          <h2 className="crm-card__title">{LEADS_COPY.empty}</h2>
-          <p className="crm-subtitle">{LEADS_COPY.emptyHint}</p>
-          {hasFilters ? (
+      <RecordList<LeadItem>
+        items={visibleItems}
+        keyOf={(item) => `${item.__kind}:${getRecordId(item)}`}
+        loading={isLoading}
+        error={loadError}
+        onRetry={() => {
+          void formQuery.refetch();
+          void callQuery.refetch();
+        }}
+        canFetchMore={canFetchMore}
+        fetchingMore={Boolean(frontierQuery?.isFetchingNextPage)}
+        sentinelRef={sentinelRef}
+        density={density}
+        copy={LEADS_COPY}
+        emptyTestId="leads-empty"
+        stackTestId="leads-stack"
+        emptyActions={
+          hasFilters ? (
             <button type="button" className="crm-button crm-button--quiet" onClick={clearAll}>
               {LEADS_COPY.clearAll}
             </button>
-          ) : null}
-        </CrmCard>
-      ) : null}
-
-      {visibleItems.length > 0 ? (
-        <div className="crm-stack" data-density={density} data-testid="leads-stack">
-          {visibleItems.map((item) => {
-            const id = getRecordId(item);
-            return (
-              <LeadCard
-                key={`${item.__kind}:${id}`}
-                item={item}
-                active={state.lead === id}
-                granularityLabelByKey={facets.granularityLabelByKey}
-                companyLabelBySlug={companyLabelBySlug}
-                selectMode={selectMode}
-                selected={selectedIds.has(id)}
-                onToggleSelect={toggleSelected}
-                verdict={verdicts.get(id) ?? null}
-                roster={isOwner ? rosterActive : undefined}
-                onAssign={(lead, agentId) => assignMutation.mutate({ item: lead, agentId })}
-                onOpen={openLead}
-                onToggleHidden={isOwner ? (lead) => hideMutation.mutate(lead) : undefined}
-                onMarkBad={isOwner ? (lead) => update({ lead: getRecordId(lead), lk: lead.__kind, panel: "actions" }) : undefined}
-              />
-            );
-          })}
-        </div>
-      ) : null}
-
-      <div ref={sentinelRef} aria-hidden="true" />
-      {canFetchMore || frontierQuery?.isFetchingNextPage ? (
-        <p className="crm-subtitle" style={{ textAlign: "center" }}>{LEADS_COPY.loadMore}</p>
-      ) : visibleItems.length > 0 ? (
-        <p className="crm-subtitle" style={{ textAlign: "center" }}>{LEADS_COPY.allLoaded}</p>
-      ) : null}
+          ) : null
+        }
+        renderItem={(item) => {
+          const id = getRecordId(item);
+          return (
+            <LeadCard
+              item={item}
+              active={state.lead === id}
+              granularityLabelByKey={facets.granularityLabelByKey}
+              companyLabelBySlug={companyLabelBySlug}
+              selectMode={verify.selectMode}
+              selected={verify.selectedIds.has(id)}
+              onToggleSelect={verify.toggleSelected}
+              verdict={verify.verdicts.get(id) ?? null}
+              roster={isOwner ? rosterActive : undefined}
+              onAssign={(lead, agentId) => assignMutation.mutate({ item: lead, agentId })}
+              onOpen={openLead}
+              onToggleHidden={isOwner ? (lead) => hideMutation.mutate(lead) : undefined}
+              onMarkBad={isOwner ? (lead) => update({ lead: getRecordId(lead), lk: lead.__kind, panel: "actions" }) : undefined}
+            />
+          );
+        }}
+      />
 
       {panelKind && panelRecord ? (
         <DetailPanel
@@ -626,28 +456,17 @@ export function LeadsWorkspace() {
       ) : null}
 
       <SheetContainsPanel
-        open={verifyOpen}
-        result={verifyResult}
-        error={verifyError}
-        isChecking={verifyMutation.isPending}
-        onClose={() => setVerifyOpen(false)}
+        open={verify.open}
+        result={verify.result}
+        error={verify.error}
+        isChecking={verify.isVerifying}
+        onClose={() => verify.setOpen(false)}
       />
 
       {state.isNew ? (
-        <div className="crm-drawer" role="dialog" aria-label={LEADS_COPY.newLeadTitle} data-testid="leads-new-sheet">
-          <CrmCard
-            title={LEADS_COPY.newLeadTitle}
-            tools={
-              <button type="button" className="crm-button crm-button--quiet crm-button--sm" aria-label="Close" onClick={() => update({ isNew: false })}>
-                <X aria-hidden="true" width={16} height={16} />
-              </button>
-            }
-          >
-            <div className="crm-drawer__scroll">
-              <CreateLeadForm />
-            </div>
-          </CrmCard>
-        </div>
+        <RecordDrawer title={LEADS_COPY.newLeadTitle} onClose={() => update({ isNew: false })} testId="leads-new-sheet">
+          <CreateLeadForm />
+        </RecordDrawer>
       ) : null}
     </div>
   );

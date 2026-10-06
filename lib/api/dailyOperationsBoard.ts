@@ -892,3 +892,188 @@ export function focusLaneFromSearch(lane: string | null): DailyOperationsLane | 
   }
   return isDailyOperationsPanelLane(lane) ? lane : null;
 }
+
+/* ------------------------------------------------------------------ Operations sub-views */
+
+export const DAILY_OPERATIONS_VIEWS = ["board", "lanes"] as const;
+export type DailyOperationsView = (typeof DAILY_OPERATIONS_VIEWS)[number];
+
+/**
+ * `?view=board|lanes`. An explicit value wins. With no `view`, a link that names a lane (`?lane=exception`, the
+ * old `/daily?lane=` deep links, the Pulse tiles) means the Lanes view, because the Board has no solo lane.
+ * Anything else is the Board.
+ */
+export function parseDailyOperationsView(
+  view: string | null | undefined,
+  lane?: string | null,
+): DailyOperationsView {
+  if (view === "board" || view === "lanes") {
+    return view;
+  }
+  return isDailyOperationsPanelLane(lane) ? "lanes" : "board";
+}
+
+/** Lanes is written as `view=lanes`; the Board is the bare URL (and drops `lane`, which only means something on Lanes). */
+export function writeDailyOperationsView(
+  params: URLSearchParams,
+  view: DailyOperationsView,
+): URLSearchParams {
+  const next = new URLSearchParams(params.toString());
+  if (view === "lanes") {
+    next.set("view", "lanes");
+  } else {
+    next.delete("view");
+    next.delete("lane");
+  }
+  return next;
+}
+
+/* ------------------------------------------------------------------ Presentation tiers (doc 16) */
+
+/** A · Spotlight (a small card), B · Row (one line), C · Counted (no row unless "Show system detail"). */
+export type DailyOperationsTier = "A" | "B" | "C";
+
+export const DAILY_OPERATIONS_TIERS: readonly DailyOperationsTier[] = ["A", "B", "C"] as const;
+
+/** The two Outreach Desk milestones. The server does not emit them yet; the board is ready for them. */
+export const DAILY_OPERATIONS_MILESTONE_KINDS = ["outreach.rep_goal_met", "outreach.team_goal_met"] as const;
+
+export function isDailyOperationsMilestoneKind(kind: string): boolean {
+  return (DAILY_OPERATIONS_MILESTONE_KINDS as readonly string[]).includes(kind);
+}
+
+/**
+ * The tier of every kind (doc 16 "Tier assignment"). Typed over `string`: a kind the board has never heard of is
+ * not in this table and reads as B with a neutral tone (`presentationTier`), so a new server kind never breaks the
+ * feed. A test pins that every kind in `DAILY_OPERATIONS_KINDS` is listed here.
+ */
+export const DAILY_OPERATIONS_KIND_TIERS: Readonly<Record<string, DailyOperationsTier>> = {
+  // A · Spotlight
+  "booking.created": "A",
+  "booking.employee_pending": "A",
+  "granot.booked": "A",
+  "granot.release": "A",
+  "cancellation.created": "A",
+  "exception.zip_missing": "A",
+  "exception.crm_failed": "A",
+  "exception.dead_letter": "A",
+  "exception.adoption_conflict": "A",
+  "sheet_sync.failed": "A",
+  "text.failed": "A",
+  "outreach.rep_goal_met": "A",
+  "outreach.team_goal_met": "A",
+  // B · Row
+  "form_lead.created": "B",
+  "call_lead.created": "B",
+  "call_lead.unmatched": "B",
+  "granot.lead_created": "B",
+  "granot.priority_updated": "B",
+  "granot.unmatched": "B",
+  "text.sent": "B",
+  "intake.opened": "B",
+  // C · Counted
+  "form_lead.duplicate": "C",
+  "call_lead.duplicate": "C",
+  "granot.minted": "C",
+  "granot.linked": "C",
+  "granot.observed": "C",
+  "granot.pending_match": "C",
+  "intake.refreshed": "C",
+  "text.deferred": "C",
+  "text.skipped": "C",
+  "sheet_sync.completed": "C",
+};
+
+/** A kind the table does not know. */
+export const DAILY_OPERATIONS_UNKNOWN_KIND_TIER: DailyOperationsTier = "B";
+
+export type DailyOperationsTierOverrides = Partial<Record<string, DailyOperationsTier>>;
+
+export const DAILY_KIND_TIERS_STORAGE_KEY = "vantage-admin-daily-kind-tiers";
+
+export function isDailyOperationsTier(value: unknown): value is DailyOperationsTier {
+  return value === "A" || value === "B" || value === "C";
+}
+
+export function defaultPresentationTier(kind: string): DailyOperationsTier {
+  return DAILY_OPERATIONS_KIND_TIERS[kind] ?? DAILY_OPERATIONS_UNKNOWN_KIND_TIER;
+}
+
+/**
+ * The tier a viewer sees for a kind: their own override first, then Quiet priorities (which moves priority updates
+ * B to C, so it is a tier override rather than a special case), then the doc 16 table.
+ */
+export function presentationTier(
+  kind: string,
+  options: { overrides?: DailyOperationsTierOverrides | null; quietPriorities?: boolean } = {},
+): DailyOperationsTier {
+  const override = options.overrides?.[kind];
+  if (isDailyOperationsTier(override)) {
+    return override;
+  }
+  if (options.quietPriorities && kind === DAILY_QUIET_PRIORITIES_KIND) {
+    return "C";
+  }
+  return defaultPresentationTier(kind);
+}
+
+export function sanitizeTierOverrides(value: unknown): DailyOperationsTierOverrides {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  const next: DailyOperationsTierOverrides = {};
+  for (const [kind, tier] of Object.entries(value as Record<string, unknown>)) {
+    if (/^[a-z_]+\.[a-z_]+$/.test(kind) && isDailyOperationsTier(tier) && defaultPresentationTier(kind) !== tier) {
+      next[kind] = tier;
+    }
+  }
+  return next;
+}
+
+export function readTierOverrides(
+  storage: Pick<Storage, "getItem"> | null | undefined,
+): DailyOperationsTierOverrides {
+  if (!storage) {
+    return {};
+  }
+  try {
+    const raw = storage.getItem(DAILY_KIND_TIERS_STORAGE_KEY);
+    return raw ? sanitizeTierOverrides(JSON.parse(raw) as unknown) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function writeTierOverrides(
+  storage: Pick<Storage, "setItem" | "removeItem"> | null | undefined,
+  overrides: DailyOperationsTierOverrides,
+): void {
+  if (!storage) {
+    return;
+  }
+  try {
+    const clean = sanitizeTierOverrides(overrides);
+    if (Object.keys(clean).length === 0) {
+      storage.removeItem(DAILY_KIND_TIERS_STORAGE_KEY);
+      return;
+    }
+    storage.setItem(DAILY_KIND_TIERS_STORAGE_KEY, JSON.stringify(clean));
+  } catch {
+    // Ignore quota / private-mode failures.
+  }
+}
+
+/** The override map after the viewer picks a tier for a kind; picking the default removes the override. */
+export function withKindTier(
+  overrides: DailyOperationsTierOverrides,
+  kind: string,
+  tier: DailyOperationsTier,
+): DailyOperationsTierOverrides {
+  const next: DailyOperationsTierOverrides = { ...overrides };
+  if (defaultPresentationTier(kind) === tier) {
+    delete next[kind];
+  } else {
+    next[kind] = tier;
+  }
+  return next;
+}

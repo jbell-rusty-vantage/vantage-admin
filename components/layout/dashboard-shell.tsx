@@ -13,6 +13,7 @@ import { ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-reac
 import { usePathname, useRouter } from "next/navigation";
 import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-local-storage-boolean";
 import { Avatar, cx } from "@/components/ui/crm";
+import { MilestoneToastHost } from "@/components/daily/milestone-toast";
 import { DASHBOARD_MAIN_ID } from "./dashboard-ids";
 import { DashboardRoleProvider } from "./dashboard-role-context";
 import { DashboardMobileBar, DashboardNav, pageTitleForPath, type DashboardShellRole } from "./dashboard-nav";
@@ -255,6 +256,7 @@ export function DashboardShell({
           </main>
           <DashboardMobileBar adminRole={adminRole} badges={badges} />
         </div>
+        {adminRole === "owner" || adminRole === "manager" ? <MilestoneToastHost /> : null}
         {mobileOpen ? (
           <div className="fixed inset-0 z-50 lg:hidden">
             <button type="button" aria-label="Close navigation" className="crm-scrim" onClick={() => setMobileOpen(false)} />

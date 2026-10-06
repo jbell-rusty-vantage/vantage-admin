@@ -248,16 +248,6 @@ test("buildColumns does not prepend action columns", () => {
   assert.equal(cancelKeys.at(-1), "__actions");
 });
 
-test("floating bottom action bar is gone so Book and Cancel are not a third surface", () => {
-  const page = readFileSync(
-    path.join(process.cwd(), "components/operational/operational-resource-page.tsx"),
-    "utf8",
-  );
-  assert.match(page, /isRowSelected/);
-  assert.doesNotMatch(page, /showSelectedActionBar|Start booking|Start cancellation/);
-  assert.doesNotMatch(page, /fixed bottom-4 left-1\/2/);
-});
-
 test("Booking customer column falls back to the stored customer name", () => {
   const column = operationalConfigs.bookings.columns.find((item) => item.key === "customer");
   assert.ok(column);
@@ -266,12 +256,6 @@ test("Booking customer column falls back to the stored customer name", () => {
 });
 
 test("list CSV export reports a download without claiming audit persistence", () => {
-  const page = readFileSync(
-    path.join(process.cwd(), "components/operational/operational-resource-page.tsx"),
-    "utf8",
-  );
-  assert.doesNotMatch(page, /audit logged/i);
-  assert.match(page, /OPERATIONAL_COPY\.exportDownloaded/);
   assert.equal(OPERATIONAL_COPY.exportDownloaded, "CSV export downloaded.");
 });
 

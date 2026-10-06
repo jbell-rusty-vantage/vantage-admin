@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   GranotBookingStatementView,
   PriorityPairingStory,
@@ -11,7 +10,6 @@ import {
   granotStatementIsBare,
   readGranotStatement,
 } from "../components/intakes/granot-statement-reading";
-import { BookingIntakeWorkbench } from "../components/intakes/booking-intake-workbench";
 import { IntakeReferenceDrawers } from "../components/intakes/intake-reference";
 import {
   INTAKES_HREF,
@@ -49,20 +47,6 @@ import {
   intakeOwnerCommandConflictCopy,
   isAllowedIntakeReturn,
 } from "../components/intakes/intake-copy";
-import { IntakeList } from "../components/intakes/intake-list";
-import {
-  INTAKE_PAGE_SIZE,
-  IntakesDashboardView,
-  IntakesHeader,
-  IntakesPagination,
-  TABS,
-  buildIntakesHref,
-  parseCursorHistory,
-  parseState,
-  parseTab,
-  popCursorHistory,
-  pushCursorHistory,
-} from "../components/intakes/intakes-dashboard";
 import type {
   BookingIntakeCreatingObservation,
   GranotLifecycleCaseDetail,
@@ -86,26 +70,6 @@ const bookingCase: GranotLifecycleCaseListItem = {
   deterministic_booking: { present: false },
   opened_at: "2026-08-18T10:00:00.000Z",
   last_evidence_at: "2026-08-18T11:00:00.000Z",
-};
-
-function renderIntakeList(props: Parameters<typeof IntakeList>[0]): string {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return renderToStaticMarkup(
-    createElement(QueryClientProvider, { client: queryClient }, createElement(IntakeList, props)),
-  );
-}
-
-const cancellationCase: GranotLifecycleCaseListItem = {
-  ...bookingCase,
-  case_id: "case-release",
-  kind: "release",
-  mode: "release",
-  sequence_number: 2,
-  job_no: "Synthetic Job 2",
-  normalized_job_no: "SYNTHETIC JOB 2",
-  latest_action: "release",
-  evidence_count: 2,
-  deterministic_booking: { present: true, masked_ref: "boo…002" },
 };
 
 test("owner copy names booking intakes without lifecycle jargon", () => {
@@ -183,94 +147,6 @@ test("AC-RRF-07 other and undefined 409 copy does not say case revision changed"
   assert.doesNotMatch(intakeOwnerCommandConflictCopy(undefined), /case revision changed/i);
 });
 
-test("intake list uses owner language and keeps historical Release rows off the booking queue", () => {
-  const bookingMarkup = renderIntakeList({
-    items: [bookingCase, cancellationCase],
-    kind: "booking",
-    emptyMessage: "none",
-    now: new Date("2026-08-18T12:00:00.000Z").getTime(),
-  });
-  assert.match(bookingMarkup, /Synthetic Job 1/);
-  assert.match(bookingMarkup, /Opened under the retired Priority 5 trigger/);
-  assert.match(bookingMarkup, /No official Booking yet/);
-  assert.match(bookingMarkup, /Waiting for you/);
-  assert.match(bookingMarkup, /Finalize Booking/);
-  assert.match(bookingMarkup, /Leadless Booking/);
-  assert.equal(bookingMarkup.includes("Finish booking"), false);
-  assert.equal(bookingMarkup.includes("No Action"), false);
-  assert.equal(bookingMarkup.includes("Cancel this booking"), false);
-  assert.match(bookingMarkup, /href="\/intakes\?case=case-booking"/);
-  assert.match(bookingMarkup, /href="\/leads\/timeline\?job=Synthetic/);
-  assert.match(bookingMarkup, /Open Job timeline/);
-  assert.match(bookingMarkup, /Open job history/);
-  assert.equal(bookingMarkup.includes("Synthetic Job 2"), false);
-  assert.equal(bookingMarkup.includes("release #"), false);
-  assert.equal(bookingMarkup.includes("Review cancellation"), false);
-});
-
-test("intake queue loading, error, and empty states stay explicit", () => {
-  assert.match(
-    renderToStaticMarkup(createElement(IntakesDashboardView, { kind: "booking", state: "open", loading: true })),
-    /Loading intakes/,
-  );
-  assert.match(
-    renderToStaticMarkup(createElement(IntakesDashboardView, { kind: "booking", state: "open", error: "Synthetic failure" })),
-    /Synthetic failure/,
-  );
-  assert.match(
-    renderToStaticMarkup(createElement(IntakesDashboardView, {
-      kind: "booking",
-      state: "open",
-      data: { items: [] },
-    })),
-    /No booking intakes waiting/,
-  );
-  assert.match(
-    renderToStaticMarkup(createElement(IntakesDashboardView, {
-      kind: "booking",
-      state: "open",
-      data: { items: [] },
-    })),
-    /Booked or Release job/,
-  );
-  assert.equal(
-    renderToStaticMarkup(createElement(IntakesDashboardView, {
-      kind: "booking",
-      state: "open",
-      data: { items: [] },
-    })).includes("Cancellation intakes"),
-    false,
-  );
-});
-
-test("intakes header keeps owner language and a refresh control", () => {
-  const markup = renderToStaticMarkup(createElement(IntakesHeader, {
-    lastCheckedAt: new Date("2026-08-20T07:55:00.000Z").getTime(),
-    onRefresh: () => undefined,
-  }));
-  assert.match(markup, /Intakes/);
-  assert.match(markup, /mark a job Booked or Release/);
-  assert.equal(markup.includes("cancels a job"), false);
-  assert.match(markup, /Refresh/);
-  assert.match(markup, /Last checked/);
-  assert.match(markup, /aria-label="Refresh intakes"/);
-  const checking = renderToStaticMarkup(createElement(IntakesHeader, { refreshing: true }));
-  assert.match(checking, /Checking…/);
-});
-
-test("[AC-R10] intakes dashboard has one booking tab", () => {
-  assert.equal(TABS.length, 1);
-  assert.equal(TABS[0]?.id, "booking");
-  assert.equal(TABS[0]?.label, "Booking intakes");
-  const markup = renderToStaticMarkup(createElement(IntakesDashboardView, {
-    kind: "booking",
-    state: "open",
-    data: { items: [] },
-  }));
-  assert.match(markup, /Booking intakes/);
-  assert.equal(markup.includes("Cancellation intakes"), false);
-});
-
 test("Release intake copy never says Granot cancelled", () => {
   const surfaces = [
     intakeWhyHere("release"),
@@ -288,77 +164,6 @@ test("Release intake copy never says Granot cancelled", () => {
   for (const text of surfaces) {
     assert.doesNotMatch(text, /cancell?ed/i);
   }
-});
-
-test("intakes URL helpers keep booking and cancellation queues distinct", () => {
-  assert.equal(INTAKES_HREF, "/intakes");
-  assert.equal(parseTab(null), "booking");
-  assert.equal(parseTab("cancellations"), "cancellation");
-  assert.equal(parseState(null), "open");
-  assert.equal(parseState("resolved"), "resolved");
-  assert.equal(buildIntakesHref({ tab: "booking", state: "open" }), "/intakes");
-  assert.equal(
-    buildIntakesHref({ tab: "cancellation", state: "resolved", job: "JOB 9", cursor: "opaque+1" }),
-    "/intakes?tab=cancellations&state=resolved&job=JOB+9&cursor=opaque%2B1",
-  );
-  assert.equal(intakeCaseHref("case-booking"), "/intakes?case=case-booking");
-  assert.equal(
-    intakeCaseHref("case-release", { tab: "cancellation", state: "resolved" }),
-    "/intakes?tab=cancellations&state=resolved&case=case-release",
-  );
-});
-
-test("intake queue pages ten cases at a time with next and previous", () => {
-  assert.equal(INTAKE_PAGE_SIZE, 10);
-  assert.deepEqual(parseCursorHistory(null), []);
-  assert.deepEqual(parseCursorHistory(JSON.stringify(["", "opaque+1"])), ["", "opaque+1"]);
-  assert.deepEqual(pushCursorHistory([], undefined), [""]);
-  assert.deepEqual(pushCursorHistory([""], "opaque+1"), ["", "opaque+1"]);
-  assert.deepEqual(popCursorHistory(["", "opaque+1"]), { cursor: "opaque+1", history: [""] });
-  assert.deepEqual(popCursorHistory([""]), { cursor: undefined, history: [] });
-  assert.deepEqual(popCursorHistory([]), { cursor: undefined, history: [] });
-  assert.equal(
-    buildIntakesHref({ tab: "booking", state: "open", cursor: "page-2", cursors: [""] }),
-    `/intakes?cursor=page-2&cursors=${encodeURIComponent(JSON.stringify([""]))}`,
-  );
-
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const firstPage = renderToStaticMarkup(createElement(
-    QueryClientProvider,
-    { client: queryClient },
-    createElement(IntakesDashboardView, {
-      kind: "booking",
-      state: "open",
-      data: { items: [bookingCase], next_cursor: "page-2" },
-      page: 1,
-      hasNextPage: true,
-    }),
-  ));
-  assert.match(firstPage, /Previous/);
-  assert.match(firstPage, /Next/);
-  assert.match(firstPage, /Page 1/);
-  assert.match(firstPage, /disabled=""/);
-  assert.equal(firstPage.includes("Show more"), false);
-
-  const laterPage = renderToStaticMarkup(createElement(IntakesPagination, {
-    page: 2,
-    hasPrevious: true,
-    hasNext: false,
-  }));
-  assert.match(laterPage, /Page 2/);
-  assert.match(laterPage, /Previous/);
-  assert.match(laterPage, /Next/);
-});
-
-test("booking intake lists expose a Granot payload accordion", () => {
-  const bookingMarkup = renderIntakeList({
-    items: [bookingCase, cancellationCase],
-    kind: "booking",
-    emptyMessage: "none",
-  });
-  assert.match(bookingMarkup, /Granot Booked payload/);
-  assert.match(bookingMarkup, /Latest payload that created this booking intake/);
-  assert.equal(bookingMarkup.includes("Synthetic Job 2"), false);
 });
 
 const bookedStatement: BookingIntakeCreatingObservation = {
@@ -556,39 +361,6 @@ test("the priority story warns when Granot booked a job it never flagged", () =>
   assert.match(markup, /How this job got here/);
 });
 
-test("intake list shows pairing audit lines without implying Priority 5 still opens intakes", () => {
-  const paired = {
-    ...bookingCase,
-    latest_action: "booked" as const,
-    priority_pairing: {
-      pairing: "priority_5_then_booked" as const,
-      creating_booked_priority_is_5: true,
-      has_preceding_priority_5: true,
-      has_later_priority_5: false,
-    },
-  };
-  const warning = {
-    ...bookingCase,
-    case_id: "case-booked-without-5",
-    job_no: "Synthetic Job 3",
-    latest_action: "booked" as const,
-    priority_pairing: {
-      pairing: "booked_without_priority_5" as const,
-      creating_booked_priority_is_5: false,
-      has_preceding_priority_5: false,
-      has_later_priority_5: false,
-    },
-  };
-  const markup = renderIntakeList({
-    items: [paired, warning],
-    kind: "booking",
-    emptyMessage: "none",
-  });
-  assert.match(markup, /Priority 5 then Booked/);
-  assert.match(markup, /Booked without Priority 5/);
-  assert.equal(markup.includes("Granot set this lead to priority 5"), false);
-});
-
 function bookingIntakeDetail(
   overrides: Partial<GranotLifecycleCaseDetail> = {},
 ): GranotLifecycleCaseDetail {
@@ -645,132 +417,6 @@ function bookingIntakeDetail(
   };
 }
 
-function renderWorkbench(detail: GranotLifecycleCaseDetail): string {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return renderToStaticMarkup(createElement(
-    QueryClientProvider,
-    { client: queryClient },
-    createElement(BookingIntakeWorkbench, { detail, backHref: "/intakes", backLabel: "Back to waiting intakes" }),
-  ));
-}
-
-test("the booking intake reads as one story: Granot, then the customer, then the work, then the record", () => {
-  const markup = renderWorkbench(bookingIntakeDetail());
-  const actInOrder = [
-    "Back to waiting intakes",
-    "Booking intake",
-    "Job Synthetic Job 1",
-    "How to finalize this booking",
-    "What Granot sent us",
-    "Who this booking is for",
-    "Official Booking details",
-    "What Vantage already has on this job",
-    "Every update Granot sent on this job",
-    "How this job got here",
-  ];
-  let readSoFar = -1;
-  for (const act of actInOrder) {
-    const at = markup.indexOf(act);
-    assert.ok(at > readSoFar, `${act} is out of order in the booking intake story`);
-    readSoFar = at;
-  }
-  assert.match(markup, /href="\/leads\/timeline\?job=Synthetic/);
-});
-
-test("a booking intake that needs no customer never asks for one", () => {
-  const referral = bookingIntakeDetail({
-    mode: "create_referral_booking",
-    candidate_search: { available: false, default_scope: "source", all_scope_warning: false },
-    capabilities: { commands: true, referral: true, release_cases: false, discrepancies: false },
-  });
-  const markup = renderWorkbench(referral);
-  assert.equal(markup.includes("Who this booking is for"), false);
-  assert.match(markup, /Create Referral Booking/);
-});
-
-test("review plus latest Release hides Confirm Granot Cancellation on Owner Intakes", () => {
-  const markup = renderWorkbench(bookingIntakeDetail({
-    mode: "review_existing_booking",
-    latest_action: "release",
-    candidate_search: { available: false, default_scope: "source", all_scope_warning: false },
-    official_current: {
-      booking: {
-        id: "booking-2",
-        normalized_job_no: "SYNTHETIC JOB 1",
-        job_no: "Synthetic Job 1",
-        domain_revision: 4,
-        book_date: "2026-08-17T00:00:00.000Z",
-        customer_name: "Synthetic Customer",
-        source: "Synthetic Source",
-        merchant: "Synthetic Merchant",
-        deposit_amount: 100,
-        total_binder_amount: 200,
-        agent_allocations: [],
-        lead_ref: { model: "FormLead", id: "lead-2" },
-      },
-    },
-    capabilities: {
-      commands: true,
-      referral: false,
-      confirm_cancellation: true,
-      release_cases: false,
-      discrepancies: false,
-    },
-  }));
-  assert.match(markup, /How to review this booking/);
-  assert.match(markup, /Official Booking now/);
-  assert.match(markup, /Update Existing Booking/);
-  assert.match(markup, /No Action/);
-  assert.match(markup, /Cancel this booking/);
-  assert.match(markup, /href="\/cancellations\/new\?booked_lead=booking-2"/);
-  assert.equal(markup.includes("Create Cancellation"), false);
-  assert.equal(markup.includes("Review booking or cancellation"), false);
-});
-
-test("create-missing plus latest Release does not show Confirm Cancellation", () => {
-  const markup = renderWorkbench(bookingIntakeDetail({
-    mode: "create_missing_booking",
-    latest_action: "release",
-    capabilities: {
-      commands: true,
-      referral: false,
-      confirm_cancellation: false,
-      release_cases: false,
-      discrepancies: false,
-    },
-  }));
-  assert.equal(markup.includes("Create Cancellation"), false);
-  assert.equal(markup.includes("Review Cancellation"), false);
-  assert.match(markup, /Official Booking details/);
-  assert.match(markup, /No Action/);
-});
-
-test("review plus latest Release hides Confirm Cancellation when commands are disabled", () => {
-  const markup = renderWorkbench(bookingIntakeDetail({
-    mode: "review_existing_booking",
-    latest_action: "release",
-    candidate_search: { available: false, default_scope: "source", all_scope_warning: false },
-    capabilities: {
-      commands: false,
-      referral: false,
-      confirm_cancellation: false,
-      release_cases: false,
-      discrepancies: false,
-    },
-  }));
-  assert.equal(markup.includes("Create Cancellation"), false);
-  assert.equal(markup.includes("Review Cancellation"), false);
-  assert.match(markup, new RegExp(INTAKE_COMMANDS_OFF));
-});
-
-test("a booking intake nobody can finish yet says so and opens the record instead", () => {
-  const markup = renderWorkbench(bookingIntakeDetail({
-    capabilities: { commands: false, referral: false, release_cases: false, discrepancies: false },
-  }));
-  assert.match(markup, new RegExp(INTAKE_COMMANDS_OFF));
-  assert.match(markup, /open=""/);
-});
-
 test("the reference drawers explain the job in owner words, not schema words", () => {
   const detail = bookingIntakeDetail();
   const markup = renderToStaticMarkup(createElement(IntakeReferenceDrawers, {
@@ -793,81 +439,26 @@ test("the reference drawers explain the job in owner words, not schema words", (
   }
 });
 
-test("review cards offer list No Action, Possibly Fix Booking, and an optional public cancel link", () => {
-  const reviewCase: GranotLifecycleCaseListItem = {
-    ...bookingCase,
-    case_id: "case-review",
-    mode: "review_existing_booking",
-    latest_action: "release",
-    deterministic_booking: {
-      present: true,
-      masked_ref: "boo…001",
-      id: "booking-1",
-      public_cancel_allowed: true,
-    },
-  };
-  const referralReview: GranotLifecycleCaseListItem = {
-    ...reviewCase,
-    case_id: "case-referral-review",
-    deterministic_booking: {
-      present: true,
-      masked_ref: "boo…009",
-      id: "booking-9",
-      public_cancel_allowed: false,
-    },
-  };
-  assert.equal(intakeOwnerPosture(reviewCase), "review");
-  assert.equal(intakeCardPrimaryLabel(reviewCase), "Possibly Fix Booking");
-  assert.equal(intakeShowsListNoAction(reviewCase, true), true);
-  assert.equal(intakeShowsListNoAction(bookingCase, true), false);
-  assert.equal(intakeShowsListNoAction({ ...bookingCase, mode: "create_referral_booking" }, true), false);
-  assert.equal(intakeShowsPublicCancel(reviewCase), true);
-  assert.equal(intakeShowsPublicCancel(referralReview), false);
+test("the intake copy helpers the finish sheet still leans on keep their rules", () => {
+  assert.equal(INTAKES_HREF, "/intakes");
+  assert.equal(intakeCaseHref("case-booking"), "/intakes?case=case-booking");
+  assert.match(INTAKE_COMMANDS_OFF, /not ready to file Bookings/);
+  assert.equal(intakeWhyHereForCase(bookingCase), "Opened under the retired Priority 5 trigger");
+  assert.equal(intakeWhyHereForCase({ ...bookingCase, latest_action: "booked" }), "Granot marked this job Booked. Vantage does not have a Booking yet.");
+  const review = { ...bookingCase, mode: "review_existing_booking", deterministic_booking: { present: true, id: "booking-1", public_cancel_allowed: true } };
+  assert.equal(intakeShowsListNoAction(review), true);
+  assert.equal(intakeShowsListNoAction(review, false), false);
+  assert.equal(intakeShowsListNoAction(bookingCase), false);
+  assert.equal(intakeShowsPublicCancel(review), true);
   assert.equal(intakePublicCancelHref("booking-1"), "/cancellations/new?booked_lead=booking-1");
-  assert.equal(
-    intakeWhyHereForCase(reviewCase),
-    "Granot released this job. That may be an edit. It is not a Vantage Cancellation by itself.",
-  );
   assert.equal(intakeListNoActionConflictCopy("GRANOT_CASE_REVISION_CONFLICT"), INTAKE_LIST_NO_ACTION.conflict);
-  assert.equal(intakeWorkbenchShowsPublicCancel({
-    state: "open",
-    mode: "review_existing_booking",
-    capabilities: { referral: false },
-    official_current: {
-      booking: { id: "booking-1", lead_ref: { model: "FormLead", id: "lead-1" } },
-    },
-  }), true);
-  assert.equal(intakeWorkbenchShowsPublicCancel({
-    state: "open",
-    mode: "review_existing_booking",
-    capabilities: { referral: false },
-    official_current: {
-      booking: { id: "booking-1", lead_ref: { model: "FormLead", id: "lead-1" } },
-      cancellation: { id: "cancel-1" },
-    },
-  }), false);
-
-  const markup = renderIntakeList({
-    items: [reviewCase, referralReview],
-    kind: "booking",
-    emptyMessage: "none",
-  });
-  assert.match(markup, /No Action/);
-  assert.match(markup, /Possibly Fix Booking/);
-  assert.match(markup, /href="\/cancellations\/new\?booked_lead=booking-1"/);
-  assert.equal(markup.includes("booked_lead=booking-9"), false);
-  assert.equal(markup.includes("Finish booking"), false);
-  assert.equal(markup.includes("Create Cancellation"), false);
-});
-
-test("intake surfaces never blot out the customer the owner has to call", () => {
-  const listMarkup = renderIntakeList({
-    items: [bookingCase],
-    kind: "booking",
-    emptyMessage: "none",
-  });
-  assert.match(listMarkup, /Synthetic Waiting Customer/);
-  assert.match(listMarkup, /1 update from Granot on this job/);
-  assert.equal(listMarkup.includes("•••"), false);
-  assert.equal(listMarkup.includes("***"), false);
+  assert.equal(
+    intakeWorkbenchShowsPublicCancel({
+      state: "open",
+      mode: "review_existing_booking",
+      capabilities: { referral: false },
+      official_current: { booking: { id: "booking-1", lead_ref: { model: "FormLead", id: "lead-1" } } },
+    }),
+    true,
+  );
 });

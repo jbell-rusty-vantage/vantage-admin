@@ -18,6 +18,8 @@ import {
   FormLeadContactsSection,
 } from "@/components/operational/form-lead-contacts";
 import { BookingStoredLeadSection } from "@/components/bookings/booking-stored-lead-section";
+import { BOOKINGS_COPY } from "@/components/bookings/bookings-copy";
+import { reasonLabel } from "@/components/cancellations/cancellations-copy";
 import { DetailPanelTabStrip } from "@/components/operational/detail-panel-tab-strip";
 import { LeadMessageSection } from "@/components/operational/lead-message-section";
 import {
@@ -31,6 +33,8 @@ import {
   productionDeleteLabel,
 } from "@/components/operational/operational-copy";
 import {
+  formatDate,
+  formatMoney,
   formatPlain,
   getValue,
   hasAttachedCancellation,
@@ -384,6 +388,33 @@ function ContactTab({
   return null;
 }
 
+/** A cancelled booking's cancellation (the populated `cancelled`), with a link to the cancellation's own record. */
+function CancellationTab({ record }: { record: AdminRecord }) {
+  const copy = BOOKINGS_COPY.cancellationTab;
+  const cancelled = getValue(record, "cancelled");
+  const href = linkedContextHref("bookings", "cancelled", record);
+  if (!cancelled || typeof cancelled !== "object") {
+    return (
+      <div className="space-y-3 text-sm text-muted-foreground">
+        <p>{copy.missing}</p>
+        {href ? <LinkedRecordValue href={href} label={copy.open} /> : null}
+      </div>
+    );
+  }
+  const row = cancelled as Record<string, unknown>;
+  return (
+    <DetailGrid>
+      <DetailItem label={copy.cancelDate} value={formatDate(row.cancel_date)} />
+      <DetailItem label={copy.reason} value={reasonLabel(row.reason) ?? "-"} />
+      <DetailItem label={copy.refund} value={formatMoney(row.refund_amount)} />
+      <DetailItem label={copy.cancelledBy} value={formatPlain(row.cancelled_by)} />
+      <DetailItem label={copy.merchant} value={formatPlain(row.merchant)} />
+      <DetailItem label={copy.notes} value={formatPlain(row.notes)} />
+      {href ? <DetailItem label={copy.title} value={<LinkedRecordValue href={href} label={copy.open} />} /> : null}
+    </DetailGrid>
+  );
+}
+
 function SourceTab({
   uiResource,
   record,
@@ -556,6 +587,7 @@ export function DetailPanel({
               readOnly={readOnly}
             />
           ) : null}
+          {activePanel === "cancellation" ? <CancellationTab record={record} /> : null}
           {activePanel === "message" ? <LeadMessageSection record={record} /> : null}
           {activePanel === "actions" ? (
             <div className="space-y-4">

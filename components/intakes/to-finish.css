@@ -1,0 +1,153 @@
+/*
+ * Bookings to finish (doc 06): the few layout rules the shared `.crm-*` classes do not already give. Imported by
+ * `app/(dashboard)/intakes/layout.tsx` (a stylesheet import in a component would break the node test runner).
+ * Colour always rides on the `--crm-*` tokens and is paired with words.
+ */
+.tf-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.tf-clock__age {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--crm-muted);
+}
+
+.tf-sent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--crm-text);
+}
+
+.tf-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--crm-border);
+}
+
+.tf-block__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--crm-ink);
+}
+
+.tf-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--crm-blue-100);
+  color: var(--crm-blue-strong);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.tf-lead {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-r-control);
+  background: var(--crm-blue-50);
+}
+
+.tf-lead--empty {
+  background: var(--crm-card);
+  border-style: dashed;
+}
+
+.tf-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.tf-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: center;
+}
+
+.tf-row__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--crm-ink);
+}
+
+.tf-row__hint {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 12.5px;
+  color: var(--crm-muted);
+}
+
+.tf-review {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--crm-ink);
+}
+
+.tf-errors {
+  padding: 10px 12px;
+  border: 1px solid var(--crm-red);
+  border-radius: var(--crm-r-control);
+  background: var(--crm-red-50);
+  color: var(--crm-ink);
+  font-size: 13px;
+}
+
+.tf-errors ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.tf-noaction {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--crm-border);
+  border-radius: var(--crm-r-control);
+}
+
+.tf-details {
+  border-top: 1px solid var(--crm-border);
+  padding-top: 12px;
+}
+
+.tf-details > summary {
+  cursor: pointer;
+  min-height: 44px;
+  font-weight: 700;
+  color: var(--crm-ink);
+}
+
+.tf-finished {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}

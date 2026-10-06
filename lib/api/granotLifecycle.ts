@@ -64,6 +64,22 @@ export type BookingPriorityPairingProjection = {
   };
 };
 
+/**
+ * The move and money line of the latest Granot case file (doc 04 / 06), so a booking to finish can be recognised
+ * without opening it. Every field is optional: the server adds this to the case list item after the case file ships
+ * (SERVER-WORK B-series), and the admin renders only what arrives. Money is a number or Granot's display string.
+ */
+export type GranotCaseFileSummary = {
+  origin?: string | null;
+  destination?: string | null;
+  /** The move (pickup) date, ISO or yyyy-mm-dd. */
+  pickup?: string | null;
+  total_estimate?: number | string | null;
+  customer_payment?: number | string | null;
+  /** The Granot CRM username of the rep on the case file. */
+  rep?: string | null;
+};
+
 export type GranotLifecycleCaseListItem = {
   case_id: string;
   kind: "booking" | "release";
@@ -93,6 +109,10 @@ export type GranotLifecycleCaseListItem = {
     has_preceding_priority_5: boolean;
     has_later_priority_5: boolean;
   };
+  /** Additive, optional: the latest case file's move and money line (see `GranotCaseFileSummary`). */
+  case_file_summary?: GranotCaseFileSummary | null;
+  /** Additive, optional: how many leads the matcher found equally likely (2 renders "two possible customers"). */
+  possible_customer_count?: number;
 };
 
 export type GranotLifecycleCaseListPage = {
@@ -304,6 +324,8 @@ export type GranotLifecycleCaseDetail = {
     discrepancies: boolean;
   };
   priority_pairing?: BookingPriorityPairingProjection | null;
+  /** Additive, optional: the latest case file's move and money line. */
+  case_file_summary?: GranotCaseFileSummary | null;
 };
 
 export type CreatingObservationSelection =

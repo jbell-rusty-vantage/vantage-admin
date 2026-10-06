@@ -1,9 +1,10 @@
-import { isReferralBooking, relatedNavLinksFor } from "@/components/operational/operational-helpers";
+import { hasAttachedCancellation, isReferralBooking, relatedNavLinksFor } from "@/components/operational/operational-helpers";
 import type { AdminRecord, UiResource } from "@/lib/api/admin";
 
 export const DETAIL_TAB_KEYS = [
   "summary",
   "contact",
+  "cancellation",
   "message",
   "actions",
   "production",
@@ -69,6 +70,10 @@ export function visibleDetailTabs(
   ctx: VisibleDetailTabsContext,
 ): DetailTabKey[] {
   const tabs: DetailTabKey[] = ["summary", "contact"];
+  // A cancelled booking shows its cancellation (doc 03 booking panel); the cancellation card links here.
+  if (uiResource === "bookings" && hasAttachedCancellation(record)) {
+    tabs.push("cancellation");
+  }
   if (uiResource === "form-leads" || uiResource === "duplicate-form-leads") {
     tabs.push("message");
   }

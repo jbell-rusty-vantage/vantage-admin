@@ -1,45 +1,27 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { AnimatedNumber } from "@/components/daily/animated-number";
 import { DAILY_COPY } from "@/components/daily/daily-copy";
-import { AnimatedEventList } from "@/components/daily/event-list";
+import { FeedRow } from "@/components/daily/feed-row";
+import { useKindTierOverrides } from "@/components/daily/kind-tiers-context";
 import { LiveDot, type LiveDotState } from "@/components/daily/live-dot";
 import type { ArrivalHighlights } from "@/components/daily/use-arrival-highlights";
 import { Button } from "@/components/ui/button";
 import { sourceCompanyLabel, type DailyOperationsPanelLane } from "@/lib/api/dailyOperations";
+import { presentationTier } from "@/lib/api/dailyOperationsBoard";
 import { laneToneFor, toneClasses } from "@/lib/api/dailyOperationsColors";
 import type { DailyOperationsEventItem } from "@/lib/api/dailyOperationsLive";
 import { cn } from "@/lib/utils";
 
 export type DailyOperationsOverlayScope = DailyOperationsPanelLane | "all";
-export type DailyOperationsOverlayLayout = "grid" | "column";
-
-export const DAILY_OVERLAY_LAYOUT_STORAGE_KEY = "vantage-admin-daily-overlay-layout";
-
-function readLayout(): DailyOperationsOverlayLayout {
-  try {
-    return window.localStorage.getItem(DAILY_OVERLAY_LAYOUT_STORAGE_KEY) === "column" ? "column" : "grid";
-  } catch {
-    return "grid";
-  }
-}
-
-function writeLayout(layout: DailyOperationsOverlayLayout): void {
-  try {
-    window.localStorage.setItem(DAILY_OVERLAY_LAYOUT_STORAGE_KEY, layout);
-  } catch {
-    // Private mode / quota: the choice just does not persist.
-  }
-}
 
 /**
- * The full-height view of one stream when the panel is too short to hold it:
- * every in-memory fact for the chosen lane (or every lane), newest first, as
- * a responsive grid or one long column, with `Load earlier` at the foot. Same
- * cards, same highlights, same EventSource — nothing here fetches on its own
- * except the earlier page the Owner asks for. Escape and the backdrop close it.
+ * The full-height list behind a lane tile's **Open ›**: every in-memory fact for the chosen lane (or every lane),
+ * newest first, as one column of rows (no grid or column switch any more), with `Load earlier` at the foot. A row
+ * opens the fact drawer. Same highlights, same EventSource: nothing here fetches on its own except the earlier page
+ * the Owner asks for. Escape and the backdrop close it (Escape closes the drawer first when one is open).
  */
 export function DailyOperationsEventsOverlay({
   scope,
@@ -47,13 +29,14 @@ export function DailyOperationsEventsOverlay({
   todayCount,
   highlights,
   groupedIds,
-  nowMs,
   liveState,
   company,
+  quietPriorities = false,
   loadingEarlier = false,
   canLoadEarlier = false,
   exhausted = false,
   onLoadEarlier,
+  onOpenFact,
   onClose,
 }: {
   scope: DailyOperationsOverlayScope;
@@ -61,19 +44,18 @@ export function DailyOperationsEventsOverlay({
   todayCount: number | null;
   highlights: ArrivalHighlights;
   groupedIds?: ReadonlySet<string>;
-  nowMs?: number;
   liveState: LiveDotState;
   company?: string | null;
+  quietPriorities?: boolean;
   loadingEarlier?: boolean;
   canLoadEarlier?: boolean;
   exhausted?: boolean;
   onLoadEarlier?: () => void;
+  onOpenFact: (eventIds: string[]) => void;
   onClose: () => void;
 }) {
-  // Mounted only after an Owner click, never server-rendered, so the stored
-  // layout can seed state directly.
-  const [layout, setLayout] = useState<DailyOperationsOverlayLayout>(readLayout);
   const dialogRef = useRef<HTMLElement | null>(null);
+  const overrides = useKindTierOverrides();
   const label = scope === "all" ? DAILY_COPY.allLanes : DAILY_COPY.panelsLabels[scope];
   const tone = scope === "all" ? null : toneClasses(laneToneFor(scope));
 
@@ -82,7 +64,7 @@ export function DailyOperationsEventsOverlay({
     document.body.style.overflow = "hidden";
     dialogRef.current?.querySelector<HTMLButtonElement>("[data-overlay-close]")?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !document.querySelector("[data-fact-drawer]")) {
         event.preventDefault();
         onClose();
       }
@@ -94,13 +76,8 @@ export function DailyOperationsEventsOverlay({
     };
   }, [onClose]);
 
-  function pickLayout(next: DailyOperationsOverlayLayout) {
-    setLayout(next);
-    writeLayout(next);
-  }
-
   return (
-    <div className="fixed inset-0 z-50" data-daily-overlay={scope} data-layout={layout}>
+    <div className="fixed inset-0 z-50" data-daily-overlay={scope}>
       <button
         type="button"
         aria-label={DAILY_COPY.close}
@@ -133,30 +110,7 @@ export function DailyOperationsEventsOverlay({
             </span>
           ) : null}
           <div className="ml-auto flex items-center gap-2">
-            <div className="flex items-center rounded-full bg-steel-100 p-0.5" role="radiogroup" aria-label={DAILY_COPY.layout}>
-              {(["grid", "column"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  role="radio"
-                  aria-checked={layout === option}
-                  onClick={() => pickLayout(option)}
-                  className={cn(
-                    "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
-                    layout === option ? "bg-navy text-white" : "text-muted-foreground hover:bg-steel-200",
-                  )}
-                >
-                  {option === "grid" ? DAILY_COPY.layoutGrid : DAILY_COPY.layoutColumn}
-                </button>
-              ))}
-            </div>
-            <Button
-              variant="ghost"
-              className="h-8 w-8 px-0"
-              onClick={onClose}
-              aria-label={DAILY_COPY.close}
-              data-overlay-close
-            >
+            <Button variant="ghost" className="h-8 w-8 px-0" onClick={onClose} aria-label={DAILY_COPY.close} data-overlay-close>
               <X className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
@@ -165,28 +119,32 @@ export function DailyOperationsEventsOverlay({
           {events.length === 0 ? (
             <p className="text-sm text-muted-foreground">{DAILY_COPY.panelsEmpty}</p>
           ) : (
-            <AnimatedEventList
-              events={events}
-              highlights={highlights}
-              groupedIds={groupedIds}
-              nowMs={nowMs}
-              ariaLabel={label}
-              className={cn(
-                layout === "grid"
-                  ? "grid items-start sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-                  : "mx-auto w-full max-w-3xl",
-              )}
-            />
+            <ol className="mx-auto m-0 flex w-full max-w-3xl list-none flex-col gap-1 p-0" aria-label={label} data-event-list>
+              {events.map((event) => {
+                const arrived = highlights.highlightedIds.has(event.event_id);
+                return (
+                  <li
+                    key={event.event_id}
+                    className={arrived ? "daily-row daily-row-enter" : "daily-row"}
+                    style={groupedIds?.has(event.event_id) ? { marginLeft: 14 } : undefined}
+                  >
+                    <div className="min-h-0">
+                      <FeedRow
+                        event={event}
+                        tier={presentationTier(event.kind, { overrides, quietPriorities })}
+                        arrived={arrived}
+                        icon
+                        onClick={() => onOpenFact([event.event_id])}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
           )}
           <div className="mt-4 flex justify-center">
             {canLoadEarlier && onLoadEarlier ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-8 px-4 text-xs"
-                disabled={loadingEarlier}
-                onClick={onLoadEarlier}
-              >
+              <Button type="button" variant="outline" className="h-8 px-4 text-xs" disabled={loadingEarlier} onClick={onLoadEarlier}>
                 {DAILY_COPY.loadEarlier}
               </Button>
             ) : exhausted && events.length > 0 ? (

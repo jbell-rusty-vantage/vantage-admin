@@ -46,6 +46,8 @@ const nextConfig: NextConfig = {
       { source: "/job-timeline", destination: "/leads/timeline", permanent: true },
       { source: "/cancellations", destination: "/bookings/cancellations", permanent: true },
       { source: "/bookings", has: [{ type: "query", key: "tab", value: "cancellations" }], destination: "/bookings/cancellations", permanent: true },
+      // A lane deep link lands on the Lanes sub-view (doc 16 solo semantics); the bare board lands on Board.
+      { source: "/daily", has: [{ type: "query", key: "lane", value: "(?<lane>.*)" }], destination: "/?tab=operations&view=lanes&lane=:lane", permanent: true },
       { source: "/daily", destination: "/?tab=operations", permanent: true },
       { source: "/analytics", destination: "/insights", permanent: true },
       { source: "/reporting", destination: "/insights/sheets", permanent: true },

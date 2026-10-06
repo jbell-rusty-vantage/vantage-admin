@@ -92,21 +92,15 @@ test("Connect search and attached cards reuse the intake cycle helper for Form a
   assert.match(section, /readOnly/);
 });
 
-test("Bookings operational page mounts Stored lead after Summary and keeps reconciliation out of the file", () => {
+test("Bookings detail panel mounts Stored lead after Summary and keeps reconciliation out of the file", () => {
   const panel = readFileSync(
     path.join(process.cwd(), "components/operational/operational-detail-panel.tsx"),
     "utf8",
   );
-  const page = readFileSync(
-    path.join(process.cwd(), "components/operational/operational-resource-page.tsx"),
-    "utf8",
-  );
   assert.match(panel, /stored_lead/);
   assert.match(panel, /BookingStoredLeadSection/);
-  assert.match(page, /startConnect/);
   assert.match(panel, /readOnly=\{readOnly\}/);
   assert.doesNotMatch(panel, /bookingLeadReconciliation/);
-  assert.doesNotMatch(page, /bookingLeadReconciliation/);
   const bookingsPage = readFileSync(
     path.join(process.cwd(), "app/(dashboard)/bookings/reconciliation/page.tsx"),
     "utf8",

@@ -58,7 +58,7 @@ function StatementGroup({ heading, children }: { heading: string; children: Reac
   );
 }
 
-function RawDrawer({ title, hint, value }: { title: string; hint: string; value: unknown }) {
+export function RawDrawer({ title, hint, value }: { title: string; hint: string; value: unknown }) {
   return (
     <details className="rounded-md border bg-background">
       <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-navy">

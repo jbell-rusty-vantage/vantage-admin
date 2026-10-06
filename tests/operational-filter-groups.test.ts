@@ -20,7 +20,6 @@ import type { TableQueryParams } from "../lib/api/types";
 const root = process.cwd();
 
 const OPERATIONAL_PAGE_FILES = [
-  "components/operational/operational-resource-page.tsx",
   "components/operational/operational-filter-panel.tsx",
   "app/(dashboard)/leads/page.tsx",
   "components/leads/leads-workspace.tsx",
@@ -126,10 +125,6 @@ test("Reset rebuilds the URL with no query and chips call that reset", () => {
   const panel = readFileSync(path.join(root, "components/operational/operational-filter-panel.tsx"), "utf8");
   assert.match(panel, /function ActiveFilterChips/);
   assert.match(panel, /onClick=\{reset\}/);
-
-  const page = readFileSync(path.join(root, "components/operational/operational-resource-page.tsx"), "utf8");
-  assert.match(page, /vantage-admin-operational-filters-collapsed/);
-  assert.match(page, /setSelected\(null\);\s*resetUrl\(\)/);
 });
 
 test("operational pages do not import Observational FilterBar", () => {

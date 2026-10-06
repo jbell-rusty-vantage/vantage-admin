@@ -7,9 +7,18 @@
  */
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Ban, Banknote, CalendarPlus, ClipboardCheck, MessageSquareText, TriangleAlert, UserPlus, UserX } from "lucide-react";
+import { Ban, Banknote, CalendarPlus, ClipboardCheck, MessageSquareText, Star, TriangleAlert, UserPlus, UserX } from "lucide-react";
 import { dailyOperationsFloridaHour, dailyOperationsKindLabel } from "@/components/daily/daily-copy";
 import { HourlyRhythm } from "@/components/daily/hourly-rhythm";
+import {
+  milestoneHeadline,
+  milestoneLinks,
+  milestoneProgressText,
+  milestoneRankLine,
+  milestoneRepsLine,
+  readMilestone,
+  repGoalReachedAtById,
+} from "@/components/daily/milestone";
 import { useNowMs } from "@/components/daily/use-now";
 import { intakeCaseHref } from "@/components/intakes/intake-copy";
 import { useTeam } from "@/components/outreach-desk/data/use-desk-reads";
@@ -247,9 +256,17 @@ function pillVariant(event: DailyOperationsEventItem): PillVariant {
   }
 }
 
-function Highlights({ events, eventsError }: { events: DailyOperationsEventItem[] | null; eventsError?: unknown }) {
+function Highlights({
+  events,
+  eventsError,
+  nowMs,
+}: {
+  events: DailyOperationsEventItem[] | null;
+  eventsError?: unknown;
+  nowMs?: number;
+}) {
   const h = todayCopy.highlights;
-  const rows = events ? highlightEvents(events) : null;
+  const rows = events ? highlightEvents(events, undefined, nowMs) : null;
   return (
     <CrmCard title={h.title} testId="pulse-highlights" foot={<Link href={h.seeAllHref}>{h.seeAll}</Link>}>
       {eventsError && !rows ? (
@@ -265,16 +282,21 @@ function Highlights({ events, eventsError }: { events: DailyOperationsEventItem[
       ) : (
         <ul className="m-0 flex list-none flex-col p-0">
           {rows.map((event) => {
-            const facts = dailyOperationsCardFacts(event).join(" · ");
-            const link = dailyOperationsEventLinks(event)[0];
+            const milestone = readMilestone(event);
+            const facts = milestone
+              ? [milestoneProgressText(milestone), milestoneRankLine(milestone) ?? milestoneRepsLine(milestone)].filter(Boolean).join(" · ")
+              : dailyOperationsCardFacts(event).join(" · ");
+            const link = milestone ? milestoneLinks(milestone)[0] : dailyOperationsEventLinks(event)[0];
             return (
               <li key={event.event_id} data-kind={event.kind} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--crm-divider)] px-4 py-2 first:border-t-0">
                 <time dateTime={event.occurred_at} className="crm-text-muted crm-small tabular-nums">
-                  {formatTime(event.occurred_at)}
+                  {formatTime(milestone ? milestone.reachedAt : event.occurred_at)}
                 </time>
-                <Pill variant={pillVariant(event)}>{dailyOperationsKindLabel(event.kind)}</Pill>
+                <Pill variant={pillVariant(event)} icon={milestone ? Star : undefined}>
+                  {dailyOperationsKindLabel(event.kind)}
+                </Pill>
                 <span className="min-w-0 flex-1 crm-small">
-                  <span className="crm-strong">{dailyOperationsEventTitle(event)}</span>
+                  <span className="crm-strong">{milestone ? milestoneHeadline(milestone) : dailyOperationsEventTitle(event)}</span>
                   {facts ? <span className="crm-text-muted"> · {facts}</span> : null}
                 </span>
                 {link ? (
@@ -291,7 +313,7 @@ function Highlights({ events, eventsError }: { events: DailyOperationsEventItem[
   );
 }
 
-function RepRow({ row }: { row: SalesOutreachDailyCallGoalRow }) {
+function RepRow({ row, goalReachedAt }: { row: SalesOutreachDailyCallGoalRow; goalReachedAt?: string }) {
   const hasGoal = row.goal_state === "goal";
   const overdue = cadenceMetricText(row.overdue_leads);
   const r = todayCopy.reps;
@@ -299,6 +321,13 @@ function RepRow({ row }: { row: SalesOutreachDailyCallGoalRow }) {
     <tr data-agent={row.agent_id}>
       <th scope="row">
         <Person name={row.agent_name} fallback={r.unknownRep} />
+        {goalReachedAt ? (
+          <div>
+            <Pill variant="gold" icon={Star}>
+              {todayCopy.milestones.goalReached(formatTime(goalReachedAt))}
+            </Pill>
+          </div>
+        ) : null}
       </th>
       <td className="crm-nowrap">{repGoalText(row)}</td>
       <td style={{ minWidth: 120 }}>
@@ -317,7 +346,15 @@ function RepRow({ row }: { row: SalesOutreachDailyCallGoalRow }) {
   );
 }
 
-function RepsToday({ team, teamError }: { team: SalesOutreachTeamDto | null | undefined; teamError?: unknown }) {
+function RepsToday({
+  team,
+  teamError,
+  goalReachedAt,
+}: {
+  team: SalesOutreachTeamDto | null | undefined;
+  teamError?: unknown;
+  goalReachedAt: ReadonlyMap<string, string>;
+}) {
   const r = todayCopy.reps;
   const rows = team?.daily_call_goals ?? null;
   const goalsOff = team ? !team.goal_metrics_enabled || rows === null : false;
@@ -354,7 +391,7 @@ function RepsToday({ team, teamError }: { team: SalesOutreachTeamDto | null | un
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => <RepRow key={row.agent_id} row={row} />)
+                rows.map((row) => <RepRow key={row.agent_id} row={row} goalReachedAt={goalReachedAt.get(row.agent_id)} />)
               )}
             </tbody>
           </table>
@@ -419,10 +456,10 @@ export function PulseView(props: PulseViewProps) {
       <Tiles snapshot={snapshot} />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <HourlyRhythm snapshot={snapshot} nowHour={nowHour} />
-        <Highlights events={events} eventsError={eventsError} />
+        <Highlights events={events} eventsError={eventsError} nowMs={nowMs} />
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
-        <RepsToday team={team} teamError={teamError} />
+        <RepsToday team={team} teamError={teamError} goalReachedAt={repGoalReachedAtById(events ?? [])} />
         <CompaniesToday snapshot={snapshot} />
       </div>
     </div>
@@ -443,17 +480,26 @@ export function useSnapshotQuery() {
   });
 }
 
-/** The queries behind the Pulse. */
-export function PulseTab() {
-  const nowMs = useNowMs();
-  const snapshotQuery = useSnapshotQuery();
-  const eventsQuery = useQuery({
+/**
+ * The newest facts across lanes, shared by key with the Team tab (its "Goal reached" marks). Forty, not twenty: the
+ * Highlights keep only tier A and the milestones, so a Granot flood must not push them out of the page.
+ * Once the server adds the `outreach` lane, a `lane: "outreach"` read here is the exact source for the milestones.
+ */
+export function usePulseEvents() {
+  return useQuery({
     queryKey: queryKeys.dailyOperations.events("pulse"),
-    queryFn: () => fetchDailyOperationsEvents({ limit: 20 }),
+    queryFn: () => fetchDailyOperationsEvents({ limit: 40 }),
     staleTime: EVENTS_REFRESH_MS,
     refetchInterval: EVENTS_REFRESH_MS,
     refetchIntervalInBackground: false,
   });
+}
+
+/** The queries behind the Pulse. */
+export function PulseTab() {
+  const nowMs = useNowMs();
+  const snapshotQuery = useSnapshotQuery();
+  const eventsQuery = usePulseEvents();
   const team = useTeam(null, true);
   const intakeFilters = openIntakePreviewFilters("booking");
   const intakeQuery = useQuery({

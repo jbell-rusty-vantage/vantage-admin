@@ -260,28 +260,6 @@ test("Form Lead without a Lead Message uses the empty-state sentence", () => {
   assert.doesNotMatch(html, /Message data/);
 });
 
-test("closing the panel and list/export filters drop record, panel, and connect", () => {
-  const page = readFileSync(
-    path.join(root, "components/operational/operational-resource-page.tsx"),
-    "utf8",
-  );
-  assert.match(page, /apiFiltersFromUrlState/);
-  assert.match(page, /update\(\{ record: null, panel: null, connect: null \}/);
-  assert.match(page, /requestedPanel=\{requestedPanelFromUrl\(filters\)\}/);
-  assert.match(page, /startConnect=\{connectFromUrl\(filters\)\}/);
-});
-
-test("row open writes record and panel together so the tab default cannot drop record", () => {
-  const page = readFileSync(
-    path.join(root, "components/operational/operational-resource-page.tsx"),
-    "utf8",
-  );
-  assert.match(
-    page,
-    /update\(\s*\{\s*record: id,\s*panel: requestedPanelFromUrl\(filters\) \?\? "summary"\s*\}/,
-  );
-});
-
 test("tab fallback only writes panel when a requested tab is already in the URL", () => {
   const panel = readFileSync(
     path.join(root, "components/operational/operational-detail-panel.tsx"),

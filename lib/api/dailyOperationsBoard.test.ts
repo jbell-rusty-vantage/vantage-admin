@@ -10,7 +10,7 @@ import {
   dailyOperationsZipChip,
   formatDailyOperationsRelative,
 } from "../../components/daily/daily-copy";
-import { CategoryPanels } from "../../components/daily/category-panels";
+import { LanesView } from "../../components/daily/lanes-view";
 import { DailyOperationsEventCard } from "../../components/daily/event-card";
 import { compareDailyOperationsEventsNewestFirst, EMPTY_DAILY_OPERATIONS_SESSION_DELTAS } from "./dailyOperationsLive";
 import type { DailyOperationsEventItem } from "./dailyOperationsLive";
@@ -49,7 +49,20 @@ import {
   visibleDailyOperationsPanels,
   writePreferenceFlag,
   zipMissChips,
+  DAILY_KIND_TIERS_STORAGE_KEY,
+  DAILY_OPERATIONS_KIND_TIERS,
+  DAILY_OPERATIONS_MILESTONE_KINDS,
+  DAILY_OPERATIONS_TIERS,
+  isDailyOperationsMilestoneKind,
+  parseDailyOperationsView,
+  presentationTier,
+  readTierOverrides,
+  sanitizeTierOverrides,
+  withKindTier,
+  writeDailyOperationsView,
+  writeTierOverrides,
 } from "./dailyOperationsBoard";
+import { DAILY_OPERATIONS_KINDS } from "./dailyOperationsColors";
 
 function eventItem(
   overrides: Partial<DailyOperationsEventItem> & Pick<DailyOperationsEventItem, "event_id" | "lane" | "kind">,
@@ -146,7 +159,7 @@ test("fan-out by lane keeps a Cancellation visible when Granot is flooded", () =
   assert.equal(byLane.cancellation[0]?.event_id, "c1");
   assert.equal(byLane.granot.length, 12);
   const panels = renderToStaticMarkup(
-    createElement(CategoryPanels, {
+    createElement(LanesView, {
       events,
       snapshot: snapshotFixture(),
       sessionDeltas: EMPTY_DAILY_OPERATIONS_SESSION_DELTAS,
@@ -155,8 +168,6 @@ test("fan-out by lane keeps a Cancellation visible when Granot is flooded", () =
       quietPriorities: false,
       sheetSyncOptIn: false,
       onSelectLane: () => undefined,
-      onToggleQuietPriorities: () => undefined,
-      onToggleSheetSync: () => undefined,
     }),
   );
   assert.match(panels, /Cancellation written/);
@@ -297,7 +308,7 @@ test("Exceptions panel shows a zip-miss Lead when the Exception fact is not in m
   assert.equal(eventsForDailyOperationsPanel({ events: [otherLead], lane: "exception" }).length, 0);
   const snapshot = snapshotFixture();
   const markup = renderToStaticMarkup(
-    createElement(CategoryPanels, {
+    createElement(LanesView, {
       events: [lead],
       snapshot,
       sessionDeltas: EMPTY_DAILY_OPERATIONS_SESSION_DELTAS,
@@ -908,4 +919,93 @@ test("a second insert does not cancel the first event_id 1.5s highlight clear", 
   } finally {
     mock.timers.reset();
   }
+});
+
+test("every kind in the catalog has a presentation tier, and the milestones have theirs before the server emits them", () => {
+  for (const kind of DAILY_OPERATIONS_KINDS) {
+    assert.ok(kind in DAILY_OPERATIONS_KIND_TIERS, `${kind} has no tier`);
+    assert.ok(DAILY_OPERATIONS_TIERS.includes(DAILY_OPERATIONS_KIND_TIERS[kind]!), kind);
+  }
+  for (const kind of DAILY_OPERATIONS_MILESTONE_KINDS) {
+    assert.equal(presentationTier(kind), "A");
+    assert.equal(isDailyOperationsMilestoneKind(kind), true);
+  }
+  assert.equal(isDailyOperationsMilestoneKind("booking.created"), false);
+  // Every table entry is a catalog kind or a milestone: a typo in the table cannot hide a kind.
+  for (const kind of Object.keys(DAILY_OPERATIONS_KIND_TIERS)) {
+    assert.ok(
+      (DAILY_OPERATIONS_KINDS as readonly string[]).includes(kind) || isDailyOperationsMilestoneKind(kind),
+      `${kind} is not a known kind`,
+    );
+  }
+});
+
+test("doc 16 tier table: A spotlight, B row, C counted", () => {
+  const a = ["booking.created", "booking.employee_pending", "granot.booked", "granot.release", "cancellation.created", "exception.zip_missing", "exception.crm_failed", "exception.dead_letter", "exception.adoption_conflict", "sheet_sync.failed", "text.failed"];
+  const b = ["form_lead.created", "call_lead.created", "call_lead.unmatched", "granot.lead_created", "granot.priority_updated", "granot.unmatched", "text.sent", "intake.opened"];
+  const c = ["form_lead.duplicate", "call_lead.duplicate", "granot.minted", "granot.linked", "granot.observed", "granot.pending_match", "intake.refreshed", "text.deferred", "text.skipped", "sheet_sync.completed"];
+  for (const kind of a) assert.equal(presentationTier(kind), "A", kind);
+  for (const kind of b) assert.equal(presentationTier(kind), "B", kind);
+  for (const kind of c) assert.equal(presentationTier(kind), "C", kind);
+  assert.equal(a.length + b.length + c.length + 2, Object.keys(DAILY_OPERATIONS_KIND_TIERS).length);
+});
+
+test("an unknown kind reads as a row; Quiet priorities is a tier override; a viewer override wins", () => {
+  assert.equal(presentationTier("outreach.something_new"), "B");
+  assert.equal(presentationTier("granot.priority_updated"), "B");
+  assert.equal(presentationTier("granot.priority_updated", { quietPriorities: true }), "C");
+  assert.equal(presentationTier("text.sent", { quietPriorities: true }), "B");
+  assert.equal(presentationTier("text.sent", { overrides: { "text.sent": "C" } }), "C");
+  assert.equal(presentationTier("granot.priority_updated", { overrides: { "granot.priority_updated": "A" }, quietPriorities: true }), "A");
+});
+
+test("tier overrides persist per viewer, drop defaults and junk, and reset to empty", () => {
+  const store = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => void store.set(key, value),
+    removeItem: (key: string) => void store.delete(key),
+  };
+  assert.deepEqual(readTierOverrides(storage), {});
+  const picked = withKindTier(withKindTier({}, "text.sent", "C"), "text.failed", "B");
+  assert.deepEqual(picked, { "text.sent": "C", "text.failed": "B" });
+  assert.deepEqual(withKindTier(picked, "text.sent", "B"), { "text.failed": "B" });
+  writeTierOverrides(storage, picked);
+  assert.deepEqual(readTierOverrides(storage), picked);
+  assert.ok(store.has(DAILY_KIND_TIERS_STORAGE_KEY));
+  assert.deepEqual(sanitizeTierOverrides({ "text.sent": "B", "text.failed": "Z", "bad key": "A", x: "A", "form_lead.created": "A" }), {
+    "form_lead.created": "A",
+  });
+  assert.deepEqual(sanitizeTierOverrides(null), {});
+  assert.deepEqual(sanitizeTierOverrides([]), {});
+  writeTierOverrides(storage, {});
+  assert.equal(store.has(DAILY_KIND_TIERS_STORAGE_KEY), false);
+});
+
+test("Operations view: explicit view wins; a lane with no view means Lanes; otherwise Board", () => {
+  assert.equal(parseDailyOperationsView(null), "board");
+  assert.equal(parseDailyOperationsView(undefined, null), "board");
+  assert.equal(parseDailyOperationsView("board"), "board");
+  assert.equal(parseDailyOperationsView("lanes"), "lanes");
+  assert.equal(parseDailyOperationsView("nonsense"), "board");
+  assert.equal(parseDailyOperationsView(null, "exception"), "lanes");
+  assert.equal(parseDailyOperationsView(null, "all"), "board");
+  assert.equal(parseDailyOperationsView(null, "bogus"), "board");
+  assert.equal(parseDailyOperationsView("board", "exception"), "board");
+  assert.equal(parseDailyOperationsView("lanes", null), "lanes");
+});
+
+test("writing the Operations view keeps the other params; Board drops view and lane", () => {
+  const params = new URLSearchParams("tab=operations&lane=exception&company=top10_leads&quiet_priorities=1");
+  const lanes = writeDailyOperationsView(params, "lanes");
+  assert.equal(lanes.get("view"), "lanes");
+  assert.equal(lanes.get("lane"), "exception");
+  assert.equal(lanes.get("tab"), "operations");
+  const board = writeDailyOperationsView(lanes, "board");
+  assert.equal(board.get("view"), null);
+  assert.equal(board.get("lane"), null);
+  assert.equal(board.get("company"), "top10_leads");
+  assert.equal(board.get("quiet_priorities"), "1");
+  assert.equal(board.get("tab"), "operations");
+  assert.equal(params.get("lane"), "exception"); // the input is not mutated
 });

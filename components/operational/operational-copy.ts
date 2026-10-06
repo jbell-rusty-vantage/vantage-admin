@@ -20,6 +20,7 @@ export const OPERATIONAL_COPY = {
     list: "Tabs",
     summary: "Summary",
     contact: "Contact",
+    cancellation: "Cancellation",
     message: "Lead Message",
     actions: "Actions",
     production: "Production record",

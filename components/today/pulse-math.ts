@@ -3,7 +3,8 @@ import {
   type DailyOperationsHeadlinePace,
   type DailyOperationsSnapshot,
 } from "@/lib/api/dailyOperations";
-import { eventsForDailyOperationsArrivals } from "@/lib/api/dailyOperationsBoard";
+import { isMilestonePinned } from "@/components/daily/milestone";
+import { eventsForDailyOperationsArrivals, presentationTier } from "@/lib/api/dailyOperationsBoard";
 import type { DailyOperationsEventItem } from "@/lib/api/dailyOperationsLive";
 import { OVERVIEW_INTAKE_PREVIEW_LIMIT, todayCopy } from "./today-copy";
 
@@ -38,17 +39,27 @@ export function tileTrend(pace: DailyOperationsHeadlinePace | null | undefined):
   return { tone, label: change.label, title: `${todayCopy.tiles.vsYesterday}${signed}` };
 }
 
-/** The newest facts for Highlights, strictly newest first. Quiet priorities stay hidden (they are noise here). */
+/**
+ * Highlights (doc 16): tier A facts only (the ones that need the Owner, or deserve a smile) plus the goal milestones,
+ * newest first, at most `limit`. A milestone inside its 30-minute pin window goes first; it needs the browser clock
+ * (`nowMs`), so the server render pins nothing. Everything else is on Operations.
+ */
 export function highlightEvents(
   events: readonly DailyOperationsEventItem[],
   limit = PULSE_HIGHLIGHT_LIMIT,
+  nowMs?: number,
 ): DailyOperationsEventItem[] {
-  return eventsForDailyOperationsArrivals({ events: [...events], company: null, quietPriorities: true, limit });
+  const spotlight = eventsForDailyOperationsArrivals({ events: [...events], company: null, quietPriorities: true, limit: null }).filter(
+    (event) => presentationTier(event.kind) === "A",
+  );
+  const pinned = spotlight.filter((event) => isMilestonePinned(event, nowMs));
+  const settled = spotlight.filter((event) => !isMilestonePinned(event, nowMs));
+  return [...pinned, ...settled].slice(0, limit);
 }
 
-/** A written Booking is the one celebration (gold) in Highlights. */
+/** A written Booking and a reached goal are the celebrations (gold) in Highlights. */
 export function isCelebration(event: Pick<DailyOperationsEventItem, "kind">): boolean {
-  return event.kind === "booking.created";
+  return event.kind === "booking.created" || event.kind === "outreach.rep_goal_met" || event.kind === "outreach.team_goal_met";
 }
 
 /** "just now", "3 min ago", "2 h ago" for a query's `dataUpdatedAt`; null until the browser clock is known. */
