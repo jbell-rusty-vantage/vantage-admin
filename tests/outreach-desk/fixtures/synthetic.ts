@@ -351,25 +351,32 @@ function channel(
     completion_kind: status === "completed" ? "verified" : null,
     coverage: { state: "complete", known_complete_through: SYNTHETIC_COVERAGE, gaps: [] },
     blocked_reason: null,
-    // SYNTHETIC, built from the A2 design's DTO shape (research/LANE-A §A2/§10) until the server examples exist: an
-    // overdue channel is verified by coverage; a channel with no passed deadline carries null.
-    verification: status === "overdue" ? { state: "verified", verified_through: SYNTHETIC_COVERAGE, unverified_since: null } : null,
+    // As the server's A2 examples serve it (`queue.owner.awaiting-capture.json`): an overdue channel is verified by
+    // cadence coverage (capture minus the settlement allowance); every other status carries null.
+    verification:
+      status === "overdue" ? { state: "verified", verified_through: SYNTHETIC_CADENCE_COVERAGE, unverified_since: null } : null,
   };
 }
 
 /**
- * SYNTHETIC (A2 shape): a channel whose deadline has passed but capture coverage is behind it. The server keeps it
- * `due` with `verification.state: "unverified"` and a live `partial` coverage block.
+ * A channel whose deadline has passed but cadence coverage is behind it, in the shape of the server's A2 examples
+ * (`queue.owner.awaiting-capture.json` rows 3–4): status `due`, `verification.state: "unverified"` with
+ * `verified_through` = cadence coverage (capture minus the 2-minute settlement allowance) and `unverified_since` = the
+ * deadline; the `coverage` block is the live capture watermark (complete within the today tolerance), not the verdict.
  */
 function unverifiedChannel(required: number, done: number, dueAt: string, verifiedThrough: string | null): SalesOutreachChannelDto {
+  const capture = verifiedThrough ? new Date(Date.parse(verifiedThrough) + SYNTHETIC_SETTLEMENT_ALLOWANCE_MS).toISOString() : null;
   return {
     ...channel(required, done, "due", dueAt),
-    coverage: { state: verifiedThrough ? "partial" : "unknown", known_complete_through: verifiedThrough, gaps: [] },
+    coverage: { state: capture ? "complete" : "unknown", known_complete_through: capture, gaps: [] },
     verification: { state: "unverified", verified_through: verifiedThrough, unverified_since: dueAt },
   };
 }
 
 const SYNTHETIC_COVERAGE = "2026-10-01T15:59:00.000Z";
+/** The server's default `evidence.call_settlement_allowance_minutes` (2): cadence coverage trails capture by it. */
+const SYNTHETIC_SETTLEMENT_ALLOWANCE_MS = 2 * 60_000;
+const SYNTHETIC_CADENCE_COVERAGE = new Date(Date.parse(SYNTHETIC_COVERAGE) - SYNTHETIC_SETTLEMENT_ALLOWANCE_MS).toISOString();
 const TODAY_CLOSE = "2026-10-02T00:00:00.000Z"; // 20:00 New York on Oct 1
 const TODAY_NOON = "2026-10-01T16:00:00.000Z";
 /** Row 9's passed call deadline (11:00 AM New York) and the capture coverage behind it (10:43 AM). */
@@ -537,7 +544,7 @@ export function syntheticQueueRows(variant: SyntheticVariant = "desk"): SalesOut
 export function syntheticDetail(input: { subjectId: string; role: SalesOutreachRole; variant?: SyntheticVariant }): SalesOutreachDetailDto | null {
   const variant = input.variant ?? "desk";
   const review = SYNTHETIC_REVIEW_SUBJECTS.find((candidate) => syntheticSubjectId(candidate.n) === input.subjectId);
-  if (review) return syntheticReviewDetail({ n: review.n, reasons: review.reasons, role: input.role, variant });
+  if (review) return syntheticReviewDetail({ n: review.n, reasons: review.reasons, evaluated: review.evaluated, role: input.role, variant });
   const row = syntheticQueueRows(variant).find((candidate) => candidate.subject_id === input.subjectId);
   if (!row) return null;
   const spec = ROW_SPECS.find((candidate) => syntheticSubjectId(candidate.n) === input.subjectId)!;
@@ -696,10 +703,11 @@ export function syntheticDetail(input: { subjectId: string; role: SalesOutreachR
 /**
  * Review subjects (status `review`, no queue row: the queue's needs-contact frame never lists them). Unassigned, so
  * only the Owner/Manager open them (`?view=team&lead=<id>` in mock mode). One per review-reason family the desk has
- * copy for; 905 carries a reason no copy map knows, to show the safe fallback.
+ * copy for; 905 carries a reason no copy map knows, to show the safe fallback. 901 is the C2c steady state (an
+ * evaluated review subject, `evaluated: true`); the others have no projection yet.
  */
-export const SYNTHETIC_REVIEW_SUBJECTS: ReadonlyArray<{ n: number; reasons: string[] }> = [
-  { n: 901, reasons: ["no_contact_number"] },
+export const SYNTHETIC_REVIEW_SUBJECTS: ReadonlyArray<{ n: number; reasons: string[]; evaluated?: boolean }> = [
+  { n: 901, reasons: ["no_contact_number"], evaluated: true },
   { n: 902, reasons: ["ambiguous_identity", "received_time_unreliable"] },
   { n: 903, reasons: ["priority_needs_review"] },
   { n: 904, reasons: ["unmapped_priority"] },
@@ -707,34 +715,68 @@ export const SYNTHETIC_REVIEW_SUBJECTS: ReadonlyArray<{ n: number; reasons: stri
 ];
 
 /**
- * A review subject as the server reads it: no projection yet (`projection_state: pending`), no requirements, and one
- * `review` explanation code per reason (first five), as `reads/detail.ts` explanationOf emits them.
+ * A review subject as the server's `reads/detail.ts` reads it, with one `review` explanation code per reason (first
+ * five).
+ * - Not evaluated yet (`projection_state: pending`): both channels are the server's `PENDING_CHANNEL` (status
+ *   `pending`, counts null, `completion_kind: evidence_pending`) with the live coverage block, and `status_flags.pending`.
+ * - Evaluated (C2c `no_contact_number` once the evaluator has run): `projection_state: current`, `engine_state: review`
+ *   on a planned New period, no obligations (the engine derives none in review), so both channels are `not_required`
+ *   with nothing counted; SMS counts are null while SMS capture has no coverage.
  */
-export function syntheticReviewDetail(input: { n: number; reasons: string[]; role?: SalesOutreachRole; variant?: SyntheticVariant }): SalesOutreachDetailDto {
+export function syntheticReviewDetail(input: {
+  n: number;
+  reasons: string[];
+  evaluated?: boolean;
+  role?: SalesOutreachRole;
+  variant?: SyntheticVariant;
+}): SalesOutreachDetailDto {
   const base = syntheticDetail({ subjectId: syntheticSubjectId(7), role: input.role ?? "owner", variant: input.variant ?? "desk" })!;
-  const none = channel(0, 0, "not_required", null);
+  const liveCall: SalesOutreachChannelDto["coverage"] = { state: "complete", known_complete_through: SYNTHETIC_COVERAGE, gaps: [] };
+  const liveSms: SalesOutreachChannelDto["coverage"] = { state: "unknown", known_complete_through: null, gaps: [] };
+  const pending: SalesOutreachChannelDto = {
+    required: null,
+    verified_completed: null,
+    remaining: null,
+    due_at: null,
+    oldest_actionable_due_at: null,
+    status: "pending",
+    completion_kind: "evidence_pending",
+    coverage: liveCall,
+    blocked_reason: null,
+    verification: null,
+  };
+  const evaluated = input.evaluated === true;
+  const requirements: SalesOutreachDetailDto["requirements"] = evaluated
+    ? { call: channel(0, 0, "not_required", null), sms: { ...channel(0, null, "not_required", null), coverage: liveSms } }
+    : { call: pending, sms: { ...pending, coverage: liveSms } };
   return {
     ...base,
     subject: { ...base.subject, subject_id: syntheticSubjectId(input.n), status: "review", review_reasons: input.reasons, job_no: `P55690${input.n}`, name: `Review lead ${input.n}` },
     priority: { raw: null, basis: "none", accepted_at: null, uncertain: false },
     policy: {
       ...base.policy,
-      projection_state: "pending",
-      workflow: "none",
-      engine_state: null,
+      projection_state: evaluated ? "current" : "pending",
+      workflow: evaluated ? "new" : "none",
+      engine_state: evaluated ? "review" : null,
       schedule_day: null,
       period: null,
       quoted: null,
       initial_response: null,
       catch_up: { call: { outstanding: false, missed_count: 0, state: null }, sms: { outstanding: false, missed_count: 0, state: null } },
       explanation: [
-        { code: "projection_state", value: "pending" },
+        { code: "projection_state", value: evaluated ? "current" : "pending" },
+        ...(evaluated
+          ? [
+              { code: "workflow", value: "new" },
+              { code: "engine_state", value: "review" },
+            ]
+          : []),
         { code: "priority_basis", value: "none" },
         ...input.reasons.slice(0, 5).map((reason) => ({ code: "review", value: reason })),
       ],
     },
-    requirements: { call: none, sms: none },
-    status_flags: { ...base.status_flags, needs_contact: false, overdue: false, pending: false },
+    requirements,
+    status_flags: { ...base.status_flags, needs_contact: false, overdue: false, pending: !evaluated },
     oldest_actionable_due_at: null,
     next_action_due_at: null,
     history: { ...base.history, window_history: [], window_summary: { dates: 0, call_missed: 0, sms_missed: 0 }, contact_events: [], assignment_changes: [] },

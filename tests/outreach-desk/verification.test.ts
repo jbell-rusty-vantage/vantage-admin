@@ -28,6 +28,7 @@ import {
   salesOutreachTeamSchema,
   type SalesOutreachChannelDto,
   type SalesOutreachQueueRowDto,
+  type SalesOutreachRepDayDto,
   type SalesOutreachUnknownValue,
 } from "../../lib/api/salesOutreach";
 import {
@@ -45,8 +46,10 @@ import {
  * it yet carries `verification.state: "unverified"` and reads "Due — not yet verified (activity known through …)" —
  * never "overdue", never red and never a negative countdown. `pending` is evidence uncertainty with its own copy (not
  * "Needs review"); `coverage_incomplete` is a known cadence unknown reason; `unassigned.overdue` is shown on the
- * Overdue card. The A2-shaped payloads below are SYNTHETIC (built from research/LANE-A §A2/§10) until the server
- * examples exist; ADM-6 replaces them with the byte-copied server examples.
+ * Overdue card. Since ADM-6 (wave 2) the mirror and rendering tests read the server's A2 dto-examples as served
+ * (`tests/outreach-desk/fixtures/server/`, byte copies); `wave2-examples.test.ts` sweeps every example. The hand-built
+ * channels below (`unverified()`, `verifiedOverdue()`) remain only for cases the examples don't carry: no capture
+ * coverage at all, an `overdue` that arrives unverified, an unknown state, and team-level `coverage_incomplete`.
  */
 
 const AS_OF = SYNTHETIC_AS_OF; // 12:00 PM New York, Oct 1
@@ -114,23 +117,25 @@ test("the mirror knows the A2 enum values: coverage_incomplete on every cadence 
   assert.equal(entry.fallback, "unverified", "an unknown verification state reads on the safe side");
 });
 
-test("a server queue row with A2 verification round-trips with no field dropped and no unknown value", () => {
-  const body = readServerExample("queue.owner.page-1.json");
-  const data = body.data as { rows: Record<string, unknown>[] };
-  const row = data.rows[0]!;
-  row.call = { ...(row.call as object), status: "due", verification: { state: "unverified", verified_through: "2026-10-05T14:43:00.000Z", unverified_since: "2026-10-05T14:50:00.000Z" } };
-  row.sms = { ...(row.sms as object), verification: null };
-  const second = data.rows[1] as Record<string, unknown>;
-  second.sms = { ...(second.sms as object), verification: { state: "verified", verified_through: "2026-10-05T14:57:00.000Z", unverified_since: null } };
-  // The A2 server examples carry `verification` on every channel; a server before A2 sent none.
-  delete (second.call as Record<string, unknown>).verification;
+test("the server's A2 queue example round-trips as served (verified, unverified and null verification), and a pre-A2 copy still parses", () => {
+  // queue.owner.awaiting-capture.json as served: two verified overdue calls, two unverified due calls, SMS null.
+  const body = readServerExample("queue.owner.awaiting-capture.json");
   const { result, events } = collectUnknown(() => salesOutreachEnvelope(salesOutreachQueueSchema).parse(body));
   assert.deepEqual(events, []);
-  assert.deepEqual(result, body, "verification is kept, absent stays absent");
-  assert.equal(result.data.rows[0]!.call.verification?.state, "unverified");
-  assert.equal(result.data.rows[0]!.sms.verification, null);
-  assert.equal(result.data.rows[1]!.sms.verification?.state, "verified");
-  assert.equal("verification" in result.data.rows[1]!.call, false, "a server before A2 sends no verification and the row still parses");
+  assert.deepEqual(result, body, "verification is kept exactly as served");
+  assert.deepEqual(
+    result.data.rows.map((row) => [row.call.verification?.state ?? null, row.sms.verification?.state ?? null]),
+    [["verified", null], ["verified", null], ["unverified", null], ["unverified", null], [null, null]],
+  );
+  // A server before A2 sent no `verification` key: the same rows still parse, nothing is invented.
+  const preA2 = structuredClone(body);
+  for (const row of (preA2.data as { rows: Record<string, Record<string, unknown>>[] }).rows) {
+    delete row.call!.verification;
+    delete row.sms!.verification;
+  }
+  const parsed = salesOutreachEnvelope(salesOutreachQueueSchema).parse(preA2);
+  assert.deepEqual(parsed, preA2, "absent stays absent");
+  assert.ok(parsed.data.rows.every((row) => !("verification" in row.call) && !("verification" in row.sms)));
 });
 
 test("an unknown verification state reads as unverified (amber, never overdue) and is reported", () => {
@@ -150,6 +155,20 @@ test("an unknown verification state reads as unverified (amber, never overdue) a
 });
 
 test("coverage_incomplete on team and rep-day cadence metrics parses silently and reads as unavailable with its reason", () => {
+  // As served (A2 examples): `sms_due_today` is coverage_incomplete while SMS capture has no coverage.
+  for (const name of ["team.owner.cadence-enforcement.json", "rep-days.owner.cadence-enforcement.json", "rep-days.rep.cadence-enforcement.json"]) {
+    const body = readServerExample(name);
+    const schema = name.startsWith("team.") ? salesOutreachTeamSchema : salesOutreachRepDaysSchema;
+    const served = collectUnknown(() => salesOutreachEnvelope(schema).parse(body));
+    assert.deepEqual(served.events, [], name);
+    const data = served.result.data as { reps?: SalesOutreachRepDayDto[] | null; daily_call_goals?: SalesOutreachRepDayDto[] };
+    const rows = (data.reps ?? data.daily_call_goals ?? []).filter((row) => row.sms_due_today.unknown_reason === "coverage_incomplete");
+    assert.ok(rows.length > 0, `${name} serves a coverage_incomplete metric`);
+    for (const row of rows) {
+      assert.deepEqual(cadenceMetricText(row.sms_due_today), { text: t.unavailable, available: false, reason: "Waiting for RingCentral capture coverage" });
+    }
+  }
+  // Not in any example yet: every overdue metric unknown (call coverage unknown). Built on the served team example.
   const team = readServerExample("team.owner.cadence-enforcement.json");
   const data = team.data as Record<string, unknown>;
   const incomplete = { value: null, unknown_reason: "coverage_incomplete" };
