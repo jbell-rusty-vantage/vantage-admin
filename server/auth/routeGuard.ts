@@ -32,6 +32,7 @@ export const DASHBOARD_PATH_PREFIXES = [
   "/testimonials",
   "/reporting",
   "/ingestion",
+  "/automations",
 ] as const;
 
 /** Sales Outreach Desk (ADM-1): where the edge guard sends a rep or a manager who asks for any other page. */

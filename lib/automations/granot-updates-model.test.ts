@@ -270,6 +270,9 @@ test("dates: Granot MM/DD/YYYY to day keys, windows in words, presets and Since 
   assert.equal(windowDays("2026-10-03", "2026-10-05"), 3);
   assert.equal(windowDays("2026-10-05", "2026-10-03"), 0);
   assert.equal(addDays("2026-10-06", -6), "2026-09-30");
+  // 2026-10-06 production fix: an empty or malformed key must never throw inside a render (it did: "Invalid time value").
+  assert.equal(addDays("", -6), "");
+  assert.equal(addDays("not-a-day", 1), "not-a-day");
   assert.deepEqual(presetWindow("today", "2026-10-06", [], ["form_leads"]), { from: "2026-10-06", to: "2026-10-06" });
   assert.deepEqual(presetWindow("yesterday", "2026-10-06", [], ["form_leads"]), { from: "2026-10-05", to: "2026-10-05" });
   assert.deepEqual(presetWindow("last7", "2026-10-06", [], ["form_leads"]), { from: "2026-09-30", to: "2026-10-06" });

@@ -22,6 +22,9 @@ test("route guard protects dashboard paths", () => {
   assert.equal(shouldProtectPath("/reporting/definition-1"), true);
   assert.equal(shouldProtectPath("/ingestion"), true);
   assert.equal(shouldProtectPath("/ingestion/granot"), true);
+  // Automations (doc 17 Granot updates) is a dashboard page: no session sends it to /login with ?next=.
+  assert.equal(shouldProtectPath("/automations"), true);
+  assert.equal(shouldProtectPath("/automations/granot-updates/group-1"), true);
   assert.equal(shouldProtectPath("/sales-intelligence"), true);
 });
 

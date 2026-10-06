@@ -72,13 +72,17 @@ export function useGranotNames(enabled = true) {
   });
 }
 
-/** Today's New York day key; re-derived on the shared 15 s clock so a page left open crosses midnight correctly. */
+/** Today's New York day key (`YYYY-MM-DD`), re-derived every minute so a page left open crosses midnight correctly. */
+function todayKeyNow(): string {
+  return newYorkDayKey(new Date());
+}
+
 export function useTodayKey(): string {
   const subscribe = useCallback((onChange: () => void) => {
     const timer = setInterval(onChange, 60_000);
     return () => clearInterval(timer);
   }, []);
-  return useSyncExternalStore(subscribe, () => newYorkDayKey(Date.now()), () => newYorkDayKey(Date.now()));
+  return useSyncExternalStore(subscribe, todayKeyNow, todayKeyNow);
 }
 
 // ---- Starting a check ---------------------------------------------------------------------------------------------------

@@ -35,7 +35,8 @@ export function formatCount(value: number | null | undefined): string {
 
 export function parseInstant(value: unknown): Date | null {
   if (!value) return null;
-  const date = value instanceof Date ? value : new Date(String(value));
+  // A number is epoch milliseconds (`Date.now()`); `new Date(String(number))` would be an invalid date.
+  const date = value instanceof Date ? value : typeof value === "number" ? new Date(value) : new Date(String(value));
   return Number.isNaN(date.getTime()) ? null : date;
 }
 

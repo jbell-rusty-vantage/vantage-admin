@@ -68,9 +68,11 @@ function dayToMs(key: string): number {
   return Date.parse(`${key}T12:00:00Z`);
 }
 
+/** A day key shifted by whole days; a key that is not a day comes back unchanged (never throws in a render). */
 export function addDays(key: string, days: number): string {
+  if (!isDayKey(key)) return key;
   const date = new Date(dayToMs(key) + days * DAY_MS);
-  return date.toISOString().slice(0, 10);
+  return Number.isNaN(date.getTime()) ? key : date.toISOString().slice(0, 10);
 }
 
 /** Inclusive calendar days in a window; 0 when either end is missing or reversed. */
