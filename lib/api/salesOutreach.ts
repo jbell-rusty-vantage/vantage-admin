@@ -45,6 +45,14 @@ export const SALES_OUTREACH_GOAL_STATES = ["goal", "no_goal_today", "not_on_rost
 export type SalesOutreachGoalState = (typeof SALES_OUTREACH_GOAL_STATES)[number];
 export const SALES_OUTREACH_GOAL_COUNT_SCOPES = ["all_outbound", "eligible_new_quoted"] as const;
 export type SalesOutreachGoalCountScope = (typeof SALES_OUTREACH_GOAL_COUNT_SCOPES)[number];
+/** olr C2c `cadence.no_contact_number_rule` values (server `SALES_OUTREACH_NO_CONTACT_NUMBER_RULES`). */
+export const SALES_OUTREACH_NO_CONTACT_NUMBER_RULES = ["review_no_cadence"] as const;
+/** olr C2d `evidence.call_association_rule` values (server `SALES_OUTREACH_CALL_ASSOCIATION_RULES`). */
+export const SALES_OUTREACH_CALL_ASSOCIATION_RULES = ["number_lead", "single_active_subject_on_link"] as const;
+/** `cadence.intake_default_rule` sources and values (server `intakeDefaultRuleSchema`). */
+export const SALES_OUTREACH_INTAKE_SOURCES = ["website_form", "best_relocation", "ringcentral_call", "manual", "granot_created"] as const;
+export type SalesOutreachIntakeSource = (typeof SALES_OUTREACH_INTAKE_SOURCES)[number];
+export const SALES_OUTREACH_INTAKE_DEFAULTS = ["new", "review"] as const;
 export const SALES_OUTREACH_ROLES = ["owner", "manager", "rep"] as const;
 export type SalesOutreachRole = (typeof SALES_OUTREACH_ROLES)[number];
 export const SALES_OUTREACH_ERROR_CODES = [
@@ -328,9 +336,31 @@ export const salesOutreachCaptureFreshnessSchema = z.object({
   last_webhook_at: nullableInstant.optional(),
 });
 
+/**
+ * Lifecycle repair C7 (`freshness.sms.pending`): SMS still `pending_identity` (the sending rep is not confirmed) or
+ * `pending_association` (not matched to one lead) over the last `window_days` (7) by event time, summed over the
+ * current rep mailboxes; `mailboxes` lists those with any (≤ 100, by extension; `agent_id` null when the mailbox is no
+ * longer a reviewed rep's). Null while rep SMS capture is off and before the first count.
+ */
+export const salesOutreachSmsPendingSchema = z.object({
+  identity: count,
+  association: count,
+  window_days: z.number().int().min(1),
+  mailboxes: z.array(
+    z.object({
+      extension_id: z.string(),
+      agent_id: salesOutreachAgentIdSchema.nullable(),
+      identity: count,
+      association: count,
+    }),
+  ),
+});
+export type SalesOutreachSmsPending = z.infer<typeof salesOutreachSmsPendingSchema>;
+
 export const salesOutreachFreshnessSchema = z.object({
   calls: salesOutreachCaptureFreshnessSchema,
-  sms: salesOutreachCaptureFreshnessSchema,
+  /** SMS adds `pending` (C7); optional because servers before C7 omit it. The calls block has no such field. */
+  sms: salesOutreachCaptureFreshnessSchema.extend({ pending: salesOutreachSmsPendingSchema.nullable().optional() }),
   granot: z.object({
     state: granotFreshnessStateSchema,
     last_observed_at: nullableInstant,
@@ -1098,6 +1128,8 @@ export const salesOutreachPaths = {
   enrollmentReport: () => "enrollment/report",
   enrollmentApply: () => "enrollment/apply",
   enrollmentVerify: () => "enrollment/verify",
+  /** olr B8: what the lead-change jobs of one New York day decided for Leads that were not subjects (default today). */
+  enrollmentAdmissions: (query: { business_day?: string | null } = {}) => withQuery("enrollment/admissions", query),
 } as const;
 
 function withQuery(path: string, query: Record<string, string | number | undefined | null>): string {
@@ -1285,6 +1317,8 @@ export const salesOutreachConfigurationValueSchema = z.looseObject({
     intake_admission_watermark: z.string().nullable(),
     backfill_lookback_days: z.number().int().nullable(),
     backfill_include_upcoming_moves: z.boolean().nullable(),
+    // olr B6 (D7): event-driven expansion admission; absent = off (server code default).
+    expansion_admission_enabled: z.boolean().optional(),
   }),
   cadence: z.looseObject({
     policy_version: z.string().nullable(),
@@ -1346,6 +1380,8 @@ export const salesOutreachConfigurationValueSchema = z.looseObject({
     move_date_rule: rule("cadence.move_date_rule", ["review_label_only"]),
     lead_eligibility_rule: rule("cadence.lead_eligibility_rule", ["no_sync_viable_duplicates_excluded"]),
     precedence_rule: rule("cadence.precedence_rule", ["closure_restriction_schedule_priority"]),
+    // olr C2c (D-C2c): absent = a subject without a callable number stays active.
+    no_contact_number_rule: openEnum("configuration cadence.no_contact_number_rule", SALES_OUTREACH_NO_CONTACT_NUMBER_RULES).optional(),
   }),
   evidence: z.looseObject({
     qualifying_call_rule: rule("evidence.qualifying_call_rule", ["terminal_call_log_attempt"]),
@@ -1358,6 +1394,13 @@ export const salesOutreachConfigurationValueSchema = z.looseObject({
     operating_window_rule: rule("evidence.operating_window_rule", ["goal_full_date_cadence_open_hours"]),
     originating_inbound_rule: rule("evidence.originating_inbound_rule", ["unique_association_initial_response"]),
     restricted_contact_rule: rule("evidence.restricted_contact_rule", ["history_only_zero_credit"]),
+    // olr A0 capture tunables (absent = the server code default, `SALES_OUTREACH_CONFIGURATION_TUNABLES`).
+    call_settlement_allowance_minutes: z.number().int().optional(),
+    today_coverage_tolerance_minutes: z.number().int().optional(),
+    capture_freshness_tolerance_minutes: z.number().int().optional(),
+    webhook_silence_minutes: z.number().int().optional(),
+    // olr C2d (D-C2d): absent = `number_lead` (All Numbers CONTRACT §3 as built).
+    call_association_rule: openEnum("configuration evidence.call_association_rule", SALES_OUTREACH_CALL_ASSOCIATION_RULES).optional(),
   }),
   migration: z.looseObject({
     paused: z.boolean(),
@@ -1371,6 +1414,10 @@ export const salesOutreachConfigurationValueSchema = z.looseObject({
     max_replication_lag_seconds: z.number().int().nullable(),
     max_consumer_lag_seconds: z.number().int().nullable(),
     max_incremental_write_bytes_per_second: z.number().int().nullable(),
+    // olr B10 Lead-change tail loop and B2 decision reconcile (absent = the server code default).
+    feed_max_passes_per_run: z.number().int().optional(),
+    feed_budget_seconds: z.number().int().optional(),
+    decision_reconcile_per_run: z.number().int().optional(),
   }),
   goals: z.looseObject({
     roster_version: z.string().nullable(),
@@ -1389,7 +1436,22 @@ export const salesOutreachConfigurationValueSchema = z.looseObject({
       )
       .nullable(),
     zero_goal_rule: rule("goals.zero_goal_rule", ["no_goal_today_excluded_from_denominator"]),
+    /**
+     * olr C1a: which calls count toward the goal, per New York business day, ascending by `from_day`; absent or empty =
+     * every outbound call. The server refuses a change to an entry on or before today (`count_scope_not_prospective`).
+     */
+    count_scope_schedule: z
+      .array(z.looseObject({ from_day: z.string(), scope: openEnum("configuration goals.count_scope_schedule[].scope", SALES_OUTREACH_GOAL_COUNT_SCOPES) }))
+      .optional(),
   }),
+  /** olr A0/A5: evaluate-drain tunables. An optional namespace: absent = every tunable at its server code default. */
+  operations: z
+    .looseObject({
+      evaluate_drain_max_jobs: z.number().int().optional(),
+      evaluate_drain_budget_seconds: z.number().int().optional(),
+      evaluate_drain_concurrency: z.number().int().optional(),
+    })
+    .optional(),
 });
 export type SalesOutreachConfigurationValue = z.infer<typeof salesOutreachConfigurationValueSchema>;
 
@@ -1541,3 +1603,27 @@ export const salesOutreachEnrollmentVerifySchema = z.object({
   mismatches: z.array(z.object({ lead: salesOutreachLeadRefSchema, problem: z.string() })),
 });
 export type SalesOutreachEnrollmentVerifyDto = z.infer<typeof salesOutreachEnrollmentVerifySchema>;
+
+/**
+ * olr B8 `GET /enrollment/admissions?business_day=` (server `salesOutreachAdmissionsSchema`,
+ * `validation/v1/salesOutreachEnrollment.ts`). `not_admitted` and `recent_refusals[].reason` are free text
+ * (`closed_priority`, `excluded:duplicate`, `review:<reason>`, …): the admin renders them through its copy map and
+ * never raw. A day older than `retention_days` answers 400 `INVALID_INPUT` issue `retention_exceeded`; a future day
+ * `business_day_in_future`.
+ */
+export const salesOutreachAdmissionsSchema = z.object({
+  contract_version: contract,
+  business_day: salesOutreachBusinessDateSchema,
+  as_of: instant,
+  timezone: z.literal(SALES_OUTREACH_TIMEZONE),
+  retention_days: z.number().int().positive(),
+  counts: z.object({
+    admitted_intake: count,
+    admitted_review: count,
+    admitted_expansion: count,
+    deferred: count,
+    not_admitted: z.record(z.string(), count),
+  }),
+  recent_refusals: z.array(z.object({ lead: salesOutreachLeadRefSchema, reason: z.string(), at: instant })),
+});
+export type SalesOutreachAdmissionsDto = z.infer<typeof salesOutreachAdmissionsSchema>;

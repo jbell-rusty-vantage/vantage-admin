@@ -14,6 +14,7 @@ import type {
   SalesOutreachOtherOutboundBreakdown,
   SalesOutreachQueueRowDto,
   SalesOutreachRepDayDto,
+  SalesOutreachSmsPending,
 } from "@/lib/api/salesOutreach";
 import { deskCopy } from "../outreach-desk-copy";
 import { reportUnknownDeskCode } from "./unknown-codes";
@@ -186,8 +187,29 @@ export function freshnessChips(freshness: SalesOutreachFreshness): FreshnessChip
       title: granotAge ? deskCopy.freshness.observed(granotAge) : deskCopy.freshness.unknown(deskCopy.freshness.sources.granot),
     },
     captureChip("calls", deskCopy.freshness.sources.calls, freshness.calls),
-    captureChip("sms", deskCopy.freshness.sources.sms, freshness.sms),
+    withSmsPending(captureChip("sms", deskCopy.freshness.sources.sms, freshness.sms), freshness.sms.pending),
   ];
+}
+
+/**
+ * The SMS-pending note (lifecycle repair C7, `freshness.sms.pending`) in words — texts captured in the last
+ * `window_days` whose sending rep is not confirmed yet (`identity`) or that match no single lead yet (`association`) —
+ * or null when none are waiting, the count is null (capture off, not counted yet) or absent (a server before C7).
+ */
+export function smsPendingText(pending: SalesOutreachSmsPending | null | undefined): string | null {
+  if (!pending) return null;
+  const p = deskCopy.freshness.smsPending;
+  const parts = [pending.identity > 0 ? p.identity(pending.identity) : null, pending.association > 0 ? p.association(pending.association) : null].filter(
+    (part): part is string => part !== null,
+  );
+  if (parts.length === 0) return null;
+  return p.line(pending.window_days, parts, p.mailboxes(pending.mailboxes.length));
+}
+
+/** The SMS chip keeps its state, tone and label; its tooltip gains the pending note when any texts are waiting. */
+function withSmsPending(chip: FreshnessChip, pending: SalesOutreachSmsPending | null | undefined): FreshnessChip {
+  const note = smsPendingText(pending);
+  return note ? { ...chip, title: deskCopy.freshness.smsPending.join(chip.title, note) } : chip;
 }
 
 // ---------------------------------------------------------------------------------------------- goals
@@ -439,6 +461,90 @@ export function reviewReasonText(reason: unknown): string {
   if (text) return lead.needsReview(text);
   reportUnknownDeskCode({ kind: "review_reason", code: null, value: reason });
   return lead.needsReview(null);
+}
+
+const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+
+/**
+ * An intake refusal reason in lower-case words, or undefined when it has no copy. A `closed:<closure_reason>` the
+ * refusal copy doesn't list reads the priority map's closure copy (`configEditor.priorityMap.closures`, lower-cased).
+ */
+function refusalReasonText(reason: string): string | undefined {
+  const a = deskCopy.settingsExtra.admissions;
+  const reviewReasons = deskCopy.lead.reviewReasons;
+  const closures = deskCopy.configEditor.priorityMap.closures;
+  if (Object.hasOwn(a.reasons, reason)) return a.reasons[reason];
+  const review = reason.startsWith("review:") ? reason.slice("review:".length) : null;
+  if (review !== null && Object.hasOwn(reviewReasons, review)) return a.reviewReason(reviewReasons[review]!);
+  const closure = reason.startsWith("closed:") ? reason.slice("closed:".length) : null;
+  if (closure !== null && Object.hasOwn(closures, closure)) return lowerFirst(closures[closure]!);
+  return undefined;
+}
+
+/**
+ * The part after `expansion:` (server `expansionAdmissionOf`): a gate code (`admission_disabled`, `migration_paused`,
+ * `policy_unavailable`) or `<partition>:<reason>` from the enrollment classifier — `older:outside_backfill_scope`,
+ * `closed:<closure>` (eligibility closures, priority-map closures such as `closed:granot_booked`, and
+ * `closed:closed_priority` for a closed code without a closure reason), `excluded:<reason>`, `review:<reason>`.
+ */
+function expansionRefusalText(reason: string): string | undefined {
+  const expansion = deskCopy.settingsExtra.admissions.expansionReasons;
+  if (Object.hasOwn(expansion, reason)) return expansion[reason];
+  const direct = refusalReasonText(reason);
+  if (direct !== undefined) return direct;
+  const closed = reason.startsWith("closed:") ? reason.slice("closed:".length) : null;
+  return closed === null ? undefined : refusalReasonText(closed);
+}
+
+/**
+ * Why an intake refusal happened, in words ("Already booked") — `GET /enrollment/admissions` `not_admitted` keys and
+ * `recent_refusals[].reason` (olr B8; free text on the server). `review:<reason>` reads the review-reason copy.
+ * Automatic-admission refusals (olr B6, `expansion:<reason>` / `expansion:<partition>:<reason>`) read
+ * "Automatic admission — <reason>", composed from the same copy. An unknown reason reads "Another reason" and is
+ * reported (logged once in development); the code never shows.
+ */
+export function admissionReasonText(reason: unknown): string {
+  const a = deskCopy.settingsExtra.admissions;
+  let text: string | undefined;
+  if (typeof reason === "string") {
+    if (reason.startsWith("expansion:")) {
+      const inner = expansionRefusalText(reason.slice("expansion:".length));
+      text = inner === undefined ? undefined : a.expansion(inner);
+    } else text = refusalReasonText(reason);
+  }
+  if (text) return sentence(text);
+  reportUnknownDeskCode({ kind: "admission_reason", code: null, value: reason });
+  return sentence(a.otherReason);
+}
+
+/**
+ * A candidate's reason in the enrollment lists (ADM-4): review reasons read "Needs review: <reason>"; a ready lead's
+ * reason (`received_window`, `upcoming_move`, `selected`) reads in words. Older leads need none (the hint says why).
+ * Unknown reasons read the safe fallback and are reported.
+ */
+export function enrollmentReasonText(partition: string, reason: unknown): string | null {
+  if (partition === "review") return reviewReasonText(reason);
+  if (partition !== "in_scope") return null;
+  const ready = deskCopy.settingsExtra.readyReasons;
+  if (typeof reason === "string" && Object.hasOwn(ready, reason)) return ready[reason]!;
+  reportUnknownDeskCode({ kind: "enrollment_reason", code: partition, value: reason });
+  return null;
+}
+
+/**
+ * How a subject joined the desk (the lead panel's enrollment line), from `subject.enrollment`. The cohort id itself
+ * never shows: `admission:` (olr B6 automatic admission), the Settings one-click cohorts `owner-enroll-` /
+ * `owner-older-`, kind `intake` (the new-lead gate) and `pilot`; anything else reads "Enrolled on <day>".
+ */
+export function enrollmentSourceText(enrollment: { cohort_id: string; kind: string; enrolled_at: string }): string {
+  const e = deskCopy.lead.enrollment;
+  const day = shortDateLabel(nyDate(enrollment.enrolled_at));
+  if (enrollment.cohort_id.startsWith("admission:")) return e.admission(day);
+  if (/^owner-(enroll|older)-/.test(enrollment.cohort_id)) return e.owner(day);
+  if (enrollment.kind === "intake") return e.intake(day);
+  if (enrollment.kind === "pilot") return e.pilot(day);
+  return e.other(day);
 }
 
 /**
