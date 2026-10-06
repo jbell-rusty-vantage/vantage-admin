@@ -34,6 +34,7 @@ import {
   relativeDay,
   repGoalText,
   repProgressLabel,
+  repZeroActivityTitle,
   rowIssue,
   shortDateLabel,
   unassignedCaption,
@@ -64,7 +65,9 @@ function GoalRow({ row, workflow }: { row: SalesOutreachDailyCallGoalRow; workfl
         {row.agent_name ?? t.unknownRep}
       </th>
       <td>
-        <span className="od-nowrap">{hasGoal ? repGoalText(row) : row.actual_confirmed !== null ? c.goals.callsOnly(row.actual_confirmed) : "—"}</span>
+        <span className="od-nowrap" title={repZeroActivityTitle(row)}>
+          {hasGoal ? repGoalText(row) : row.actual_confirmed !== null ? c.goals.callsOnly(row.actual_confirmed) : "—"}
+        </span>
         {row.actual_awaiting_confirmation ? (
           <span className="od-cell__sub" title={c.goals.awaitingTitle}>
             {c.goals.awaiting(row.actual_awaiting_confirmation)}

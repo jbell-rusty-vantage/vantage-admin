@@ -52,6 +52,11 @@ const agentName = (id: string | null) => Object.values(SYNTHETIC_AGENTS).find((a
 // Shared read envelope parts
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * Header freshness in the A3-fresh shape (lifecycle repair): calls carry the last Call Log confirmation and the newest
+ * call webhook, and "Calls updated" (`last_updated_at`) is the earlier of the two in staffed hours; SMS carries both as
+ * null.
+ */
 function freshness(variant: SyntheticVariant): SalesOutreachFreshness {
   return {
     calls: {
@@ -60,11 +65,13 @@ function freshness(variant: SyntheticVariant): SalesOutreachFreshness {
       known_complete_through: "2026-10-01T15:59:00.000Z",
       age_seconds: 40,
       reason: null,
+      last_confirmation_at: "2026-10-01T15:59:20.000Z",
+      last_webhook_at: "2026-10-01T15:59:40.000Z",
     },
     sms:
       variant === "desk"
-        ? { state: "fresh", last_updated_at: "2026-10-01T15:58:50.000Z", known_complete_through: "2026-10-01T15:58:30.000Z", age_seconds: 70, reason: null }
-        : { state: "not_connected", last_updated_at: null, known_complete_through: null, age_seconds: null, reason: "rep_sms_capture_disabled" },
+        ? { state: "fresh", last_updated_at: "2026-10-01T15:58:50.000Z", known_complete_through: "2026-10-01T15:58:30.000Z", age_seconds: 70, reason: null, last_confirmation_at: null, last_webhook_at: null }
+        : { state: "not_connected", last_updated_at: null, known_complete_through: null, age_seconds: null, reason: "rep_sms_capture_disabled", last_confirmation_at: null, last_webhook_at: null },
     granot: { state: "observed", last_observed_at: "2026-10-01T15:57:10.000Z", age_seconds: 170 },
   };
 }
@@ -168,6 +175,12 @@ const GOAL_SPECS: GoalSpec[] = [
 
 const cadenceOff = { value: null, unknown_reason: "cadence_disabled" as const };
 
+/**
+ * Rep-day call coverage (lifecycle repair C0): goal call coverage against `as_of` − the today coverage tolerance
+ * (25 min by default), so a healthy afternoon reads `complete`.
+ */
+const REP_DAY_COVERAGE = { state: "complete", known_complete_through: "2026-10-01T15:59:00.000Z", required_through: "2026-10-01T15:35:00.000Z", gaps: [] } as const;
+
 /** The rep's due counts, summed from its synthetic queue rows the way the server sums its projections. */
 function dueSum(agentId: string, channelKey: "call" | "sms"): number {
   return syntheticQueueRows()
@@ -205,7 +218,7 @@ function repDay(spec: GoalSpec, variant: SyntheticVariant): SalesOutreachRepDayD
     progress: goal > 0 ? Math.min(1, Number((spec.actual / goal).toFixed(4))) : null,
     goal_reached: goal > 0 ? spec.actual >= goal : false,
     other_outbound: { count: spec.key === "sam" ? 4 : 0, label: "Other outbound" },
-    coverage: { state: "complete", known_complete_through: "2026-10-01T15:59:00.000Z", required_through: "2026-10-01T15:55:00.000Z", gaps: [] },
+    coverage: { ...REP_DAY_COVERAGE, gaps: [] },
     unknown_reason: null,
     projection_revision: 57,
     computed_as_of: "2026-10-01T15:59:30.000Z",
@@ -213,6 +226,15 @@ function repDay(spec: GoalSpec, variant: SyntheticVariant): SalesOutreachRepDayD
     calls_due_today: enforcement ? { value: dueSum(agent.id, "call"), unknown_reason: null } : cadenceOff,
     sms_due_today: enforcement ? { value: dueSum(agent.id, "sms"), unknown_reason: null } : cadenceOff,
   };
+}
+
+/**
+ * A roster rep with a goal and no calls once capture coverage is complete (lifecycle repair C0/C5): the server serves a
+ * real 0 (`actual_basis: "no_activity_recorded"`, remaining = goal), never Pending. Not part of the reference desk
+ * (whose numbers echo the Owner references); the render tests use it.
+ */
+export function syntheticZeroActivityRepDay(variant: SyntheticVariant = "desk"): SalesOutreachRepDayDto {
+  return repDay({ key: "casey", actual: 0, awaiting: 0, overdue: 0 }, variant);
 }
 
 export function syntheticRepDays(input: { role: SalesOutreachRole; agentId?: string | null; variant?: SyntheticVariant }): SalesOutreachRepDaysDto {
@@ -834,18 +856,54 @@ export function syntheticRestrictions(): SalesOutreachRestrictionsResponse {
   };
 }
 
-export function syntheticEnrollmentCandidates(partition: SalesOutreachEnrollmentCandidatesDto["partition"] = "older"): SalesOutreachEnrollmentCandidatesDto {
+const ENROLLMENT_SCOPE = { mode: "backfill_scope", today: SYNTHETIC_BUSINESS_DAY, cutoff_date: "2026-07-03", lookback_days: 90, include_upcoming_moves: true } as const;
+type EnrollmentPartition = SalesOutreachEnrollmentCandidatesDto["partition"];
+type EnrollmentItem = SalesOutreachEnrollmentCandidatesDto["items"][number];
+
+/**
+ * Candidates per partition, as the server lists them after lifecycle repair B7: every partition except `older` is
+ * the report's backfill scope, classified as the report does — `in_scope` ("Ready to enroll") is exactly the
+ * report's `lead_refs` (`received_window` inside the 90-day window, `upcoming_move` for a Form Lead with a move date
+ * from today on), `review` is the report's review partition, `older` is outside the scope.
+ */
+const ENROLLMENT_ITEMS: Partial<Record<EnrollmentPartition, Array<Omit<EnrollmentItem, "partition">>>> = {
+  in_scope: [
+    { lead: { model: "FormLead", id: syntheticSubjectId(1101) }, reason: "received_window", workflow: "new", priority_raw: "0", received_date: "2026-09-29", move_date: "2026-10-24", job_no: "P5550101", name: "Harper Quinn" },
+    { lead: { model: "CallLead", id: syntheticSubjectId(1102) }, reason: "received_window", workflow: "quoted", priority_raw: "1", received_date: "2026-09-14", move_date: null, job_no: "P5550102", name: "Logan Price" },
+    { lead: { model: "FormLead", id: syntheticSubjectId(1103) }, reason: "upcoming_move", workflow: "new", priority_raw: "0", received_date: "2026-06-20", move_date: "2026-10-09", job_no: "P5550103", name: "Avery Brooks" },
+  ],
+  review: [
+    { lead: { model: "FormLead", id: syntheticSubjectId(1201) }, reason: "received_time_missing", workflow: "new", priority_raw: "0", received_date: null, move_date: "2026-10-30", job_no: "P5550201", name: "Jordan Hale" },
+  ],
+  older: [
+    { lead: { model: "FormLead", id: syntheticSubjectId(1001) }, reason: "outside_backfill_scope", workflow: "new", priority_raw: "0", received_date: "2026-06-12", move_date: "2026-06-30", job_no: "P5550012", name: "Rowan Ellis" },
+    { lead: { model: "CallLead", id: syntheticSubjectId(1002) }, reason: "outside_backfill_scope", workflow: "quoted", priority_raw: "1", received_date: "2026-05-28", move_date: null, job_no: "P5550027", name: "Emery Fox" },
+  ],
+};
+
+/** Every synthetic candidate of a partition (the mock pages over these with `limit` / `cursor`). */
+export function syntheticEnrollmentCandidateItems(partition: EnrollmentPartition): EnrollmentItem[] {
+  return (ENROLLMENT_ITEMS[partition] ?? []).map((item) => ({ ...item, partition }));
+}
+
+/** One page of candidates; `next_cursor` is opaque to the admin (the server's is base64url, the mock's `mock:`). */
+export function syntheticEnrollmentCandidates(
+  partition: EnrollmentPartition = "older",
+  page: { offset?: number; limit?: number } = {},
+): SalesOutreachEnrollmentCandidatesDto {
+  const all = syntheticEnrollmentCandidateItems(partition);
+  const offset = page.offset ?? 0;
+  const limit = page.limit ?? 25;
+  const items = all.slice(offset, offset + limit);
+  const more = offset + limit < all.length;
   return {
     contract_version: "sod-v1",
     as_of: SYNTHETIC_AS_OF,
     partition,
-    scope: { mode: "backfill_scope", today: SYNTHETIC_BUSINESS_DAY, cutoff_date: "2026-07-03", lookback_days: 90, include_upcoming_moves: true },
-    items: [
-      { lead: { model: "FormLead", id: syntheticSubjectId(1001) }, partition, reason: partition === "older" ? "received_before_lookback" : "synthetic", workflow: "new", priority_raw: "0", received_date: "2026-06-12", move_date: "2026-06-30", job_no: "P5550012", name: "Rowan Ellis" },
-      { lead: { model: "CallLead", id: syntheticSubjectId(1002) }, partition, reason: partition === "older" ? "received_before_lookback" : "synthetic", workflow: "quoted", priority_raw: "1", received_date: "2026-05-28", move_date: null, job_no: "P5550027", name: "Emery Fox" },
-    ],
-    next_cursor: null,
-    scanned: 2,
+    scope: { ...ENROLLMENT_SCOPE },
+    items,
+    next_cursor: more ? `mock:${partition}:${offset + limit}` : null,
+    scanned: items.length,
   };
 }
 
@@ -859,15 +917,12 @@ export function syntheticEnrollmentReport(): SalesOutreachEnrollmentReportDto {
     configuration_version: CONFIG_VERSION,
     configuration_revision: CONFIG_REVISION,
     algorithm_version: "enroll-v1",
-    scope: { mode: "backfill_scope", today: SYNTHETIC_BUSINESS_DAY, cutoff_date: "2026-07-03", lookback_days: 90, include_upcoming_moves: true },
-    counts: { in_scope: 2, older: 2, already_enrolled: 12, closed: 4, excluded: 1, review: 1, not_new_or_quoted: 3 },
+    scope: { ...ENROLLMENT_SCOPE },
+    counts: { in_scope: 3, older: 2, already_enrolled: 12, closed: 4, excluded: 1, review: 1, not_new_or_quoted: 3 },
     reasons: { received_time_missing: 1 },
-    lead_refs: [
-      { model: "FormLead", id: syntheticSubjectId(1101) },
-      { model: "CallLead", id: syntheticSubjectId(1102) },
-    ],
+    lead_refs: syntheticEnrollmentCandidateItems("in_scope").map((item) => item.lead),
     manifest_hash: "a".repeat(64),
-    review: [],
+    review: syntheticEnrollmentCandidateItems("review"),
     review_truncated: false,
     writes: 0,
   };

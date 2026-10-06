@@ -30,6 +30,7 @@ import {
   overdueByText,
   percentText,
   relativeDay,
+  repZeroActivityTitle,
   rowOverdue,
   verificationNote,
 } from "../lib/format";
@@ -99,7 +100,9 @@ function GoalCard({
             <p className="od-goal__count">
               {hasGoal ? (
                 <>
-                  <span className="od-goal__actual">{countText(rep.actual_confirmed)}</span>
+                  <span className="od-goal__actual" title={repZeroActivityTitle(rep)}>
+                    {countText(rep.actual_confirmed)}
+                  </span>
                   <span className="od-goal__of"> / {rep.goal}</span>
                 </>
               ) : (

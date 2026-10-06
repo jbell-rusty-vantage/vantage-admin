@@ -137,18 +137,36 @@ export function readFailureText(error: unknown): string {
 
 export type FreshnessChip = { key: "granot" | "calls" | "sms"; source: string; label: string; tone: "green" | "amber" | "gray"; title: string };
 
+/**
+ * A capture source's `reason` in words (A3-fresh: `confirmation_stale`, `coverage_behind`, `webhook_silent`, …), or
+ * null when there is none. A code the copy map does not know (a RingCentral error code such as `RateLimited`) reads
+ * as the generic fallback and is reported; the code itself never reaches the screen.
+ */
+export function freshnessReasonText(reason: string | null | undefined): string | null {
+  if (reason === null || reason === undefined || reason === "") return null;
+  const reasons = deskCopy.freshness.reasons;
+  if (Object.hasOwn(reasons, reason)) return reasons[reason]!;
+  reportUnknownDeskCode({ kind: "freshness_reason", code: null, value: reason });
+  return deskCopy.freshness.reasonFallback;
+}
+
 function captureChip(key: "calls" | "sms", source: string, value: SalesOutreachCaptureFreshness): FreshnessChip {
   const age = ageWords(value.age_seconds);
   const known = value.known_complete_through ? absoluteTime(value.known_complete_through) : null;
+  // A fresh source carries no reason (the server nulls it); any other state says why in the tooltip.
+  const why = (base: string) => {
+    const reason = value.state === "fresh" ? null : freshnessReasonText(value.reason);
+    return reason ? deskCopy.freshness.withReason(base, reason) : base;
+  };
   switch (value.state) {
     case "fresh":
       return { key, source, label: t.synced, tone: "green", title: age ? deskCopy.freshness.updated(source, age) : source };
     case "delayed":
-      return { key, source, label: t.delayed, tone: "amber", title: known ? deskCopy.freshness.completeThrough(source, known) : deskCopy.freshness.delayed(source) };
+      return { key, source, label: t.delayed, tone: "amber", title: why(known ? deskCopy.freshness.completeThrough(source, known) : deskCopy.freshness.delayed(source)) };
     case "not_connected":
-      return { key, source, label: t.notConnected, tone: "gray", title: deskCopy.freshness.notConnected(source) };
+      return { key, source, label: t.notConnected, tone: "gray", title: why(deskCopy.freshness.notConnected(source)) };
     default:
-      return { key, source, label: t.unknown, tone: "gray", title: deskCopy.freshness.unknown(source) };
+      return { key, source, label: t.unknown, tone: "gray", title: why(deskCopy.freshness.unknown(source)) };
   }
 }
 
@@ -177,6 +195,14 @@ export function freshnessChips(freshness: SalesOutreachFreshness): FreshnessChip
 export function repGoalText(rep: Pick<SalesOutreachRepDayDto, "actual_confirmed" | "goal" | "goal_label" | "goal_state">): string {
   if (rep.goal_state !== "goal") return rep.goal_label ?? deskCopy.goalStates[rep.goal_state];
   return `${countText(rep.actual_confirmed)} / ${rep.goal ?? "—"}`;
+}
+
+/**
+ * The tooltip on a rep's call count when the server says the 0 is real (`actual_basis: "no_activity_recorded"`:
+ * capture coverage is complete and the rep has no calls). A pending count (null) never gets it.
+ */
+export function repZeroActivityTitle(rep: Pick<SalesOutreachRepDayDto, "actual_basis" | "actual_confirmed">): string | undefined {
+  return rep.actual_basis === "no_activity_recorded" && rep.actual_confirmed === 0 ? deskCopy.team.goals.noActivityTitle : undefined;
 }
 
 /** The progress cell: "Goal reached" (green), "64%" or "Pending". */

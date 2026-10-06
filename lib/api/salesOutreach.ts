@@ -305,7 +305,14 @@ export const salesOutreachCaptureFreshnessSchema = z.object({
   last_updated_at: nullableInstant,
   known_complete_through: nullableInstant,
   age_seconds: count.nullable(),
+  /** Why the source is not fresh (server free text, shown through `deskCopy.freshness.reasons`); null when fresh. */
   reason: z.string().nullable(),
+  /**
+   * Lifecycle repair A3-fresh (calls only; always null for SMS): the last Call Log confirmation and the newest call
+   * webhook receipt. Optional because servers before A3-fresh omit them.
+   */
+  last_confirmation_at: nullableInstant.optional(),
+  last_webhook_at: nullableInstant.optional(),
 });
 
 export const salesOutreachFreshnessSchema = z.object({

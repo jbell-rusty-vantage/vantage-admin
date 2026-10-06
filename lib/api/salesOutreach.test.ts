@@ -12,12 +12,15 @@ import {
   salesOutreachCallbackRequestSchema,
   salesOutreachCapabilitiesSchema,
   salesOutreachCommand,
+  salesOutreachConfigurationReadSchema,
   salesOutreachDayOverrideRequestSchema,
   salesOutreachDayOverrideResponseSchema,
   salesOutreachDetailSchema,
+  salesOutreachEnrollmentCandidatesSchema,
   salesOutreachEnvelope,
   salesOutreachErrorEnvelopeSchema,
   salesOutreachErrorFromBody,
+  salesOutreachFreshnessSchema,
   salesOutreachLiveFrameSchema,
   salesOutreachPaths,
   salesOutreachPlanCommandResponseSchema,
@@ -48,6 +51,9 @@ const READ_RULES: Array<[RegExp, z.ZodType]> = [
   [/^outreach\./, salesOutreachEnvelope(salesOutreachDetailSchema)],
   [/^live\./, salesOutreachLiveFrameSchema],
   [/^error\./, salesOutreachErrorEnvelopeSchema],
+  // Requested from the server (LANE-D §5, §6); listed ahead so the examples land without a red guard.
+  [/^enrollment\.candidates\./, salesOutreachEnvelope(salesOutreachEnrollmentCandidatesSchema)],
+  [/^configuration\./, salesOutreachEnvelope(salesOutreachConfigurationReadSchema)],
 ];
 
 const COMMAND_RULES: Array<[RegExp, z.ZodType | null, z.ZodType]> = [
@@ -107,6 +113,21 @@ test("every server command example: request body passes the admin request schema
     }
     assertKnowsEveryField(responseSchema, example.response, `${file} response`);
   }
+});
+
+test("freshness: A3-fresh diagnostics round-trip, and a server without them still parses", () => {
+  const example = readJson(join(SERVER_FIXTURES, "team.owner.json")) as { data: { freshness: Record<string, Record<string, unknown>> } };
+  const freshness = example.data.freshness;
+  assert.equal(typeof freshness.calls!.last_confirmation_at, "string", "the copied examples carry the A3-fresh fields");
+  assert.deepEqual(salesOutreachFreshnessSchema.parse(freshness), freshness);
+  const preA3 = structuredClone(freshness);
+  for (const source of ["calls", "sms"]) {
+    delete preA3[source]!.last_confirmation_at;
+    delete preA3[source]!.last_webhook_at;
+  }
+  const parsed = salesOutreachFreshnessSchema.parse(preA3);
+  assert.equal(parsed.calls.last_confirmation_at, undefined);
+  assert.deepEqual(parsed, preA3);
 });
 
 test("every server error code is one the admin knows", () => {

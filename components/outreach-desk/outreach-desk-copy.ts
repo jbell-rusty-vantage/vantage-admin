@@ -134,6 +134,23 @@ export const deskCopy = {
     delayed: (source: string) => `${source} is delayed`,
     notConnected: (source: string) => `${source} is not connected`,
     unknown: (source: string) => `${source} status is unknown`,
+    /** The chip tooltip with the server's reason in words: "RingCentral calls is delayed — no live call events …". */
+    withReason: (base: string, reason: string) => `${base} — ${reason}`,
+    /**
+     * Server `freshness.calls/sms.reason` codes in words (lifecycle repair A3-fresh). A RingCentral error code or any
+     * other code not listed here reads as `reasonFallback`; the code itself never reaches the screen.
+     */
+    reasons: {
+      confirmation_stale: "RingCentral's call log hasn't confirmed recent calls in the last few minutes",
+      coverage_behind: "call capture is running behind the clock",
+      webhook_silent: "no live call events have arrived from RingCentral for a while",
+      capture_behind: "capture is running behind the clock",
+      no_capture_state: "capture hasn't run yet",
+      rep_sms_capture_disabled: "rep SMS capture is switched off",
+      no_mailbox_synced: "no rep SMS mailbox has synced yet",
+      mailbox_without_coverage: "a rep SMS mailbox hasn't synced yet",
+    } as Record<string, string>,
+    reasonFallback: "RingCentral reported a sync problem",
   },
   live: {
     updated: "Desk updated",
@@ -210,6 +227,7 @@ export const deskCopy = {
       awaitingTitle: "Seen live but not yet in the RingCentral Call Log; not counted until confirmed.",
       callsOnly: (n: number) => `${plural(n, "call", "calls")}`,
       coverage: "Call capture incomplete",
+      noActivityTitle: "No calls recorded yet — RingCentral call capture is complete for this time, so this is a real 0.",
       footnote: "Call totals can exceed the goal. Progress bars cap at 100%.",
       otherFootnote: "“Other outbound” are calls to numbers with no eligible New or Quoted lead; they don't count toward the goal.",
       empty: "No rep is on today's roster yet.",
