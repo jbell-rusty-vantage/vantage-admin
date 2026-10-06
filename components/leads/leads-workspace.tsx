@@ -120,7 +120,7 @@ export function LeadsWorkspace() {
     [pathname, router],
   );
 
-  // ---- Catalog: company -> feed cascade, roster -------------------------------------------------------------
+  // ---- Catalog: source granularities (grouped by Source Company), roster -------------------------------------
   const catalog = facets.catalog;
   const companies = useMemo(() => (catalog?.source_companies ?? []).filter((row) => row.company_slug), [catalog]);
   const granularities = useMemo(() => catalog?.source_granularities ?? [], [catalog]);
@@ -128,12 +128,10 @@ export function LeadsWorkspace() {
     () => new Map(companies.map((row) => [row.company_slug.toLowerCase(), row.owner_label])),
     [companies],
   );
+  // Every feed is selectable, even on All leads; a picked kind only hides the other channel's feeds.
   const feedRows = useMemo(
-    () =>
-      state.company
-        ? granularities.filter((row) => row.company_slug === state.company && (!state.kind || !row.channel || row.channel === state.kind))
-        : [],
-    [granularities, state.company, state.kind],
+    () => granularities.filter((row) => !state.kind || !row.channel || row.channel === state.kind),
+    [granularities, state.kind],
   );
   const feedChannel = state.feed ? (granularities.find((row) => row.granularity_key === state.feed)?.channel ?? null) : null;
   const rosterAll = facets.agentIdOptions;
@@ -340,8 +338,14 @@ export function LeadsWorkspace() {
   });
   const hasFilters = chips.length > 0 || Boolean(state.q);
   const clearAll = () => update(CLEAR_ALL_FILTERS);
-  const companyOptions = [{ value: "", label: LEADS_COPY.companyAll }, ...companies.map((row) => ({ value: row.company_slug, label: row.owner_label }))];
-  const feedOptions = [{ value: "", label: LEADS_COPY.feedAll }, ...feedRows.map((row) => ({ value: row.granularity_key, label: row.owner_label }))];
+  const feedOptions = [
+    { value: "", label: LEADS_COPY.sourceAll },
+    ...feedRows.map((row) => ({
+      value: row.granularity_key,
+      label: row.owner_label,
+      group: row.company_owner_label || companyLabelBySlug.get(row.company_slug.toLowerCase()) || row.company_slug,
+    })),
+  ];
   const agentOptions = [
     { value: "", label: LEADS_COPY.agentAll },
     { value: "unassigned", label: LEADS_COPY.agentUnassigned },
@@ -389,7 +393,11 @@ export function LeadsWorkspace() {
           label={LEADS_COPY.kindLabel}
           value={state.kind ?? "all"}
           options={LEADS_COPY.kindOptions}
-          onChange={(kind) => update({ kind: kind === "all" ? null : kind, feed: null })}
+          onChange={(kind) => {
+            // A feed of the other channel cannot survive the kind switch; any other feed stays picked.
+            const keepFeed = !state.feed || kind === "all" || !feedChannel || feedChannel === kind;
+            update({ kind: kind === "all" ? null : kind, ...(keepFeed ? {} : { feed: null }) });
+          }}
         />
         <Segmented<LeadStatus>
           label={LEADS_COPY.statusLabel}
@@ -398,21 +406,12 @@ export function LeadsWorkspace() {
           onChange={(status) => update({ status })}
         />
         <CrmSelect
-          label={LEADS_COPY.companyLabel}
-          value={state.company ?? ""}
-          options={companyOptions}
-          active={Boolean(state.company)}
-          onChange={(company) => update({ company: company || null, feed: null })}
+          label={LEADS_COPY.sourceLabel}
+          value={state.feed ?? ""}
+          options={feedOptions}
+          active={Boolean(state.feed)}
+          onChange={(feed) => update({ feed: feed || null, company: null })}
         />
-        {state.company ? (
-          <CrmSelect
-            label={LEADS_COPY.feedLabel}
-            value={state.feed ?? ""}
-            options={feedOptions}
-            active={Boolean(state.feed)}
-            onChange={(feed) => update({ feed: feed || null })}
-          />
-        ) : null}
         <CrmSelect
           label={LEADS_COPY.agentLabel}
           value={state.agent ?? ""}

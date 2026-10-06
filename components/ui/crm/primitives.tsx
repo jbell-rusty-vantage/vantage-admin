@@ -202,22 +202,31 @@ export function CrmSelect<T extends string>({
 }: {
   value: T;
   onChange: (value: T) => void;
-  options: readonly { value: T; label: string }[];
+  /** Options with the same `group` render inside one <optgroup>; ungrouped options come first. */
+  options: readonly { value: T; label: string; group?: string }[];
   label: string;
   icon?: LucideIcon;
   /** Highlights the control (a filter that narrows the list). */
   active?: boolean;
   className?: string;
 }) {
+  const ungrouped = options.filter((option) => !option.group);
+  const groups = [...new Set(options.filter((option) => option.group).map((option) => option.group as string))];
+  const renderOption = (option: { value: T; label: string }) => (
+    <option key={option.value} value={option.value}>
+      {option.label}
+    </option>
+  );
   return (
     <label className={cx("crm-select crm-select--native", active && "crm-select--active", className)}>
       {Icon ? <Icon aria-hidden="true" width={16} height={16} /> : null}
       <span className="sr-only">{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value as T)} aria-label={label}>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
+        {ungrouped.map(renderOption)}
+        {groups.map((group) => (
+          <optgroup key={group} label={group}>
+            {options.filter((option) => option.group === group).map(renderOption)}
+          </optgroup>
         ))}
       </select>
       <ChevronDown aria-hidden="true" width={16} height={16} className="crm-select__chevron" />

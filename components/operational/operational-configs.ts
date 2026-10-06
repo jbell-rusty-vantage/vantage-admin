@@ -6,7 +6,6 @@ import {
   CANCELLATION_REASON_OPTIONS,
   LOCAL_TYPE_OPTIONS,
   MOVE_SIZE_OPTIONS,
-  SOURCE_COMPANY_OPTIONS,
   SOURCE_LABEL_OPTIONS,
 } from "@/lib/constants/domain";
 
@@ -299,7 +298,8 @@ export const operationalConfigs: Record<UiResource, ResourceConfig> = {
       { key: "cancelled", label: "Cancelled", path: "cancelled", format: "boolean" },
     ],
     filters: [
-      { key: "source", label: "Source", type: "select", options: SOURCE_COMPANY_OPTIONS },
+      // Source granularity (the feed, e.g. "Top10 Inbounds"); options come from the catalog in `withFacetOptions`.
+      { key: "source", label: "Source", type: "select" },
       { key: "agent", label: "Agent", type: "select" },
       { key: "customer_name", label: "Customer name", type: "text" },
       { key: "customer_phone", label: "Customer phone", type: "text" },
@@ -337,8 +337,8 @@ export const operationalConfigs: Record<UiResource, ResourceConfig> = {
       { key: "by", label: "By", path: "cancelled_by" },
     ],
     filters: [
-      { key: "source_company", label: "Source company", type: "select", options: SOURCE_COMPANY_OPTIONS },
-      { key: "source", label: "Source label", type: "select", options: SOURCE_LABEL_OPTIONS },
+      // Source granularity (the feed); the server resolves it against the cancellation's `source` label.
+      { key: "source", label: "Source", type: "select" },
       { key: "agent", label: "Agent", type: "select" },
       { key: "customer_name", label: "Customer name", type: "text" },
       { key: "customer_phone", label: "Customer phone", type: "text" },
@@ -365,7 +365,15 @@ export function withFacetOptions(config: ResourceConfig, options: {
   formSourceOptions: readonly SelectOption[];
   callSourceOptions: readonly SelectOption[];
   sourceGranularityOptions: readonly SelectOption[];
+  bookingSourceOptions: readonly SelectOption[];
 }): ResourceConfig {
+  const bookingLike = config.uiResource === "bookings" || config.uiResource === "cancellations";
+  const applyFilterOptions = (field: FilterConfig): FilterConfig => {
+    if (field.key === "source" && bookingLike) {
+      return { ...field, options: options.bookingSourceOptions };
+    }
+    return applyOptions(field);
+  };
   const applyOptions = <TField extends FilterConfig | EditFieldConfig>(field: TField): TField => {
     if (field.key === "agent") {
       return { ...field, options: options.agentOptions } as TField;
@@ -387,7 +395,7 @@ export function withFacetOptions(config: ResourceConfig, options: {
   };
   return {
     ...config,
-    filters: config.filters.map(applyOptions),
+    filters: config.filters.map(applyFilterOptions),
     editFields: config.editFields.map(applyOptions),
   };
 }

@@ -180,7 +180,11 @@
 }
 
 .crm-sidebar[data-collapsed="true"] .crm-sidebar__top {
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 8px;
+  padding-bottom: 12px;
 }
 
 .crm-sidebar[data-collapsed="true"] .crm-identity__button {

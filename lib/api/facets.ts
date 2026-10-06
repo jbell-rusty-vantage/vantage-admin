@@ -48,6 +48,25 @@ export function selectedSourceGranularityKey(
   return options.some((option) => option.value.toLowerCase() === key) ? selected : undefined;
 }
 
+/**
+ * Source granularities as the Bookings / Cancellations "Source" filter. A booking's `source` is the Granot CRM label
+ * of the feed it came from ("Top10 Inbounds"), which the server's `bookingSourceFilterClause` matches exactly, so the
+ * value is the granularity's `crm_label` (its owner label when no CRM label is recorded) and the label is the Owner's.
+ */
+export function bookingSourceSelectOptions(
+  granularities: readonly FilterCatalogGranularity[] | undefined,
+): SelectOption[] {
+  const seen = new Set<string>();
+  const options: SelectOption[] = [];
+  for (const row of granularities ?? []) {
+    const value = (row.crm_label ?? row.owner_label).trim();
+    if (!value || seen.has(value.toLowerCase())) continue;
+    seen.add(value.toLowerCase());
+    options.push({ value, label: withInactiveMarker(row.owner_label, row.active) });
+  }
+  return options;
+}
+
 export function agentSelectOptions(
   catalog: FilterCatalog | undefined,
 ): { agentOptions: SelectOption[]; agentIdOptions: SelectOption[] } {
@@ -75,6 +94,7 @@ export type FacetOptions = {
   formSourceOptions: readonly SelectOption[];
   callSourceOptions: readonly SelectOption[];
   sourceGranularityOptions: readonly SelectOption[];
+  bookingSourceOptions: readonly SelectOption[];
   granularityLabelByKey: ReadonlyMap<string, string>;
   granularityKeyById: ReadonlyMap<string, string>;
   catalog: FilterCatalog | undefined;
@@ -106,6 +126,7 @@ export function useFacetOptions(): FacetOptions {
     formSourceOptions: sourceGranularitySelectOptions(granularities, "form"),
     callSourceOptions: sourceGranularitySelectOptions(granularities, "call"),
     sourceGranularityOptions: sourceGranularitySelectOptions(granularities),
+    bookingSourceOptions: bookingSourceSelectOptions(granularities),
     granularityLabelByKey: new Map(
       granularities.map((row) => [row.granularity_key.toLowerCase(), row.owner_label]),
     ),

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { FilterCatalogGranularity } from "../lib/api/admin";
 import {
+  bookingSourceSelectOptions,
   selectedSourceGranularityKey,
   sourceCompanyOptionsForLeadType,
   sourceGranularitySelectOptions,
@@ -52,6 +53,21 @@ test("Source Company options are catalog granularities labeled with owner_label"
     { value: "top10_leads_call", label: "Top10 Inbounds" },
   ]);
   assert.equal(sourceGranularitySelectOptions(undefined).length, 0);
+});
+
+test("Bookings Source options are granularities whose value is the Granot CRM label the booking carries", () => {
+  const rows = [
+    granularity({ granularity_key: "top10_leads_call", owner_label: "Top10 Inbounds", crm_label: "Top10 Inbounds", channel: "call" }),
+    granularity({ granularity_key: "top10_leads_form", owner_label: "Top10 Forms (LD)", crm_label: "Top10 Forms", channel: "form" }),
+    granularity({ granularity_key: "top10_leads_form_local", owner_label: "Top10 Forms (local)", crm_label: "top10 forms", channel: "form" }),
+    granularity({ granularity_key: "legacy_form", owner_label: "Legacy Forms", channel: "form", active: false }),
+  ];
+  assert.deepEqual(bookingSourceSelectOptions(rows), [
+    { value: "Top10 Inbounds", label: "Top10 Inbounds" },
+    { value: "Top10 Forms", label: "Top10 Forms (LD)" },
+    { value: "Legacy Forms", label: "Legacy Forms (inactive)" },
+  ]);
+  assert.deepEqual(bookingSourceSelectOptions(undefined), []);
 });
 
 test("Lead type narrowing keeps a selected key while the catalog is loading", () => {
