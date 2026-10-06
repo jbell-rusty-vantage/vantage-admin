@@ -52,6 +52,11 @@ const agentName = (id: string | null) => Object.values(SYNTHETIC_AGENTS).find((a
 // Shared read envelope parts
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * Header freshness in the A3-fresh shape (lifecycle repair): calls carry the last Call Log confirmation and the newest
+ * call webhook, and "Calls updated" (`last_updated_at`) is the earlier of the two in staffed hours; SMS carries both as
+ * null.
+ */
 function freshness(variant: SyntheticVariant): SalesOutreachFreshness {
   return {
     calls: {
@@ -60,11 +65,13 @@ function freshness(variant: SyntheticVariant): SalesOutreachFreshness {
       known_complete_through: "2026-10-01T15:59:00.000Z",
       age_seconds: 40,
       reason: null,
+      last_confirmation_at: "2026-10-01T15:59:20.000Z",
+      last_webhook_at: "2026-10-01T15:59:40.000Z",
     },
     sms:
       variant === "desk"
-        ? { state: "fresh", last_updated_at: "2026-10-01T15:58:50.000Z", known_complete_through: "2026-10-01T15:58:30.000Z", age_seconds: 70, reason: null }
-        : { state: "not_connected", last_updated_at: null, known_complete_through: null, age_seconds: null, reason: "rep_sms_capture_disabled" },
+        ? { state: "fresh", last_updated_at: "2026-10-01T15:58:50.000Z", known_complete_through: "2026-10-01T15:58:30.000Z", age_seconds: 70, reason: null, last_confirmation_at: null, last_webhook_at: null }
+        : { state: "not_connected", last_updated_at: null, known_complete_through: null, age_seconds: null, reason: "rep_sms_capture_disabled", last_confirmation_at: null, last_webhook_at: null },
     granot: { state: "observed", last_observed_at: "2026-10-01T15:57:10.000Z", age_seconds: 170 },
   };
 }
@@ -168,6 +175,12 @@ const GOAL_SPECS: GoalSpec[] = [
 
 const cadenceOff = { value: null, unknown_reason: "cadence_disabled" as const };
 
+/**
+ * Rep-day call coverage (lifecycle repair C0): goal call coverage against `as_of` − the today coverage tolerance
+ * (25 min by default), so a healthy afternoon reads `complete`.
+ */
+const REP_DAY_COVERAGE = { state: "complete", known_complete_through: "2026-10-01T15:59:00.000Z", required_through: "2026-10-01T15:35:00.000Z", gaps: [] } as const;
+
 /** The rep's due counts, summed from its synthetic queue rows the way the server sums its projections. */
 function dueSum(agentId: string, channelKey: "call" | "sms"): number {
   return syntheticQueueRows()
@@ -205,7 +218,7 @@ function repDay(spec: GoalSpec, variant: SyntheticVariant): SalesOutreachRepDayD
     progress: goal > 0 ? Math.min(1, Number((spec.actual / goal).toFixed(4))) : null,
     goal_reached: goal > 0 ? spec.actual >= goal : false,
     other_outbound: { count: spec.key === "sam" ? 4 : 0, label: "Other outbound" },
-    coverage: { state: "complete", known_complete_through: "2026-10-01T15:59:00.000Z", required_through: "2026-10-01T15:55:00.000Z", gaps: [] },
+    coverage: { ...REP_DAY_COVERAGE, gaps: [] },
     unknown_reason: null,
     projection_revision: 57,
     computed_as_of: "2026-10-01T15:59:30.000Z",
@@ -213,6 +226,15 @@ function repDay(spec: GoalSpec, variant: SyntheticVariant): SalesOutreachRepDayD
     calls_due_today: enforcement ? { value: dueSum(agent.id, "call"), unknown_reason: null } : cadenceOff,
     sms_due_today: enforcement ? { value: dueSum(agent.id, "sms"), unknown_reason: null } : cadenceOff,
   };
+}
+
+/**
+ * A roster rep with a goal and no calls once capture coverage is complete (lifecycle repair C0/C5): the server serves a
+ * real 0 (`actual_basis: "no_activity_recorded"`, remaining = goal), never Pending. Not part of the reference desk
+ * (whose numbers echo the Owner references); the render tests use it.
+ */
+export function syntheticZeroActivityRepDay(variant: SyntheticVariant = "desk"): SalesOutreachRepDayDto {
+  return repDay({ key: "casey", actual: 0, awaiting: 0, overdue: 0 }, variant);
 }
 
 export function syntheticRepDays(input: { role: SalesOutreachRole; agentId?: string | null; variant?: SyntheticVariant }): SalesOutreachRepDaysDto {
@@ -282,13 +304,32 @@ function channel(
     oldest_actionable_due_at: oldest,
     status,
     completion_kind: status === "completed" ? "verified" : null,
-    coverage: { state: "complete", known_complete_through: "2026-10-01T15:59:00.000Z", gaps: [] },
+    coverage: { state: "complete", known_complete_through: SYNTHETIC_COVERAGE, gaps: [] },
     blocked_reason: null,
+    // SYNTHETIC, built from the A2 design's DTO shape (research/LANE-A §A2/§10) until the server examples exist: an
+    // overdue channel is verified by coverage; a channel with no passed deadline carries null.
+    verification: status === "overdue" ? { state: "verified", verified_through: SYNTHETIC_COVERAGE, unverified_since: null } : null,
   };
 }
 
+/**
+ * SYNTHETIC (A2 shape): a channel whose deadline has passed but capture coverage is behind it. The server keeps it
+ * `due` with `verification.state: "unverified"` and a live `partial` coverage block.
+ */
+function unverifiedChannel(required: number, done: number, dueAt: string, verifiedThrough: string | null): SalesOutreachChannelDto {
+  return {
+    ...channel(required, done, "due", dueAt),
+    coverage: { state: verifiedThrough ? "partial" : "unknown", known_complete_through: verifiedThrough, gaps: [] },
+    verification: { state: "unverified", verified_through: verifiedThrough, unverified_since: dueAt },
+  };
+}
+
+const SYNTHETIC_COVERAGE = "2026-10-01T15:59:00.000Z";
 const TODAY_CLOSE = "2026-10-02T00:00:00.000Z"; // 20:00 New York on Oct 1
 const TODAY_NOON = "2026-10-01T16:00:00.000Z";
+/** Row 9's passed call deadline (11:00 AM New York) and the capture coverage behind it (10:43 AM). */
+export const SYNTHETIC_UNVERIFIED_DUE = "2026-10-01T15:00:00.000Z";
+export const SYNTHETIC_UNVERIFIED_THROUGH = "2026-10-01T14:43:00.000Z";
 
 type RowSpec = {
   n: number;
@@ -367,7 +408,8 @@ const ROW_SPECS: RowSpec[] = [
   {
     n: 9, job: "P5561044", phone: "(602) 555-0144", name: "Jordan Lee", agent: "alex", workflow: "new", priority: "0",
     received: "2026-09-28T14:00:00.000Z", last: "2026-09-30T19:00:00.000Z", move: "2026-10-18",
-    call: channel(2, 1, "due", TODAY_CLOSE),
+    // ADM-1: the 11:00 AM call deadline has passed but capture only covers 10:43 AM → "Due — not yet verified".
+    call: unverifiedChannel(2, 1, SYNTHETIC_UNVERIFIED_DUE, SYNTHETIC_UNVERIFIED_THROUGH),
     sms: channel(0, 0, "not_required", null),
   },
   {
@@ -449,6 +491,8 @@ export function syntheticQueueRows(variant: SyntheticVariant = "desk"): SalesOut
 
 export function syntheticDetail(input: { subjectId: string; role: SalesOutreachRole; variant?: SyntheticVariant }): SalesOutreachDetailDto | null {
   const variant = input.variant ?? "desk";
+  const review = SYNTHETIC_REVIEW_SUBJECTS.find((candidate) => syntheticSubjectId(candidate.n) === input.subjectId);
+  if (review) return syntheticReviewDetail({ n: review.n, reasons: review.reasons, role: input.role, variant });
   const row = syntheticQueueRows(variant).find((candidate) => candidate.subject_id === input.subjectId);
   if (!row) return null;
   const spec = ROW_SPECS.find((candidate) => syntheticSubjectId(candidate.n) === input.subjectId)!;
@@ -562,13 +606,16 @@ export function syntheticDetail(input: { subjectId: string; role: SalesOutreachR
       advisory_cooldown: { warning: false, unsuccessful_attempts: spec.last ? 1 : 0 },
       catch_up: { call: { outstanding: Boolean(spec.overdue), missed_count: spec.overdue ? 2 : 0, state: spec.overdue ? "one_per_channel" : null }, sms: { outstanding: false, missed_count: 0, state: null } },
       blocked_until: { call: null, sms: null },
-      explanation: quoted
-        ? [{ code: "quoted_daily_call_from_selected_date", value: spec.n === 12 ? "2026-10-05" : "2026-09-25" }]
-        : [
-            { code: "new_schedule_day", value: scheduleDay },
-            { code: "new_calls_required_today", value: row.call.required },
-            { code: "new_sms_required_today", value: row.sms.required },
-          ],
+      // The server's explanation codes (`reads/detail.ts` explanationOf), in its order.
+      explanation: [
+        { code: "projection_state", value: enforcement ? "current" : "cadence_disabled" },
+        { code: "workflow", value: spec.workflow },
+        ...(quoted ? [] : [{ code: "schedule_day", value: scheduleDay }]),
+        { code: "priority_basis", value: spec.priority === null ? "intake_default" : "accepted_observation" },
+        ...(quoted ? [{ code: "quoted_date", value: spec.n === 12 ? "2026-10-05" : "2026-09-25" }] : []),
+        ...(row.status_flags.move_date_unknown ? [{ code: "move_date_unknown", value: null }] : []),
+        ...(row.status_flags.job_pending ? [{ code: "job_number_pending", value: null }] : []),
+      ],
     },
     requirements: { call: row.call, sms: row.sms },
     status_flags: row.status_flags,
@@ -598,6 +645,54 @@ export function syntheticDetail(input: { subjectId: string; role: SalesOutreachR
     restrictions: [],
     computed_as_of: row.computed_as_of,
     publication_revision: row.publication_revision,
+  };
+}
+
+/**
+ * Review subjects (status `review`, no queue row: the queue's needs-contact frame never lists them). Unassigned, so
+ * only the Owner/Manager open them (`?view=team&lead=<id>` in mock mode). One per review-reason family the desk has
+ * copy for; 905 carries a reason no copy map knows, to show the safe fallback.
+ */
+export const SYNTHETIC_REVIEW_SUBJECTS: ReadonlyArray<{ n: number; reasons: string[] }> = [
+  { n: 901, reasons: ["no_contact_number"] },
+  { n: 902, reasons: ["ambiguous_identity", "received_time_unreliable"] },
+  { n: 903, reasons: ["priority_needs_review"] },
+  { n: 904, reasons: ["unmapped_priority"] },
+  { n: 905, reasons: ["some_future_reason"] },
+];
+
+/**
+ * A review subject as the server reads it: no projection yet (`projection_state: pending`), no requirements, and one
+ * `review` explanation code per reason (first five), as `reads/detail.ts` explanationOf emits them.
+ */
+export function syntheticReviewDetail(input: { n: number; reasons: string[]; role?: SalesOutreachRole; variant?: SyntheticVariant }): SalesOutreachDetailDto {
+  const base = syntheticDetail({ subjectId: syntheticSubjectId(7), role: input.role ?? "owner", variant: input.variant ?? "desk" })!;
+  const none = channel(0, 0, "not_required", null);
+  return {
+    ...base,
+    subject: { ...base.subject, subject_id: syntheticSubjectId(input.n), status: "review", review_reasons: input.reasons, job_no: `P55690${input.n}`, name: `Review lead ${input.n}` },
+    priority: { raw: null, basis: "none", accepted_at: null, uncertain: false },
+    policy: {
+      ...base.policy,
+      projection_state: "pending",
+      workflow: "none",
+      engine_state: null,
+      schedule_day: null,
+      period: null,
+      quoted: null,
+      initial_response: null,
+      catch_up: { call: { outstanding: false, missed_count: 0, state: null }, sms: { outstanding: false, missed_count: 0, state: null } },
+      explanation: [
+        { code: "projection_state", value: "pending" },
+        { code: "priority_basis", value: "none" },
+        ...input.reasons.slice(0, 5).map((reason) => ({ code: "review", value: reason })),
+      ],
+    },
+    requirements: { call: none, sms: none },
+    status_flags: { ...base.status_flags, needs_contact: false, overdue: false, pending: false },
+    oldest_actionable_due_at: null,
+    next_action_due_at: null,
+    history: { ...base.history, window_history: [], window_summary: { dates: 0, call_missed: 0, sms_missed: 0 }, contact_events: [], assignment_changes: [] },
   };
 }
 
@@ -761,18 +856,54 @@ export function syntheticRestrictions(): SalesOutreachRestrictionsResponse {
   };
 }
 
-export function syntheticEnrollmentCandidates(partition: SalesOutreachEnrollmentCandidatesDto["partition"] = "older"): SalesOutreachEnrollmentCandidatesDto {
+const ENROLLMENT_SCOPE = { mode: "backfill_scope", today: SYNTHETIC_BUSINESS_DAY, cutoff_date: "2026-07-03", lookback_days: 90, include_upcoming_moves: true } as const;
+type EnrollmentPartition = SalesOutreachEnrollmentCandidatesDto["partition"];
+type EnrollmentItem = SalesOutreachEnrollmentCandidatesDto["items"][number];
+
+/**
+ * Candidates per partition, as the server lists them after lifecycle repair B7: every partition except `older` is
+ * the report's backfill scope, classified as the report does — `in_scope` ("Ready to enroll") is exactly the
+ * report's `lead_refs` (`received_window` inside the 90-day window, `upcoming_move` for a Form Lead with a move date
+ * from today on), `review` is the report's review partition, `older` is outside the scope.
+ */
+const ENROLLMENT_ITEMS: Partial<Record<EnrollmentPartition, Array<Omit<EnrollmentItem, "partition">>>> = {
+  in_scope: [
+    { lead: { model: "FormLead", id: syntheticSubjectId(1101) }, reason: "received_window", workflow: "new", priority_raw: "0", received_date: "2026-09-29", move_date: "2026-10-24", job_no: "P5550101", name: "Harper Quinn" },
+    { lead: { model: "CallLead", id: syntheticSubjectId(1102) }, reason: "received_window", workflow: "quoted", priority_raw: "1", received_date: "2026-09-14", move_date: null, job_no: "P5550102", name: "Logan Price" },
+    { lead: { model: "FormLead", id: syntheticSubjectId(1103) }, reason: "upcoming_move", workflow: "new", priority_raw: "0", received_date: "2026-06-20", move_date: "2026-10-09", job_no: "P5550103", name: "Avery Brooks" },
+  ],
+  review: [
+    { lead: { model: "FormLead", id: syntheticSubjectId(1201) }, reason: "received_time_missing", workflow: "new", priority_raw: "0", received_date: null, move_date: "2026-10-30", job_no: "P5550201", name: "Jordan Hale" },
+  ],
+  older: [
+    { lead: { model: "FormLead", id: syntheticSubjectId(1001) }, reason: "outside_backfill_scope", workflow: "new", priority_raw: "0", received_date: "2026-06-12", move_date: "2026-06-30", job_no: "P5550012", name: "Rowan Ellis" },
+    { lead: { model: "CallLead", id: syntheticSubjectId(1002) }, reason: "outside_backfill_scope", workflow: "quoted", priority_raw: "1", received_date: "2026-05-28", move_date: null, job_no: "P5550027", name: "Emery Fox" },
+  ],
+};
+
+/** Every synthetic candidate of a partition (the mock pages over these with `limit` / `cursor`). */
+export function syntheticEnrollmentCandidateItems(partition: EnrollmentPartition): EnrollmentItem[] {
+  return (ENROLLMENT_ITEMS[partition] ?? []).map((item) => ({ ...item, partition }));
+}
+
+/** One page of candidates; `next_cursor` is opaque to the admin (the server's is base64url, the mock's `mock:`). */
+export function syntheticEnrollmentCandidates(
+  partition: EnrollmentPartition = "older",
+  page: { offset?: number; limit?: number } = {},
+): SalesOutreachEnrollmentCandidatesDto {
+  const all = syntheticEnrollmentCandidateItems(partition);
+  const offset = page.offset ?? 0;
+  const limit = page.limit ?? 25;
+  const items = all.slice(offset, offset + limit);
+  const more = offset + limit < all.length;
   return {
     contract_version: "sod-v1",
     as_of: SYNTHETIC_AS_OF,
     partition,
-    scope: { mode: "backfill_scope", today: SYNTHETIC_BUSINESS_DAY, cutoff_date: "2026-07-03", lookback_days: 90, include_upcoming_moves: true },
-    items: [
-      { lead: { model: "FormLead", id: syntheticSubjectId(1001) }, partition, reason: partition === "older" ? "received_before_lookback" : "synthetic", workflow: "new", priority_raw: "0", received_date: "2026-06-12", move_date: "2026-06-30", job_no: "P5550012", name: "Rowan Ellis" },
-      { lead: { model: "CallLead", id: syntheticSubjectId(1002) }, partition, reason: partition === "older" ? "received_before_lookback" : "synthetic", workflow: "quoted", priority_raw: "1", received_date: "2026-05-28", move_date: null, job_no: "P5550027", name: "Emery Fox" },
-    ],
-    next_cursor: null,
-    scanned: 2,
+    scope: { ...ENROLLMENT_SCOPE },
+    items,
+    next_cursor: more ? `mock:${partition}:${offset + limit}` : null,
+    scanned: items.length,
   };
 }
 
@@ -786,15 +917,12 @@ export function syntheticEnrollmentReport(): SalesOutreachEnrollmentReportDto {
     configuration_version: CONFIG_VERSION,
     configuration_revision: CONFIG_REVISION,
     algorithm_version: "enroll-v1",
-    scope: { mode: "backfill_scope", today: SYNTHETIC_BUSINESS_DAY, cutoff_date: "2026-07-03", lookback_days: 90, include_upcoming_moves: true },
-    counts: { in_scope: 2, older: 2, already_enrolled: 12, closed: 4, excluded: 1, review: 1, not_new_or_quoted: 3 },
+    scope: { ...ENROLLMENT_SCOPE },
+    counts: { in_scope: 3, older: 2, already_enrolled: 12, closed: 4, excluded: 1, review: 1, not_new_or_quoted: 3 },
     reasons: { received_time_missing: 1 },
-    lead_refs: [
-      { model: "FormLead", id: syntheticSubjectId(1101) },
-      { model: "CallLead", id: syntheticSubjectId(1102) },
-    ],
+    lead_refs: syntheticEnrollmentCandidateItems("in_scope").map((item) => item.lead),
     manifest_hash: "a".repeat(64),
-    review: [],
+    review: syntheticEnrollmentCandidateItems("review"),
     review_truncated: false,
     writes: 0,
   };

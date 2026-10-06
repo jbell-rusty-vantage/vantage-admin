@@ -287,7 +287,16 @@ export function mockSalesOutreachResponse(input: MockSalesOutreachInput): MockSa
 
   if (route("GET", "enrollment/candidates")) {
     const partition = (params.get("partition") ?? "older") as Parameters<typeof syntheticEnrollmentCandidates>[0];
-    return ok(syntheticEnrollmentCandidates(partition));
+    const limit = Math.min(100, Math.max(1, Number(params.get("limit") ?? 25) || 25));
+    // The cursor is opaque to the admin; one from another partition (or malformed) is expired, as on the server.
+    const cursor = params.get("cursor");
+    let offset = 0;
+    if (cursor) {
+      const match = /^mock:([a-z_]+):(\d+)$/.exec(cursor);
+      if (!match || match[1] !== partition) return refuse(409, "CURSOR_EXPIRED", [{ path: "cursor", code: "invalid" }]);
+      offset = Number(match[2]);
+    }
+    return ok(syntheticEnrollmentCandidates(partition, { offset, limit }));
   }
   if (route("POST", "enrollment/report")) return ok(syntheticEnrollmentReport());
   if (route("POST", "enrollment/apply")) return refuse(503, "SERVICE_UNAVAILABLE", [{ path: "migration.paused", code: "migration_paused" }]);

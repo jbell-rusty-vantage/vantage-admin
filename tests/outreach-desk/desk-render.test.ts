@@ -38,7 +38,7 @@ import {
 
 const readServerExample = (name: string): unknown =>
   JSON.parse(readFileSync(path.join(process.cwd(), "tests/outreach-desk/fixtures/server", name), "utf8"));
-import { syntheticDetail, syntheticQueueRows, syntheticTeam, syntheticSubjectId } from "./fixtures/synthetic";
+import { SYNTHETIC_REVIEW_SUBJECTS, syntheticDetail, syntheticQueueRows, syntheticTeam, syntheticSubjectId } from "./fixtures/synthetic";
 
 /**
  * Desk rendering rules (server handoff): null is pending, never 0; cadence_disabled/cadence_shadow are unavailable;
@@ -183,6 +183,15 @@ test("the lead panel's next action and schedule lines are the server's facts", (
   assert.ok(lines.some((line) => line.startsWith("New lead")), lines.join(" | "));
   assert.ok(lines.some((line) => line.startsWith("Today:")), lines.join(" | "));
   for (const line of lines) assert.doesNotMatch(line, /_[a-z]/, `no snake_case on screen: ${line}`);
+  // ADM-3: a review subject for each reason family names its reason (review-reasons.test.ts has the full matrix).
+  for (const { n } of SYNTHETIC_REVIEW_SUBJECTS) {
+    const review = syntheticDetail({ subjectId: syntheticSubjectId(n), role: "owner", variant: "desk" });
+    assert.ok(review);
+    assert.match(nextAction(review).text, /^Needs review/);
+    const reviewLines = explanationLines(review);
+    assert.ok(reviewLines.some((line) => line.startsWith("Needs review")), reviewLines.join(" | "));
+    for (const line of reviewLines) assert.doesNotMatch(line, /_[a-z]/, `no snake_case on screen: ${line}`);
+  }
 });
 
 test("callback times convert New York wall time across DST", () => {

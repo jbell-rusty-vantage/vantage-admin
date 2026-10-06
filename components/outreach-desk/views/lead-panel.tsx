@@ -27,7 +27,19 @@ import {
   useCallbackCommand,
   useQuotedFollowupCommand,
 } from "../data/use-desk-commands";
-import { absoluteTime, cadenceSummaryLines, durationWords, nyDate, relativeDay, shortDateLabel } from "../lib/format";
+import {
+  absoluteTime,
+  cadenceSummaryLines,
+  durationWords,
+  isUnverified,
+  isVerifiedOverdue,
+  knownThroughTime,
+  nyDate,
+  relativeDay,
+  reviewReasonText,
+  shortDateLabel,
+} from "../lib/format";
+import { reportUnknownDeskCode } from "../lib/unknown-codes";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, SkeletonLine } from "../primitives";
 
@@ -38,16 +50,43 @@ export type RepOption = { id: string; name: string };
 
 type NextAction = { text: string; sub: string | null; tone: "red" | "amber" | "green" | "muted"; icon: typeof Clock3 };
 
-/** The panel's headline action, from the server's channel statuses only. */
-export function nextAction(detail: Pick<SalesOutreachDetailDto, "requirements" | "as_of" | "policy">): NextAction {
+type ReviewFacts = { subject?: Pick<SalesOutreachDetailDto["subject"], "status" | "review_reasons"> };
+
+/** A `projection_state` in words; an unknown value reads as "Pending" (reported). `current` has no line. */
+function projectionStateText(state: unknown): string | null {
+  if (state === "current" || state === null || state === undefined) return null;
+  const text = typeof state === "string" && Object.hasOwn(c.projectionStates, state) ? c.projectionStates[state] : undefined;
+  if (text) return text;
+  reportUnknownDeskCode({ kind: "explanation_value", code: "projection_state", value: state });
+  return t.pending;
+}
+
+/** The review reasons the server explains (`review` explanation codes), else the subject's own list. */
+function reviewReasonsOf(detail: Pick<SalesOutreachDetailDto, "policy"> & ReviewFacts): unknown[] {
+  const explained = detail.policy.explanation.filter((item) => item.code === "review").map((item) => item.value);
+  if (explained.length) return explained;
+  return detail.subject?.status === "review" ? detail.subject.review_reasons.slice(0, 5) : [];
+}
+
+/**
+ * The panel's headline action, from the server's channel statuses only. A review subject with nothing due says why it
+ * is in review ("Needs review: no phone number to call") instead of a projection state.
+ */
+export function nextAction(detail: Pick<SalesOutreachDetailDto, "requirements" | "as_of" | "policy"> & ReviewFacts): NextAction {
   const { call, sms } = detail.requirements;
   const since = (channel: SalesOutreachChannelDto) => channel.oldest_actionable_due_at ?? channel.due_at;
   const cooldown = detail.policy.advisory_cooldown.warning ? c.explanation.advisory_cooldown : null;
-  if (call.status === "overdue") {
+  if (isVerifiedOverdue(call)) {
     const from = since(call);
     return { text: c.callOverdue, sub: from ? t.overdueBy(durationWords(Date.parse(detail.as_of) - Date.parse(from))) : cooldown, tone: "red", icon: CircleAlert };
   }
-  if (sms.status === "overdue") return { text: c.smsOverdue, sub: cooldown, tone: "red", icon: CircleAlert };
+  if (isVerifiedOverdue(sms)) return { text: c.smsOverdue, sub: cooldown, tone: "red", icon: CircleAlert };
+  // A passed deadline capture can't prove yet: amber "not yet verified", never "overdue" or "due now".
+  const unverified = isUnverified(call) ? call : isUnverified(sms) ? sms : null;
+  if (unverified) {
+    const known = knownThroughTime(unverified.verification?.verified_through, detail.as_of);
+    return { text: unverified === call ? c.callNotYetVerified : c.smsNotYetVerified, sub: known ? c.knownThrough(known) : c.waitingCapture, tone: "amber", icon: Clock3 };
+  }
   if (call.status === "due") {
     const due = call.due_at && Date.parse(call.due_at) > Date.parse(detail.as_of) && nyDate(call.due_at) === nyDate(detail.as_of);
     // Due now (or with no later deadline today) reads as the reference's red "Next call due now"; due later today is amber.
@@ -57,13 +96,25 @@ export function nextAction(detail: Pick<SalesOutreachDetailDto, "requirements" |
   }
   if (sms.status === "due") return { text: c.smsDue, sub: cooldown, tone: "amber", icon: Clock3 };
   if (call.status === "completed" || sms.status === "completed") return { text: c.allDone, sub: null, tone: "green", icon: CircleCheck };
-  const status = detail.policy.projection_state;
-  if (status !== "current") return { text: c.explanation[status] ?? t.pending, sub: null, tone: "muted", icon: Clock3 };
+  const reasons = reviewReasonsOf(detail);
+  if (detail.subject?.status === "review" || reasons.length) {
+    const more = reasons.length > 1 ? c.moreReviewReasons(reasons.length - 1) : null;
+    return { text: reviewReasonText(reasons[0] ?? null), sub: more, tone: "amber", icon: CircleAlert };
+  }
+  const status = projectionStateText(detail.policy.projection_state);
+  if (status) return { text: status, sub: null, tone: "muted", icon: Clock3 };
   return { text: t.noIssue, sub: null, tone: "muted", icon: CircleCheck };
 }
 
-/** One readable line per explanation code (D01: deterministic codes rendered as text, never generated prose). */
-export function explanationLines(detail: Pick<SalesOutreachDetailDto, "policy" | "requirements">): string[] {
+/** Explanation codes rendered by their own branch in `explanationLines`; every other known code has a copy line. */
+const HANDLED_EXPLANATION_CODES = new Set(["projection_state", "workflow", "schedule_day", "priority_basis", "quoted_date", "review", "engine_state"]);
+
+/**
+ * One readable line per explanation code (D01: deterministic codes rendered as text, never generated prose). A code
+ * or value without copy is never shown raw: the line falls back ("Needs review", "Pending") or is dropped, and the
+ * code is reported (logged once in development).
+ */
+export function explanationLines(detail: Pick<SalesOutreachDetailDto, "policy" | "requirements"> & ReviewFacts): string[] {
   const lines: string[] = [];
   const workflow = detail.policy.workflow;
   const day = detail.policy.schedule_day;
@@ -74,29 +125,47 @@ export function explanationLines(detail: Pick<SalesOutreachDetailDto, "policy" |
   if (detail.requirements.call.status !== "not_required" || detail.requirements.sms.status !== "not_required") {
     lines.push(c.todayNeeds(c.callsUnit(call), c.smsUnit(sms)));
   }
+  let reviewed = false;
   for (const item of detail.policy.explanation) {
     switch (item.code) {
-      case "projection_state":
-        if (item.value && item.value !== "current") lines.push(c.explanation[String(item.value)] ?? t.pending);
+      case "projection_state": {
+        const text = projectionStateText(item.value);
+        if (text) lines.push(text);
         break;
+      }
       case "workflow":
       case "schedule_day":
         break;
       case "priority_basis":
         if (item.value === "intake_default") lines.push(c.explanation.priority_intake_default);
         else if (item.value === "accepted_observation") lines.push(c.explanation.priority_accepted_observation);
+        else if (item.value !== "none") reportUnknownDeskCode({ kind: "explanation_value", code: item.code, value: item.value });
         break;
       case "quoted_date":
         lines.push(`${c.explanation.quoted_date}: ${typeof item.value === "string" ? shortDateLabel(item.value) : t.pending}`);
         break;
       case "review":
-        lines.push(`${c.explanation.review}`);
+        reviewed = true;
+        lines.push(reviewReasonText(item.value));
         break;
-      default: {
-        const text = c.explanation[item.code];
+      case "engine_state": {
+        const text = typeof item.value === "string" && Object.hasOwn(c.engineStates, item.value) ? c.engineStates[item.value] : undefined;
         if (text) lines.push(text);
+        else if (item.value !== "active") reportUnknownDeskCode({ kind: "explanation_value", code: item.code, value: item.value });
+        break;
+      }
+      default: {
+        const text = Object.hasOwn(c.explanation, item.code) && !HANDLED_EXPLANATION_CODES.has(item.code) ? c.explanation[item.code] : undefined;
+        if (text) lines.push(text);
+        else reportUnknownDeskCode({ kind: "explanation_code", code: null, value: item.code });
       }
     }
+  }
+  // An older server (or a truncated explanation) may carry the review status without `review` codes.
+  if (!reviewed && detail.subject?.status === "review") {
+    const reasons = detail.subject.review_reasons.slice(0, 5);
+    if (reasons.length) for (const reason of reasons) lines.push(reviewReasonText(reason));
+    else lines.push(reviewReasonText(null));
   }
   return [...new Set(lines)];
 }
