@@ -8,6 +8,7 @@ import {
   pageTitleForPath,
   visibleDashboardNav,
 } from "../components/layout/dashboard-nav";
+import { Server } from "lucide-react";
 import { sidebarBadgeCounts } from "../components/layout/use-sidebar-badges";
 import { insightsTabForPath } from "../components/insights/insights-tabs";
 import { setupSectionsFor } from "../components/setup/setup-sections";
@@ -17,16 +18,20 @@ function hrefs(items: { href: string }[]): string[] {
 }
 
 // Doc 17 (2026-10-06): Automations joined the sidebar as the Owner's tab for Granot updates and later Granot reads.
-test("the sidebar has seven destinations in the Owner's order: Today, Leads, Bookings, Outreach Desk, Automations, Insights, Setup", () => {
+// Doc 11b (2026-10-07): Systems joined between Automations and Insights, Owner only.
+test("the sidebar has eight destinations in the Owner's order: Today, Leads, Bookings, Outreach Desk, Automations, Systems, Insights, Setup", () => {
   assert.deepEqual(
     dashboardNavItems.map((item) => item.key),
-    ["today", "leads", "bookings", "outreach-desk", "automations", "insights", "setup"],
+    ["today", "leads", "bookings", "outreach-desk", "automations", "systems", "insights", "setup"],
   );
-  assert.deepEqual(hrefs(visibleDashboardNav("owner")), ["/", "/leads", "/bookings", "/outreach-desk", "/automations", "/insights", "/setup"]);
+  assert.deepEqual(hrefs(visibleDashboardNav("owner")), ["/", "/leads", "/bookings", "/outreach-desk", "/automations", "/systems", "/insights", "/setup"]);
   assert.deepEqual(
     visibleDashboardNav("owner").map((item) => item.label),
-    ["Today", "Leads", "Bookings", "Outreach Desk", "Automations", "Insights", "Setup"],
+    ["Today", "Leads", "Bookings", "Outreach Desk", "Automations", "Systems", "Insights", "Setup"],
   );
+  const systems = dashboardNavItems.find((item) => item.key === "systems")!;
+  assert.equal(systems.ownerOnly, true);
+  assert.equal(systems.icon, Server);
 });
 
 test("Admin sees Leads, Bookings, Insights and Setup; a Manager sees Today and the Outreach Desk", () => {
@@ -40,7 +45,7 @@ test("Admin sees Leads, Bookings, Insights and Setup; a Manager sees Today and t
 test("badges sit on Today, Leads, Bookings and Automations and are counts, never zero", () => {
   assert.deepEqual(
     visibleDashboardNav("owner").map((item) => item.badge ?? null),
-    ["today", "leads", "bookings", null, "automations", null, null],
+    ["today", "leads", "bookings", null, "automations", null, null, null],
   );
   // Automations counts the Granot checks waiting for approval (doc 17); Leads stays empty.
   assert.deepEqual(sidebarBadgeCounts({ stillOpen: 3, unassigned: 5, granotWaiting: 1 }), { today: 8, bookings: 3, leads: null, automations: 1 });
@@ -60,6 +65,8 @@ test("regrouped old destinations keep their new sidebar item active", () => {
   assert.equal(activeNavKey("/outreach-desk"), "outreach-desk");
   assert.equal(activeNavKey("/automations"), "automations");
   assert.equal(activeNavKey("/automations/granot-updates/group-1"), "automations");
+  assert.equal(activeNavKey("/systems"), "systems");
+  assert.equal(pageTitleForPath("/systems"), "Systems");
   assert.equal(activeNavKey("/insights/sheets"), "insights");
   assert.equal(activeNavKey("/reporting/abc/edit"), "insights");
   assert.equal(activeNavKey("/analytics"), "insights");

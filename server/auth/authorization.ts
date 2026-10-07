@@ -11,6 +11,7 @@ import {
 
 const OWNER_ONLY_PAGE_PREFIXES = [
   "/automations",
+  "/systems",
   "/bookings/reconciliation",
   "/granot-lifecycle",
   "/ingestion/granot",
@@ -169,6 +170,8 @@ export function canProxyVantagePath(input: {
   ) {
     return false;
   }
+  // Systems (doc 11b) is the Owner's; the server refuses any other actor too.
+  if (path === "/api/v1/admin/systems" || path.startsWith("/api/v1/admin/systems/")) return false;
   if (
     path === "/api/v1/admin/extension-users" ||
     path.startsWith("/api/v1/admin/extension-users/")

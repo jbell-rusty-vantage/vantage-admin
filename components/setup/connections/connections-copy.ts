@@ -3,6 +3,9 @@
  * Relocation, Inbound Number, Feed. Every string passes `lib/operations-registry/ownerLanguageDeck.ts`.
  */
 export const CONNECTIONS_COPY = {
+  // Doc 11b: capacity (disk, Master Sheet size, time until full) lives on its own tab.
+  systemsLine: "How full the database and the Master Sheets are lives in Systems.",
+  systemsLink: "Open Systems",
   granot: {
     title: "Granot",
     subtitle: "Is Granot sending what we expect, and is every lead landing where it should.",

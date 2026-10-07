@@ -15,6 +15,7 @@ export const REGISTRY_CHANGE_ENTITY_TYPES = [
   "ringcentral_assignment",
   "granot_crm_source",
   "granot_automation_source",
+  "systems_locations",
   "registry",
 ] as const;
 
@@ -124,6 +125,8 @@ export function registryEntityHref(
         href: setupHrefForRegistryTab("granot-names", { entity: id }),
         label: id ? "Open Granot name" : "Open Granot names",
       };
+    case "systems_locations":
+      return { href: "/systems", label: "Open Systems" };
     case "registry":
     case "registry_cache":
     case "registry_compatibility":

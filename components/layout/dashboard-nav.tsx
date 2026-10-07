@@ -1,9 +1,10 @@
 "use client";
 /**
- * The dashboard sidebar (dashboard-redesign-proposal/01-sidebar-and-information-architecture.md). Seven destinations
+ * The dashboard sidebar (dashboard-redesign-proposal/01-sidebar-and-information-architecture.md). Eight destinations
  * answer the Owner's questions — what needs me (Today), find this customer or job (Leads, Bookings), how is the team
  * doing (Outreach Desk), what can run for me (Automations: operations that read Granot and prepare updates, doc 17
- * first) — and push everything else behind Insights and Setup. Nothing was deleted: the old destinations are
+ * first), where everything lives and how much room is left (Systems, doc 11b) — and push everything else behind
+ * Insights and Setup. Nothing was deleted: the old destinations are
  * regrouped under tabs and reached by permanent redirects (`next.config.ts`).
  */
 import Link from "next/link";
@@ -14,12 +15,13 @@ import {
   Headset,
   LayoutDashboard,
   ListChecks,
+  Server,
   Settings,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
 
-export type DashboardNavKey = "today" | "leads" | "bookings" | "outreach-desk" | "automations" | "insights" | "setup";
+export type DashboardNavKey = "today" | "leads" | "bookings" | "outreach-desk" | "automations" | "systems" | "insights" | "setup";
 
 export type DashboardNavItem = {
   key: DashboardNavKey;
@@ -66,6 +68,9 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
   // Operations the Owner starts and approves (doc 17 Granot updates first; more Granot reads later). `/ingestion/granot`
   // redirects here, so it is not listed as an active prefix (its lifecycle sub-pages stay with Setup).
   { key: "automations", label: "Automations", href: "/automations", icon: Workflow, activeFor: ["/automations"], ownerOnly: true, badge: "automations" },
+  // Where every property lives and how long until the database and the Master Sheets are full (doc 11b). Owner only;
+  // its own tab, not a Setup section.
+  { key: "systems", label: "Systems", href: "/systems", icon: Server, activeFor: ["/systems"], ownerOnly: true },
   { key: "insights", label: "Insights", href: "/insights", icon: BarChart3, activeFor: ["/insights", "/analytics", "/reporting"] },
   {
     key: "setup",

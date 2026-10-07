@@ -1,5 +1,6 @@
 import { mockAllNumbersResponse } from "@/lib/api/allNumbersMock";
 import { mockSalesOutreachResponse } from "@/lib/api/salesOutreachMock";
+import { mockSystemsResponse } from "@/lib/api/systemsMock";
 import { syntheticDailyOperationsSnapshot } from "@/tests/outreach-desk/fixtures/synthetic-daily";
 import { syntheticAllocationReport, syntheticLeadSpendDay } from "@/tests/outreach-desk/fixtures/synthetic-insights";
 import type { SyntheticVariant } from "@/tests/outreach-desk/fixtures/synthetic";
@@ -34,6 +35,9 @@ export function mockedProxyResponse(input: {
   body: unknown;
 }): { status: number; body: unknown } | null {
   const [pathname = "", query = ""] = input.path.split("?");
+  // Systems (doc 11b): the locations list and the capacity cards with 11b's seed numbers.
+  const systems = mockSystemsResponse({ role: input.admin.role, method: input.method, path: pathname, query, body: input.body });
+  if (systems) return systems;
   if (DESK_PATH.test(pathname)) {
     return mockSalesOutreachResponse({
       role: input.admin.role,

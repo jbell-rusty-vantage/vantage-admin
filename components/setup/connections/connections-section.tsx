@@ -4,10 +4,12 @@
  * then the quiet Registry card. The Owner-only gate is the page's. The registry reads keep the overview's keys and its
  * 60 second refetch.
  */
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { SetupSectionHead } from "@/components/setup/setup-shell";
 import { fetchRegistryHealth, fetchRegistryOverview } from "@/lib/api/operationsRegistry";
 import { queryKeys } from "@/lib/query/keys";
+import { CONNECTIONS_COPY } from "./connections-copy";
 import { GranotCard, RingCentralCard, SheetsCard } from "./partner-cards";
 import { RegistryCard } from "./registry-card";
 
@@ -31,6 +33,12 @@ export function ConnectionsSection() {
     <>
       <SetupSectionHead section="connections" />
       <div className="cn-stack">
+        <p className="su-quiet" data-testid="connections-systems-link">
+          {CONNECTIONS_COPY.systemsLine}{" "}
+          <Link href="/systems" className="crm-link crm-strong">
+            {CONNECTIONS_COPY.systemsLink}
+          </Link>
+        </p>
         <div className="crm-grid-2 cn-grid">
           <RingCentralCard />
           <SheetsCard />

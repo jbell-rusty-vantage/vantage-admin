@@ -79,6 +79,17 @@ test("admin dashboard paths hide owner-only local pages", () => {
   assert.equal(canAccessDashboardPath("admin", "/automations/granot-updates"), false);
   assert.equal(canAccessDashboardPath("admin", "/automations/granot-updates/group-1"), false);
   assert.equal(canAccessDashboardPath("manager", "/automations"), false);
+  // Systems (doc 11b) is the Owner's tab, denied the same way.
+  assert.equal(canAccessDashboardPath("owner", "/systems"), true);
+  for (const role of ["admin", "manager", "rep"] as const) {
+    assert.equal(canAccessDashboardPath(role, "/systems"), false, role);
+    assert.equal(canAccessDashboardPath(role, "/systems/anything"), false, role);
+    for (const method of ["GET", "PATCH"] as const) {
+      assert.equal(canProxyVantagePath({ role, method, path: "api/v1/admin/systems/locations" }), false, `${role} ${method}`);
+    }
+    assert.equal(canProxyVantagePath({ role, method: "GET", path: "api/v1/admin/systems/capacity?refresh=1" }), false, role);
+  }
+  assert.equal(canProxyVantagePath({ role: "owner", method: "PATCH", path: "api/v1/admin/systems/locations" }), true);
   assert.equal(canAccessDashboardPath("owner", "/settings"), true);
   assert.equal(canAccessDashboardPath("owner", "/ingestion/granot"), true);
   assert.equal(canAccessDashboardPath("owner", "/automations/granot-updates"), true);

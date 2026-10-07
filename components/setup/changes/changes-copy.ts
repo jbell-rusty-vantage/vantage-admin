@@ -56,6 +56,7 @@ export const CHANGE_ENTITY_LABELS: Readonly<Record<string, string>> = {
   ringcentral_assignment: "Inbound number filing",
   granot_crm_source: "Granot name",
   granot_automation_source: "Granot name (automation)",
+  systems_locations: "Where things live (Systems)",
   registry: "Registry",
 };
 

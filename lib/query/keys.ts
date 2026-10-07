@@ -64,6 +64,11 @@ export const queryKeys = {
     allocation: (filters?: QueryFilters) => [...queryKeys.insights.all, "allocation", stableFilters(filters)] as const,
     dailyLeadSpend: () => [...queryKeys.insights.all, "daily-lead-spend"] as const,
   },
+  systems: {
+    all: ["systems"] as const,
+    locations: () => [...queryKeys.systems.all, "locations"] as const,
+    capacity: () => [...queryKeys.systems.all, "capacity"] as const,
+  },
   facets: {
     all: ["facets"] as const,
   },

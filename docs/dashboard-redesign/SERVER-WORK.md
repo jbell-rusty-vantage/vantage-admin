@@ -119,11 +119,11 @@ over. Runtime configuration lives in Mongo (the standing rule), never in env.
 | G10 | Needs-a-look candidates: `preview.candidates: [{ lead_id, kind, label }]` on conflict actions | the Needs a look tab links each candidate lead | `check-review.tsx` already renders `preview.candidates` / `candidate_ids` when present | small |
 | G11 | Not-found reasons in Owner words on the action (`reason` is a code such as `ambiguous_fallback` today, `summary` a developer sentence) | the Not found and Needs a look tabs show the server's own reason verbatim | `review.lookReason` map in `granot-updates-copy.ts` translates the known codes; unknown codes fall back to `summary` | trivial |
 
-## Setup › Systems (doc 11b, reduced)
+## Systems tab (doc 11b, reduced; its own Owner-only sidebar tab at `/systems`, 2026-10-07)
 
-Spec: [11b-systems-and-health-reduced.md](11b-systems-and-health-reduced.md). Not started; no admin page yet.
+Spec: [11b-systems-and-health-reduced.md](11b-systems-and-health-reduced.md). **Shipped 2026-10-07:** server `d386c6ef` on `main` (R1–R5, Service doc `vantage-main-server/docs/knowledge/services/systems-capacity.md`); admin page at `/systems` (A1–A4).
 
-| # | Item |
+| # | Item (all shipped in server `d386c6ef`) |
 |---|---|
 | R1 | Locations runtime configuration document (seeded), `GET`/`PATCH /api/v1/admin/systems/locations` (Owner), change recorded; Master Sheet links from the two env ids |
 | R2 | `capacity_snapshots` (unique `day`) + daily cron `/api/cron/capacity-snapshot` at `45 8 * * *` |
