@@ -36,12 +36,12 @@ CAPACITY
 │ Time until 90% full:  about 2 years 7 months  (≈ May 2029)       growing ≈ 4 MB/day            │
 │ Time until full:      about 3 years 7 months  (≈ May 2030)       estimate · 3 of 7 days measured│
 └─────────────────────────────────────────────────────────────────────────────────────────────────┘
-┌ Master Leads ──────────────────────────────────────────────────────────── ● Needs attention (red) ┐
+┌ Master Leads ──────────────────────────────────────────────────────────────────────── ● Healthy ┐
 │ Biggest tab  Forms 6,724 of 40,000 rows   ███░░░░░░░░░░░░░░░░░  17%      +1,300 rows / month   │
 │ Workbook     363,022 of 10,000,000 cells  █░░░░░░░░░░░░░░░░░░░  3.6%     +45,000 cells / month │
 │ Time until a new workbook is needed:  about 2 years 1 month (Forms hits 40,000 ≈ Nov 2028)      │
 │ Time until Google's cell cap:         more than 15 years                                        │
-│ Sync  last write 2 min ago ✓ · 1 pending · 0 failed · ⚠ 3 stuck since Jul 29                    │
+│ Sync  last write 2 min ago ✓ · 1 pending · 0 failed                                             │
 └─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ┌ Master Booked ──────────────────────────────────────────────────────────────────────── ● Healthy ┐
 │ Biggest tab  Booked Deals 883 of 40,000 rows · +185 rows / month                                │
@@ -191,7 +191,7 @@ The oplog compact is the largest lever still available. It is an Atlas operation
 | Amber | 30,000 rows or 3M cells, or a new workbook needed within 6 months |
 | Red | 40,000 rows or 5M cells, or any failed job, or any job stuck more than 15 minutes |
 
-**Master Leads is red on day one.** Three `sheet_sync_jobs` rows have been stuck in `processing` since 2026-07-29 and 2026-08-31. That is correct and intended: the card should surface them. Clearing them is a separate one-off task. Do not hide them to make the card green.
+**Master Leads is green after the 2026-10-07 clearance.** Three `form_lead.create` jobs had been stuck in `processing` since 2026-07-29 (two) and 2026-08-31 (one). Each Form Lead was already on Master Leads › Forms, at the row stored on the lead. The jobs were cancelled and their dead drain runs closed. The card no longer lists them. A later stuck or failed job still turns this card red. Do not hide one to make the card green.
 
 ## Server work
 
@@ -219,7 +219,7 @@ The oplog compact is the largest lever still available. It is an Atlas operation
 - `/setup/systems` shows every location in the table above, and each Open, Install and Copy action works. The extension row opens the Chrome Web Store listing.
 - Editing the partner pages domain in the form takes effect without a deploy, and the edit appears in Change history.
 - The database card shows live disk use and both "time until" lines. Before 7 snapshots exist it carries the estimate label.
-- The Master Leads card shows Forms against 40,000, cells against 10M, the time until a new workbook is needed, and the 3 stuck jobs (red).
+- The Master Leads card shows Forms against 40,000, cells against 10M, the time until a new workbook is needed, and a clean sync line. A stuck or failed job still turns that card red.
 - `projectRunway` tests pass. The snapshot cron writes exactly one row per New York day, even when run twice.
 - Admin and Manager roles cannot open the section.
 

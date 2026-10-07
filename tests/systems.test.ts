@@ -68,10 +68,11 @@ test("the database card: disk bar, breakdown, both time-until lines and the esti
   assert.match(view.muted ?? "", /auto-scaling/);
 });
 
-test("Master Leads: Forms against 40,000, cells against 10M, the new-workbook line and 3 stuck jobs in red", () => {
+test("Master Leads: Forms against 40,000, cells against 10M, the new-workbook line and a clean sync line", () => {
   const view = sheetCardView(capacity.sheets[0]!, NOW);
-  assert.equal(view.status.colour, "red");
-  assert.equal(view.status.label, "Needs attention");
+  assert.equal(view.status.colour, "green");
+  assert.equal(view.status.label, "Healthy");
+  assert.equal(view.reason, "Well under 30,000 rows and 3 million cells, and the sync queue is clean.");
   assert.deepEqual(
     view.meters.map((meter) => [meter.label, meter.value, meter.growth]),
     [
@@ -90,8 +91,26 @@ test("Master Leads: Forms against 40,000, cells against 10M, the new-workbook li
     { text: "last write 2 min ago", state: "ok" },
     { text: "1 pending", state: "none" },
     { text: "0 failed", state: "none" },
-    { text: "3 stuck since Jul 29", state: "bad" },
   ]);
+});
+
+test("a stuck Sheet Sync job still turns Master Leads red", () => {
+  const leads = structuredClone(capacity.sheets[0]!);
+  leads.status = {
+    colour: "red",
+    reason: "3 Sheet Sync jobs have been stuck since Jul 29. Their rows may be missing from the sheet.",
+  };
+  leads.sync = {
+    last_write_at: leads.sync?.last_write_at ?? null,
+    pending: 1,
+    failed: 0,
+    stuck: { count: 3, oldest_at: "2026-07-29T18:45:43.139Z" },
+  };
+  const view = sheetCardView(leads, NOW);
+  assert.equal(view.status.colour, "red");
+  assert.equal(view.status.label, "Needs attention");
+  assert.equal(view.sync?.at(-1)?.text, "3 stuck since Jul 29");
+  assert.equal(view.sync?.at(-1)?.state, "bad");
 });
 
 test("Master Booked: healthy, more than 15 years, and the last cancellation row", () => {
@@ -105,10 +124,10 @@ test("Master Booked: healthy, more than 15 years, and the last cancellation row"
 test("the capacity section renders three cards with colour words and no leaks", () => {
   const markup = renderToStaticMarkup(createElement(CapacitySection, { capacity, now: NOW }));
   assert.match(markup, /data-testid="systems-capacity-database"[^>]*data-colour="green"/);
-  assert.match(markup, /data-testid="systems-capacity-master-leads"[^>]*data-colour="red"/);
+  assert.match(markup, /data-testid="systems-capacity-master-leads"[^>]*data-colour="green"/);
   assert.match(markup, /data-testid="systems-capacity-master-booked"[^>]*data-colour="green"/);
-  assert.match(markup, /Needs attention/);
-  assert.match(markup, /3 Sheet Sync jobs have been stuck since Jul 29/);
+  assert.doesNotMatch(markup, /Needs attention/);
+  assert.doesNotMatch(markup, /stuck since/);
   assert.equal((markup.match(/estimate · 3 of 7 days measured/g) ?? []).length, 6);
   assert.deepEqual(findOwnerMarkupLeaks(markup), []);
 });

@@ -87,7 +87,7 @@ export function systemsLocationsFixture(): SystemsLocations {
   };
 }
 
-/** 11b "The page" and the seed tables: day one, 3 of 7 days measured. `now` sets the sync line's last write. */
+/** 11b "The page" and the seed tables, after the 2026-10-07 stuck-job clearance. `now` sets the sync line's last write. */
 export function systemsCapacityFixture(now: Date = new Date("2026-10-07T13:14:00.000Z")): SystemsCapacity {
   const minutesAgo = (minutes: number) => new Date(now.getTime() - minutes * 60_000).toISOString();
   const estimate = (label: string, days: number | null, rate: number, date: string | null = null) => ({
@@ -120,14 +120,14 @@ export function systemsCapacityFixture(now: Date = new Date("2026-10-07T13:14:00
       {
         workbook: "master_leads",
         label: "Master Leads",
-        status: { colour: "red", reason: "3 Sheet Sync jobs have been stuck since Jul 29. Their rows may be missing from the sheet." },
+        status: { colour: "green", reason: "Well under 30,000 rows and 3 million cells, and the sync queue is clean." },
         read_at: now.toISOString(),
         error: null,
         biggest_tab: { name: "Forms", filled_rows: 6_724, limit: 40_000, warning: 30_000, pct: 16.8, growth_per_month: 1_300 },
         cells: { used: 363_022, cap: 10_000_000, pct: 3.6, growth_per_month: 45_000 },
         until_new_workbook: { ...estimate("about 2 years 1 month (≈ Nov 2028)", 778, 42.7, "2028-11-23"), trigger: "rows" },
         until_cell_cap: estimate("more than 15 years", null, 1_478),
-        sync: { last_write_at: minutesAgo(2), pending: 1, failed: 0, stuck: { count: 3, oldest_at: "2026-07-29T18:45:43.139Z" } },
+        sync: { last_write_at: minutesAgo(2), pending: 1, failed: 0, stuck: { count: 0, oldest_at: null } },
       },
       {
         workbook: "master_booked",

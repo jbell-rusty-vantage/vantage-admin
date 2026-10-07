@@ -53,7 +53,7 @@ export function sinceWords(iso: string, now: Date): string {
   return formatRelative(iso, now);
 }
 
-/** "last write 2 min ago ✓ · 1 pending · 0 failed · ⚠ 3 stuck since Jul 29". */
+/** "last write 2 min ago ✓ · 1 pending · 0 failed", plus "⚠ 3 stuck since Jul 29" when any job is stuck. */
 export function syncParts(sync: SyncLine | null, now: Date): SyncPart[] | null {
   if (!sync) return null;
   const s = copy.sync;
