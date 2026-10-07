@@ -57,6 +57,13 @@ export const queryKeys = {
     report: (report: string, filters?: QueryFilters) =>
       [...queryKeys.analytics.all, report, stableFilters(filters)] as const,
   },
+  insights: {
+    all: ["insights"] as const,
+    analytics: (filters?: QueryFilters) => [...queryKeys.insights.all, "analytics", stableFilters(filters)] as const,
+    reviews: (filters?: QueryFilters) => [...queryKeys.insights.all, "reviews", stableFilters(filters)] as const,
+    allocation: (filters?: QueryFilters) => [...queryKeys.insights.all, "allocation", stableFilters(filters)] as const,
+    dailyLeadSpend: () => [...queryKeys.insights.all, "daily-lead-spend"] as const,
+  },
   facets: {
     all: ["facets"] as const,
   },

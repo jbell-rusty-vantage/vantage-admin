@@ -53,6 +53,11 @@ const nextConfig: NextConfig = {
       // A lane deep link lands on the Lanes sub-view (doc 16 solo semantics); the bare board lands on Board.
       { source: "/daily", has: [{ type: "query", key: "lane", value: "(?<lane>.*)" }], destination: "/?tab=operations&view=lanes&lane=:lane", permanent: true },
       { source: "/daily", destination: "/?tab=operations", permanent: true },
+      // Analytics (doc 09): the old Geography and Text to booked tabs became "More breakdowns" on Sources; Receiver
+      // Agents moved to Team. The destination's `tab` wins over the request's (Next merges destination query last).
+      { source: "/analytics", has: [{ type: "query", key: "tab", value: "geography" }], destination: "/insights?tab=sources#more", permanent: true },
+      { source: "/analytics", has: [{ type: "query", key: "tab", value: "text-to-booked" }], destination: "/insights?tab=sources#more", permanent: true },
+      { source: "/analytics", has: [{ type: "query", key: "tab", value: "receiver-agents" }], destination: "/insights?tab=team", permanent: true },
       { source: "/analytics", destination: "/insights", permanent: true },
       { source: "/reporting", destination: "/insights/sheets", permanent: true },
     ];

@@ -10,6 +10,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Ban, Banknote, CalendarPlus, ClipboardCheck, MessageSquareText, Star, TriangleAlert, UserPlus, UserX, Workflow } from "lucide-react";
 import { useGranotRuns } from "@/components/automations/granot-updates/use-granot-updates";
 import { dailyOperationsFloridaHour, dailyOperationsKindLabel } from "@/components/daily/daily-copy";
+import { AnimatedNumber } from "@/components/daily/animated-number";
+import { SpendPaceChip, useLeadSpend } from "@/components/daily/lead-spend-panel";
 import { HourlyRhythm } from "@/components/daily/hourly-rhythm";
 import {
   milestoneHeadline,
@@ -35,6 +37,7 @@ import {
   Track,
   TrendChip,
   formatAge,
+  formatMoney,
   formatTime,
   type PillVariant,
 } from "@/components/ui/crm";
@@ -47,6 +50,7 @@ import {
   type DailyOperationsSnapshot,
 } from "@/lib/api/dailyOperations";
 import { dailyOperationsCardFacts, dailyOperationsEventLinks, dailyOperationsEventTitle } from "@/lib/api/dailyOperationsBoard";
+import type { InsightsLeadSpendDay } from "@/lib/api/insights";
 import type { DailyOperationsEventItem } from "@/lib/api/dailyOperationsLive";
 import { fetchGranotLifecycleCases, type GranotLifecycleCaseListItem } from "@/lib/api/granotLifecycle";
 import { expiresInWords, waitingChecks, windowWords, type GranotCheck } from "@/lib/automations/granot-updates-model";
@@ -86,6 +90,8 @@ export type PulseViewProps = {
   intakes: PulseIntakes;
   /** Granot checks waiting for approval (doc 17), newest first; `null` or empty hides the slot. */
   granotWaiting?: GranotCheck[] | null;
+  /** Today's live lead spend (Owner only); null while loading or unavailable. */
+  leadSpend?: InsightsLeadSpendDay | null;
   nowMs: number | undefined;
 };
 
@@ -202,7 +208,7 @@ function WaitingForYou({ snapshot, snapshotError, team, teamError, intakes, gran
   );
 }
 
-function Tiles({ snapshot }: { snapshot: DailyOperationsSnapshot | null }) {
+function Tiles({ snapshot, leadSpend }: { snapshot: DailyOperationsSnapshot | null; leadSpend?: InsightsLeadSpendDay | null }) {
   const m = snapshot?.metrics;
   const t = todayCopy.tiles;
   const trendOf = (pace: Parameters<typeof tileTrend>[0]) => {
@@ -253,7 +259,11 @@ function Tiles({ snapshot }: { snapshot: DailyOperationsSnapshot | null }) {
         caption={m ? t.textsCaption(m.texts.held_now) : null}
         href="/?tab=operations&lane=text"
       />
-      <SummaryCard testId="tile-spend" icon={Banknote} tone="purple" title={t.spend} value={t.spendValue} caption={t.spendCaption} href="/?tab=money" />
+      <SummaryCard testId="tile-spend" icon={Banknote} tone="purple" title={t.spend} value={leadSpend ? <AnimatedNumber value={leadSpend.spend.today} format={(n) => formatMoney(n)} /> : t.spendValue}
+        trend={leadSpend ? <SpendPaceChip day={leadSpend} /> : null}
+        caption={leadSpend ? t.spendCaptionLive(leadSpend.leads.today) : t.spendCaption}
+        href="/?tab=money"
+      />
     </div>
   );
 }
@@ -421,8 +431,10 @@ function RepsToday({
   );
 }
 
-function CompaniesToday({ snapshot }: { snapshot: DailyOperationsSnapshot | null }) {
+function CompaniesToday({ snapshot, leadSpend }: { snapshot: DailyOperationsSnapshot | null; leadSpend?: InsightsLeadSpendDay | null }) {
   const k = todayCopy.companies;
+  // Pulse rows and the spend report share the Source Company slug (for example tbm_leads).
+  const spendByCompany = new Map((leadSpend?.by_company ?? []).map((row) => [row.key, row.spend]));
   const rows = snapshot ? snapshot.companies.filter((row) => row.total > 0 || (row.yesterday_total ?? 0) > 0).sort((a, b) => b.total - a.total) : null;
   return (
     <CrmCard title={k.title} testId="pulse-companies" foot={k.note}>
@@ -454,7 +466,7 @@ function CompaniesToday({ snapshot }: { snapshot: DailyOperationsSnapshot | null
                   <td>{row.call}</td>
                   <td className="crm-strong">{row.total}</td>
                   <td className="crm-text-muted">{row.yesterday_total ?? "—"}</td>
-                  <td className="crm-text-muted">{k.spendCell}</td>
+                  <td className="crm-text-muted">{spendByCompany.has(row.source_company) ? formatMoney(spendByCompany.get(row.source_company)) : k.spendCell}</td>
                 </tr>
               ))}
             </tbody>
@@ -466,21 +478,21 @@ function CompaniesToday({ snapshot }: { snapshot: DailyOperationsSnapshot | null
 }
 
 export function PulseView(props: PulseViewProps) {
-  const { role, snapshot, snapshotError, events, eventsError, team, teamError, intakes, granotWaiting, nowMs } = props;
+  const { role, snapshot, snapshotError, events, eventsError, team, teamError, intakes, granotWaiting, leadSpend, nowMs } = props;
   if (role !== "owner") return null;
   const nowHour = nowMs === undefined ? undefined : dailyOperationsFloridaHour(new Date(nowMs));
   return (
     <div className="crm-stack" data-testid="today-pulse">
       {snapshotError && !snapshot ? <ReadFailure what={todayCopy.snapshotLoadError} error={snapshotError} /> : null}
       <WaitingForYou snapshot={snapshot} snapshotError={snapshotError} team={team} teamError={teamError} intakes={intakes} granotWaiting={granotWaiting} nowMs={nowMs} />
-      <Tiles snapshot={snapshot} />
+      <Tiles snapshot={snapshot} leadSpend={leadSpend} />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <HourlyRhythm snapshot={snapshot} nowHour={nowHour} />
         <Highlights events={events} eventsError={eventsError} nowMs={nowMs} />
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
         <RepsToday team={team} teamError={teamError} goalReachedAt={repGoalReachedAtById(events ?? [])} />
-        <CompaniesToday snapshot={snapshot} />
+        <CompaniesToday snapshot={snapshot} leadSpend={leadSpend} />
       </div>
     </div>
   );
@@ -530,12 +542,14 @@ export function PulseTab() {
   // The Granot updates runs page (doc 17), shared by key with the Automations badge and pages; nothing new is polled.
   const granotRuns = useGranotRuns(true);
 
+  const leadSpend = useLeadSpend(true);
   const snapshot = snapshotQuery.data ? withLiveDailyOperationsClock(normalizeDailyOperationsSnapshot(snapshotQuery.data), nowMs) : null;
 
   return (
     <PulseView
       role="owner"
       nowMs={nowMs}
+      leadSpend={leadSpend.data ?? null}
       granotWaiting={granotRuns.data ? waitingChecks(granotRuns.data) : null}
       snapshot={snapshot}
       snapshotError={snapshotQuery.error}

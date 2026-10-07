@@ -98,7 +98,8 @@ test("listed lead and analytics surfaces do not import hardcoded source maps", (
   const listed = [
     "app/(dashboard)/leads/page.tsx",
     "components/leads/leads-workspace.tsx",
-    "components/analytics/analytics-dashboard.tsx",
+    "components/insights/analytics/period-bar.tsx",
+    "components/insights/analytics/sources-tab.tsx",
     "lib/api/facets.ts",
   ];
   for (const file of listed) {
@@ -116,7 +117,6 @@ test("lead browse and edit submit source_granularity_key as the one Source Compa
   const filters = readFileSync(join(root, "components/operational/operational-filter-panel.tsx"), "utf8");
   const detail = readFileSync(join(root, "components/operational/operational-detail-panel.tsx"), "utf8");
   const operational = `${configs}\n${filters}\n${detail}`;
-  const analytics = readFileSync(join(root, "components/analytics/analytics-dashboard.tsx"), "utf8");
 
   assert.match(configs, /key: "source_granularity_key",\s*label: "Source Company"/);
   assert.doesNotMatch(operational, /hasOption\(field, "tbm_leads"\)/);
@@ -127,12 +127,4 @@ test("lead browse and edit submit source_granularity_key as the one Source Compa
     filters,
     /source_granularity_key: value,\s*source_company: null/,
   );
-
-  assert.match(analytics, /label="Source Company"/);
-  assert.doesNotMatch(analytics, /label="Source granularity"/);
-  assert.doesNotMatch(analytics, /label="Source company"/);
-  assert.equal((analytics.match(/label="Source Company"/g) ?? []).length, 1);
-  assert.match(analytics, /depositMixSlices/);
-  assert.match(analytics, /columnsForReport/);
-  assert.doesNotMatch(analytics, /\.slice\(0, 8\)/);
 });

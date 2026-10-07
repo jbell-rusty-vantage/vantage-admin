@@ -45,6 +45,7 @@ import {
 } from "../lib/format";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, Pill, ReadFailure, SearchBox, Segmented, SkeletonLine, SummaryCard, Track } from "../primitives";
+import { LeadCostCard } from "./lead-cost-card";
 import { LeadPanel, type RepOption } from "./lead-panel";
 
 const c = deskCopy.team;
@@ -407,6 +408,8 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
           </div>
 
           {capabilities.role_capabilities.includes("daily_operations_access") ? <OperationsStrip /> : null}
+
+          {viewer.role === "owner" ? <LeadCostCard /> : null}
 
           <section className="od-card" aria-labelledby="od-goals-title" data-testid="daily-call-goals">
             <div className="od-card__head">

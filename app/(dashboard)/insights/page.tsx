@@ -1,11 +1,12 @@
 import { Suspense } from "react";
-import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard";
+import "@/components/insights/analytics/analytics.css";
+import { AnalyticsPage } from "@/components/insights/analytics/analytics-page";
 
-/** Insights → Analytics (doc 01). `/analytics` redirects here. */
+/** Insights › Analytics (doc 09). `/analytics` redirects here (old `?tab=` values land on the matching view). */
 export default function InsightsAnalyticsPage() {
   return (
     <Suspense fallback={<p className="text-sm text-muted-foreground">Loading analytics…</p>}>
-      <AnalyticsDashboard />
+      <AnalyticsPage />
     </Suspense>
   );
 }

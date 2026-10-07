@@ -167,7 +167,7 @@ test("Pulse: five tiles with trend, captions and the Spend placeholder", () => {
   assert.match(markup, /\+14%/); // 41 vs 36
   assert.match(markup, /2 held/);
   assert.match(markup, /Spend today/);
-  assert.match(markup, /Arrives with the Money tab/);
+  assert.match(markup, /Open the Money tab/);
   assert.match(markup, /href="\/\?tab=money"/);
   assert.match(markup, /href="\/\?tab=operations&amp;lane=lead"/);
   assert.match(markup, /href="\/\?tab=operations&amp;lane=booking"/);
@@ -189,7 +189,7 @@ test("Pulse: highlights, reps today and by source company", () => {
   assert.match(markup, /Open the desk →/);
   assert.match(markup, /href="\/outreach-desk\?view=team"/);
   assert.match(markup, /By source company \(today\)/);
-  assert.match(markup, /Spend per company arrives with the Money endpoint/);
+  assert.match(markup, /live lead cost/);
 });
 
 test("Pulse: a pending unassigned count says Pending, a failed team read says so in words", () => {

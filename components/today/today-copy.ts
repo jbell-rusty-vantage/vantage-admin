@@ -65,7 +65,8 @@ export const todayCopy = {
     leadCaption: (form: number, call: number) => `form ${form} · call ${call}`,
     textsCaption: (held: number) => `${held} held`,
     spendValue: "—",
-    spendCaption: "Arrives with the Money tab",
+    spendCaption: "Open the Money tab",
+    spendCaptionLive: (leads: number) => `${leads} leads priced today`,
     vsYesterday: "Versus yesterday at this hour",
   },
 
@@ -101,7 +102,7 @@ export const todayCopy = {
     columns: { company: "Source Company", form: "Form", call: "Call", total: "Total", yesterday: "Yesterday", spend: "Spend" },
     empty: "No Leads yet today.",
     spendCell: "—",
-    note: "Spend per company arrives with the Money endpoint.",
+    note: "Spend is today's live lead cost; a dash means no priced lead yet.",
   },
 
   snapshotLoadError: "Today's numbers could not load.",

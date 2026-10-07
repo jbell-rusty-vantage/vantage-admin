@@ -17,6 +17,7 @@ import { floridaCalendarDateInputValue } from "@/lib/floridaTime";
 import {
   applyAdvancedCplCommand,
   applySimpleCplSchedule,
+  cplScheduleStartDate,
   buildAdvancedCplCommand,
   buildSimpleCplInput,
   classifyCplPeriods,
@@ -81,8 +82,14 @@ function PeriodList({ title, periods }: { title: string; periods: CplSchedulePer
   );
 }
 
+export type CostScope = "from_date" | "all";
+
 export type SimpleFormState = {
   amount: string;
+  /** Which leads the change re-prices; defaults to "from_date". */
+  scope?: CostScope;
+  /** The start of the feed's schedule, shown for "all". */
+  allStart?: string;
   date: string;
   reason: string;
   canSave: boolean;
@@ -107,7 +114,7 @@ export type LeadCostSheetViewProps = {
   readOnly: boolean;
   simple: SimpleFormState;
   advanced: AdvancedFormState;
-  onSimple: (patch: Partial<Pick<SimpleFormState, "amount" | "date" | "reason">>) => void;
+  onSimple: (patch: Partial<Pick<SimpleFormState, "amount" | "date" | "reason" | "scope">>) => void;
   onSaveSimple: () => void;
   onAdvanced: (form: AdvancedCplForm) => void;
   onRunAdvanced: () => void;
@@ -175,10 +182,24 @@ export function LeadCostSheetView(props: LeadCostSheetViewProps) {
                 onChange={(event) => props.onSimple({ amount: event.target.value })}
               />
             </label>
-            <label className="su-row">
-              <span className="su-row__label">{COPY.dateLabel}</span>
-              <input className="su-input" type="date" value={simple.date} disabled={readOnly} onChange={(event) => props.onSimple({ date: event.target.value })} />
-            </label>
+            <div className="su-row" role="radiogroup" aria-label={COPY.scopeLabel}>
+              <span className="su-row__label">{COPY.scopeLabel}</span>
+              {(["from_date", "all"] as const).map((value) => (
+                <label key={value} className="su-choice">
+                  <input type="radio" name="lc-scope" checked={(simple.scope ?? "from_date") === value} disabled={readOnly} onChange={() => props.onSimple({ scope: value })} />
+                  <span className="su-choice__text">
+                    <strong>{value === "all" ? COPY.scopeAll : COPY.scopeFromDate}</strong>
+                    {value === "all" && simple.allStart ? <span className="su-choice__hint">{COPY.scopeAllHint(formatShortDate(`${simple.allStart}T12:00:00Z`))}</span> : null}
+                  </span>
+                </label>
+              ))}
+            </div>
+            {(simple.scope ?? "from_date") === "from_date" ? (
+              <label className="su-row">
+                <span className="su-row__label">{COPY.dateLabel}</span>
+                <input className="su-input" type="date" value={simple.date} disabled={readOnly} onChange={(event) => props.onSimple({ date: event.target.value })} />
+              </label>
+            ) : null}
             <label className="su-row">
               <span className="su-row__label">{COPY.reasonLabel}</span>
               <input className="su-input" value={simple.reason} disabled={readOnly} onChange={(event) => props.onSimple({ reason: event.target.value })} />
@@ -194,6 +215,7 @@ export function LeadCostSheetView(props: LeadCostSheetViewProps) {
               {!simple.canSave ? <span className="su-quiet">{COPY.nothingToSave}</span> : null}
             </div>
           )}
+          {readOnly ? null : <p className="su-quiet">{COPY.repriceNote}</p>}
         </section>
 
         <details className="su-block lc-periods">
@@ -357,6 +379,7 @@ export function LeadCostSheet({ feedId, leadSourceName, feedName, readOnly, onCl
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today);
   const [reason, setReason] = useState("");
+  const [scope, setScope] = useState<CostScope>("from_date");
   const [simpleMessage, setSimpleMessage] = useState<string | null>(null);
   const [simpleError, setSimpleError] = useState<unknown>(null);
   const [form, setForm] = useState<AdvancedCplForm>(() => newAdvancedForm(today));
@@ -432,6 +455,8 @@ export function LeadCostSheet({ feedId, leadSourceName, feedName, readOnly, onCl
   const changes = computeSimpleCplChanges(singleFeedSnapshot(item), { [feedId]: amount });
   const expectedRevision = resolveAdvancedExpectedRevision(periodsQuery.isSuccess, periodsQuery.data?.revision);
   const built = buildAdvancedCplCommand(form, expectedRevision);
+  const allStart = cplScheduleStartDate(periodsQuery.data?.periods);
+  const effectiveDate = scope === "all" ? allStart : date;
 
   return (
     <LeadCostSheetView
@@ -440,15 +465,16 @@ export function LeadCostSheet({ feedId, leadSourceName, feedName, readOnly, onCl
       schedule={periodsQuery.data}
       today={today}
       readOnly={readOnly}
-      simple={{ amount, date, reason, canSave: changes.length > 0 && Boolean(date), saving: simpleMutation.isPending, message: simpleMessage, error: simpleError }}
+      simple={{ amount, date: effectiveDate, scope, allStart, reason, canSave: changes.length > 0 && Boolean(effectiveDate), saving: simpleMutation.isPending, message: simpleMessage, error: simpleError }}
       advanced={{ form, canRun: built.ok, running: advancedMutation.isPending, message: advancedMessage, error: advancedError }}
       onSimple={(patch) => {
         setSimpleMessage(null);
         if (patch.amount !== undefined) setAmount(patch.amount);
         if (patch.date !== undefined) setDate(patch.date);
+        if (patch.scope !== undefined) setScope(patch.scope);
         if (patch.reason !== undefined) setReason(patch.reason);
       }}
-      onSaveSimple={() => simpleMutation.mutate(buildSimpleCplInput(changes, date, reason))}
+      onSaveSimple={() => simpleMutation.mutate(buildSimpleCplInput(changes, effectiveDate, reason))}
       onAdvanced={(next) => {
         setAdvancedMessage(null);
         setForm(next);

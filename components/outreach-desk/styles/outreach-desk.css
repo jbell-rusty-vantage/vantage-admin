@@ -2631,3 +2631,130 @@
   font-size: 13px;
   font-weight: 800;
 }
+
+/* ------------------------------------------------------------------ Lead cost by rep (Owner, Team view) */
+
+.od-lc-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  padding: 0 16px 8px;
+}
+
+.od-lc-stat {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 13px;
+}
+
+.od-lc-stat strong {
+  color: var(--od-ink);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.od-lc-stat__label {
+  color: var(--od-muted);
+}
+
+.od-lc-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 16px 8px;
+  font-size: 13px;
+}
+
+.od-lc-loading {
+  display: grid;
+  gap: 10px;
+  padding: 6px 16px 16px;
+}
+
+.od-lc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0 16px 8px;
+  color: var(--od-muted);
+  font-size: 12px;
+  list-style: none;
+}
+
+.od-lc-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.od-lc-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.od-lc-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.od-lc-row--muted th,
+.od-lc-row--muted td {
+  color: var(--od-muted);
+}
+
+.od-lc-row--muted .od-strong {
+  color: var(--od-muted);
+}
+
+.od-lc-barcell {
+  min-width: 180px;
+}
+
+.od-lc-bar {
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border-radius: var(--od-r-pill);
+  background: var(--od-track);
+}
+
+.od-lc-bar__seg {
+  display: block;
+  height: 100%;
+  border-right: 1px solid var(--od-card);
+}
+
+.od-lc-detail > td {
+  padding: 4px 16px 12px 40px;
+  background: var(--od-table-head);
+}
+
+.od-lc-feeds {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.od-lc-feeds th,
+.od-lc-feeds td {
+  padding: 4px 10px 4px 0;
+  text-align: left;
+  font-weight: 500;
+}
+
+.od-lc-feeds thead th {
+  color: var(--od-muted);
+  font-size: 11.5px;
+}

@@ -143,3 +143,10 @@ test("stale registry/preview error helpers key off stable codes", () => {
   assert.equal(isCplPreviewStaleError(stalePreview), true);
   assert.equal(isCplPreviewStaleError(other), false);
 });
+
+test("cplScheduleStartDate is the earliest period start, with a fallback", async () => {
+  const { cplScheduleStartDate } = await import("./registryCpl");
+  assert.equal(cplScheduleStartDate([{ effective_from_date: "2026-03-01" }, { effective_from_date: "2025-11-02" }]), "2025-11-02");
+  assert.equal(cplScheduleStartDate([]), "2024-01-01");
+  assert.equal(cplScheduleStartDate(null), "2024-01-01");
+});

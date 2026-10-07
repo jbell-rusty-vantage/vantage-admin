@@ -27,11 +27,13 @@ import { KindTiersProvider, useStoredKindTiers } from "@/components/daily/kind-t
 import { LaneTiles } from "@/components/daily/lane-tiles";
 import { LanesView } from "@/components/daily/lanes-view";
 import { LiveDot } from "@/components/daily/live-dot";
+import { LeadSpendPanel } from "@/components/daily/lead-spend-panel";
 import { LiveFeed } from "@/components/daily/live-feed";
 import { OriginsPanel } from "@/components/daily/origins-panel";
 import { useArrivalHighlights } from "@/components/daily/use-arrival-highlights";
 import { useNowMs } from "@/components/daily/use-now";
 import { useStoredPreferenceFlag } from "@/components/daily/use-preference-flag";
+import { useDashboardRole } from "@/components/layout/dashboard-role-context";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { Segmented } from "@/components/ui/crm";
@@ -156,6 +158,7 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const isOwner = useDashboardRole() === "owner";
   const lane = searchParams.get("lane");
   const company = searchParams.get("company");
   const quietFromUrl = searchParams.get("quiet_priorities") === "1";
@@ -347,12 +350,16 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
     }
     const tiles = [...new Set(pendingFlashes.current)];
     pendingFlashes.current = [];
+    if (tiles.includes("leads")) {
+      // A lead arrived: refresh the live lead spend within a second or two.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.insights.dailyLeadSpend() });
+    }
     setFlashedTiles(tiles);
     if (flashTimer.current) {
       clearTimeout(flashTimer.current);
     }
     flashTimer.current = setTimeout(() => setFlashedTiles([]), TILE_FLASH_MS);
-  }, [board]);
+  }, [board, queryClient]);
 
   useEffect(() => {
     const source = new EventSource(DAILY_OPERATIONS_LIVE_PATH);
@@ -590,6 +597,8 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
         {snapshotQuery.error && !snapshot ? (
           <FeedbackMessage tone="error">{DAILY_COPY.loadFailed}</FeedbackMessage>
         ) : null}
+
+        {isOwner ? <LeadSpendPanel /> : null}
 
         <section className="space-y-2" aria-label={DAILY_COPY.headline}>
           <h2 className="text-xs font-semibold uppercase tracking-wide text-navy">{DAILY_COPY.headline}</h2>

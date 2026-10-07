@@ -1,6 +1,7 @@
 import { mockAllNumbersResponse } from "@/lib/api/allNumbersMock";
 import { mockSalesOutreachResponse } from "@/lib/api/salesOutreachMock";
 import { syntheticDailyOperationsSnapshot } from "@/tests/outreach-desk/fixtures/synthetic-daily";
+import { syntheticAllocationReport, syntheticLeadSpendDay } from "@/tests/outreach-desk/fixtures/synthetic-insights";
 import type { SyntheticVariant } from "@/tests/outreach-desk/fixtures/synthetic";
 import type { TrustedAdminIdentity } from "./auth/trustedProxyHeaders";
 
@@ -8,7 +9,7 @@ import type { TrustedAdminIdentity } from "./auth/trustedProxyHeaders";
  * Local mock mode for the Sales Outreach Desk (ADM-3): with `OUTREACH_DESK_MOCK=desk` (or `m1`) the BFF answers the
  * desk's `/api/v1/admin/sales-outreach/**` calls, the All Numbers and Accounts calls under
  * `/api/v1/admin/sales-intelligence/` (numbers, accounts, nudges) and the Daily Operations snapshot the Team view
- * summarizes from the synthetic fixtures, after the same session, role allowlist and scope checks as a real call. It exists to build and
+ * summarizes (plus the Owner's lead cost by rep and live lead spend) from the synthetic fixtures, after the same session, role allowlist and scope checks as a real call. It exists to build and
  * screenshot the desk without a server. It is refused on a Vercel production deployment whatever the env says.
  */
 export function outreachDeskMockVariant(env: Record<string, string | undefined> = process.env): SyntheticVariant | null {
@@ -20,6 +21,8 @@ export function outreachDeskMockVariant(env: Record<string, string | undefined> 
 const DESK_PATH = /^\/?api\/v1\/admin\/sales-outreach(?:\/|$)/;
 const DAILY_SNAPSHOT_PATH = /^\/?api\/v1\/admin\/daily-operations$/;
 const ALL_NUMBERS_PATH = /^\/?api\/v1\/admin\/sales-intelligence\//;
+const ALLOCATION_COST_PATH = /^\/?api\/v1\/admin\/insights\/allocation-cost$/;
+const DAILY_LEAD_SPEND_PATH = /^\/?api\/v1\/admin\/daily-operations\/lead-spend$/;
 
 /** The mock answer for a proxied call, or null when the call is not mocked (it then goes to the real server). */
 export function mockedProxyResponse(input: {
@@ -48,6 +51,12 @@ export function mockedProxyResponse(input: {
   }
   if (DAILY_SNAPSHOT_PATH.test(pathname) && input.method === "GET") {
     return { status: 200, body: { ok: true, data: syntheticDailyOperationsSnapshot() } };
+  }
+  // Owner-only money reads (the Team view's lead cost by rep, the board's live lead spend), like the server.
+  if ((ALLOCATION_COST_PATH.test(pathname) || DAILY_LEAD_SPEND_PATH.test(pathname)) && input.method === "GET") {
+    if (input.admin.role !== "owner") return { status: 403, body: { ok: false, error: "This read is for the Owner only." } };
+    const data = ALLOCATION_COST_PATH.test(pathname) ? syntheticAllocationReport() : syntheticLeadSpendDay();
+    return { status: 200, body: { ok: true, data } };
   }
   return null;
 }

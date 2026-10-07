@@ -566,3 +566,11 @@ export function buildAdvancedCplCommand(
     },
   };
 }
+
+export const CPL_SCHEDULE_START_FALLBACK = "2024-01-01";
+
+/** The first day a feed's schedule covers (earliest period start); "All leads" saves from here. */
+export function cplScheduleStartDate(periods: readonly Pick<CplSchedulePeriod, "effective_from_date">[] | null | undefined): string {
+  const dates = (periods ?? []).map((period) => period.effective_from_date).filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value));
+  return dates.length === 0 ? CPL_SCHEDULE_START_FALLBACK : [...dates].sort()[0];
+}
