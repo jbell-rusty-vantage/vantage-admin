@@ -119,6 +119,18 @@ over. Runtime configuration lives in Mongo (the standing rule), never in env.
 | G10 | Needs-a-look candidates: `preview.candidates: [{ lead_id, kind, label }]` on conflict actions | the Needs a look tab links each candidate lead | `check-review.tsx` already renders `preview.candidates` / `candidate_ids` when present | small |
 | G11 | Not-found reasons in Owner words on the action (`reason` is a code such as `ambiguous_fallback` today, `summary` a developer sentence) | the Not found and Needs a look tabs show the server's own reason verbatim | `review.lookReason` map in `granot-updates-copy.ts` translates the known codes; unknown codes fall back to `summary` | trivial |
 
+## Setup › Systems (doc 11b, reduced)
+
+Spec: [11b-systems-and-health-reduced.md](11b-systems-and-health-reduced.md). Not started; no admin page yet.
+
+| # | Item |
+|---|---|
+| R1 | Locations runtime configuration document (seeded), `GET`/`PATCH /api/v1/admin/systems/locations` (Owner), change recorded; Master Sheet links from the two env ids |
+| R2 | `capacity_snapshots` (unique `day`) + daily cron `/api/cron/capacity-snapshot` at `45 8 * * *` |
+| R3 | `projectRunway()` pure function with unit tests (estimate under 7 points, not growing, 5- and 15-year caps) |
+| R4 | `GET /api/v1/admin/systems/capacity` (Owner): database + Master Leads + Master Booked readings, runway, colour and reason; cached, `?refresh=1` |
+| R5 | Service doc `systems-capacity.md`; no new env names |
+
 ## Packet amendment (doc 15)
 
 Desk SPECIFICATION §5, the paragraph beginning "Desk look versus the rest of Admin (Owner instruction, 2026-10-04)",
