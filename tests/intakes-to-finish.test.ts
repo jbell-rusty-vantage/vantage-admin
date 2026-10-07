@@ -53,7 +53,7 @@ test("the list read is the open booking cases, newest Granot evidence first", ()
   );
 });
 
-test("a card shows the job, customer, source, Granot age, updates, one Finish button and No action on the card", () => {
+test("a Finish card for a job with no Booking yet shows Finish and no No action button", () => {
   const markup = render(base);
   assert.match(markup, /5562365/);
   assert.match(markup, /Steve Dority/);
@@ -61,17 +61,18 @@ test("a card shows the job, customer, source, Granot age, updates, one Finish bu
   assert.match(markup, /Granot booked 1h ago/);
   assert.match(markup, /3 updates/);
   assert.equal((markup.match(/>Finish</g) ?? []).length, 1);
-  // 2026-10-06: No action is an operator on the card, so the Owner's manager closes a case without opening the sheet.
-  assert.equal((markup.match(/>No action</g) ?? []).length, 1);
-  assert.match(markup, /aria-label="No action for job 5562365"/);
+  assert.equal(markup.includes(">No action<"), false);
+  assert.equal(markup.includes("No action for job"), false);
+  assert.equal(render({ ...base, mode: "create_referral_booking" }).includes(">No action<"), false);
   assert.equal(markup.includes("finish-booking-no-action"), false);
   assert.equal(markup.includes("Two possible customers"), false);
   assert.equal(markup.includes("Intake"), false);
 });
 
-test("No action opens in place on the card with the reasons, a note, Close with no action and Keep it", () => {
+test("No action opens in place on a review card with the reasons, a note, Close with no action and Keep it", () => {
+  const review = { ...base, mode: "review_existing_booking" as const, deterministic_booking: { present: true, id: "b1" } };
   const markup = renderToStaticMarkup(
-    createElement(ToFinishCard, { item: base, now: NOW, noActionOpen: true, commandsEnabled: true, onToggleNoAction: () => undefined, onNoActionDone: () => undefined, invalidate: async () => undefined }),
+    createElement(ToFinishCard, { item: review, now: NOW, noActionOpen: true, commandsEnabled: true, onToggleNoAction: () => undefined, onNoActionDone: () => undefined, invalidate: async () => undefined }),
   );
   assert.match(markup, /finish-booking-no-action/);
   assert.match(markup, /Close with no action/);
@@ -79,7 +80,7 @@ test("No action opens in place on the card with the reasons, a note, Close with 
   assert.match(markup, /Keep it/);
   assert.match(markup, /aria-expanded="true"/);
   const off = renderToStaticMarkup(
-    createElement(ToFinishCard, { item: base, now: NOW, noActionOpen: true, commandsEnabled: false, onToggleNoAction: () => undefined, onNoActionDone: () => undefined, invalidate: async () => undefined }),
+    createElement(ToFinishCard, { item: review, now: NOW, noActionOpen: true, commandsEnabled: false, onToggleNoAction: () => undefined, onNoActionDone: () => undefined, invalidate: async () => undefined }),
   );
   assert.match(off, /not ready to close bookings/);
 });

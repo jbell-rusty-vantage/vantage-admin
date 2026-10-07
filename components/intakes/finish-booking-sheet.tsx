@@ -108,6 +108,7 @@ export function FinishBookingSheet({ caseId, onClose }: { caseId: string; onClos
 function FinishForm({ detail, onFiled }: { detail: GranotLifecycleCaseDetail; onFiled: (message: string) => void }) {
   const queryClient = useQueryClient();
   const mode: FinishMode = finishModeOf(detail.mode);
+  const showNoAction = mode === "review";
   const booking = detail.official_current.booking;
   const catalog = useCatalogOptions();
   const lastMerchant = useLastMerchant();
@@ -445,16 +446,18 @@ function FinishForm({ detail, onFiled }: { detail: GranotLifecycleCaseDetail; on
           </Link>
         ) : null}
         <div className="crm-record__actions" style={{ justifyContent: "space-between" }}>
-          <button
-            type="button"
-            className="crm-button crm-button--quiet"
-            style={{ minHeight: 44 }}
-            aria-expanded={noActionOpen}
-            disabled={submitting}
-            onClick={() => setNoActionOpen((open) => !open)}
-          >
-            {COPY.noAction} ▾
-          </button>
+          {showNoAction ? (
+            <button
+              type="button"
+              className="crm-button crm-button--quiet"
+              style={{ minHeight: 44 }}
+              aria-expanded={noActionOpen}
+              disabled={submitting}
+              onClick={() => setNoActionOpen((open) => !open)}
+            >
+              {COPY.noAction} ▾
+            </button>
+          ) : null}
           <button
             type="button"
             className="crm-button crm-button--primary"
@@ -465,7 +468,7 @@ function FinishForm({ detail, onFiled }: { detail: GranotLifecycleCaseDetail; on
             {submitting ? filing.busy : filing.idle}
           </button>
         </div>
-        {noActionOpen ? (
+        {showNoAction && noActionOpen ? (
           <NoActionPanel caseId={detail.case_id} caseRevision={detail.case_revision} commandsEnabled={commandsEnabled} onFiled={onFiled} invalidate={invalidate} />
         ) : null}
       </section>

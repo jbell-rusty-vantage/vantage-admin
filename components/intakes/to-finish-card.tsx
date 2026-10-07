@@ -2,7 +2,8 @@
 /**
  * One booking to finish (doc 06 / doc 03 "One card frame, three kinds"): the amber clock circle with the age, the job
  * number, the customer, the source, what Granot did and when, the move and money line, the two-customers warning,
- * **No action** (closes the case in place, without opening the sheet; 2026-10-06) and one Finish / Review button.
+ * and one Finish / Review button. **No action** (closes the case in place) only when Vantage already has the
+ * booking — a review, where the likely choice is No action. A Finish card for a job with no Booking yet has none.
  * Pure over props: the page owns which card has its No action panel open.
  */
 import type { KeyboardEvent, MouseEvent } from "react";
@@ -42,6 +43,7 @@ export function ToFinishCard({
   invalidate?: (item: GranotLifecycleCaseListItem) => Promise<void>;
 }) {
   const mode = finishModeOf(item.mode);
+  const showNoAction = mode === "review";
   const summary = item.case_file_summary;
   const moveLine = moveMoneyLine(summary, now);
   const twoCustomers = mode === "create" && possibleCustomerCount(item) >= 2;
@@ -110,21 +112,23 @@ export function ToFinishCard({
             items={timeline ? [{ key: "timeline", label: TO_FINISH_COPY.openTimeline, href: timeline }] : []}
           />
           <CopyJobButton jobNo={item.job_no} />
-          <button
-            type="button"
-            className="crm-button crm-button--quiet"
-            style={{ minHeight: 44 }}
-            aria-label={TO_FINISH_COPY.noActionFor(item.job_no)}
-            aria-expanded={noActionOpen}
-            onClick={() => onToggleNoAction?.(item)}
-          >
-            {TO_FINISH_COPY.noAction}
-          </button>
+          {showNoAction ? (
+            <button
+              type="button"
+              className="crm-button crm-button--quiet"
+              style={{ minHeight: 44 }}
+              aria-label={TO_FINISH_COPY.noActionFor(item.job_no)}
+              aria-expanded={noActionOpen}
+              onClick={() => onToggleNoAction?.(item)}
+            >
+              {TO_FINISH_COPY.noAction}
+            </button>
+          ) : null}
           <button type="button" className="crm-button crm-button--primary" style={{ minHeight: 44 }} onClick={open}>
             {mode === "review" ? TO_FINISH_COPY.review : TO_FINISH_COPY.finish}
           </button>
         </div>
-        {noActionOpen ? (
+        {showNoAction && noActionOpen ? (
           <div onClick={stop} onKeyDown={stop}>
             <NoActionPanel
               caseId={item.case_id}
