@@ -34,18 +34,27 @@ test("locations parse into full rows; a missing field becomes a safe default", (
   assert.deepEqual(parseSystemsLocations(null), { revision: 1, updated_at: null, updated_by: null, locations: [] });
 });
 
-test("capacity parses the three cards, keeping the estimate basis and the stuck jobs", () => {
+test("capacity parses the three cards, keeping the estimate basis and a clean Master Leads sync", () => {
   const parsed = parseSystemsCapacity(JSON.parse(JSON.stringify(systemsCapacityFixture())));
   assert.equal(parsed.database.status.colour, "green");
   assert.equal(parsed.database.until_90!.basis, "estimate");
   assert.equal(parsed.database.until_90!.points, 3);
   assert.equal(parsed.sheets.length, 2);
   const [leads, booked] = parsed.sheets;
-  assert.equal(leads!.status.colour, "red");
-  assert.equal(leads!.sync!.stuck.count, 3);
+  assert.equal(leads!.status.colour, "green");
+  assert.equal(leads!.sync!.stuck.count, 0);
   assert.equal(leads!.until_new_workbook!.trigger, "rows");
   assert.equal("last_cancellation_at" in leads!, false);
   assert.equal(booked!.last_cancellation_at, "2026-08-20T04:48:56.596Z");
+});
+
+test("a stuck sync line still parses as red", () => {
+  const body = JSON.parse(JSON.stringify(systemsCapacityFixture())) as { sheets: Array<{ status: { colour: string }; sync: { stuck: { count: number } } }> };
+  body.sheets[0]!.status.colour = "red";
+  body.sheets[0]!.sync.stuck.count = 3;
+  const parsed = parseSystemsCapacity(body);
+  assert.equal(parsed.sheets[0]!.status.colour, "red");
+  assert.equal(parsed.sheets[0]!.sync!.stuck.count, 3);
 });
 
 test("an unreadable card parses as unknown with nulls, never a crash", () => {
