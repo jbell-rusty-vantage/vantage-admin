@@ -16,6 +16,8 @@ export type AdminExtensionUser = {
   email: string;
   roles: CurrentExtensionRole[];
   active: boolean;
+  /** The Agent this login belongs to; null (or absent from an older server) = none. */
+  agent_id?: string | null;
   created_at: string;
   last_login_at: string | null;
 };
@@ -24,12 +26,15 @@ export type CreateExtensionUserInput = {
   email: string;
   password: string;
   roles: CurrentExtensionRole[];
+  agent_id?: string | null;
 };
 
 export type UpdateExtensionUserInput = {
   email?: string;
   password?: string;
   roles?: CurrentExtensionRole[];
+  /** Connects the login to an Agent; `null` disconnects it. Does not sign the login out. */
+  agent_id?: string | null;
 };
 
 const ROLE_LABELS: Record<CurrentExtensionRole, string> = {
@@ -114,6 +119,9 @@ export function updateExtensionUser(
   }
   if (input.roles !== undefined) {
     body.roles = input.roles;
+  }
+  if (input.agent_id !== undefined) {
+    body.agent_id = input.agent_id;
   }
   return requestJson(proxyUrl(`api/v1/admin/extension-users/${encodeURIComponent(id)}`), {
     method: "PATCH",

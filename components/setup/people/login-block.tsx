@@ -151,6 +151,12 @@ function LoginForm({
   const [fields, setFields] = useState<FieldErrors>(initial?.fields ?? {});
   const [sentence, setSentence] = useState<string | null>(initial?.sentence ?? null);
   const [busy, setBusy] = useState(false);
+  // An Agent handed in after mount (Add a dashboard login → Add the Agent inline) is taken without losing what was typed.
+  const [seenAgentId, setSeenAgentId] = useState(agent?.id ?? null);
+  if ((agent?.id ?? null) !== seenAgentId) {
+    setSeenAgentId(agent?.id ?? null);
+    if (agent && !user) setDraft((old) => ({ ...old, role: "rep", agentId: agent.id }));
+  }
 
   const set = <K extends keyof UserDraft>(key: K, value: UserDraft[K]) => {
     setDraft((old) => ({ ...old, [key]: value }));

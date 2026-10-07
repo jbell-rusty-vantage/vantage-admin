@@ -22,10 +22,11 @@ import {
   type ExtensionUser,
   type RingCentralAccount,
 } from "../components/setup/people/people-model";
-import { PeopleList } from "../components/setup/people/people-section";
+import { addKindOf, AddButtons, PeopleList } from "../components/setup/people/people-section";
+import { extensionAgentOptions } from "../components/setup/people/people-sheets";
 import { PersonCard } from "../components/setup/people/person-card";
 import { connectableAccounts, connectBody, connectError, RingCentralBlock } from "../components/setup/people/ringcentral-block";
-import { RosterCreateBlock, RosterEditBlock, rosterUpdateBody } from "../components/setup/people/roster-block";
+import { DeskBlock, RosterCreateBlock, RosterEditBlock, rosterUpdateBody } from "../components/setup/people/roster-block";
 import { deskCopy } from "../components/outreach-desk/outreach-desk-copy";
 import { findOwnerMarkupLeaks } from "../lib/operations-registry/ownerLanguageDeck";
 import { SalesOutreachApiError } from "../lib/api/salesOutreach";
@@ -43,6 +44,7 @@ const agent = (id: string, name: string, extra: Partial<CatalogAgent> = {}): Cat
   active: true,
   created_from: "test",
   granot_crm_username: name.toUpperCase().slice(0, 6),
+  desk_membership: { on: true, reason: "granot" },
   ...extra,
 });
 const user = (id: string, email: string, role: string, agentId: string | null, extra: Partial<AdminUser> = {}): AdminUser => ({
@@ -185,8 +187,10 @@ test("Not matched to a person lists each kind, with a Connect to… picker where
   assert.deepEqual(findOwnerMarkupLeaks(out), []);
   assert.ok(out.includes("owner@example.invalid") && out.includes("stray@example.invalid") && out.includes("Pat Lane"));
   assert.ok(out.includes(PEOPLE_COPY.notMatched.noAgentRole("Owner")), "an Owner login has no Agent to connect");
-  assert.ok(out.includes(PEOPLE_COPY.notMatched.extensionNote), "an extension login says it has no Agent field");
-  assert.equal(out.split(`>${PEOPLE_COPY.notMatched.connectTo}<`).length - 1, 1, "one picker: the account (the Owner login and the extension login offer none)");
+  assert.ok(out.includes(PEOPLE_COPY.notMatched.extensionNote), "an extension login says it can be connected");
+  assert.equal(out.split(`>${PEOPLE_COPY.notMatched.connectTo}<`).length - 1, 2, "two pickers: the extension login and the account (the Owner login offers none)");
+  assert.ok(out.includes(PEOPLE_COPY.notMatched.sameEmailExtension("Owner")), "the Owner's extension login shows beside the Owner's dashboard login");
+  assert.equal(out.split(`>${PEOPLE_COPY.edit}<`).length - 1, 3, "every login has an Edit: the Owner login, its extension login, the stray extension login");
 });
 
 test("the sheets render without Owner-language leaks and keep their rules", () => {
@@ -243,6 +247,11 @@ test("RingCentral: the write carries the revision the Owner read; a stale revisi
 test("roster and extension writes send only what changed", () => {
   assert.equal(rosterUpdateBody(AUSTIN, { name: "Austin", granot: AUSTIN.granot_crm_username!, reason: "" }), null);
   assert.deepEqual(rosterUpdateBody(AUSTIN, { name: " Austin R ", granot: "austr", reason: " fix " }), { name: "Austin R", granot_crm_username: "AUSTR", reason: "fix" });
+  assert.deepEqual(rosterUpdateBody(AUSTIN, { name: "Austin", granot: " ", reason: "" }), { granot_crm_username: null }, "an emptied Granot username clears it");
+  assert.equal(rosterUpdateBody({ name: "Pat", granot_crm_username: undefined }, { name: "Pat", granot: "", reason: "" }), null, "no username before or after is no change");
+  assert.deepEqual(extensionPatch(extUsers[0]!, { email: "austin@example.invalid", password: "", roles: ["sales"], agentId: "a1" }), { agent_id: "a1" });
+  assert.deepEqual(extensionPatch({ ...extUsers[0]!, agent_id: "a1" }, { email: "austin@example.invalid", password: "", roles: ["sales"], agentId: "" }), { agent_id: null });
+  assert.equal(extensionPatch({ ...extUsers[0]!, agent_id: "a1" }, { email: "austin@example.invalid", password: "", roles: ["sales"], agentId: "a1" }), null);
   assert.equal(extensionPatch(extUsers[0]!, { email: "austin@example.invalid", password: "", roles: ["sales"] }), null);
   assert.deepEqual(extensionPatch(extUsers[0]!, { email: "austin@example.invalid", password: "longenough", roles: ["sales", "owner"] }), { password: "longenough", roles: ["sales", "owner"] });
 });
@@ -251,4 +260,58 @@ test("dependency keys are said in Owner words", () => {
   assert.equal(dependencyLabel("source_granularities"), "feeds");
   assert.equal(dependencyLabel("lead_cost_rows"), "lead cost rows");
   assert.deepEqual(findOwnerMarkupLeaks(dependencyLabel("source_granularity")), []);
+});
+
+test("an extension login joins by its own Agent before any email; connected ones never land under Logins without an Agent", () => {
+  const connected = { ...ext("e9", "someone-else@example.invalid"), agent_id: "a2" };
+  const model = buildPeople({ agents: [AUSTIN, DANA], users, extensionUsers: [...extUsers, connected], accounts });
+  assert.equal(model.people.find((person) => person.agent.id === "a2")?.extensionUser?.id, "e9");
+  assert.deepEqual(model.notMatched.extensionUsers.map((item) => item.id), ["e3"]);
+  // An extension login connected to Dana is not also matched to Austin by email.
+  const stolen = buildPeople({ agents: [AUSTIN, DANA], users, extensionUsers: [{ ...extUsers[0]!, agent_id: "a2" }], accounts: [] });
+  assert.equal(stolen.people.find((person) => person.agent.id === "a1")?.extensionUser, null);
+  assert.equal(stolen.people.find((person) => person.agent.id === "a2")?.extensionUser?.id, "e1");
+  // The picker offers only Agents whose card holds no extension login yet (plus the login's own Agent).
+  assert.deepEqual(extensionAgentOptions(model).map((option) => option.id), []);
+  assert.deepEqual(extensionAgentOptions(model, "a2").map((option) => option.id), ["a2"]);
+});
+
+test("the Outreach Desk line says on or off and why, in Owner words; Admin and Manager see it without Edit", () => {
+  const on = buildPeople({ agents: [AUSTIN], users, extensionUsers: extUsers, accounts }).people[0]!;
+  const out = html(createElement(PersonCard, { person: on, loaded: { users: true, extensionUsers: true, accounts: true }, readOnly: false, onEdit: () => {} }));
+  assert.ok(out.includes(PEOPLE_COPY.desk.on) && out.includes(PEOPLE_COPY.desk.reason.granot!));
+  const off = buildPeople({ agents: [agent("a7", "Pat", { granot_crm_username: undefined, outreach_desk: "off", desk_membership: { on: false, reason: "owner_off" } })], users: [], extensionUsers: [], accounts: [] }).people[0]!;
+  const offOut = html(createElement(PersonCard, { person: off, loaded: { users: true, extensionUsers: true, accounts: true }, readOnly: true, onEdit: () => {} }));
+  assert.ok(offOut.includes(PEOPLE_COPY.desk.off) && offOut.includes(PEOPLE_COPY.desk.reason.owner_off!) && offOut.includes(PEOPLE_COPY.roster.noGranot));
+  assert.ok(!offOut.includes(">Edit<"));
+  assert.deepEqual(findOwnerMarkupLeaks(offOut), []);
+});
+
+test("every kind can be added on its own: Agent, dashboard login, extension login", () => {
+  assert.equal(addKindOf("1"), "agent", "the older Add person link still opens Add an Agent");
+  assert.equal(addKindOf("agent"), "agent");
+  assert.equal(addKindOf("login"), "login");
+  assert.equal(addKindOf("extension"), "extension");
+  assert.equal(addKindOf("bogus"), null);
+  const buttons = html(createElement(AddButtons, { onAdd: () => {} }));
+  for (const label of [PEOPLE_COPY.addMenu.agent, PEOPLE_COPY.addMenu.login, PEOPLE_COPY.addMenu.extension]) assert.ok(buttons.includes(label), label);
+  const options = [{ id: "a1", name: "Austin", active: true }];
+  const standaloneExtension = html(createElement(ExtensionBlock, { extensionUser: null, defaultEmail: "", agents: options }));
+  assert.ok(standaloneExtension.includes(PEOPLE_COPY.extensionSheet.agentNone) && standaloneExtension.includes("Austin"), "a standalone extension login may have no Agent or pick one");
+  assert.ok(standaloneExtension.includes(PEOPLE_COPY.extensionSheet.newAgentTitle), "and can add the Agent it belongs to");
+  const fromCard = html(createElement(ExtensionBlock, { extensionUser: null, defaultEmail: "", agent: options[0]! }));
+  assert.ok(fromCard.includes(PEOPLE_COPY.extensionSheet.agentFixed) && !fromCard.includes(PEOPLE_COPY.extensionSheet.newAgentTitle));
+  const standaloneLogin = html(createElement(LoginBlock, { agent: null, user: null, users, agents: options }));
+  for (const word of ["Owner", "Admin", "Manager", "Rep"]) assert.ok(standaloneLogin.includes(`>${word}<`), word);
+  const create = html(createElement(RosterCreateBlock, { onCreated: () => {} }));
+  for (const setting of ["auto", "on", "off"]) assert.ok(create.includes(PEOPLE_COPY.deskSheet.options[setting]!.label), setting);
+  assert.ok(!html(createElement(RosterCreateBlock, { onCreated: () => {}, compact: true })).includes(PEOPLE_COPY.deskSheet.options.on!.label));
+  for (const piece of [buttons, standaloneExtension, fromCard, standaloneLogin, create]) assert.deepEqual(findOwnerMarkupLeaks(piece), []);
+});
+
+test("the Outreach Desk sheet offers Automatic, Always on and Off and says where the Agent stands now", () => {
+  const out = html(createElement(DeskBlock, { agent: agent("a8", "Lee", { outreach_desk: "on", desk_membership: { on: true, reason: "owner_on" } }) }));
+  for (const setting of ["auto", "on", "off"]) assert.ok(out.includes(PEOPLE_COPY.deskSheet.options[setting]!.label), setting);
+  assert.ok(out.includes(PEOPLE_COPY.deskSheet.now(PEOPLE_COPY.desk.on, PEOPLE_COPY.desk.reason.owner_on!)));
+  assert.deepEqual(findOwnerMarkupLeaks(out), []);
 });

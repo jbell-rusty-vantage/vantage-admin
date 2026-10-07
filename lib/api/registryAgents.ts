@@ -4,6 +4,13 @@ import { registryRequestJson } from "./registryRequest";
 
 export type RegistryCatalogKind = "agents" | "merchants";
 
+/** The Owner's Outreach Desk control on an Agent (server `OUTREACH_DESK_SETTINGS`); absent = `auto`. */
+export type OutreachDeskSetting = "auto" | "on" | "off";
+
+/** Why an Agent is (or is not) on the Outreach Desk now (server `deskMembership`). */
+export type DeskMembershipReason = "inactive" | "owner_off" | "owner_on" | "granot" | "ringcentral" | "none";
+export type DeskMembership = { on: boolean; reason: DeskMembershipReason };
+
 /**
  * HTTP catalog shape from vantage-main-server `CatalogItem`.
  * Nested `granot_identity` is not exposed over the admin HTTP contract today;
@@ -18,6 +25,10 @@ export type RegistryCatalogItem = {
   active: boolean;
   role?: string;
   granot_crm_username?: string;
+  /** Agents: the Owner's Outreach Desk control. */
+  outreach_desk?: OutreachDeskSetting;
+  /** Agents: whether this Agent is on the Outreach Desk now, and why. */
+  desk_membership?: DeskMembership;
   archived_at?: string;
   deactivation_reason?: string;
   created_from: string;
@@ -37,13 +48,16 @@ export type CatalogCreateInput = {
   name: string;
   role?: string;
   granot_crm_username?: string;
+  outreach_desk?: OutreachDeskSetting;
   created_from?: string;
 };
 
 export type CatalogUpdateInput = {
   name?: string;
   role?: string;
-  granot_crm_username?: string;
+  /** `null` clears the Agent's Granot username. */
+  granot_crm_username?: string | null;
+  outreach_desk?: OutreachDeskSetting;
   reason?: string;
 };
 

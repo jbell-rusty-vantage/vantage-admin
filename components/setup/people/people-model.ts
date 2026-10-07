@@ -1,14 +1,15 @@
 /**
  * People & access (doc 19 "One person, one card"): the pure client-side join of the four things the server keeps apart.
- * Roster (Agent) is the card's identity. A dashboard login joins by `agent_id` (reps); an extension login joins by an
- * email equal to that dashboard login's; a RingCentral account joins by `agent.id` (several per Agent are allowed).
+ * Roster (Agent) is the card's identity. A dashboard login joins by `agent_id` (reps); an extension login joins by its
+ * own `agent_id` (set in People & access), else, while it has none, by an email equal to that dashboard login's; a
+ * RingCentral account joins by `agent.id` (several per Agent are allowed).
  * A `null` input means the read was not allowed or failed: it is "unknown", never "none", so nothing from it is placed
  * under Not matched and the card says "not loaded" for that part. No React here, so node:test covers every rule.
  */
 import type { AdminUser } from "@/components/operations-registry/users/users-api";
 import type { Account } from "@/lib/api/allNumbers";
 import type { AdminExtensionUser } from "@/lib/api/extensionUsers";
-import type { RegistryCatalogItem } from "@/lib/api/registryAgents";
+import type { DeskMembershipReason, OutreachDeskSetting, RegistryCatalogItem } from "@/lib/api/registryAgents";
 
 export type CatalogAgent = RegistryCatalogItem;
 export type ExtensionUser = AdminExtensionUser;
@@ -23,6 +24,8 @@ export type Person = {
 
 export type PeopleModel = {
   people: Person[];
+  /** Every extension login read (empty when not loaded), so a standalone sheet can open any of them. */
+  extensionUsers: ExtensionUser[];
   notMatched: { users: AdminUser[]; extensionUsers: ExtensionUser[]; accounts: RingCentralAccount[] };
   /** Which reads arrived. A part that is not loaded is unknown, not empty. */
   loaded: { users: boolean; extensionUsers: boolean; accounts: boolean };
@@ -48,26 +51,39 @@ function loginOf(agent: CatalogAgent, users: AdminUser[]): AdminUser | null {
   return own.find((user) => user.active) ?? [...own].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0] ?? null;
 }
 
+/** The extension login that stands for an Agent: the one connected to it, else an unconnected one sharing its dashboard email. */
+function extensionOf(agent: CatalogAgent, user: AdminUser | null, extensionUsers: ExtensionUser[], agentIds: Set<string>): ExtensionUser | null {
+  const connected = extensionUsers.find((item) => item.agent_id === agent.id);
+  if (connected) return connected;
+  if (!user) return null;
+  return extensionUsers.find((item) => !connectedToKnownAgent(item, agentIds) && emailKey(item.email) === emailKey(user.email)) ?? null;
+}
+
+const connectedToKnownAgent = (item: ExtensionUser, agentIds: Set<string>) => Boolean(item.agent_id && agentIds.has(item.agent_id));
+
 export function buildPeople(input: PeopleInput): PeopleModel {
   const agentIds = new Set(input.agents.map((agent) => agent.id));
   const { users, extensionUsers, accounts } = input;
 
   const people = orderedAgents(input.agents).map((agent): Person => {
     const user = users ? loginOf(agent, users) : null;
-    const extensionUser = user && extensionUsers ? (extensionUsers.find((item) => emailKey(item.email) === emailKey(user.email)) ?? null) : null;
+    const extensionUser = extensionUsers ? extensionOf(agent, user, extensionUsers, agentIds) : null;
     return { agent, user, extensionUser, accounts: (accounts ?? []).filter((account) => account.agent?.id === agent.id) };
   });
 
   const notMatchedUsers = users ? users.filter((user) => !user.agent_id || !agentIds.has(user.agent_id)) : [];
+  const claimed = new Set(people.flatMap((person) => (person.extensionUser ? [person.extensionUser.id] : [])));
   const userEmails = new Set((users ?? []).map((user) => emailKey(user.email)));
-  // Without the dashboard read an extension login cannot be judged either way, so it is not listed as unmatched.
-  const notMatchedExtension = users && extensionUsers ? extensionUsers.filter((item) => !userEmails.has(emailKey(item.email))) : [];
+  // Without the dashboard read an extension login cannot be judged either way, so it is not listed as unmatched. One
+  // that shares an Owner, Admin or Manager login's email belongs to that login and is shown beside it, not here.
+  const notMatchedExtension = users && extensionUsers ? extensionUsers.filter((item) => !claimed.has(item.id) && !userEmails.has(emailKey(item.email))) : [];
   const notMatchedAccounts = accounts
     ? accounts.filter((account) => account.in_directory && account.role !== "excluded" && (!account.agent || !agentIds.has(account.agent.id)))
     : [];
 
   return {
     people,
+    extensionUsers: extensionUsers ?? [],
     notMatched: { users: notMatchedUsers, extensionUsers: notMatchedExtension, accounts: notMatchedAccounts },
     loaded: { users: users !== null, extensionUsers: extensionUsers !== null, accounts: accounts !== null },
   };
@@ -83,9 +99,16 @@ export function notMatchedCount(model: PeopleModel): number {
   return users.filter((user) => user.role === "rep").length + extensionUsers.length + accounts.length;
 }
 
-/** The extension login that shares a dashboard login's email, or null. */
+/** The extension login that shares a dashboard login's email and is not connected to an Agent, or null. */
 export function extensionUserFor(user: AdminUser, extensionUsers: ExtensionUser[] | null): ExtensionUser | null {
-  return extensionUsers?.find((item) => emailKey(item.email) === emailKey(user.email)) ?? null;
+  return extensionUsers?.find((item) => !item.agent_id && emailKey(item.email) === emailKey(user.email)) ?? null;
+}
+
+/** The Outreach Desk words for a card: on or off, and why. */
+export function deskState(agent: CatalogAgent): { on: boolean | null; reason: DeskMembershipReason | null; setting: OutreachDeskSetting } {
+  const setting = agent.outreach_desk ?? "auto";
+  if (!agent.desk_membership) return { on: null, reason: null, setting };
+  return { on: agent.desk_membership.on, reason: agent.desk_membership.reason, setting };
 }
 
 /** The search the section runs: name, email (dashboard and extension), Granot username and RingCentral extension number. */
