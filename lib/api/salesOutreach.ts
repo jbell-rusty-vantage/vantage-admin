@@ -45,6 +45,13 @@ export const SALES_OUTREACH_GOAL_STATES = ["goal", "no_goal_today", "not_on_rost
 export type SalesOutreachGoalState = (typeof SALES_OUTREACH_GOAL_STATES)[number];
 export const SALES_OUTREACH_GOAL_COUNT_SCOPES = ["all_outbound", "eligible_new_quoted"] as const;
 export type SalesOutreachGoalCountScope = (typeof SALES_OUTREACH_GOAL_COUNT_SCOPES)[number];
+/**
+ * P08a-1 `goals.roster_rule` (server `SALES_OUTREACH_ROSTER_RULES`): `explicit` = the configured
+ * `rep_work_schedules` list is the roster (absent key); `desk_reps` = the roster is derived from the active
+ * Agents with a current reviewed `sales_rep` link, and the list only holds per-rep settings.
+ */
+export const SALES_OUTREACH_ROSTER_RULES = ["explicit", "desk_reps"] as const;
+export type SalesOutreachRosterRule = (typeof SALES_OUTREACH_ROSTER_RULES)[number];
 /** olr C2c `cadence.no_contact_number_rule` values (server `SALES_OUTREACH_NO_CONTACT_NUMBER_RULES`). */
 export const SALES_OUTREACH_NO_CONTACT_NUMBER_RULES = ["review_no_cadence"] as const;
 /** olr C2d `evidence.call_association_rule` values (server `SALES_OUTREACH_CALL_ASSOCIATION_RULES`). */
@@ -665,7 +672,33 @@ export const salesOutreachTeamGoalsSchema = z.object({
   /** C8: roster reps' breakdowns summed; null when any roster rep's is null. Optional for an older server. */
   other_outbound_breakdown: salesOutreachOtherOutboundBreakdownSchema.nullable().optional(),
   roster_size: count,
+  /**
+   * P08a-1: the day's outbound calls by Agents who are not on the effective roster (not active, or not connected
+   * in Accounts) — no rep row, no goal, told to the Owner as a footnote. Null under the explicit roster rule and
+   * for a Manager; optional for an older server.
+   */
+  other_callers: z
+    .object({ agents: count, agent_ids: z.array(salesOutreachAgentIdSchema), confirmed: count, awaiting_confirmation: count })
+    .nullable()
+    .optional(),
 });
+
+/** P08a-1: the effective roster behind `daily_call_goals` (`GET /team.roster`). */
+export const salesOutreachRosterSchema = z.object({
+  rule: openEnum("team roster.rule", SALES_OUTREACH_ROSTER_RULES),
+  roster_version: z.string().nullable(),
+  at: instant,
+  members: z.array(
+    z.object({
+      agent_id: salesOutreachAgentIdSchema,
+      agent_name: z.string().nullable(),
+      working_days: z.array(z.number().int().min(1).max(7)),
+      scheduled_goal: count.nullable(),
+      schedule_source: openEnum("team roster.members[].schedule_source", ["configured", "default"]),
+    }),
+  ),
+});
+export type SalesOutreachRosterDto = z.infer<typeof salesOutreachRosterSchema>;
 
 /** `GET /team` goal rows are the same composed rows as `GET /rep-days`. */
 export const salesOutreachDailyCallGoalRowSchema = salesOutreachRepDaySchema;
@@ -678,6 +711,8 @@ export const salesOutreachTeamSchema = commonReadSchema.extend({
   goals: salesOutreachTeamGoalsSchema.nullable(),
   goals_unknown_reason: goalsUnknownReasonSchema.nullable(),
   daily_call_goals: z.array(salesOutreachDailyCallGoalRowSchema).nullable(),
+  /** P08a-1: the effective roster behind `daily_call_goals`; null while goal metrics are off; optional for an older server. */
+  roster: salesOutreachRosterSchema.nullable().optional(),
   distinct_overdue_leads: salesOutreachCadenceMetricSchema,
   quoted_overdue_leads: salesOutreachCadenceMetricSchema,
   unassigned: z.object({ count: count.nullable(), overdue: salesOutreachCadenceMetricSchema }),
@@ -1443,6 +1478,11 @@ export const salesOutreachConfigurationValueSchema = z.looseObject({
     count_scope_schedule: z
       .array(z.looseObject({ from_day: z.string(), scope: openEnum("configuration goals.count_scope_schedule[].scope", SALES_OUTREACH_GOAL_COUNT_SCOPES) }))
       .optional(),
+    /**
+     * P08a-1: who is on the roster. `desk_reps` derives it from the active Agents with a current reviewed link
+     * (Accounts); absent = `explicit`, the `rep_work_schedules` list. Off in Settings removes the key.
+     */
+    roster_rule: openEnum("configuration goals.roster_rule", SALES_OUTREACH_ROSTER_RULES).optional(),
   }),
   /** olr A0/A5: evaluate-drain tunables. An optional namespace: absent = every tunable at its server code default. */
   operations: z

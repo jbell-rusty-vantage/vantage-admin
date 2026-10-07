@@ -463,6 +463,9 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
             <p className="od-card__foot">
               {c.goals.footnote}
               {otherFoot ? <span data-testid="goals-other-footnote">{` ${otherFoot}`}</span> : null}
+              {goals?.other_callers && goals.other_callers.agents > 0 && !selectedRep ? (
+                <span data-testid="goals-other-callers">{` ${c.goals.otherCallers(goals.other_callers.confirmed + goals.other_callers.awaiting_confirmation, goals.other_callers.agents)}`}</span>
+              ) : null}
             </p>
           </section>
 

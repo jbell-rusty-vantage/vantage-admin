@@ -233,6 +233,9 @@ export const deskCopy = {
       scopeMixed: "scope differs by rep today",
       columns: { rep: "Sales rep", calls: "Calls today", progress: "Daily progress", remaining: "Calls remaining", overdue: "Overdue leads", action: "Action" },
       viewQueue: "View queue",
+      /** P08a-1: calls by people who are not on the roster (deactivated, or not connected in Accounts) — Owner only. */
+      otherCallers: (calls: number, people: number) =>
+        `Also today: ${plural(calls, "outbound call", "outbound calls")} by ${plural(people, "person", "people")} not on the roster (not active, or not connected in Accounts).`,
       overdueCount: (n: number) => `${n} overdue`,
       noneOverdue: "0 overdue",
       awaiting: (n: number) => `+${n} unconfirmed`,
@@ -549,6 +552,14 @@ export const deskCopy = {
       [policy ? `Policy ${policy}` : "No policy installed", version ? `configuration ${version}` : null, at ? `updated ${at}` : null].filter(Boolean).join(" · "),
     defaultGoal: "Default daily goal",
     workingDays: "Working days",
+    /** P08a-1: the automatic roster switch (`goals.roster_rule: desk_reps`; Off removes the key). */
+    rosterAuto: "Automatic roster",
+    rosterAutoHint:
+      "On: a sales rep joins the roster the moment they are active in Setup → People and connected to a RingCentral account in Accounts, and leaves it when either changes. Off: the roster is exactly the list below.",
+    rosterAutoOn: "Reps join and leave automatically. Working days and goals are kept per rep; a rep without their own row uses every day and the default goal.",
+    rosterNoReps: "No active, connected sales rep yet. Connect one in Accounts.",
+    rosterAt: (at: string) => `Roster as of ${at}`,
+    rosterDefault: "default",
     closures: "Closures",
     noClosures: "No closures scheduled.",
     addClosure: "Add a closure date",
@@ -743,9 +754,9 @@ export const deskCopy = {
         hint: "How long RingCentral may stay silent before call freshness warns about it.",
       },
       evaluate_drain_max_jobs: { label: "Re-checks per run", hint: "Most lead re-checks one run handles." },
-      evaluate_drain_budget_seconds: { label: "Time per run", hint: "Time one run may spend before it stops for the next minute." },
+      evaluate_drain_budget_seconds: { label: "Time per re-evaluation run", hint: "Time one run may spend before it stops for the next minute." },
       evaluate_drain_concurrency: { label: "Re-checks at once", hint: "Re-checks one run handles in parallel." },
-      feed_budget_seconds: { label: "Time per run", hint: "Time one run may spend reading lead changes." },
+      feed_budget_seconds: { label: "Time per lead-change run", hint: "Time one run may spend reading lead changes." },
       feed_max_passes_per_run: { label: "Pages per run", hint: "Pages of 100 lead changes one run may read when changes pile up." },
       decision_reconcile_per_run: { label: "Decision re-checks per run", hint: "Lead decisions re-checked per 5-minute run." },
     } as Record<string, { label: string; hint: string }>,

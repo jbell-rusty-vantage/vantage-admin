@@ -28,15 +28,35 @@ export function withDefaultGoal(value: SalesOutreachConfigurationValue, goal: nu
   return { ...value, goals: { ...value.goals, default_scheduled_goal: goal } };
 }
 
-/** Adds or removes one ISO weekday from a rep's `working_days` (other reps and fields unchanged). */
-export function withWorkingDayToggled(value: SalesOutreachConfigurationValue, agentId: string, day: number): SalesOutreachConfigurationValue {
+const ALL_WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
+
+/**
+ * Adds or removes one ISO weekday from a rep's `working_days` (other reps and fields unchanged). A rep without a
+ * `rep_work_schedules` entry (P08a-1: a desk rep on the derived roster with the default schedule) gets one, started
+ * from `currentDays` (the schedule the desk shows for them; every weekday by default) with the day toggled.
+ */
+export function withWorkingDayToggled(
+  value: SalesOutreachConfigurationValue,
+  agentId: string,
+  day: number,
+  currentDays: readonly number[] = ALL_WEEKDAYS,
+): SalesOutreachConfigurationValue {
   const schedules = value.goals.rep_work_schedules ?? [];
-  const next = schedules.map((row) =>
-    row.agent_id === agentId
-      ? { ...row, working_days: row.working_days.includes(day) ? row.working_days.filter((d) => d !== day) : [...row.working_days, day].sort((a, b) => a - b) }
-      : row,
-  );
+  const toggle = (days: readonly number[]) => (days.includes(day) ? days.filter((d) => d !== day) : [...days, day].sort((a, b) => a - b));
+  const next = schedules.some((row) => row.agent_id === agentId)
+    ? schedules.map((row) => (row.agent_id === agentId ? { ...row, working_days: toggle(row.working_days) } : row))
+    : [...schedules, { agent_id: agentId, working_days: toggle(currentDays), scheduled_goal: null }];
   return { ...value, goals: { ...value.goals, rep_work_schedules: next } };
+}
+
+/**
+ * P08a-1: sets `goals.roster_rule` (`desk_reps` = automatic roster from the active, connected reps) or removes the
+ * key (`null` = the server default, the explicit list), the same way the other optional keys are turned off.
+ */
+export function withRosterRule(value: SalesOutreachConfigurationValue, rule: "desk_reps" | "explicit" | null): SalesOutreachConfigurationValue {
+  const goals = { ...value.goals };
+  delete goals.roster_rule;
+  return { ...value, goals: rule ? { ...goals, roster_rule: rule } : goals };
 }
 
 /** Replaces `cadence.holidays` (closures), de-duplicated and sorted. */

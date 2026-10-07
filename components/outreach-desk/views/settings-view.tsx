@@ -25,14 +25,24 @@ import {
   salesOutreachRestrictionsResponseSchema,
   type SalesOutreachCapabilitiesDto,
   type SalesOutreachConfigurationReadDto,
+  type SalesOutreachConfigurationValue,
   type SalesOutreachRestrictionDto,
+  type SalesOutreachRosterDto,
 } from "@/lib/api/salesOutreach";
 import { outreachKeys } from "@/lib/query/salesOutreach";
 import { useDayOverrideCommand } from "../data/use-desk-commands";
 import { retryDeskRead, useTeam } from "../data/use-desk-reads";
 import type { DeskViewer } from "../shell/desk-shell";
 import { absoluteTime, addDays, nyDate, shortDateLabel } from "../lib/format";
-import { CONFIGURATION_CONTROL_KEYS, withDefaultGoal, withHolidays, withSwitchToggled, withWorkingDayToggled, type ConfigurationSwitchKey } from "../lib/configuration-patch";
+import {
+  CONFIGURATION_CONTROL_KEYS,
+  withDefaultGoal,
+  withHolidays,
+  withRosterRule,
+  withSwitchToggled,
+  withWorkingDayToggled,
+  type ConfigurationSwitchKey,
+} from "../lib/configuration-patch";
 import { deskCopy } from "../outreach-desk-copy";
 import { DeskHeader, IconBadge, SkeletonLine } from "../primitives";
 import {
@@ -100,20 +110,78 @@ function ControlsPanel({ config }: { config: SalesOutreachConfigurationReadDto }
   );
 }
 
-function RosterPanel({ config, names }: { config: SalesOutreachConfigurationReadDto; names: Map<string, string> }) {
+/**
+ * The rows the roster panel shows (P08a-1): under the automatic roster (`goals.roster_rule: desk_reps`) the
+ * effective members the server derived (`GET /team.roster`), each with its settings or the defaults; otherwise the
+ * configured `rep_work_schedules` list. Exported for tests.
+ */
+export function rosterPanelRows(
+  value: SalesOutreachConfigurationValue,
+  roster: SalesOutreachRosterDto | null | undefined,
+  names: Map<string, string>,
+): { automatic: boolean; loading: boolean; rows: { agent_id: string; name: string; working_days: readonly number[]; goal: number | null; default_schedule: boolean }[] } {
+  const automatic = (value.goals.roster_rule ?? "explicit") === "desk_reps";
+  if (!automatic) {
+    return {
+      automatic,
+      loading: false,
+      rows: (value.goals.rep_work_schedules ?? []).map((row) => ({
+        agent_id: row.agent_id,
+        name: names.get(row.agent_id) ?? deskCopy.text.unknownRep,
+        working_days: row.working_days,
+        goal: row.scheduled_goal,
+        default_schedule: false,
+      })),
+    };
+  }
+  if (!roster) return { automatic, loading: true, rows: [] };
+  return {
+    automatic,
+    loading: false,
+    rows: roster.members.map((member) => ({
+      agent_id: member.agent_id,
+      name: member.agent_name ?? names.get(member.agent_id) ?? deskCopy.text.unknownRep,
+      working_days: member.working_days,
+      goal: member.scheduled_goal,
+      default_schedule: member.schedule_source === "default",
+    })),
+  };
+}
+
+function RosterPanel({ config, names, roster }: { config: SalesOutreachConfigurationReadDto; names: Map<string, string>; roster: SalesOutreachRosterDto | null | undefined }) {
   const write = useConfigurationWrite();
   const value = config.value;
   const [defaultGoal, setDefaultGoal] = useState(String(value?.goals.default_scheduled_goal ?? ""));
   if (!value) return null;
-  const schedules = value.goals.rep_work_schedules ?? [];
+  const panel = rosterPanelRows(value, roster, names);
   const saveDefault = () => {
     const goal = Number(defaultGoal);
     if (!Number.isInteger(goal) || goal < 0) return;
     write.mutate({ config, value: withDefaultGoal(value, goal) });
   };
-  const toggleDay = (agentId: string, day: number) => write.mutate({ config, value: withWorkingDayToggled(value, agentId, day) });
+  const toggleDay = (agentId: string, day: number, currentDays: readonly number[]) =>
+    write.mutate({ config, value: withWorkingDayToggled(value, agentId, day, currentDays) });
+  const toggleRule = () => write.mutate({ config, value: withRosterRule(value, panel.automatic ? null : "desk_reps") });
   return (
     <>
+      <ul className="od-toggles">
+        <li>
+          <span>
+            {deskCopy.settingsExtra.rosterAuto}
+            <span className="od-text-muted od-small"> {deskCopy.settingsExtra.rosterAutoHint}</span>
+          </span>
+          <button type="button" role="switch" aria-checked={panel.automatic} className="od-switch" disabled={write.isPending} onClick={toggleRule} data-testid="roster-rule-switch">
+            <span className="od-switch__knob" aria-hidden="true" />
+            <span>{panel.automatic ? s.on : s.off}</span>
+          </button>
+        </li>
+      </ul>
+      {panel.automatic ? (
+        <p className="od-text-muted od-small">
+          {deskCopy.settingsExtra.rosterAutoOn}
+          {roster ? ` ${deskCopy.settingsExtra.rosterAt(absoluteTime(roster.at))}` : null}
+        </p>
+      ) : null}
       <div className="od-inline-form">
         <label>
           {deskCopy.settingsExtra.defaultGoal}
@@ -133,16 +201,25 @@ function RosterPanel({ config, names }: { config: SalesOutreachConfigurationRead
             </tr>
           </thead>
           <tbody>
-            {schedules.length === 0 ? (
+            {panel.loading ? (
+              <tr>
+                <td colSpan={3}>
+                  <SkeletonLine />
+                </td>
+              </tr>
+            ) : panel.rows.length === 0 ? (
               <tr>
                 <td colSpan={3} className="od-empty">
-                  {deskCopy.team.goals.empty}
+                  {panel.automatic ? deskCopy.settingsExtra.rosterNoReps : deskCopy.team.goals.empty}
                 </td>
               </tr>
             ) : (
-              schedules.map((row) => (
+              panel.rows.map((row) => (
                 <tr key={row.agent_id}>
-                  <th scope="row">{names.get(row.agent_id) ?? deskCopy.text.unknownRep}</th>
+                  <th scope="row">
+                    {row.name}
+                    {row.default_schedule ? <span className="od-text-muted od-small"> · {deskCopy.settingsExtra.rosterDefault}</span> : null}
+                  </th>
                   <td>
                     <div className="od-daypicker" role="group" aria-label={deskCopy.settingsExtra.workingDays}>
                       {WEEKDAYS.map((label, index) => (
@@ -152,14 +229,14 @@ function RosterPanel({ config, names }: { config: SalesOutreachConfigurationRead
                           className="od-chip od-chip--small"
                           aria-pressed={row.working_days.includes(index + 1)}
                           disabled={write.isPending}
-                          onClick={() => toggleDay(row.agent_id, index + 1)}
+                          onClick={() => toggleDay(row.agent_id, index + 1, row.working_days)}
                         >
                           {label}
                         </button>
                       ))}
                     </div>
                   </td>
-                  <td>{row.scheduled_goal ?? value.goals.default_scheduled_goal ?? "—"}</td>
+                  <td>{row.goal ?? value.goals.default_scheduled_goal ?? "—"}</td>
                 </tr>
               ))
             )}
@@ -398,7 +475,10 @@ export function SettingsView({ viewer, capabilities }: { viewer: DeskViewer; cap
     return map;
   }, [team.data]);
   const reps = useMemo(() => {
-    const ids = new Set<string>([...names.keys(), ...(config.data?.value?.goals.rep_work_schedules ?? []).map((row) => row.agent_id)]);
+    // P08a-1: under the automatic roster the team rows are exactly the desk reps (the server refuses an override for
+    // anyone else), so the configured settings list adds nobody; under the explicit rule it is the roster.
+    const automatic = (config.data?.value?.goals.roster_rule ?? "explicit") === "desk_reps";
+    const ids = new Set<string>([...names.keys(), ...(automatic ? [] : (config.data?.value?.goals.rep_work_schedules ?? []).map((row) => row.agent_id))]);
     return [...ids].map((id) => ({ id, name: names.get(id) ?? deskCopy.text.unknownRep }));
   }, [names, config.data]);
   const subtitle = owner ? s.ownerSubtitle : coordinator ? s.managerSubtitle : s.repSubtitle;
@@ -421,7 +501,7 @@ export function SettingsView({ viewer, capabilities }: { viewer: DeskViewer; cap
                 <ControlsPanel config={config.data} />
               </Panel>
               <Panel icon={Users} title={s.roster} testId="settings-roster">
-                <RosterPanel config={config.data} names={names} />
+                <RosterPanel config={config.data} names={names} roster={team.data?.roster ?? null} />
               </Panel>
               <Panel icon={CalendarX2} title={deskCopy.settingsExtra.closures} testId="settings-closures">
                 <ClosuresPanel config={config.data} today={today} />

@@ -104,7 +104,13 @@ function useEnrollOne(list: EnrollmentList) {
   const isCandidates = (key: QueryKey) => candidates.every((part, i) => key[i] === part);
   return useMutation({
     mutationFn: (lead: SalesOutreachEnrollmentCandidate["lead"]) => enrollOneLead(lead),
-    onSuccess: (_data, lead) => {
+    onSuccess: (data, lead) => {
+      // Final review (ADM-4 minor): the apply answered 200 but did not enroll (paused, lease held, failed) —
+      // the lead is still a candidate, so keep its row and refresh everything, like a refused Enroll.
+      if (data.status !== "completed" && data.status !== "running") {
+        void queryClient.invalidateQueries({ queryKey: outreachKeys.all as QueryKey });
+        return;
+      }
       queryClient.setQueryData<InfiniteData<SalesOutreachEnrollmentCandidatesDto, string | null>>(outreachKeys.enrollmentCandidatePages(list), (data) =>
         withoutEnrolledLead(data, lead),
       );
