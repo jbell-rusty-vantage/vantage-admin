@@ -34,7 +34,7 @@ export const SALES_OUTREACH_SUBJECT_STATUSES = ["active", "closed", "review"] as
 export const SALES_OUTREACH_ENROLLMENT_KINDS = ["pilot", "intake", "expansion"] as const;
 export const SALES_OUTREACH_RECEIVED_QUALITIES = ["instant", "wall_clock", "missing", "unreliable"] as const;
 export const SALES_OUTREACH_PRIORITY_BASES = ["accepted_observation", "intake_default", "none"] as const;
-export const SALES_OUTREACH_WORKFLOWS = ["new", "quoted", "discretion", "none", "closed"] as const;
+export const SALES_OUTREACH_WORKFLOWS = ["new", "quoted", "daily", "discretion", "none", "closed"] as const;
 export type SalesOutreachWorkflow = (typeof SALES_OUTREACH_WORKFLOWS)[number];
 export const SALES_OUTREACH_PERIOD_START_KINDS = ["intake", "transition", "activation"] as const;
 export const SALES_OUTREACH_FOLLOWUP_KINDS = ["quoted_date", "callback"] as const;
@@ -131,7 +131,7 @@ export const SALES_OUTREACH_DESK_UNAVAILABLE_REASONS = ["configuration_uninitial
 export const SALES_OUTREACH_DEPLOYED_READS = ["capabilities", "rep_days", "team", "queue", "outreach_detail", "live"] as const;
 export const SALES_OUTREACH_GOAL_BASES = ["work_schedule", "default_goal", "override", "not_scheduled", "not_on_roster"] as const;
 export const SALES_OUTREACH_ACTUAL_BASES = ["projection", "no_activity_recorded", "pending"] as const;
-export const SALES_OUTREACH_QUEUE_WORKFLOWS = ["new", "quoted", "discretion", "none"] as const;
+export const SALES_OUTREACH_QUEUE_WORKFLOWS = ["new", "quoted", "daily", "discretion", "none"] as const;
 export const SALES_OUTREACH_MOVE_DATE_UNKNOWN_MODES = ["include", "exclude", "only"] as const;
 export const SALES_OUTREACH_QUEUE_DEFAULT_LIMIT = 25;
 export const SALES_OUTREACH_QUEUE_MAX_LIMIT = 100;
@@ -1403,7 +1403,7 @@ export const salesOutreachConfigurationValueSchema = z.looseObject({
         codes: z.array(
           z.looseObject({
             code: z.string(),
-            workflow: openEnum("configuration cadence.priority_map.codes[].workflow", ["new", "quoted", "discretion", "closed", "none"]),
+            workflow: openEnum("configuration cadence.priority_map.codes[].workflow", ["new", "quoted", "daily", "discretion", "closed", "none"]),
             closure_reason: openEnum("configuration cadence.priority_map.codes[].closure_reason", ["granot_booked", "crm_bad_disposition", "crm_dead_disposition"]).nullable(),
           }),
         ),

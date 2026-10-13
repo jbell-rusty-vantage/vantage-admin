@@ -236,3 +236,12 @@ test("salesOutreachCommand sends the Idempotency-Key and JSON body", async () =>
     globalThis.fetch = original;
   }
 });
+
+test("daily workflow survives queue parsing and is available as a server filter", () => {
+  const envelope = readJson(join(SERVER_FIXTURES, "queue.owner.page-1.json")) as { data: { rows: Array<{ workflow: string }> } };
+  assert.ok(envelope.data.rows.length > 0);
+  envelope.data.rows[0]!.workflow = "daily";
+  const parsed = salesOutreachEnvelope(salesOutreachQueueSchema).parse(envelope);
+  assert.equal(parsed.data.rows[0]!.workflow, "daily");
+  assert.equal(salesOutreachQueueQuery({ workflow: "daily" }).toString().includes("workflow=daily"), true);
+});

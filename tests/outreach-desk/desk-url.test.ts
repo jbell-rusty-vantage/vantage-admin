@@ -90,3 +90,7 @@ test("the Admin nav: a Manager sees only Today (Daily Operations) and the Outrea
   assert.equal(visibleDashboardNav("admin").some((item) => item.href === "/outreach-desk"), false);
   assert.equal(visibleDashboardNav("owner").some((item) => item.href === "/outreach-desk" && item.label === "Outreach Desk"), true);
 });
+
+test("daily workflow filter is retained in the desk URL", () => {
+  assert.equal(canonicalDeskQuery(new URLSearchParams("view=my&workflow=daily"), "rep").toString(), "view=my&workflow=daily");
+});

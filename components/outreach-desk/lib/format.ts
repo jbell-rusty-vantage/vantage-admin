@@ -445,6 +445,7 @@ export function cadenceSummaryLines(summary: SalesOutreachCadenceSummaryDto | nu
 export function priorityPill(row: Pick<SalesOutreachQueueRowDto, "workflow" | "priority_raw">): { text: string; variant: "new" | "quoted" | "neutral" } {
   if (row.workflow === "new") return { text: deskCopy.workflows.new, variant: "new" };
   if (row.workflow === "quoted") return { text: deskCopy.workflows.quoted, variant: "quoted" };
+  if (row.workflow === "daily") return { text: deskCopy.workflows.daily, variant: "neutral" };
   if (row.workflow === "discretion") return { text: deskCopy.workflows.discretion(row.priority_raw), variant: "neutral" };
   if (row.priority_raw) return { text: deskCopy.workflows.code(row.priority_raw), variant: "neutral" };
   return { text: t.unknown, variant: "neutral" };
