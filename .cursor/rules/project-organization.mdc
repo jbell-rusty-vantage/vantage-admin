@@ -151,7 +151,7 @@ Granot updates (doc 17) Granot-name chips follow server `compatibility.available
 
 ## Outreach Desk (`/outreach-desk`, Sales Outreach Desk; Numbers + RingCentral Accounts live here)
 
-Packet: `docs/sales-outreach-desk/` (server copy canonical). The server DTO is the authority; the admin renders server decisions only (no cadence, overdue, ranking or authorization in the browser). Evidence: `docs/sales-outreach-desk/workspace/evidence/{A1,A2,ADMIN-SUMMARY}.md`.
+Packet: `docs/sales-outreach-desk/` (server copy canonical). The server DTO is the authority; the admin renders server decisions only (no cadence, overdue, ranking or authorization in the browser). Evidence: `docs/sales-outreach-desk/workspace/evidence/{A1,A2,ADMIN-SUMMARY}.md`. Owner instructions not yet built (13 October 2026: move-date days, Last interaction, binder tiles, stop call-inferred assignment) live in the server reference `docs/knowledge/granot-priorities-and-rep-desk.md`.
 
 - Route: `app/(desk)/outreach-desk/{layout,page,desk-client}.tsx` + `session.ts` — its own route group and "Lead outreach" shell, outside the Admin `DashboardShell`. `?view=team|my|activity|settings` plus Owner-only `numbers|accounts`; `&lead=<subject_id>` selection; `agent=<id>` lets an Owner/Manager open one rep's My view. `components/outreach-desk/data/desk-url.ts` canonicalizes per role and redirects anything else. Owner and Manager default to Team, Rep to My.
 - Roles: Owner, Manager (new, IMPL-03) and Rep. A generic Admin has no desk (layout redirects to `/`, BFF refuses). A Manager's only pages are `/outreach-desk` and `/daily`; the edge guard sends a Manager or Rep anywhere else to `/outreach-desk`.
