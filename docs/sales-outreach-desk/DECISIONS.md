@@ -522,7 +522,7 @@ Approval reference: the user's decisions recorded 2026-10-06 in the Outreach lif
 
 **D3 A — P05e-1, Granot-created Leads without a priority are New.** Amends P05e: a Granot-created Lead with no accepted priority starts New from its intake default instead of Priority needs review. Prerequisites shipped first: B1 (late first periods start at the decision, never at the received time), B2 (configuration-driven re-decision from the PATCH instant) and B3 (engine and PATCH guard accept `new`). Office-entered Leads are included. Setting `review` again does not un-enroll (P05e retention). See SPECIFICATION §12 "Amendments applied by the Outreach lifecycle repair".
 
-**D4 — P05d-2, codes 2 and 9: pending.** Map both through `priority_map.codes` once the Owner reads their labels off Granot's Priority dropdown. Until then they remain accepted unmapped codes (P05c: No policy configured, no routine cadence) and the Leads stay on the review list (`unmapped_priority`). Then: one PATCH, the decision reconcile for enrolled subjects, and a dated run `expansion-codes-29-<date>`.
+**D4 — P05d-2, codes 2 and 9.** Recorded pending on 2026-10-06: map both through `priority_map.codes` once the Owner reads their labels. On 13 October 2026 the Owner named code 2 (lost or never contacted; one call a day) and kept code 3 as one call a day. FINAL-01 and the fixtures map codes 2 and 3 to workflow `daily`. Code 9 Pool still has no owner meaning and stays unmapped. The map stored on the deployed database was not patched. Applying the fixture map there is still one Owner PATCH, the B2 re-decision of enrolled subjects, and a dated enrollment run for Leads held as `unmapped_priority` because code 2 was unmapped.
 
 **D5 (i) — legacy-origin Leads are left.** No default for `legacy_unknown` / `legacy_import`; they leave the 90-day backfill window by 2026-11-17.
 
@@ -542,3 +542,16 @@ Approval reference: the user's decisions recorded 2026-10-06 in the Outreach lif
 - **D-C3:** rep-day rows before 2026-10-05 freeze with the roster of the day they were frozen.
 
 **Operational facts that change how the packet reads.** The RingCentral `verificationToken` is accepted only when a subscription is created; a `PUT` ignores it, so adding a token takes a replacement (incident 2026-10-05 17:12Z → 2026-10-06 15:20Z; RINGCENTRAL-CAPTURE §3). SMS coverage counts only the current reviewed rep mailboxes (hotfix `521d0fff`).
+
+
+## P05d daily-priority amendment — October 13, 2026
+
+Authority: the Owner's Estimates rollout request maps both codes 2 and 3 to
+one ordinary call per working day (`daily`). This supersedes code 2 unmapped
+and code 3 no-routine-discretion in the historical October 3 baseline.
+The revised P05d fixture carries `P05d-daily-2026-10-13` and approval reference
+`owner-session-2026-10-13-estimates-daily`; the original P05b fixture remains
+historical evidence. Specification §12, the Contracts amendment, fixture,
+validator, and shared packet manifest are released together to the admin mirror.
+The deployed Owner PATCH and its B2/detailed enrollment verification remain
+separate execution steps; a packet release does not authorize that PATCH.
