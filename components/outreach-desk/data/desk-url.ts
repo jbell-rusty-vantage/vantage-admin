@@ -41,7 +41,7 @@ export function defaultDeskView(role: OutreachDeskRole): DeskView {
 
 const OBJECT_ID = /^[a-f\d]{24}$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const WORKFLOWS = ["all", "new", "quoted", "discretion", "none"] as const;
+const WORKFLOWS = ["all", "new", "quoted", "daily", "discretion", "none"] as const;
 const STATES = ["needs_contact", "all_active"] as const;
 const SORTS = ["urgency", "lead_received", "last_interaction"] as const;
 const DIRECTIONS = ["asc", "desc"] as const;

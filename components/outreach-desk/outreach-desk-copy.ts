@@ -121,6 +121,7 @@ export const deskCopy = {
   workflows: {
     new: "New",
     quoted: "Quoted",
+    daily: "Daily call",
     discretion: (code: string | null) => (code ? `Priority ${code}` : "Rep discretion"),
     code: (code: string) => `Priority ${code}`,
     none: "No policy",
@@ -779,7 +780,7 @@ export const deskCopy = {
       hint: "How each Granot priority code places a lead on the desk. Read-only here.",
       notInstalled: "No priority map is installed in this configuration yet.",
       columns: { code: "Priority code", workflow: "Desk workflow", closes: "Closes as" },
-      workflows: { new: "New", quoted: "Quoted", discretion: "Rep's discretion", closed: "Closed", none: "No cadence" } as Record<string, string>,
+      workflows: { new: "New", quoted: "Quoted", daily: "Daily call", discretion: "Rep's discretion", closed: "Closed", none: "No cadence" } as Record<string, string>,
       closures: {
         granot_booked: "Booked in Granot",
         crm_bad_disposition: "Bad lead in Granot",
