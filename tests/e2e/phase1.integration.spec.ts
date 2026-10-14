@@ -46,7 +46,8 @@ test('Rep attached money, calendar filters, relative labels and URL refresh',asy
   await page.addStyleTag({content:'nextjs-portal {display:none!important}'});
   await page.screenshot({path:path.join(evidence,'rep-unknown-filter.png'),fullPage:true});
   const q=await page.request.get(`${BFF}/queue?sort=move_date&state=all_active&limit=2`);expect(q.status()).toBe(200);
-  let parsed=salesOutreachQueueSchema.parse((await q.json()).data),ids=parsed.rows.map(r=>r.subject_id),dates=parsed.rows.map(r=>r.move_date);
+  let parsed=salesOutreachQueueSchema.parse((await q.json()).data);
+  const ids=parsed.rows.map(r=>r.subject_id),dates=parsed.rows.map(r=>r.move_date);
   while(parsed.next_cursor){const response=await page.request.get(`${BFF}/queue?sort=move_date&state=all_active&limit=2&cursor=${encodeURIComponent(parsed.next_cursor)}`);expect(response.status()).toBe(200);parsed=salesOutreachQueueSchema.parse((await response.json()).data);ids.push(...parsed.rows.map(r=>r.subject_id));dates.push(...parsed.rows.map(r=>r.move_date));}
   expect(new Set(ids).size).toBe(7);expect(dates).toEqual([...dates.filter(Boolean).sort(),null]);
   const composed=await page.request.get(`${BFF}/queue?sort=move_date&state=all_active&search=JOB-2004&priority=0&workflow=new&move_date_to=2026-10-12&limit=2`);
