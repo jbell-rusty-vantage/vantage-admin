@@ -90,11 +90,11 @@ function queue(role: SalesOutreachRole, agentId: string | null, params: URLSearc
   const workflow = params.get("workflow") ?? "all";
   const priority = params.get("priority") ?? "all";
   const sort = params.get("sort") ?? "urgency";
-  const direction = (params.get("direction") ?? (sort === "last_interaction" ? "asc" : sort === "lead_received" ? "desc" : "asc")) as "asc" | "desc";
+  const direction = (sort === "move_date" ? "asc" : params.get("direction") ?? (sort === "last_interaction" ? "asc" : sort === "lead_received" ? "desc" : "asc")) as "asc" | "desc";
   const scopeAgent = role === "rep" ? agentId : params.get("agent_id");
   const unassigned = role !== "rep" && params.get("unassigned") === "true";
   let rows = syntheticQueueRows(variant).filter((row) => {
-    if (unassigned) return row.assigned_agent_id === null;
+    if (unassigned && row.assigned_agent_id !== null) return false;
     if (scopeAgent && row.assigned_agent_id !== scopeAgent) return false;
     if (state === "needs_contact" && !row.status_flags.needs_contact) return false;
     if (state === "blocked" && !row.status_flags.blocked) return false;
@@ -102,9 +102,17 @@ function queue(role: SalesOutreachRole, agentId: string | null, params: URLSearc
     if (workflow !== "all" && row.workflow !== workflow) return false;
     if (priority === "unknown" && row.priority_raw !== null) return false;
     if (priority !== "all" && priority !== "unknown" && row.priority_raw !== priority) return false;
+    const from = params.get("move_date_from");
+    const to = params.get("move_date_to");
+    const unknown = params.get("move_date_unknown") ?? (from || to ? "exclude" : "include");
+    if (unknown === "only" && row.move_date !== null) return false;
+    if (row.move_date === null && unknown === "exclude") return false;
+    if (row.move_date !== null && ((from && row.move_date < from) || (to && row.move_date > to))) return false;
     return matchesSearch(row, params.get("search") ?? "");
   });
-  if (sort === "lead_received") {
+  if (sort === "move_date") {
+    rows = [...rows].sort((a, b) => (a.move_date ?? "9999-99-99").localeCompare(b.move_date ?? "9999-99-99") || a.subject_id.localeCompare(b.subject_id));
+  } else if (sort === "lead_received") {
     rows = [...rows].sort((a, b) => (a.received_at ?? "").localeCompare(b.received_at ?? "") * (direction === "asc" ? 1 : -1));
   } else if (sort === "last_interaction") {
     // Never-contacted first, then oldest (asc) or newest (desc).
@@ -194,6 +202,15 @@ export function mockSalesOutreachResponse(input: MockSalesOutreachInput): MockSa
   let match: RegExpExecArray | null | false;
 
   if (route("GET", "capabilities")) return ok(syntheticCapabilities(role, variant));
+
+  if (route("GET", "rep-metrics")) {
+    const named = params.get("agent_id");
+    if (role === "rep" && named && named !== agentId) return refuse(403, "FORBIDDEN");
+    if (coordinator && !named) return refuse(400, "INVALID_QUERY");
+    return ok({ contract_version: "sod-v1", as_of: SYNTHETIC_AS_OF, timezone: "America/New_York", agent_id: agentId ?? named, business_day: SYNTHETIC_BUSINESS_DAY,
+      official_binder: { basis: "gross_own_allocation", today: 501.01, last_week: 3200.50, last_month: 11200, all_time: 48123.45, booking_count: 24, missing_amount_count: 0, missing_book_date_count: 0, windows: { today: { from: "2026-10-01", to: "2026-10-01" }, last_week: { from: "2026-09-21", to: "2026-09-27" }, last_month: { from: "2026-09-01", to: "2026-09-30" } } },
+      assigned_potential: { basis: "current_assignment_attached_booking_total", known_binder_total: 6500.75, eligible_lead_count: 12, linked_booking_count: 8, missing_link_count: 2, dangling_link_count: 1, mismatched_link_count: 0, missing_amount_count: 1, deduplicated_lead_count: 0, ambiguous_identity_count: 0, coverage: "partial" } });
+  }
 
   if (route("GET", "rep-days")) {
     const named = params.get("agent_id");

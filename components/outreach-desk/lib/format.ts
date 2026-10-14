@@ -1,6 +1,6 @@
 /**
  * Display helpers for the Sales Outreach Desk. Pure (no React, no clock reads): every relative time is interpolated
- * from the server's `as_of`, never from the browser clock, and nothing here decides cadence, overdue, rank or
+ * from a server snapshot (advanced by elapsed time for interaction/move labels), never a browser wall clock, and nothing here decides cadence, overdue, rank or
  * authorization. A `null` count is "pending", never 0 (S1 rendering rules).
  */
 import { isSalesOutreachApiError, SALES_OUTREACH_READ_SHAPE_MISMATCH } from "@/lib/api/salesOutreach";
@@ -644,4 +644,25 @@ export function moveDateRange(
     default:
       return {};
   }
+}
+
+
+/** Stored date-only move date vs a New York calendar day, never elapsed 24-hour periods. */
+export function moveDateText(moveDate: string | null, now: string): string {
+  const c = deskCopy.presentation;
+  if (!moveDate) return c.noMove;
+  const days = daysBetween(nyDate(now), moveDate);
+  return days === 0 ? t.today : days > 0 ? c.moveIn(days) : c.moveAgo(-days);
+}
+
+/** Latest qualifying interaction age. A future timestamp is explicit, never a negative age or just now. */
+export function interactionText(instant: string | null, now: string): string {
+  if (!instant) return deskCopy.presentation.noInteraction;
+  const seconds = (Date.parse(now) - Date.parse(instant)) / 1000;
+  if (!Number.isFinite(seconds)) return t.unknown;
+  if (seconds < 0) return deskCopy.presentation.futureInteraction;
+  if (seconds < 60) return t.justNow;
+  if (seconds < 3600) return t.minAgo(Math.floor(seconds / 60));
+  if (seconds < 86400) return t.hoursAgo(Math.floor(seconds / 3600));
+  return t.daysAgo(Math.floor(seconds / 86400));
 }

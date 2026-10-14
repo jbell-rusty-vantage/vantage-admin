@@ -35,7 +35,9 @@ import {
   percentText,
   priorityPill,
   readFailureText,
-  relativeDay,
+  interactionText,
+  moveDateRange,
+  moveDateText,
   repGoalText,
   repProgressLabel,
   repZeroActivityTitle,
@@ -43,6 +45,8 @@ import {
   shortDateLabel,
   unassignedCaption,
 } from "../lib/format";
+import type { MovePreset } from "../data/desk-url";
+import { useDeskNow } from "../data/use-desk-now";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, Pill, ReadFailure, SearchBox, Segmented, SkeletonLine, SummaryCard, Track } from "../primitives";
 import { LeadCostCard } from "./lead-cost-card";
@@ -52,7 +56,7 @@ const c = deskCopy.team;
 const t = deskCopy.text;
 
 type WorkflowFilter = "all" | "new" | "quoted";
-type SortValue = "urgency" | "lead_received" | "last_interaction";
+type SortValue = "urgency" | "lead_received" | "last_interaction" | "move_date";
 
 function scopeSubtitle(team: SalesOutreachTeamDto): string {
   const scope = team.goals?.count_scope;
@@ -132,7 +136,7 @@ function GoalRow({ row, workflow }: { row: SalesOutreachDailyCallGoalRow; workfl
   );
 }
 
-function AttentionRow({ row, asOf, selected, onSelect }: { row: SalesOutreachQueueRowDto; asOf: string; selected: boolean; onSelect: (id: string) => void }) {
+export function AttentionRow({ row, asOf, relativeNow, selected, onSelect }: { row: SalesOutreachQueueRowDto; asOf: string; relativeNow: string; selected: boolean; onSelect: (id: string) => void }) {
   const issue = rowIssue(row, asOf);
   const pill = priorityPill(row);
   const IssueIcon = issue.icon === "alert" ? CircleAlert : issue.icon === "clock" ? Clock3 : Info;
@@ -164,7 +168,8 @@ function AttentionRow({ row, asOf, selected, onSelect }: { row: SalesOutreachQue
           {issue.text}
         </span>
       </td>
-      <td title={absoluteTime(row.last_interaction_at)}>{relativeDay(row.last_interaction_at, asOf)}</td>
+      <td title={row.move_date ?? undefined}>{moveDateText(row.move_date, relativeNow)}</td>
+      <td title={absoluteTime(row.last_interaction_at)}>{interactionText(row.last_interaction_at, relativeNow)}</td>
       <td>
         <CopyJobButton jobNo={row.job_pending ? null : row.job_no} />
       </td>
@@ -224,15 +229,19 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
   const q = url.get("q");
   const sort = (url.get("sort") ?? "urgency") as SortValue;
   const lead = url.get("lead");
+  const move = url.get("move") as MovePreset | null;
+  const priority = url.get("priority");
+  const state = (url.get("state") ?? "needs_contact") as "needs_contact" | "all_active";
 
   const team = useTeam(day, true);
   const data = team.data;
   // A failed read with nothing cached: every placeholder says "Unavailable" instead of loading forever.
   const failed = Boolean(team.error) && !data;
   const asOf = data?.as_of ?? capabilities.as_of;
+  const now = useDeskNow(asOf);
   const today = nyDate(asOf);
   const cadenceOn = capabilities.controls.cadence_shadow_enabled || capabilities.controls.cadence_enforcement_enabled;
-  const filtered = Boolean(agent || unassigned || workflow !== "all" || q || sort !== "urgency");
+  const filtered = Boolean(agent || unassigned || workflow !== "all" || q || sort !== "urgency" || move || priority || url.get("move_from") || url.get("move_to") || url.get("move_unknown") || state !== "needs_contact");
   const attentionQueue = useQueue(
     {
       agent_id: agent,
@@ -240,8 +249,11 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
       workflow: workflow === "all" ? null : workflow,
       search: q,
       sort,
-      direction: sort === "lead_received" ? "desc" : sort === "last_interaction" ? "asc" : null,
-      state: "needs_contact",
+      direction: sort === "move_date" ? "asc" : sort === "urgency" ? null : (url.get("direction") as "asc" | "desc" | null) ?? (sort === "lead_received" ? "desc" : "asc"),
+      state,
+      priority,
+      ...moveDateRange(move, today),
+      ...(!move ? { move_date_from: url.get("move_from"), move_date_to: url.get("move_to"), move_date_unknown: url.get("move_unknown") as "include" | "exclude" | "only" | null } : {}),
       limit: 10,
     },
     filtered && cadenceOn,
@@ -485,6 +497,12 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
                   options={ownerOptions}
                   onChange={(value) => url.update(value === "unassigned" ? { unassigned: "true", agent: null } : { agent: value || null, unassigned: null })}
                 />
+                <DeskSelect<MovePreset | "">
+                  label={deskCopy.my.moveDate}
+                  value={move ?? ""}
+                  options={[{ value: "", label: deskCopy.my.moveDates.anyShort }, ...(["upcoming", "today", "next7", "past", "unknown"] as const).map((value) => ({ value, label: deskCopy.my.moveDates[value] }))]}
+                  onChange={(value) => url.update({ move: value || null, move_from: null, move_to: null, move_unknown: null })}
+                />
                 <DeskSelect<SortValue>
                   label={c.attention.sort}
                   value={sort}
@@ -492,6 +510,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
                     { value: "urgency", label: deskCopy.my.sorts.urgency },
                     { value: "lead_received", label: deskCopy.my.sorts.lead_received },
                     { value: "last_interaction", label: deskCopy.my.sorts.last_interaction },
+                    { value: "move_date", label: deskCopy.my.sorts.move_date },
                   ]}
                   onChange={(value) => url.update({ sort: value === "urgency" ? null : value, direction: null })}
                 />
@@ -508,6 +527,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
                       <th scope="col">{c.attention.columns.owner}</th>
                       <th scope="col">{c.attention.columns.priority}</th>
                       <th scope="col">{c.attention.columns.issue}</th>
+                      <th scope="col">{c.attention.columns.move}</th>
                       <th scope="col">{c.attention.columns.last}</th>
                       <th scope="col">{c.attention.columns.action}</th>
                     </tr>
@@ -515,27 +535,27 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
                   <tbody>
                     {attentionError && !attentionRows?.length ? (
                       <tr>
-                        <td colSpan={6} className="od-empty" role={filtered ? "alert" : undefined}>
+                        <td colSpan={7} className="od-empty" role={filtered ? "alert" : undefined}>
                           {filtered ? `${deskCopy.readErrors.queue} ${readFailureText(attentionError)}` : t.unavailable}
                         </td>
                       </tr>
                     ) : attentionRows === null ? (
                       [0, 1, 2].map((index) => (
                         <tr key={index}>
-                          <td colSpan={6}>
+                          <td colSpan={7}>
                             <SkeletonLine />
                           </td>
                         </tr>
                       ))
                     ) : attentionRows.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="od-empty">
+                        <td colSpan={7} className="od-empty">
                           {c.attention.empty}
                         </td>
                       </tr>
                     ) : (
                       attentionRows.map((row) => (
-                        <AttentionRow key={row.subject_id} row={row} asOf={asOf} selected={row.subject_id === lead} onSelect={(id) => url.update({ lead: id })} />
+                        <AttentionRow key={row.subject_id} row={row} asOf={filtered ? (attentionQueue.first?.as_of ?? asOf) : asOf} relativeNow={now} selected={row.subject_id === lead} onSelect={(id) => url.update({ lead: id })} />
                       ))
                     )}
                   </tbody>

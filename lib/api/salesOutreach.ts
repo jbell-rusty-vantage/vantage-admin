@@ -81,7 +81,7 @@ export const SALES_OUTREACH_CADENCE_EXPOSURES = ["shadow", "enforcement"] as con
 export type SalesOutreachCadenceExposure = (typeof SALES_OUTREACH_CADENCE_EXPOSURES)[number];
 export const SALES_OUTREACH_QUEUE_STATES = ["needs_contact", "all_active", "blocked", "pending"] as const;
 export type SalesOutreachQueueState = (typeof SALES_OUTREACH_QUEUE_STATES)[number];
-export const SALES_OUTREACH_QUEUE_SORTS = ["urgency", "lead_received", "last_interaction"] as const;
+export const SALES_OUTREACH_QUEUE_SORTS = ["urgency", "lead_received", "last_interaction", "move_date"] as const;
 export type SalesOutreachQueueSort = (typeof SALES_OUTREACH_QUEUE_SORTS)[number];
 /** Every `GET /queue` query key the server accepts (its query schema is strict: anything else is 400). */
 export const SALES_OUTREACH_QUEUE_FILTERS = [
@@ -100,7 +100,7 @@ export const SALES_OUTREACH_QUEUE_FILTERS = [
   "limit",
 ] as const;
 export type SalesOutreachQueueFilterKey = (typeof SALES_OUTREACH_QUEUE_FILTERS)[number];
-export const SALES_OUTREACH_LIVE_TOPICS = ["outreach_desk", "outreach_goal", "outreach_configuration"] as const;
+export const SALES_OUTREACH_LIVE_TOPICS = ["outreach_desk", "outreach_goal", "outreach_configuration", "outreach_rep_metrics"] as const;
 export type SalesOutreachLiveTopic = (typeof SALES_OUTREACH_LIVE_TOPICS)[number];
 export const SALES_OUTREACH_LIVE_VERSION = 1 as const;
 
@@ -128,7 +128,7 @@ export const SALES_OUTREACH_MOVE_DATE_REVIEWS = ["passed", "unknown"] as const;
 export const SALES_OUTREACH_VIEWS = ["team", "my", "activity", "settings", "numbers", "accounts"] as const;
 export type SalesOutreachView = (typeof SALES_OUTREACH_VIEWS)[number];
 export const SALES_OUTREACH_DESK_UNAVAILABLE_REASONS = ["configuration_uninitialized", "configuration_unavailable", "desk_disabled"] as const;
-export const SALES_OUTREACH_DEPLOYED_READS = ["capabilities", "rep_days", "team", "queue", "outreach_detail", "live"] as const;
+export const SALES_OUTREACH_DEPLOYED_READS = ["capabilities", "rep_days", "rep_metrics", "team", "queue", "outreach_detail", "live"] as const;
 export const SALES_OUTREACH_GOAL_BASES = ["work_schedule", "default_goal", "override", "not_scheduled", "not_on_roster"] as const;
 export const SALES_OUTREACH_ACTUAL_BASES = ["projection", "no_activity_recorded", "pending"] as const;
 export const SALES_OUTREACH_QUEUE_WORKFLOWS = ["new", "quoted", "daily", "discretion", "none"] as const;
@@ -804,7 +804,8 @@ export function salesOutreachQueueQuery(request: SalesOutreachQueueRequest): URL
   const sort = request.sort ?? "urgency";
   if (sort !== "urgency") {
     query.set("sort", sort);
-    if (request.direction) query.set("direction", request.direction);
+    if (sort === "move_date") query.set("direction", "asc");
+    else if (request.direction) query.set("direction", request.direction);
   }
   if (request.cursor) query.set("cursor", request.cursor);
   if (request.limit != null) query.set("limit", String(Math.min(SALES_OUTREACH_QUEUE_MAX_LIMIT, Math.max(1, Math.trunc(request.limit)))));
@@ -1145,6 +1146,7 @@ export function newIdempotencyKey(prefix: string): string {
 export const salesOutreachPaths = {
   capabilities: () => "capabilities",
   repDays: (query: SalesOutreachRepDaysQuery = {}) => withQuery("rep-days", query),
+  repMetrics: (query: { agent_id?: string } = {}) => withQuery("rep-metrics", query),
   team: (query: { business_day?: string } = {}) => withQuery("team", query),
   queue: (request: SalesOutreachQueueRequest = {}) => {
     const query = salesOutreachQueueQuery(request).toString();
@@ -1667,3 +1669,31 @@ export const salesOutreachAdmissionsSchema = z.object({
   recent_refusals: z.array(z.object({ lead: salesOutreachLeadRefSchema, reason: z.string(), at: instant })),
 });
 export type SalesOutreachAdmissionsDto = z.infer<typeof salesOutreachAdmissionsSchema>;
+
+
+/** Rep-scoped money read; server owns eligibility, allocation and complete-scope aggregation. */
+export const salesOutreachRepMetricsSchema = z.object({
+  contract_version: z.literal("sod-v1"),
+  as_of: instant,
+  timezone: z.literal("America/New_York"),
+  agent_id: salesOutreachAgentIdSchema,
+  business_day: salesOutreachBusinessDateSchema,
+  official_binder: z.object({
+    basis: z.literal("gross_own_allocation"),
+    today: z.number(), last_week: z.number(), last_month: z.number(), all_time: z.number(),
+    booking_count: count, missing_amount_count: count, missing_book_date_count: count,
+    windows: z.object({
+      today: z.object({ from: salesOutreachBusinessDateSchema, to: salesOutreachBusinessDateSchema }),
+      last_week: z.object({ from: salesOutreachBusinessDateSchema, to: salesOutreachBusinessDateSchema }),
+      last_month: z.object({ from: salesOutreachBusinessDateSchema, to: salesOutreachBusinessDateSchema }),
+    }),
+  }),
+  assigned_potential: z.object({
+    basis: z.literal("current_assignment_attached_booking_total"),
+    known_binder_total: z.number(), eligible_lead_count: count, linked_booking_count: count,
+    missing_link_count: count, dangling_link_count: count, missing_amount_count: count,
+    mismatched_link_count: count, deduplicated_lead_count: count, ambiguous_identity_count: count,
+    coverage: z.enum(["complete", "partial"]),
+  }),
+});
+export type SalesOutreachRepMetricsDto = z.infer<typeof salesOutreachRepMetricsSchema>;

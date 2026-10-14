@@ -15,6 +15,7 @@ import {
   salesOutreachQueueSchema,
   salesOutreachRead,
   salesOutreachRepDaysSchema,
+  salesOutreachRepMetricsSchema,
   salesOutreachTeamSchema,
   type SalesOutreachQueueRequest,
 } from "@/lib/api/salesOutreach";
@@ -114,5 +115,16 @@ export function useDetail(subjectId: string | null) {
     enabled: Boolean(subjectId),
     retry: retryDeskRead,
     refetchInterval: poll,
+  });
+}
+
+
+/** Always current money, independent of the historical goal day or queue filters. Never reuse another rep's data. */
+export function useRepMetrics(agentId: string | null, enabled: boolean) {
+  const poll = useDeskPollInterval();
+  return useQuery({
+    queryKey: outreachKeys.repMetrics(agentId),
+    queryFn: ({ signal }) => salesOutreachRead(salesOutreachPaths.repMetrics(agentId ? { agent_id: agentId } : {}), salesOutreachRepMetricsSchema, signal),
+    enabled, retry: retryDeskRead, refetchInterval: poll,
   });
 }
