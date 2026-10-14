@@ -2767,3 +2767,12 @@
 .od-root .od-binder__note { font-size: 12px; color: var(--od-muted); margin: 6px 0; }
 .od-root .od-binder__potential { border-top: 1px solid var(--od-border); padding-top: 14px; }
 @media (max-width: 640px) { .od-root .od-binder__totals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Pool stays within the Desk's route-scoped card and color vocabulary. */
+.od-root .od-pool-workload {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 28px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.od-root .od-pool-workload > p { flex-basis: 100%; font-size: 13px; }

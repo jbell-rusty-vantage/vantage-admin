@@ -4,7 +4,7 @@ import type { VantageApiMethod } from "@/server/vantage-api/client";
  * Sales Outreach Desk BFF allowlists (ADM-7): the exact method + path a Rep or a Manager may send through the proxy,
  * copied from the server's consolidated Admin DTO handoff (server `docs/sales-outreach-desk/workspace/evidence/S1.md`,
  * "Admin DTO handoff"). The Owner reaches everything; a generic Admin reaches none of it (P09c). The server still
- * scopes every call (a Rep's own assignment, a Manager's prospective-only day override), so these lists only narrow.
+ * scopes every call (own assignment or eligible shared Pool for reads; original command authorization), so these lists only narrow.
  *
  * Paths are judged after `normalizeProxyPath` (query dropped, dot segments resolved), so a pattern is anchored on the
  * bare pathname.

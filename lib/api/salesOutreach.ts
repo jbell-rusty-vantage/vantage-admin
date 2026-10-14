@@ -85,6 +85,7 @@ export const SALES_OUTREACH_QUEUE_SORTS = ["urgency", "lead_received", "last_int
 export type SalesOutreachQueueSort = (typeof SALES_OUTREACH_QUEUE_SORTS)[number];
 /** Every `GET /queue` query key the server accepts (its query schema is strict: anything else is 400). */
 export const SALES_OUTREACH_QUEUE_FILTERS = [
+  "queue_scope",
   "search",
   "priority",
   "workflow",
@@ -100,7 +101,7 @@ export const SALES_OUTREACH_QUEUE_FILTERS = [
   "limit",
 ] as const;
 export type SalesOutreachQueueFilterKey = (typeof SALES_OUTREACH_QUEUE_FILTERS)[number];
-export const SALES_OUTREACH_LIVE_TOPICS = ["outreach_desk", "outreach_goal", "outreach_configuration", "outreach_rep_metrics"] as const;
+export const SALES_OUTREACH_LIVE_TOPICS = ["outreach_desk", "outreach_goal", "outreach_configuration", "outreach_rep_metrics", "outreach_pool"] as const;
 export type SalesOutreachLiveTopic = (typeof SALES_OUTREACH_LIVE_TOPICS)[number];
 export const SALES_OUTREACH_LIVE_VERSION = 1 as const;
 
@@ -131,7 +132,7 @@ export const SALES_OUTREACH_DESK_UNAVAILABLE_REASONS = ["configuration_uninitial
 export const SALES_OUTREACH_DEPLOYED_READS = ["capabilities", "rep_days", "rep_metrics", "team", "queue", "outreach_detail", "live"] as const;
 export const SALES_OUTREACH_GOAL_BASES = ["work_schedule", "default_goal", "override", "not_scheduled", "not_on_roster"] as const;
 export const SALES_OUTREACH_ACTUAL_BASES = ["projection", "no_activity_recorded", "pending"] as const;
-export const SALES_OUTREACH_QUEUE_WORKFLOWS = ["new", "quoted", "daily", "discretion", "none"] as const;
+export const SALES_OUTREACH_QUEUE_WORKFLOWS = ["new", "quoted", "daily", "discretion", "none", "other"] as const;
 export const SALES_OUTREACH_MOVE_DATE_UNKNOWN_MODES = ["include", "exclude", "only"] as const;
 export const SALES_OUTREACH_QUEUE_DEFAULT_LIMIT = 25;
 export const SALES_OUTREACH_QUEUE_MAX_LIMIT = 100;
@@ -458,7 +459,29 @@ export const salesOutreachStatusFlagsSchema = z.object({
 });
 export type SalesOutreachStatusFlags = z.infer<typeof salesOutreachStatusFlagsSchema>;
 
+/** Shared Pool state is server evaluated; no browser action can complete this duty. */
+export const salesOutreachPoolSchema = z.object({
+  business_date: salesOutreachBusinessDateSchema,
+  state: z.enum(["due", "completed", "coverage_pending", "blocked", "waived", "scheduled"]),
+  due_at: nullableInstant,
+  completed_at: nullableInstant,
+  completed_by_agent_id: salesOutreachAgentIdSchema.nullable(),
+  completed_by_agent_name: z.string().nullable(),
+  completion_event_id: salesOutreachObjectIdSchema.nullable(),
+}).strict();
+export type SalesOutreachPoolDto = z.infer<typeof salesOutreachPoolSchema>;
+
+export const salesOutreachPoolSummarySchema = z.object({
+  team_due: count,
+  team_completed: count,
+  assigned_due: count,
+  assigned_completed: count,
+  actual_outbound: count,
+}).strict();
+export type SalesOutreachPoolSummaryDto = z.infer<typeof salesOutreachPoolSummarySchema>;
+
 export const salesOutreachQueueRowSchema = z.object({
+  pool: salesOutreachPoolSchema.nullable().optional(),
   subject_id: salesOutreachSubjectIdSchema,
   job_no: z.string().nullable(),
   /** "Job number pending": Copy job # is disabled, the row is never hidden and no number is fabricated. */
@@ -737,6 +760,7 @@ export type SalesOutreachTeamDto = z.infer<typeof salesOutreachTeamSchema>;
 // ---------------------------------------------------------------------------------------------
 
 export const salesOutreachQueueFiltersSchema = z.object({
+  queue_scope: z.enum(["assigned", "pool"]).optional(),
   search: z.string().nullable(),
   priority: z.string(),
   workflow: z.enum([...SALES_OUTREACH_QUEUE_WORKFLOWS, "all"]),
@@ -749,6 +773,7 @@ export const salesOutreachQueueFiltersSchema = z.object({
 });
 
 export const salesOutreachQueueSchema = commonReadSchema.extend({
+  pool_summary: salesOutreachPoolSummarySchema.optional(),
   filters: salesOutreachQueueFiltersSchema,
   sort: z.enum(SALES_OUTREACH_QUEUE_SORTS),
   direction: z.enum(["asc", "desc"]),
@@ -767,6 +792,7 @@ export type SalesOutreachQueueDto = z.infer<typeof salesOutreachQueueSchema>;
 
 /** The desk's queue request. Absent/null/empty values are omitted; server defaults are not echoed. */
 export type SalesOutreachQueueRequest = {
+  queue_scope?: "assigned" | "pool" | null;
   search?: string | null;
   /** `all` (default), `unknown` or an observed code such as `0`, `1`, `3`. */
   priority?: string | null;
@@ -791,6 +817,7 @@ export type SalesOutreachQueueRequest = {
  */
 export function salesOutreachQueueQuery(request: SalesOutreachQueueRequest): URLSearchParams {
   const query = new URLSearchParams();
+  if (request.queue_scope === "pool") query.set("queue_scope", "pool");
   const search = request.search?.trim().slice(0, 100);
   if (search) query.set("search", search);
   if (request.priority && request.priority !== "all") query.set("priority", request.priority);
@@ -860,6 +887,7 @@ export const salesOutreachContactEventSchema = z.object({
 export type SalesOutreachContactEvent = z.infer<typeof salesOutreachContactEventSchema>;
 
 export const salesOutreachDetailSchema = commonReadSchema.extend({
+  pool: salesOutreachPoolSchema.nullable().optional(),
   subject: z.object({
     subject_id: salesOutreachSubjectIdSchema,
     lead_model: z.enum(SALES_OUTREACH_LEAD_MODELS),

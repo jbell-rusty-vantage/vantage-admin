@@ -4,6 +4,8 @@ Internal web application for lead search, bookings, cancellations, Granot intake
 
 **Platform domain language:** [`../CONTEXT.md`](../CONTEXT.md)
 
+**Priority Pool (2026-10-14):** Outreach Desk New / Quoted / Other / Pool filters use a dedicated shared Pool queue. Eligible Reps can work every eligible Pool Lead while assignment remains visible. One verified daily call fulfills the shared requirement; assigned workload and actual caller outbound credit display separately. Automations shows Pool refresh and historical discovery freshness. Contract and Admin implementation: [`docs/priority-pool.md`](docs/priority-pool.md).
+
 **ADRs:** [`../docs/adr/`](../docs/adr/)
 
 **Agent consumer rules:** [`../docs/agents/domain.md`](../docs/agents/domain.md)

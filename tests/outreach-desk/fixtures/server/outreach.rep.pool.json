@@ -1,0 +1,302 @@
+{
+  "ok": true,
+  "data": {
+    "contract_version": "sod-v1",
+    "as_of": "2026-10-01T16:00:00.000Z",
+    "timezone": "America/New_York",
+    "scope": {
+      "role": "rep",
+      "agent_id": "6650a1b2c3d4e5f607180001"
+    },
+    "configuration_state": "active",
+    "configuration_version": "sod-cfg-synthetic-1",
+    "configuration_revision": 3,
+    "projection_revision": 57,
+    "freshness": {
+      "calls": {
+        "state": "fresh",
+        "last_updated_at": "2026-10-01T15:59:20.000Z",
+        "known_complete_through": "2026-10-01T15:59:00.000Z",
+        "age_seconds": 40,
+        "reason": null,
+        "last_confirmation_at": "2026-10-01T15:59:20.000Z",
+        "last_webhook_at": "2026-10-01T15:59:40.000Z"
+      },
+      "sms": {
+        "state": "fresh",
+        "last_updated_at": "2026-10-01T15:58:50.000Z",
+        "known_complete_through": "2026-10-01T15:58:30.000Z",
+        "age_seconds": 70,
+        "reason": null,
+        "last_confirmation_at": null,
+        "last_webhook_at": null,
+        "pending": {
+          "identity": 1,
+          "association": 1,
+          "window_days": 7,
+          "mailboxes": [
+            {
+              "extension_id": "101",
+              "agent_id": "6650a1b2c3d4e5f607180001",
+              "identity": 0,
+              "association": 1
+            },
+            {
+              "extension_id": "109",
+              "agent_id": null,
+              "identity": 1,
+              "association": 0
+            }
+          ]
+        }
+      },
+      "granot": {
+        "state": "observed",
+        "last_observed_at": "2026-10-01T15:57:10.000Z",
+        "age_seconds": 170
+      }
+    },
+    "pool": {
+      "business_date": "2026-10-01",
+      "state": "completed",
+      "due_at": "2026-10-02T00:00:00.000Z",
+      "completed_at": "2026-10-01T16:00:00.000Z",
+      "completed_by_agent_id": "6650a1b2c3d4e5f607180003",
+      "completed_by_agent_name": "Sam Taylor",
+      "completion_event_id": "6650a1b2c3d4e5f607199001"
+    },
+    "subject": {
+      "subject_id": "6650a1b2c3d4e5f6071a0001",
+      "lead_model": "FormLead",
+      "status": "active",
+      "review_reasons": [],
+      "received_at": "2026-09-29T13:20:00.000Z",
+      "received_date": "2026-09-29",
+      "received_quality": "instant",
+      "enrollment": {
+        "cohort_id": "backfill:2026-09-30",
+        "kind": "expansion",
+        "enrolled_at": "2026-09-30T12:00:00.000Z",
+        "activation_at": "2026-09-30T12:00:00.000Z"
+      },
+      "job_no": "P5561042",
+      "job_pending": false,
+      "phone": "(512) 555-0142",
+      "name": "Taylor Brooks",
+      "move_date": "2026-10-24",
+      "move_date_review": null
+    },
+    "priority": {
+      "raw": "0",
+      "basis": "accepted_observation",
+      "accepted_at": "2026-09-29T13:20:00.000Z",
+      "uncertain": false
+    },
+    "assignment": {
+      "assigned_agent_id": "6650a1b2c3d4e5f607180001",
+      "assigned_agent_name": "Alex Morgan",
+      "unassigned": false,
+      "assignment_revision": 2,
+      "lead_receiver_agent_id": "6650a1b2c3d4e5f607180001",
+      "in_sync": true
+    },
+    "plan": {
+      "plan_revision": 0,
+      "active": null,
+      "history": []
+    },
+    "policy": {
+      "projection_state": "current",
+      "exposure": "enforcement",
+      "enforcement_labels": true,
+      "workflow": "new",
+      "engine_state": "new_cadence",
+      "policy_version": "final-policy-2026-10-03-v1",
+      "configuration_version": "sod-cfg-synthetic-1",
+      "schedule_day": 3,
+      "period": {
+        "period_id": "6650a1b2c3d4e5f6071a0321",
+        "workflow": "new",
+        "start_kind": "activation",
+        "priority": "0",
+        "started_at": "2026-09-30T12:00:00.000Z"
+      },
+      "quoted": null,
+      "callback": null,
+      "initial_response": {
+        "due_at": "2026-09-29T13:50:00.000Z",
+        "outcome": "fulfilled",
+        "fulfilled_at": "2026-09-29T18:40:00.000Z"
+      },
+      "advisory_cooldown": {
+        "warning": false,
+        "unsuccessful_attempts": 1
+      },
+      "catch_up": {
+        "call": {
+          "outstanding": true,
+          "missed_count": 2,
+          "state": "one_per_channel"
+        },
+        "sms": {
+          "outstanding": false,
+          "missed_count": 0,
+          "state": null
+        }
+      },
+      "blocked_until": {
+        "call": null,
+        "sms": null
+      },
+      "explanation": [
+        {
+          "code": "projection_state",
+          "value": "current"
+        },
+        {
+          "code": "workflow",
+          "value": "new"
+        },
+        {
+          "code": "schedule_day",
+          "value": 3
+        },
+        {
+          "code": "priority_basis",
+          "value": "accepted_observation"
+        }
+      ]
+    },
+    "requirements": {
+      "call": {
+        "required": 3,
+        "verified_completed": 0,
+        "remaining": 3,
+        "due_at": "2026-10-02T00:00:00.000Z",
+        "oldest_actionable_due_at": "2026-09-29T16:00:00.000Z",
+        "status": "overdue",
+        "completion_kind": null,
+        "coverage": {
+          "state": "complete",
+          "known_complete_through": "2026-10-01T15:59:00.000Z",
+          "gaps": []
+        },
+        "blocked_reason": null,
+        "verification": {
+          "state": "verified",
+          "verified_through": "2026-10-01T15:57:00.000Z",
+          "unverified_since": null
+        }
+      },
+      "sms": {
+        "required": 1,
+        "verified_completed": 0,
+        "remaining": 1,
+        "due_at": "2026-10-02T00:00:00.000Z",
+        "oldest_actionable_due_at": "2026-09-30T00:00:00.000Z",
+        "status": "overdue",
+        "completion_kind": null,
+        "coverage": {
+          "state": "complete",
+          "known_complete_through": "2026-10-01T15:59:00.000Z",
+          "gaps": []
+        },
+        "blocked_reason": null,
+        "verification": {
+          "state": "verified",
+          "verified_through": "2026-10-01T15:57:00.000Z",
+          "unverified_since": null
+        }
+      }
+    },
+    "status_flags": {
+      "needs_contact": true,
+      "overdue": true,
+      "blocked": false,
+      "pending": false,
+      "move_date_passed": false,
+      "move_date_unknown": false,
+      "job_pending": false,
+      "advisory_cooldown": false
+    },
+    "oldest_actionable_due_at": "2026-09-29T16:00:00.000Z",
+    "next_action_due_at": "2026-10-02T00:00:00.000Z",
+    "last_interaction_at": "2026-09-29T18:40:00.000Z",
+    "shadow_labels": null,
+    "history": {
+      "window_history": [
+        {
+          "business_date": "2026-09-30",
+          "schedule_day": 2,
+          "workflow": "new",
+          "closed_date": false,
+          "call": {
+            "required": 3,
+            "completed": 1,
+            "missed": 2,
+            "waived": 0,
+            "superseded": 0,
+            "open": 0
+          },
+          "sms": {
+            "required": 1,
+            "completed": 1,
+            "missed": 0,
+            "waived": 0,
+            "superseded": 0,
+            "open": 0
+          }
+        }
+      ],
+      "window_summary": {
+        "dates": 1,
+        "call_missed": 2,
+        "sms_missed": 0
+      },
+      "missed_labels_hidden": false,
+      "contact_events": [
+        {
+          "event_id": "6650a1b2c3d4e5f6071a01f5",
+          "channel": "call",
+          "direction": "outbound",
+          "kind": "outbound_attempt",
+          "event_at": "2026-09-29T18:40:00.000Z",
+          "business_date": "2026-09-29",
+          "verification": "confirmed",
+          "exclusion_reason": null,
+          "actor_agent_id": "6650a1b2c3d4e5f607180001",
+          "actor_agent_name": "Alex Morgan",
+          "outbound_goal_credit": true,
+          "restricted_at_contact": false
+        },
+        {
+          "event_id": "6650a1b2c3d4e5f6071a0259",
+          "channel": "sms",
+          "direction": "outbound",
+          "kind": "sms_sent",
+          "event_at": "2026-09-29T13:15:00.000Z",
+          "business_date": "2026-09-29",
+          "verification": "confirmed",
+          "exclusion_reason": null,
+          "actor_agent_id": "6650a1b2c3d4e5f607180001",
+          "actor_agent_name": "Alex Morgan",
+          "outbound_goal_credit": false,
+          "restricted_at_contact": false
+        }
+      ],
+      "contact_events_truncated": false,
+      "assignment_changes": [
+        {
+          "applied_at": "2026-09-29T13:25:00.000Z",
+          "from_agent_id": null,
+          "to_agent_id": "6650a1b2c3d4e5f607180001",
+          "from_agent_name": null,
+          "to_agent_name": "Alex Morgan"
+        }
+      ]
+    },
+    "restrictions": [],
+    "computed_as_of": "2026-10-01T15:59:30.000Z",
+    "publication_revision": 51
+  }
+}

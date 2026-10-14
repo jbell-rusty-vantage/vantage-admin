@@ -46,6 +46,7 @@ import { reportUnknownDeskCode } from "../lib/unknown-codes";
 import { useDeskNow } from "../data/use-desk-now";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, SkeletonLine } from "../primitives";
+import { PoolStatus } from "./pool-status";
 
 const c = deskCopy.lead;
 const t = deskCopy.text;
@@ -399,9 +400,9 @@ function LeadPanelBody({
 }) {
   const s = detail.subject;
   const now = useDeskNow(detail.as_of);
-  const next = nextAction(detail);
-  const NextIcon = next.icon;
-  const lines = explanationLines(detail);
+  const next = detail.pool ? null : nextAction(detail);
+  const NextIcon = next?.icon ?? Clock3;
+  const lines = detail.pool ? ["One shared call per New York working date; missed dates do not add catch-up calls."] : explanationLines(detail);
   const schedule = detail.policy.workflow === "new" ? cadenceSummaryLines(cadenceSummary) : [];
   const workflowLine =
     detail.policy.workflow === "new"
@@ -411,10 +412,10 @@ function LeadPanelBody({
         : null;
   const call = detail.requirements.call;
   const sms = detail.requirements.sms;
-  const today =
+  const today = detail.pool ? null :
     call.status !== "not_required" || sms.status !== "not_required" ? c.todayNeeds(c.callsUnit(call.required), c.smsUnit(sms.required)) : null;
-  const canQuoted = commands.includes("quoted_followup") && detail.policy.workflow === "quoted";
-  const canCallback = commands.includes("callback");
+  const canQuoted = commands.includes("quoted_followup") && detail.policy.workflow === "quoted" && !detail.pool;
+  const canCallback = commands.includes("callback") && !detail.pool;
   const canAssign = commands.includes("assignment") && reps !== null;
   return (
     <div className="od-lead__body" key={detail.subject.subject_id}>
@@ -431,20 +432,22 @@ function LeadPanelBody({
         </p>
       </div>
       <CopyJobButton jobNo={s.job_pending ? null : s.job_no} block />
-      <div className={`od-lead__next od-lead__next--${next.tone}`}>
+      <div className={`od-lead__next od-lead__next--${next?.tone ?? "muted"}`}>
         <NextIcon aria-hidden="true" />
         <div>
-          <p className="od-lead__next-title">{next.text}</p>
-          {next.sub ? <p className="od-lead__muted">{next.sub}</p> : null}
+          {detail.pool ? <PoolStatus pool={detail.pool} asOf={detail.as_of} /> : <p className="od-lead__next-title">{next?.text}</p>}
+          {next?.sub ? <p className="od-lead__muted">{next.sub}</p> : null}
+          {detail.pool ? <p className="od-lead__muted">One shared daily call. Make the call in your usual tools; verified capture updates everyone.</p> : null}
         </div>
       </div>
       {canAssign ? <AssignmentControl detail={detail} reps={reps ?? []} /> : detail.assignment.assigned_agent_name ? (
         <p className="od-lead__meta">
           <UserRound aria-hidden="true" width={14} height={14} /> {c.assignedTo} {detail.assignment.assigned_agent_name}
         </p>
-      ) : null}
+      ) : detail.pool ? <p className="od-lead__meta">{c.assignedTo} {t.unassigned}</p> : null}
       {canQuoted ? <QuotedDateControl detail={detail} /> : null}
       {canCallback ? <CallbackControl detail={detail} /> : null}
+      {detail.pool && detail.restrictions.length ? <p className="od-lead__meta od-text-amber">Contact restrictions apply: {detail.restrictions.map((restriction) => `${restriction.channels.join(" and ")}${restriction.reason ? ` — ${restriction.reason}` : ""}`).join("; ")}</p> : null}
       <section aria-labelledby={`${s.subject_id}-activity`}>
         <h3 id={`${s.subject_id}-activity`} className="od-lead__section">
           {c.recentActivity}

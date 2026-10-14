@@ -29,6 +29,7 @@ const REP_ALLOWED: [VantageApiMethod, string][] = [
   ["GET", `${API}/rep-days?business_day=2026-10-05`],
   ["GET", `${API}/rep-metrics?agent_id=${AGENT}`],
   ["GET", `${API}/queue?state=needs_contact&sort=urgency`],
+  ["GET", `${API}/queue?queue_scope=pool&state=all_active`],
   ["GET", `${API}/outreach/${ID}`],
   ["PATCH", `${API}/outreach/${ID}/quoted-followup`],
   ["PATCH", `${API}/outreach/${ID}/callback`],
@@ -61,6 +62,8 @@ const OWNER_ONLY: [VantageApiMethod, string][] = [
 const NEVER: [VantageApiMethod, string][] = [
   ["POST", `${API}/capabilities`],
   ["DELETE", `${API}/outreach/${ID}`],
+  ["POST", `${API}/outreach/${ID}/pool-complete`],
+  ["PATCH", `${API}/outreach/${ID}/pool`],
   ["PUT", `${API}/outreach/${ID}/callback`],
   ["GET", `${API}/outreach/not-an-id`],
   ["GET", `${API}/outreach/${ID.toUpperCase()}x`],

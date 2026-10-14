@@ -65,7 +65,10 @@ export function outreachInvalidationKeys(frame: OutreachInvalidationFrame): Outr
   const keys = new Map<string, OutreachKeyPrefix>();
   const add = (key: OutreachKeyPrefix) => keys.set(JSON.stringify(key), key);
   for (const topic of topics) {
-    if (topic === "outreach_desk") {
+    if (topic === "outreach_pool") {
+      // Completion, exit and entitlement changes reach every eligible reader, including non-assignees.
+      return [outreachKeys.all];
+    } else if (topic === "outreach_desk") {
       add(outreachKeys.repMetricsAll());
       add(outreachKeys.queueAll());
       add(outreachKeys.teamAll());

@@ -97,9 +97,9 @@ export function useQueue(request: Omit<SalesOutreachQueueRequest, "cursor">, ena
     enabled,
     retry: retryDeskRead,
     refetchInterval: poll,
-    placeholderData: (previous) => previous,
   });
-  const pages = query.data?.pages ?? [];
+  const revoked = isSalesOutreachApiError(query.error) && query.error.revokesAccess;
+  const pages = revoked ? [] : query.data?.pages ?? [];
   return {
     query,
     first: pages[0] ?? null,
