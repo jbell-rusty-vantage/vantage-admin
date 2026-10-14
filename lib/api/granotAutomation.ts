@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 type ApiEnvelope<T> =
   | { ok: true; data: T }
   | { ok: false; error: string; code?: string; issues?: unknown; request_id?: string };
@@ -205,6 +207,29 @@ export class GranotAutomationApiError extends Error {
 }
 
 const root = "/api/proxy/api/v1/admin/granot-automation";
+
+const estimatesFreshnessSchema = z.object({
+  observed_at: z.string().datetime(),
+  last_complete_coverage_at: z.string().datetime().nullable(),
+  latest_slot: z.object({
+    _id: z.string(),
+    expected_windows: z.number().int().nonnegative(),
+    discovered_windows: z.number().int().nonnegative(),
+    collected_windows: z.number().int().nonnegative(),
+    completed_windows: z.number().int().nonnegative(),
+    failed_windows: z.number().int().nonnegative(),
+    latest_collection_at: z.string().datetime().nullable(),
+    created_at: z.string().datetime(),
+  }).nullable(),
+  warnings: z.array(z.string()),
+  older_scope: z.string(),
+  coverage_limit: z.string(),
+});
+export type EstimatesFreshness = z.infer<typeof estimatesFreshnessSchema>;
+
+export async function fetchEstimatesFreshness(): Promise<EstimatesFreshness> {
+  return estimatesFreshnessSchema.parse(await request<unknown>("/runs/freshness"));
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)

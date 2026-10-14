@@ -14,6 +14,7 @@ import { expiresInWords, lastCheckSummary, waitingChecks, windowWords } from "@/
 import { GRANOT_UPDATES_HREF, granotCheckHref } from "@/lib/automations/granot-updates-redirects";
 import { AUTOMATIONS_COPY as copy } from "./automations-copy";
 import { useGranotRuns } from "./granot-updates/use-granot-updates";
+import { EstimatesFreshnessCard } from "./estimates-freshness";
 
 /** Pure over its props so a static-markup test can render it. */
 export function AutomationsHubView({ runs, failed, nowMs }: { runs: readonly GranotRun[] | null; failed: boolean; nowMs: number | undefined }) {
@@ -70,5 +71,5 @@ export function AutomationsHubView({ runs, failed, nowMs }: { runs: readonly Gra
 export function AutomationsHub() {
   const runs = useGranotRuns(true);
   const nowMs = useNowMs();
-  return <AutomationsHubView runs={runs.data ?? null} failed={runs.isError} nowMs={nowMs} />;
+  return <><AutomationsHubView runs={runs.data ?? null} failed={runs.isError} nowMs={nowMs} /><EstimatesFreshnessCard /></>;
 }
