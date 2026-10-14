@@ -1,0 +1,173 @@
+{
+  "ok": true,
+  "data": {
+    "contract_version": "sod-v1",
+    "as_of": "2026-10-01T16:00:00.000Z",
+    "timezone": "America/New_York",
+    "scope": {
+      "role": "rep",
+      "agent_id": "6650a1b2c3d4e5f607180001"
+    },
+    "configuration_state": "active",
+    "configuration_version": "sod-cfg-synthetic-1",
+    "configuration_revision": 3,
+    "projection_revision": 57,
+    "freshness": {
+      "calls": {
+        "state": "fresh",
+        "last_updated_at": "2026-10-01T15:59:20.000Z",
+        "known_complete_through": "2026-10-01T15:59:00.000Z",
+        "age_seconds": 40,
+        "reason": null,
+        "last_confirmation_at": "2026-10-01T15:59:20.000Z",
+        "last_webhook_at": "2026-10-01T15:59:40.000Z"
+      },
+      "sms": {
+        "state": "fresh",
+        "last_updated_at": "2026-10-01T15:58:50.000Z",
+        "known_complete_through": "2026-10-01T15:58:30.000Z",
+        "age_seconds": 70,
+        "reason": null,
+        "last_confirmation_at": null,
+        "last_webhook_at": null,
+        "pending": {
+          "identity": 1,
+          "association": 1,
+          "window_days": 7,
+          "mailboxes": [
+            {
+              "extension_id": "101",
+              "agent_id": "6650a1b2c3d4e5f607180001",
+              "identity": 0,
+              "association": 1
+            },
+            {
+              "extension_id": "109",
+              "agent_id": null,
+              "identity": 1,
+              "association": 0
+            }
+          ]
+        }
+      },
+      "granot": {
+        "state": "observed",
+        "last_observed_at": "2026-10-01T15:57:10.000Z",
+        "age_seconds": 170
+      }
+    },
+    "pool_summary": {
+      "team_due": 0,
+      "team_completed": 1,
+      "assigned_due": 0,
+      "assigned_completed": 1,
+      "actual_outbound": 0
+    },
+    "filters": {
+      "queue_scope": "pool",
+      "search": null,
+      "priority": "all",
+      "workflow": "all",
+      "move_date_from": null,
+      "move_date_to": null,
+      "move_date_unknown": "include",
+      "agent_id": "6650a1b2c3d4e5f607180001",
+      "unassigned": false,
+      "state": "needs_contact"
+    },
+    "sort": "urgency",
+    "direction": "asc",
+    "limit": 25,
+    "cadence_exposure": "enforcement",
+    "enforcement_labels": true,
+    "rows": [
+      {
+        "pool": {
+          "business_date": "2026-10-01",
+          "state": "completed",
+          "due_at": "2026-10-02T00:00:00.000Z",
+          "completed_at": "2026-10-01T16:00:00.000Z",
+          "completed_by_agent_id": "6650a1b2c3d4e5f607180003",
+          "completed_by_agent_name": "Sam Taylor",
+          "completion_event_id": "6650a1b2c3d4e5f607199001"
+        },
+        "subject_id": "6650a1b2c3d4e5f6071a0001",
+        "job_no": "P5561042",
+        "job_pending": false,
+        "phone": "(512) 555-0142",
+        "name": "Taylor Brooks",
+        "move_date": "2026-10-24",
+        "move_date_review": null,
+        "priority_raw": "0",
+        "workflow": "new",
+        "subject_status": "active",
+        "assigned_agent_id": "6650a1b2c3d4e5f607180001",
+        "assigned_agent_name": "Alex Morgan",
+        "received_at": "2026-09-29T13:20:00.000Z",
+        "last_interaction_at": "2026-09-29T18:40:00.000Z",
+        "oldest_actionable_due_at": "2026-09-29T16:00:00.000Z",
+        "next_action_due_at": "2026-10-02T00:00:00.000Z",
+        "call": {
+          "required": 3,
+          "verified_completed": 0,
+          "remaining": 3,
+          "due_at": "2026-10-02T00:00:00.000Z",
+          "oldest_actionable_due_at": "2026-09-29T16:00:00.000Z",
+          "status": "overdue",
+          "completion_kind": null,
+          "coverage": {
+            "state": "complete",
+            "known_complete_through": "2026-10-01T15:59:00.000Z",
+            "gaps": []
+          },
+          "blocked_reason": null,
+          "verification": {
+            "state": "verified",
+            "verified_through": "2026-10-01T15:57:00.000Z",
+            "unverified_since": null
+          }
+        },
+        "sms": {
+          "required": 1,
+          "verified_completed": 0,
+          "remaining": 1,
+          "due_at": "2026-10-02T00:00:00.000Z",
+          "oldest_actionable_due_at": "2026-09-30T00:00:00.000Z",
+          "status": "overdue",
+          "completion_kind": null,
+          "coverage": {
+            "state": "complete",
+            "known_complete_through": "2026-10-01T15:59:00.000Z",
+            "gaps": []
+          },
+          "blocked_reason": null,
+          "verification": {
+            "state": "verified",
+            "verified_through": "2026-10-01T15:57:00.000Z",
+            "unverified_since": null
+          }
+        },
+        "status_flags": {
+          "needs_contact": true,
+          "overdue": true,
+          "blocked": false,
+          "pending": false,
+          "move_date_passed": false,
+          "move_date_unknown": false,
+          "job_pending": false,
+          "advisory_cooldown": false
+        },
+        "exposure": "enforcement",
+        "computed_as_of": "2026-10-01T15:59:30.000Z",
+        "publication_revision": 51,
+        "schedule_day": 3
+      }
+    ],
+    "next_cursor": null,
+    "has_more": false,
+    "counts": {
+      "projection_pending": 0,
+      "excluded_unknown_move_date": 0
+    }
+  }
+}

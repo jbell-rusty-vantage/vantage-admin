@@ -43,11 +43,12 @@ import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, ReadFailure, SearchBox, SkeletonLine, Track } from "../primitives";
 import { BinderCard } from "./binder-card";
 import { LeadPanel, type RepOption } from "./lead-panel";
+import { PoolStatus, PoolWorkload } from "./pool-status";
 
 const c = deskCopy.my;
 const t = deskCopy.text;
 
-type Tab = "all" | "new" | "quoted";
+type Tab = "all" | "new" | "quoted" | "other" | "pool";
 type WorkState = "needs_contact" | "all_active";
 type SortValue = "urgency" | "lead_received" | "last_interaction" | "move_date";
 
@@ -201,6 +202,7 @@ export function QueueRow({
       <td>
         <span className="od-strong od-job">{row.job_no ?? deskCopy.lead.jobPending}</span>
         {row.phone ? <span className="od-cell__sub">{row.phone}</span> : null}
+        {row.pool ? <span className="od-cell__sub">{row.assigned_agent_name ? `Assigned to ${row.assigned_agent_name}` : "Unassigned"}</span> : null}
       </td>
       <td className={rowOverdue(row) ? "od-text-red od-strong-red" : undefined} title={absoluteTime(row.received_at)}>
         {leadAgeText(row, asOf)}
@@ -210,9 +212,9 @@ export function QueueRow({
         {interactionText(row.last_interaction_at, relativeNow)}
       </td>
       <td>
-        <span>{callsTodayText(row.call)}</span>
-        {overdueBy ? <span className="od-cell__sub od-text-red">{overdueBy}</span> : null}
-        {callNote ? (
+        {row.pool ? <PoolStatus pool={row.pool} asOf={asOf} /> : <span>{callsTodayText(row.call)}</span>}
+        {!row.pool && overdueBy ? <span className="od-cell__sub od-text-red">{overdueBy}</span> : null}
+        {!row.pool && callNote ? (
           <span className="od-cell__sub od-text-amber" data-testid="call-not-yet-verified" title={callNote.title}>
             {callNote.text}
           </span>
@@ -258,7 +260,8 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
   const queue = useQueue(
     {
       agent_id: agent,
-      workflow: tab === "all" ? null : tab,
+      queue_scope: tab === "pool" ? "pool" : null,
+      workflow: tab === "all" || tab === "pool" ? null : tab,
       state: work,
       search: q,
       sort,
@@ -348,11 +351,12 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
         ) : null}
 
         {!coordinator || agent ? <BinderCard key={agent ?? "self"} agentId={agent} available={capabilities.deployed_reads.includes("rep_metrics")} /> : <p className="od-queue__note">{deskCopy.binder.selectRep}</p>}
+        <PoolWorkload summary={first?.pool_summary} assigned={!coordinator || Boolean(agent)} />
 
         <div className="od-workspace">
           <div className="od-workspace__main">
             <div className="od-tabs" role="tablist" aria-label={c.tabsLabel}>
-              {(["new", "quoted", "all"] as const).map((value) => (
+              {(["new", "quoted", "other", "pool"] as const).map((value) => (
                 <button
                   key={value}
                   type="button"
@@ -365,6 +369,7 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
                 </button>
               ))}
             </div>
+            {tab === "pool" ? <p className="od-queue__note">Every eligible Rep sees this shared Pool, including Unassigned Leads. Assignment stays with the displayed Rep. One verified call fulfills today’s call for everyone.</p> : null}
             <div className="od-filterbar">
               <div className="od-chips" role="group" aria-label={c.workLabel}>
                 {(["needs_contact", "all_active"] as const).map((value) => (

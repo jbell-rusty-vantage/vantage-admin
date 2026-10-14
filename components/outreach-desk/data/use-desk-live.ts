@@ -8,7 +8,7 @@
  * - a refusal (403 / 503 desk unavailable) closes it: back off, recheck capabilities, try again later;
  * - hidden page → close the stream; visible again → reopen with a full refetch;
  * - New York midnight → full refetch so "today" rolls over.
- * While the stream is not live, the desk's reads poll every 30 s on a visible page (`useDeskPollInterval`).
+ * Desk reads also resnapshot every 30 s on a visible page, recovering a missed hint even on a live stream.
  */
 import { useEffect, useSyncExternalStore } from "react";
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
@@ -40,9 +40,9 @@ export function useDeskLiveStatus(): DeskLiveStatus {
   return useSyncExternalStore(subscribe, read, readServer);
 }
 
-/** Polling interval for desk reads: none while the stream is live (its clock frames refresh), else 30 s. */
+/** Short foreground resnapshots also recover a missed hint while SSE remains connected. */
 export function useDeskPollInterval(): number | false {
-  return useDeskLiveStatus() === "live" ? false : DESK_FALLBACK_POLL_MS;
+  return DESK_FALLBACK_POLL_MS;
 }
 
 /** Parses a frame leniently: anything unreadable is treated as "refetch everything". */

@@ -368,7 +368,7 @@ export const deskCopy = {
     smsDue: "SMS due",
     metricUnavailable: "unavailable",
     awaiting: (n: number) => `${n} awaiting confirmation`,
-    tabs: { all: "All leads", new: "New leads", quoted: "Quoted leads" },
+    tabs: { all: "All leads", new: "New", quoted: "Quoted", other: "Other", pool: "Pool" },
     tabsLabel: "Lead type",
     work: { needs_contact: "Needs contact", all_active: "All active" },
     workLabel: "Work filter",

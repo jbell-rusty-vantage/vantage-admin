@@ -51,11 +51,12 @@ import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, Pill, ReadFailure, SearchBox, Segmented, SkeletonLine, SummaryCard, Track } from "../primitives";
 import { LeadCostCard } from "./lead-cost-card";
 import { LeadPanel, type RepOption } from "./lead-panel";
+import { PoolStatus, PoolWorkload } from "./pool-status";
 
 const c = deskCopy.team;
 const t = deskCopy.text;
 
-type WorkflowFilter = "all" | "new" | "quoted";
+type WorkflowFilter = "all" | "new" | "quoted" | "other" | "pool";
 type SortValue = "urgency" | "lead_received" | "last_interaction" | "move_date";
 
 function scopeSubtitle(team: SalesOutreachTeamDto): string {
@@ -160,13 +161,13 @@ export function AttentionRow({ row, asOf, relativeNow, selected, onSelect }: { r
       </td>
       <td>{ownerText(row)}</td>
       <td>
-        <Pill variant={pill.variant}>{pill.text}</Pill>
+        <Pill variant={row.pool ? "neutral" : pill.variant}>{row.pool ? "Pool" : pill.text}</Pill>
       </td>
       <td>
-        <span className={`od-issue od-issue--${issue.tone}`} title={issue.title}>
+        {row.pool ? <PoolStatus pool={row.pool} asOf={asOf} /> : <span className={`od-issue od-issue--${issue.tone}`} title={issue.title}>
           <IssueIcon aria-hidden="true" />
           {issue.text}
-        </span>
+        </span>}
       </td>
       <td title={row.move_date ?? undefined}>{moveDateText(row.move_date, relativeNow)}</td>
       <td title={absoluteTime(row.last_interaction_at)}>{interactionText(row.last_interaction_at, relativeNow)}</td>
@@ -246,7 +247,8 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
     {
       agent_id: agent,
       unassigned,
-      workflow: workflow === "all" ? null : workflow,
+      queue_scope: workflow === "pool" ? "pool" : null,
+      workflow: workflow === "all" || workflow === "pool" ? null : workflow,
       search: q,
       sort,
       direction: sort === "move_date" ? "asc" : sort === "urgency" ? null : (url.get("direction") as "asc" | "desc" | null) ?? (sort === "lead_received" ? "desc" : "asc"),
@@ -345,6 +347,8 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
                 { value: "all", label: c.allLeads },
                 { value: "new", label: c.new },
                 { value: "quoted", label: c.quoted },
+                { value: "other", label: "Other" },
+                { value: "pool", label: "Pool" },
               ]}
               onChange={(value) => url.update({ workflow: value === "all" ? null : value })}
             />
@@ -352,6 +356,8 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
             <SearchBox value={q} placeholder={c.search} onSearch={(value) => url.update({ q: value })} />
           </div>
 
+          <PoolWorkload summary={attentionQueue.first?.pool_summary} assigned={Boolean(agent)} />
+          {workflow === "pool" ? <p className="od-queue__note">Shared Pool includes every eligible Lead regardless of assignment. Rep filters select the workload summary; the shared queue stays visible to everyone.</p> : null}
           <div className="od-summary-row">
             <SummaryCard
               testId="card-outbound"
