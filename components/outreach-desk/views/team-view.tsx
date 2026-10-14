@@ -136,7 +136,7 @@ function GoalRow({ row, workflow }: { row: SalesOutreachDailyCallGoalRow; workfl
   );
 }
 
-function AttentionRow({ row, asOf, selected, onSelect }: { row: SalesOutreachQueueRowDto; asOf: string; selected: boolean; onSelect: (id: string) => void }) {
+export function AttentionRow({ row, asOf, relativeNow, selected, onSelect }: { row: SalesOutreachQueueRowDto; asOf: string; relativeNow: string; selected: boolean; onSelect: (id: string) => void }) {
   const issue = rowIssue(row, asOf);
   const pill = priorityPill(row);
   const IssueIcon = issue.icon === "alert" ? CircleAlert : issue.icon === "clock" ? Clock3 : Info;
@@ -168,8 +168,8 @@ function AttentionRow({ row, asOf, selected, onSelect }: { row: SalesOutreachQue
           {issue.text}
         </span>
       </td>
-      <td title={row.move_date ?? undefined}>{moveDateText(row.move_date, asOf)}</td>
-      <td title={absoluteTime(row.last_interaction_at)}>{interactionText(row.last_interaction_at, asOf)}</td>
+      <td title={row.move_date ?? undefined}>{moveDateText(row.move_date, relativeNow)}</td>
+      <td title={absoluteTime(row.last_interaction_at)}>{interactionText(row.last_interaction_at, relativeNow)}</td>
       <td>
         <CopyJobButton jobNo={row.job_pending ? null : row.job_no} />
       </td>
@@ -239,7 +239,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
   const failed = Boolean(team.error) && !data;
   const asOf = data?.as_of ?? capabilities.as_of;
   const now = useDeskNow(asOf);
-  const today = nyDate(now);
+  const today = nyDate(asOf);
   const cadenceOn = capabilities.controls.cadence_shadow_enabled || capabilities.controls.cadence_enforcement_enabled;
   const filtered = Boolean(agent || unassigned || workflow !== "all" || q || sort !== "urgency" || move || priority || url.get("move_from") || url.get("move_to") || url.get("move_unknown") || state !== "needs_contact");
   const attentionQueue = useQueue(
@@ -555,7 +555,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
                       </tr>
                     ) : (
                       attentionRows.map((row) => (
-                        <AttentionRow key={row.subject_id} row={row} asOf={now} selected={row.subject_id === lead} onSelect={(id) => url.update({ lead: id })} />
+                        <AttentionRow key={row.subject_id} row={row} asOf={filtered ? (attentionQueue.first?.as_of ?? asOf) : asOf} relativeNow={now} selected={row.subject_id === lead} onSelect={(id) => url.update({ lead: id })} />
                       ))
                     )}
                   </tbody>

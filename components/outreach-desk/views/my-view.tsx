@@ -162,15 +162,17 @@ function GoalCard({
   );
 }
 
-function QueueRow({
+export function QueueRow({
   row,
   asOf,
+  relativeNow,
   selected,
   onSelect,
   onMove,
 }: {
   row: SalesOutreachQueueRowDto;
   asOf: string;
+  relativeNow: string;
   selected: boolean;
   onSelect: (id: string) => void;
   onMove: (from: HTMLTableRowElement, step: 1 | -1) => void;
@@ -203,9 +205,9 @@ function QueueRow({
       <td className={rowOverdue(row) ? "od-text-red od-strong-red" : undefined} title={absoluteTime(row.received_at)}>
         {leadAgeText(row, asOf)}
       </td>
-      <td title={row.move_date ?? undefined}>{moveDateText(row.move_date, asOf)}</td>
+      <td title={row.move_date ?? undefined}>{moveDateText(row.move_date, relativeNow)}</td>
       <td className="od-text-muted" title={absoluteTime(row.last_interaction_at)}>
-        {interactionText(row.last_interaction_at, asOf)}
+        {interactionText(row.last_interaction_at, relativeNow)}
       </td>
       <td>
         <span>{callsTodayText(row.call)}</span>
@@ -243,7 +245,7 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
   const team = useTeam(day, coordinator);
   const asOf = repDays.data?.as_of ?? team.data?.as_of ?? capabilities.as_of;
   const now = useDeskNow(asOf);
-  const today = nyDate(now);
+  const today = nyDate(asOf);
   const rep = repDays.data?.reps?.[0] ?? null;
   const teamRow = agent ? (team.data?.daily_call_goals?.find((row) => row.agent_id === agent) ?? null) : null;
   const reps: RepOption[] = useMemo(
@@ -476,7 +478,8 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
                           <QueueRow
                             key={row.subject_id}
                             row={row}
-                            asOf={now}
+                            asOf={first?.as_of ?? asOf}
+                            relativeNow={now}
                             selected={row.subject_id === lead}
                             onSelect={(id) => url.update({ lead: id })}
                             onMove={moveFocus}

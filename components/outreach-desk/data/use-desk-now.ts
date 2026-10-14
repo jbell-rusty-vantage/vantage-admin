@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-/** Advance a server snapshot by elapsed time; browser wall-clock skew cannot move its labels. */
+/** Relative move/interaction labels only. Filters and cadence presentation retain their server snapshot. */
 export function useDeskNow(asOf: string): string {
   const [tick, setTick] = useState<{ asOf: string; now: string } | null>(null);
   useEffect(() => {
