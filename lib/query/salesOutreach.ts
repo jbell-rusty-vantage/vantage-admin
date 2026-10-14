@@ -24,6 +24,8 @@ function stable(filters: Record<string, unknown> | undefined): Record<string, un
 export const outreachKeys = {
   all: [ROOT] as const,
   capabilities: () => [ROOT, "capabilities"] as const,
+  repMetricsAll: () => [ROOT, "rep-metrics"] as const,
+  repMetrics: (agentId?: string | null) => [ROOT, "rep-metrics", stable({ agent_id: agentId })] as const,
   repDaysAll: () => [ROOT, "rep-days"] as const,
   repDays: (businessDay?: string | null, agentId?: string | null) => [ROOT, "rep-days", stable({ business_day: businessDay, agent_id: agentId })] as const,
   teamAll: () => [ROOT, "team"] as const,
@@ -64,11 +66,14 @@ export function outreachInvalidationKeys(frame: OutreachInvalidationFrame): Outr
   const add = (key: OutreachKeyPrefix) => keys.set(JSON.stringify(key), key);
   for (const topic of topics) {
     if (topic === "outreach_desk") {
+      add(outreachKeys.repMetricsAll());
       add(outreachKeys.queueAll());
       add(outreachKeys.teamAll());
       const subjects = frame.changes.filter((change) => change.topic === "outreach_desk").flatMap((change) => change.subject_ids);
       if (subjects.length === 0) add(outreachKeys.detailAll());
       for (const subject of subjects) add(outreachKeys.detail(subject));
+    } else if (topic === "outreach_rep_metrics") {
+      add(outreachKeys.repMetricsAll());
     } else if (topic === "outreach_goal") {
       add(outreachKeys.repDaysAll());
       add(outreachKeys.teamAll());

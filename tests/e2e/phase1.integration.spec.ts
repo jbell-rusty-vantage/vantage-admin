@@ -1,0 +1,76 @@
+/** Phase 1 real BFF/browser proof; local replica fixtures only. */
+import {test,expect} from '@playwright/test';
+import {mkdirSync} from 'node:fs';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {signIn} from './helpers';
+import {salesOutreachRepMetricsSchema,salesOutreachQueueSchema} from '../../lib/api/salesOutreach';
+const BFF='/api/proxy/api/v1/admin/sales-outreach';
+const A='d9e98cc15237c848c5c8732b',B='360f2f6456d420c391c73535';
+const evidence=path.join(process.cwd(),'docs/rep-desk-and-pool/phase1-local-evidence');
+test.skip(process.env.E2E_PHASE1!=='1','requires isolated real replica Phase1 fixtures');
+test.setTimeout(180_000);
+test.beforeAll(()=>mkdirSync(evidence,{recursive:true}));
+
+function mutate(restore=false){
+  execFileSync(process.execPath,['--import','tsx','ops/local-integration/phase1-browser-mutation.ts','--database=testvantagemovers_phase1',...(restore?['--restore']:[])],{cwd:path.resolve(process.cwd(),'../vantage-movers-server'),stdio:'pipe'});
+}
+
+test('Rep attached money, calendar filters, relative labels and URL refresh',async({page})=>{
+  await signIn(page,'rep');
+  const metrics=await page.request.get(`${BFF}/rep-metrics`);expect(metrics.status()).toBe(200);
+  const data=salesOutreachRepMetricsSchema.parse((await metrics.json()).data);
+  expect(data.official_binder).toMatchObject({today:85.01,last_week:75,last_month:125,all_time:495.01});
+  expect(data.assigned_potential).toMatchObject({known_binder_total:1000.01,coverage:'partial',missing_amount_count:1,dangling_link_count:1,mismatched_link_count:1});
+  expect((await page.request.get(`${BFF}/rep-metrics?agent_id=${B}`)).status()).toBe(403);
+  await page.goto('/outreach-desk?view=my&workflow=all&state=all_active&sort=move_date');
+  const card=page.getByTestId('binder-card');await expect(card.getByText('$1,000.01',{exact:true})).toBeVisible();
+  for(const label of ['Today','Last Week','Last Month','All Time'])await expect(card.getByText(label,{exact:true})).toBeVisible();
+  const rows=page.locator('.od-table--queue tbody tr[data-subject]');await expect(rows).toHaveCount(7);
+  await expect(rows.first()).toContainText('JOB-2004');await expect(rows.last()).toContainText('JOB-2007');
+  await expect(rows.filter({hasText:'JOB-2001'})).toContainText(/Today/);
+  await expect(rows.filter({hasText:'JOB-2004'})).toContainText(/days ago/);
+  await expect(rows.filter({hasText:'JOB-2007'})).toContainText('No interaction');
+  await page.screenshot({path:path.join(evidence,'rep-metrics-and-queue.png'),fullPage:true});
+  await page.getByRole('combobox',{name:'Move date',exact:true}).selectOption('upcoming');
+  await expect(page).toHaveURL(/move=upcoming/);await expect(rows).toHaveCount(5);
+  await expect(rows.first()).toContainText('JOB-2001');
+  await page.reload();await expect(page.getByRole('combobox',{name:'Move date',exact:true})).toHaveValue('upcoming');await expect(rows).toHaveCount(5);
+  await page.getByRole('combobox',{name:'Move date',exact:true}).selectOption('past');await expect(rows).toHaveCount(1);await expect(rows.first()).toContainText('JOB-2004');
+  await page.screenshot({path:path.join(evidence,'rep-past-filter.png'),fullPage:true});
+  await page.getByRole('combobox',{name:'Move date',exact:true}).selectOption('unknown');await expect(rows).toHaveCount(1);await expect(rows.first()).toContainText('JOB-2007');
+  await page.reload();await expect(page.getByRole('combobox',{name:'Move date',exact:true})).toHaveValue('unknown');
+  await page.screenshot({path:path.join(evidence,'rep-unknown-filter.png'),fullPage:true});
+  const q=await page.request.get(`${BFF}/queue?sort=move_date&state=all_active&limit=2`);expect(q.status()).toBe(200);
+  let parsed=salesOutreachQueueSchema.parse((await q.json()).data),ids=parsed.rows.map(r=>r.subject_id),dates=parsed.rows.map(r=>r.move_date);
+  while(parsed.next_cursor){const response=await page.request.get(`${BFF}/queue?sort=move_date&state=all_active&limit=2&cursor=${encodeURIComponent(parsed.next_cursor)}`);expect(response.status()).toBe(200);parsed=salesOutreachQueueSchema.parse((await response.json()).data);ids.push(...parsed.rows.map(r=>r.subject_id));dates.push(...parsed.rows.map(r=>r.move_date));}
+  expect(new Set(ids).size).toBe(7);expect(dates).toEqual([...dates.filter(Boolean).sort(),null]);
+});
+
+test('Owner and Manager view a selected Rep; generic Admin denied',async({page})=>{
+  for(const role of ['owner','manager'] as const){
+    await page.context().clearCookies();await signIn(page,role);
+    expect((await page.request.get(`${BFF}/rep-metrics?agent_id=${A}`)).status()).toBe(200);
+    await page.goto(`/outreach-desk?view=my&agent=${A}&workflow=all&state=all_active&sort=move_date&move=past`);
+    await expect(page.getByTestId('binder-card').getByText('$1,000.01',{exact:true})).toBeVisible();
+    await expect(page.locator('.od-table--queue tbody tr[data-subject]')).toHaveCount(1);
+    await page.screenshot({path:path.join(evidence,`${role}-selected-rep.png`),fullPage:true});
+  }
+  await page.context().clearCookies();await signIn(page,'admin');expect((await page.request.get(`${BFF}/rep-metrics?agent_id=${A}`)).status()).toBe(403);
+});
+
+test('Committed metric hint refreshes the card and reconnect refetches missed changes',async({page})=>{
+  test.setTimeout(150_000);
+  await signIn(page,'rep');await page.goto('/outreach-desk?view=my&workflow=all&state=all_active');
+  const potential=page.getByTestId('binder-potential');await expect(potential).toHaveText('$1,000.01');
+  await expect(page.getByTestId('binder-card')).not.toContainText('Refresh reconnecting',{timeout:30_000});
+  try{
+    mutate();await expect(potential).toHaveText('$1,010.01',{timeout:15_000});
+    mutate(true);await expect(potential).toHaveText('$1,000.01',{timeout:15_000});
+    await page.context().setOffline(true);
+    await expect(page.getByTestId('binder-card')).toContainText('Refresh reconnecting',{timeout:15_000});
+    mutate();await page.context().setOffline(false);
+    await expect(potential).toHaveText('$1,010.01',{timeout:30_000});
+    await page.screenshot({path:path.join(evidence,'rep-live-reconnected.png'),fullPage:true});
+  }finally{await page.context().setOffline(false);mutate(true);}
+});

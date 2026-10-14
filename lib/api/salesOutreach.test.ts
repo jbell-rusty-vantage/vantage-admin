@@ -30,6 +30,7 @@ import {
   salesOutreachQuotedFollowupRequestSchema,
   salesOutreachRead,
   salesOutreachRepDaysSchema,
+  salesOutreachRepMetricsSchema,
   salesOutreachRestrictionAddRequestSchema,
   salesOutreachRestrictionCommandResponseSchema,
   salesOutreachRestrictionConfirmRequestSchema,
@@ -46,6 +47,7 @@ const readJson = (path: string): unknown => JSON.parse(readFileSync(path, "utf8"
 /** Read examples by file-name prefix. Every example must match exactly one rule. */
 const READ_RULES: Array<[RegExp, z.ZodType]> = [
   [/^capabilities\./, salesOutreachEnvelope(salesOutreachCapabilitiesSchema)],
+  [/^rep-metrics\./, salesOutreachEnvelope(salesOutreachRepMetricsSchema)],
   [/^rep-days\./, salesOutreachEnvelope(salesOutreachRepDaysSchema)],
   [/^team\./, salesOutreachEnvelope(salesOutreachTeamSchema)],
   [/^queue\./, salesOutreachEnvelope(salesOutreachQueueSchema)],

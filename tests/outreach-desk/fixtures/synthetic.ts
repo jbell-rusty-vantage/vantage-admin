@@ -182,7 +182,7 @@ export function syntheticCapabilities(role: SalesOutreachRole, variant: Syntheti
     live_topics: ["outreach_desk", "outreach_goal", "outreach_configuration"],
     permitted_commands: commands,
     role_capabilities: [...ROLE_CAPABILITIES[role]],
-    deployed_reads: ["capabilities", "rep_days", "team", "queue", "outreach_detail", "live"],
+    deployed_reads: ["capabilities", "rep_days", "rep_metrics", "team", "queue", "outreach_detail", "live"],
     cadence_summary: {
       policy_version: "final-policy-2026-10-03-v1",
       new: {

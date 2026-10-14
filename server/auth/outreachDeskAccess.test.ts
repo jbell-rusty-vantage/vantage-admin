@@ -27,6 +27,7 @@ const REP_ALLOWED: [VantageApiMethod, string][] = [
   ["GET", `${API}/capabilities`],
   ["GET", `${API}/capabilities?scope=production`],
   ["GET", `${API}/rep-days?business_day=2026-10-05`],
+  ["GET", `${API}/rep-metrics?agent_id=${AGENT}`],
   ["GET", `${API}/queue?state=needs_contact&sort=urgency`],
   ["GET", `${API}/outreach/${ID}`],
   ["PATCH", `${API}/outreach/${ID}/quoted-followup`],

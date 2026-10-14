@@ -37,10 +37,13 @@ import {
   knownThroughTime,
   nyDate,
   relativeDay,
+  interactionText,
+  moveDateText,
   reviewReasonText,
   shortDateLabel,
 } from "../lib/format";
 import { reportUnknownDeskCode } from "../lib/unknown-codes";
+import { useDeskNow } from "../data/use-desk-now";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, SkeletonLine } from "../primitives";
 
@@ -395,6 +398,7 @@ function LeadPanelBody({
   reps: RepOption[] | null;
 }) {
   const s = detail.subject;
+  const now = useDeskNow(detail.as_of);
   const next = nextAction(detail);
   const NextIcon = next.icon;
   const lines = explanationLines(detail);
@@ -418,6 +422,8 @@ function LeadPanelBody({
         <h2 className="od-lead__job">{s.job_no ?? c.jobPending}</h2>
         {s.phone ? <p className="od-lead__phone">{s.phone}</p> : null}
         {s.name ? <p className="od-lead__name">{s.name}</p> : null}
+        <p className="od-lead__meta" title={s.move_date ?? undefined} data-testid="lead-move-date">{deskCopy.my.moveDate}: {moveDateText(s.move_date, now)}</p>
+        <p className="od-lead__meta" title={absoluteTime(detail.last_interaction_at)} data-testid="lead-last-interaction">{deskCopy.presentation.lastInteraction}: {interactionText(detail.last_interaction_at, now)}</p>
         {workflowLine ? <p className="od-lead__meta">{workflowLine}</p> : null}
         {today ? <p className="od-lead__meta">{today}</p> : null}
         <p className="od-lead__meta" data-testid="lead-enrollment">

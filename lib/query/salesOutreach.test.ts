@@ -5,7 +5,7 @@ import { applyOutreachFrame, clearOutreachDesk, clearSubject, outreachInvalidati
 
 const SUBJECT_A = "6650a1b2c3d4e5f607182a01";
 const SUBJECT_B = "6650a1b2c3d4e5f607182a02";
-const change = (topic: "outreach_desk" | "outreach_goal" | "outreach_configuration", subject_ids: string[] = []) => ({ topic, subject_ids });
+const change = (topic: "outreach_desk" | "outreach_goal" | "outreach_configuration" | "outreach_rep_metrics", subject_ids: string[] = []) => ({ topic, subject_ids });
 
 test("keys share one root and normalize filters (empty values dropped, order-independent)", () => {
   assert.deepEqual(outreachKeys.all, ["sales-outreach"]);
@@ -29,7 +29,7 @@ test("connect, reconnect, clock, refetch all and configuration changes refetch t
 
 test("outreach_desk refetches the queue, the team and the listed subjects only; outreach_goal refetches goal reads", () => {
   const desk = outreachInvalidationKeys({ reason: "change", refetch: "scoped", topics: ["outreach_desk"], changes: [change("outreach_desk", [SUBJECT_A, SUBJECT_B, SUBJECT_A])] });
-  assert.deepEqual(desk, [outreachKeys.queueAll(), outreachKeys.teamAll(), outreachKeys.detail(SUBJECT_A), outreachKeys.detail(SUBJECT_B)]);
+  assert.deepEqual(desk, [outreachKeys.repMetricsAll(), outreachKeys.queueAll(), outreachKeys.teamAll(), outreachKeys.detail(SUBJECT_A), outreachKeys.detail(SUBJECT_B)]);
   const deskNoIds = outreachInvalidationKeys({ reason: "change", refetch: "scoped", topics: ["outreach_desk"], changes: [change("outreach_desk")] });
   assert.ok(deskNoIds.some((key) => JSON.stringify(key) === JSON.stringify(outreachKeys.detailAll())));
   const goal = outreachInvalidationKeys({ reason: "change", refetch: "scoped", topics: ["outreach_goal"], changes: [change("outreach_goal")] });

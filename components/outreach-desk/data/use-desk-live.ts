@@ -58,17 +58,18 @@ export function parseDeskFrame(data: string): OutreachInvalidationFrame {
 
 /** Milliseconds until the next New York midnight from `now` (DST-safe: searches the next local day's start). */
 export function msUntilNewYorkMidnight(now: Date): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-    hourCycle: "h23",
-  }).formatToParts(now);
-  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
-  const elapsed = (get("hour") * 3600 + get("minute") * 60 + get("second")) * 1000;
-  // 24 h minus elapsed is exact except on DST days, where the midnight check below re-arms after the refresh.
-  return Math.max(1000, 86_400_000 - elapsed + 1000);
+  const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+  const start = now.getTime();
+  const today = formatter.format(now);
+  let low = start;
+  let high = start + 26 * 3_600_000;
+  // Search the first instant of tomorrow rather than assuming that this NY day lasts 24 hours.
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2);
+    if (formatter.format(new Date(middle)) === today) low = middle;
+    else high = middle;
+  }
+  return Math.max(1000, high - start + 1000);
 }
 
 export function useDeskLive(enabled: boolean) {

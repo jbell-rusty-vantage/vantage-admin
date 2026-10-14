@@ -26,6 +26,7 @@ export const OUTREACH_DESK_LIVE_API_PATH = `${OUTREACH_DESK_API}/live`;
 export const REP_OUTREACH_ROUTES: readonly DeskProxyRoute[] = [
   desk("GET", "capabilities"),
   desk("GET", "rep-days"),
+  desk("GET", "rep-metrics"),
   desk("GET", "queue"),
   desk("GET", `outreach/${ID}`),
   desk("GET", "live"),

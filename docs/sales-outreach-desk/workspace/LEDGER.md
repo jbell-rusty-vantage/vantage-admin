@@ -42,3 +42,29 @@ Allowed states: ready, claimed, in_progress, review, blocked, accepted. Only VER
 - Merged as `main@68ac287`, after the server S4 deploy (`main@03b4710c`). Vercel Production run 37359428234 green.
 - Production smoke and open items: server `docs/sales-outreach-desk/workspace/evidence/RELEASE.md` §12.
 - Cleanup: worktrees `../vantage-admin-a1` / `-a2` removed. Branches `feat/outreach-desk-a1`, `-a2` and `feat/outreach-desk` deleted locally and on origin.
+
+
+## PHASE1-DOCS — October 14, 2026
+
+Coordinator-delegated documentation lane, branch `codex/phase1-owner-sales-control`,
+server initial HEAD `eb532d96`; concurrent Phase 1 app/Service/proof edits preserved.
+Claims: canonical `CONTRACTS.md`, `SPECIFICATION.md`, `README.md`,
+`REP-MONEY-AND-PRESENTATION.md` (admin lane content), `PACKET-MANIFEST.json` and
+exact admin mirrors. Narrow money/presentation amendment only; historical policy
+and codes 2/3 Daily remain. Packet-integrity verification precedes coordinator
+handoff; only integrated VERIFY/coordinator evidence can mark runtime acceptance.
+
+PHASE1-DOCS handoff: `node docs/sales-outreach-desk/validate.mjs` PASS in both
+repositories (99 release files; server 307/admin 305 operative local links);
+100 manifest-listed files including manifest byte-identical across repositories.
+`git diff --check -- docs/sales-outreach-desk` PASS in both. Evidence scope is
+packet integrity/portability/examples; runtime acceptance and merge remain
+coordinator-owned. All lane edits unstaged; no commit or application edit.
+
+PHASE1-DOCS final capability/generator re-freeze: capabilities advertise
+`rep_metrics`; five generated capability examples and the service-generated
+`rep-metrics.rep.json` are hashed and mirrored. Both packet validators PASS
+(104 release files, server 307/admin 305 links); all 105 listed files including
+manifest byte-identical, all 34 canonical DTO JSON files byte-identical in admin
+packet/test fixtures. Scoped diff-check PASS. Earlier 99-file pass is historical;
+this re-freeze is the final packet handoff. No application edits or staging.

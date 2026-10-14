@@ -43,7 +43,7 @@ const OBJECT_ID = /^[a-f\d]{24}$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const WORKFLOWS = ["all", "new", "quoted", "daily", "discretion", "none"] as const;
 const STATES = ["needs_contact", "all_active"] as const;
-const SORTS = ["urgency", "lead_received", "last_interaction"] as const;
+const SORTS = ["urgency", "lead_received", "last_interaction", "move_date"] as const;
 const DIRECTIONS = ["asc", "desc"] as const;
 const MOVE_UNKNOWN = ["include", "exclude", "only"] as const;
 /** Move-date presets (SPECIFICATION §7); the dates are resolved from the server's business date at request time. */
@@ -120,6 +120,7 @@ export function canonicalDeskQuery(params: URLSearchParams, role: OutreachDeskRo
     if (value !== null) out.set(spec.key, value);
   }
   if (out.has("agent") && out.has("unassigned")) out.delete("unassigned");
+  if (out.get("sort") === "move_date" && out.has("direction")) out.set("direction", "asc");
   return out;
 }
 

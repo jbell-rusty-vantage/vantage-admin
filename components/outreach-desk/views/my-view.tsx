@@ -32,13 +32,16 @@ import {
   otherOutboundTitle,
   overdueByText,
   percentText,
-  relativeDay,
+  interactionText,
+  moveDateText,
   repZeroActivityTitle,
   rowOverdue,
   verificationNote,
 } from "../lib/format";
+import { useDeskNow } from "../data/use-desk-now";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, ReadFailure, SearchBox, SkeletonLine, Track } from "../primitives";
+import { BinderCard } from "./binder-card";
 import { LeadPanel, type RepOption } from "./lead-panel";
 
 const c = deskCopy.my;
@@ -46,7 +49,7 @@ const t = deskCopy.text;
 
 type Tab = "all" | "new" | "quoted";
 type WorkState = "needs_contact" | "all_active";
-type SortValue = "urgency" | "lead_received" | "last_interaction";
+type SortValue = "urgency" | "lead_received" | "last_interaction" | "move_date";
 
 function GoalCard({
   rep,
@@ -200,8 +203,9 @@ function QueueRow({
       <td className={rowOverdue(row) ? "od-text-red od-strong-red" : undefined} title={absoluteTime(row.received_at)}>
         {leadAgeText(row, asOf)}
       </td>
+      <td title={row.move_date ?? undefined}>{moveDateText(row.move_date, asOf)}</td>
       <td className="od-text-muted" title={absoluteTime(row.last_interaction_at)}>
-        {relativeDay(row.last_interaction_at, asOf)}
+        {interactionText(row.last_interaction_at, asOf)}
       </td>
       <td>
         <span>{callsTodayText(row.call)}</span>
@@ -238,7 +242,8 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
   const repDays = useRepDays(day, agent, !coordinator || Boolean(agent));
   const team = useTeam(day, coordinator);
   const asOf = repDays.data?.as_of ?? team.data?.as_of ?? capabilities.as_of;
-  const today = nyDate(asOf);
+  const now = useDeskNow(asOf);
+  const today = nyDate(now);
   const rep = repDays.data?.reps?.[0] ?? null;
   const teamRow = agent ? (team.data?.daily_call_goals?.find((row) => row.agent_id === agent) ?? null) : null;
   const reps: RepOption[] = useMemo(
@@ -255,8 +260,10 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
       state: work,
       search: q,
       sort,
-      direction: sort === "urgency" ? null : direction,
+      direction: sort === "urgency" ? null : sort === "move_date" ? "asc" : direction,
+      priority: url.get("priority"),
       ...moveDateRange(move, today),
+      ...(!move ? { move_date_from: url.get("move_from"), move_date_to: url.get("move_to"), move_date_unknown: url.get("move_unknown") as "include" | "exclude" | "only" | null } : {}),
     },
     cadenceOn && (!coordinator || Boolean(agent) || viewer.role === "owner" || viewer.role === "manager"),
   );
@@ -338,6 +345,8 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
           />
         ) : null}
 
+        {!coordinator || agent ? <BinderCard key={agent ?? "self"} agentId={agent} available={capabilities.deployed_reads.includes("rep_metrics")} /> : <p className="od-queue__note">{deskCopy.binder.selectRep}</p>}
+
         <div className="od-workspace">
           <div className="od-workspace__main">
             <div className="od-tabs" role="tablist" aria-label={c.tabsLabel}>
@@ -381,9 +390,10 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
                       <option value="urgency">{c.sorts.urgency}</option>
                       <option value="lead_received">{c.sorts.lead_received}</option>
                       <option value="last_interaction">{c.sorts.last_interaction}</option>
+                      <option value="move_date">{c.sorts.move_date}</option>
                     </select>
                   </label>
-                  {sort !== "urgency" ? (
+                  {sort !== "urgency" && sort !== "move_date" ? (
                     <button
                       type="button"
                       className="od-button od-button--quiet od-button--icon"
@@ -407,7 +417,7 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
                     { value: "past", label: `${c.moveDate}: ${c.moveDates.past}` },
                     { value: "unknown", label: `${c.moveDate}: ${c.moveDates.unknown}` },
                   ]}
-                  onChange={(value) => url.update({ move: value || null })}
+                  onChange={(value) => url.update({ move: value || null, move_from: null, move_to: null, move_unknown: null })}
                 />
               </div>
               {first?.counts.projection_pending ? (
@@ -439,6 +449,7 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
                       <tr>
                         <th scope="col">{c.columns.job}</th>
                         <th scope="col">{c.columns.age}</th>
+                        <th scope="col">{c.columns.move}</th>
                         <th scope="col">{c.columns.last}</th>
                         <th scope="col">{c.columns.calls}</th>
                         <th scope="col">{c.columns.sms}</th>
@@ -449,15 +460,15 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
                       {queue.query.isPending ? (
                         [0, 1, 2, 3].map((index) => (
                           <tr key={index}>
-                            <td colSpan={6}>
+                            <td colSpan={7}>
                               <SkeletonLine />
                             </td>
                           </tr>
                         ))
                       ) : rows.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="od-empty">
-                            {queueFailed ? t.unavailable : work === "needs_contact" && !q ? c.emptyNeeds : c.empty}
+                          <td colSpan={7} className="od-empty">
+                            {queueFailed ? t.unavailable : work === "needs_contact" && !q && !url.get("priority") && !move && !url.get("move_from") && !url.get("move_to") && !url.get("move_unknown") ? c.emptyNeeds : c.empty}
                           </td>
                         </tr>
                       ) : (
@@ -465,7 +476,7 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
                           <QueueRow
                             key={row.subject_id}
                             row={row}
-                            asOf={first?.as_of ?? asOf}
+                            asOf={now}
                             selected={row.subject_id === lead}
                             onSelect={(id) => url.update({ lead: id })}
                             onMove={moveFocus}
