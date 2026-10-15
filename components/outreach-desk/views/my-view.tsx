@@ -44,6 +44,7 @@ import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, ReadFailure, Sea
 import { BinderCard } from "./binder-card";
 import { LeadPanel, type RepOption } from "./lead-panel";
 import { PoolStatus, PoolWorkload } from "./pool-status";
+import { SortGuide } from "./sort-guide";
 
 const c = deskCopy.my;
 const t = deskCopy.text;
@@ -238,7 +239,7 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
   const tab = (url.get("workflow") ?? "new") as Tab;
   const work = (url.get("state") ?? "needs_contact") as WorkState;
   const q = url.get("q");
-  const sort = (url.get("sort") ?? "urgency") as SortValue;
+  const sort = (url.get("sort") ?? "lead_received") as SortValue;
   const direction = (url.get("direction") ?? (sort === "lead_received" ? "desc" : "asc")) as "asc" | "desc";
   const move = url.get("move") as MovePreset | null;
   const lead = url.get("lead");
@@ -384,6 +385,7 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
                 {c.flow}
               </p>
             </div>
+            <SortGuide />
             <section className="od-card od-queue" aria-labelledby="od-queue-title" data-testid="queue">
               <div className="od-card__head">
                 <div className="od-queue__heading">
@@ -393,7 +395,7 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
                   <label className="od-sortlink">
                     <ArrowDown aria-hidden="true" width={15} height={15} />
                     <span className="od-sr-only">{c.sortLabel}</span>
-                    <select value={sort} onChange={(event) => url.update({ sort: event.target.value === "urgency" ? null : event.target.value, direction: null })}>
+                    <select value={sort} onChange={(event) => url.update({ sort: event.target.value === "lead_received" ? null : event.target.value, direction: null })}>
                       <option value="urgency">{c.sorts.urgency}</option>
                       <option value="lead_received">{c.sorts.lead_received}</option>
                       <option value="last_interaction">{c.sorts.last_interaction}</option>

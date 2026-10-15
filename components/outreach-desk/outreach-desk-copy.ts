@@ -365,6 +365,12 @@ export const deskCopy = {
     queueTitle: "Contact next",
     sorts: { urgency: "Overdue first", lead_received: "Lead received", last_interaction: "Last interaction", move_date: "Move date" },
     sortLabel: "Sort queue",
+    sortGuide: {
+      title: "Sort options",
+      leadReceived: "Order by arrival time. Over 60% close within 2 days, so act early for the best chance of booking.",
+      urgency: "Earliest outstanding contact deadlines first. Circle back on older leads that still have a chance to book.",
+      moveDate: "Earliest move dates first, from the form or Granot. Prioritize approaching moves; leads without a date stay at the bottom.",
+    },
     newest: "Newest first",
     oldest: "Oldest first",
     columns: { job: "Job / phone", age: "Lead age", move: "Move date", last: "Last interaction", calls: "Calls today", sms: "SMS", copy: "Copy" },

@@ -19,6 +19,7 @@ import { queryKeys } from "@/lib/query/keys";
 import type { SalesOutreachCapabilitiesDto, SalesOutreachDailyCallGoalRow, SalesOutreachQueueRowDto, SalesOutreachTeamDto } from "@/lib/api/salesOutreach";
 import { useQueue, useTeam } from "../data/use-desk-reads";
 import { useDeskUrl } from "../data/use-desk-url";
+import { SortGuide } from "./sort-guide";
 import { deskViewHref } from "../data/desk-url";
 import type { DeskViewer } from "../shell/desk-shell";
 import {
@@ -228,7 +229,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
   const unassigned = url.get("unassigned") === "true";
   const workflow = (url.get("workflow") ?? "all") as WorkflowFilter;
   const q = url.get("q");
-  const sort = (url.get("sort") ?? "urgency") as SortValue;
+  const sort = (url.get("sort") ?? "lead_received") as SortValue;
   const lead = url.get("lead");
   const move = url.get("move") as MovePreset | null;
   const priority = url.get("priority");
@@ -308,7 +309,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
   const quoted = data ? cadenceMetricText(data.quoted_overdue_leads) : null;
   const unassignedText = data ? unassignedCaption(data.unassigned) : null;
 
-  const attentionRows = filtered ? (cadenceOn ? attentionQueue.rows.slice(0, 10) : null) : (data?.leads_needing_attention.rows ?? null);
+  const attentionRows = filtered ? (cadenceOn && attentionQueue.first ? attentionQueue.rows.slice(0, 10) : null) : (data?.leads_needing_attention.rows ?? null);
   const attentionUnavailable = filtered ? !cadenceOn : data ? data.leads_needing_attention.rows === null : false;
   const attentionError = filtered ? (attentionQueue.query.error ?? null) : failed ? team.error : null;
   const loading = (width: number) => (failed ? t.unavailable : <SkeletonLine width={width} height={22} />);
@@ -490,6 +491,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
             </p>
           </section>
 
+          <SortGuide />
           <section className="od-card" aria-labelledby="od-attention-title" data-testid="leads-needing-attention">
             <div className="od-card__head">
               <h2 id="od-attention-title" className="od-card__title">
@@ -518,7 +520,7 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
                     { value: "last_interaction", label: deskCopy.my.sorts.last_interaction },
                     { value: "move_date", label: deskCopy.my.sorts.move_date },
                   ]}
-                  onChange={(value) => url.update({ sort: value === "urgency" ? null : value, direction: null })}
+                  onChange={(value) => url.update({ sort: value === "lead_received" ? null : value, direction: null })}
                 />
               </div>
             </div>
