@@ -90,7 +90,7 @@ server-produced deep links.
 - **Cancellations:** `q`, `reason`, `source`, `agent`, `merchant`, `from`, `to`, `refund=yes|no`, `by`,
   `sort=cancel_desc|cancel_asc|refund_desc`, `record=<id>[&panel=…]` (fallback panel when the booking is not populated).
 - **Record a cancellation:** `/cancellations/new[?booked_lead=<id>]`.
-- **To finish:** `/intakes[?case=<id>]` (the finish sheet); the old `tab`, `state`, `job`, `cursor` keys are ignored.
+- **To finish:** `/intakes[?case=<id>]` (the finish sheet). New bookings is the default; `?tab=existing` shows existing-booking reviews with Review and No action. Missing and Referral Bookings stay in New bookings. Both tabs share the paginated read and keep loading until the selected group fills the view or the server has no more cases. Unknown `tab` values and the old `state`, `job`, `cursor` keys are ignored.
 - **Reconciliation:** `/bookings/reconciliation?connect=1`.
 - **Setup → Lead sources:** `view=sources|granot|numbers` (default sources), `source=<company id>`, `feed=<feed id>`,
   `edit=feed|granot|number|cost|source` (`source` is the company sheet: rename, Master Sheet, On / Off), `granot=<Granot name id>`,

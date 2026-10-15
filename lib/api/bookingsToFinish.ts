@@ -51,6 +51,13 @@ export function finishModeOf(mode: string): FinishMode {
   return "create";
 }
 
+export type ToFinishTab = "new" | "existing";
+
+/** Group by the server's case mode, including both missing and Referral Bookings in New bookings. */
+export function bookingsForTab(items: readonly GranotLifecycleCaseListItem[], tab: ToFinishTab): GranotLifecycleCaseListItem[] {
+  return items.filter((item) => (finishModeOf(item.mode) === "review") === (tab === "existing"));
+}
+
 /** 2 when the server says so, else 2 when the customer label names two people ("Betty Raban / John Donahue"), else 0. */
 export function possibleCustomerCount(item: Pick<GranotLifecycleCaseListItem, "customer_label" | "possible_customer_count">): number {
   if (typeof item.possible_customer_count === "number") return item.possible_customer_count >= 2 ? item.possible_customer_count : 0;

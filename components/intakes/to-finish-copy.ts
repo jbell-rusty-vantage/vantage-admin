@@ -7,8 +7,16 @@ export const TO_FINISH_HREF = "/intakes";
 
 export const TO_FINISH_COPY = {
   title: "Bookings to finish",
-  subtitle: "Granot recorded these jobs as booked. Vantage does not have the official booking yet.",
-  help: "Open one to check the customer, write the official numbers and file it. What Granot sent is shown as facts; nothing is filled in for you. If Vantage already has the booking and it is right, choose No action straight from the card.",
+  subtitle: "File new bookings from Granot, or review changes to bookings already in Vantage.",
+  help: "New bookings need an official booking in Vantage. Existing bookings already have one: review it if something needs updating, or choose No action. What Granot sent is shown as facts; nothing is filled in for you.",
+  tabsLabel: "Booking intakes",
+  newTab: "New bookings",
+  existingTab: "Existing bookings",
+  newHint: "These jobs need an official booking in Vantage. Open one to check the customer and file it.",
+  existingHint: "Vantage already has these bookings. Review a Granot update if something needs changing, or close it with No action.",
+  existingEmpty: "No existing bookings to review.",
+  existingEmptyHint: "Granot updates to bookings already in Vantage appear here, including Release updates.",
+  existingAllLoaded: "That is every existing booking to review.",
   refresh: "Refresh",
   refreshing: "Checking…",
   loadFailed: "Could not load the bookings to finish.",

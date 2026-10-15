@@ -8,6 +8,7 @@ import { parseToFinishUrl } from "../components/intakes/to-finish-page";
 import { TO_FINISH_COPY } from "../components/intakes/to-finish-copy";
 import {
   contactSyncChip,
+  bookingsForTab,
   finishedToday,
   finishModeOf,
   granotAgeLine,
@@ -173,11 +174,22 @@ test("the Form submitted ⇄ Granot chip says same or differs, and is absent wit
   assert.deepEqual(contactSyncChip({ lead_ref: lead, known_contacts: { form_submitted: {}, granot: { differs_from_ingested: true } } }), { state: "warn", text: "Form submitted ⇄ Granot: differs" });
 });
 
-test("the URL contract is the case key only", () => {
-  assert.deepEqual(parseToFinishUrl(new URLSearchParams("case=abc")), { caseId: "abc" });
-  assert.deepEqual(parseToFinishUrl(new URLSearchParams("tab=cancellations&state=resolved")), { caseId: null });
-  assert.deepEqual(parseToFinishUrl(new URLSearchParams("case=%20")), { caseId: null });
+test("the URL defaults to new bookings and preserves direct case links in either tab", () => {
+  assert.deepEqual(parseToFinishUrl(new URLSearchParams("case=abc")), { caseId: "abc", tab: "new" });
+  assert.deepEqual(parseToFinishUrl(new URLSearchParams("tab=cancellations&state=resolved")), { caseId: null, tab: "new" });
+  assert.deepEqual(parseToFinishUrl(new URLSearchParams("case=%20")), { caseId: null, tab: "new" });
+  assert.deepEqual(parseToFinishUrl(new URLSearchParams("tab=existing&case=abc")), { caseId: "abc", tab: "existing" });
   assert.equal(TO_FINISH_COPY.title, "Bookings to finish");
+});
+
+test("new bookings include missing and Referral Bookings; existing reviews keep Booked and Release updates", () => {
+  const review = { ...base, case_id: "review", mode: "review_existing_booking", deterministic_booking: { present: true, id: "b1" } };
+  const release = { ...review, case_id: "release", latest_action: "release" as const };
+  const referral = { ...base, case_id: "referral", mode: "create_referral_booking" };
+  const items = [release, base, review, referral];
+  assert.deepEqual(bookingsForTab(items, "new"), [base, referral]);
+  assert.deepEqual(bookingsForTab(items, "existing"), [release, review]);
+  assert.equal(items.length, 4);
 });
 
 test("the exact Granot message reads as labelled rows, never as JSON", () => {
