@@ -17,15 +17,10 @@ basis (cancelled official Bookings remain included), and puts the exact date win
 hover. Unknown allocation amounts/date coverage explicitly label affected figures as known
 subtotals rather than complete totals.
 
-**Potential binder on assigned leads** renders the server's known attached-Booking total,
-independent of historical allocation credit. It is not earned commission or an exclusive
-unbooked forecast. The sentence under the amount explains that it adds known binder amounts
-from bookings linked to eligible assigned leads; it does not describe Granot estimates.
-Eligible assignment scope includes FormLead and CallLead, beyond enrolled
-subjects or a loaded page. Priorities 7/8/9 and ineligible/cancelled records contribute no
-potential amount. Missing/dangling/mismatched links, missing amounts and ambiguous identities
-have separate coverage wording. Genuine stored zero renders `$0.00`; all unknown amounts
-render “No known linked binder amount”. Partial results explicitly identify the known subtotal.
+**October 15, 2026 Owner correction:** Potential money is removed from the desk because
+earnings from unbooked assigned leads cannot be calculated reliably. The card displays only
+Today, Last Week, Last Month and All Time booked binder totals. It ignores the server's
+`assigned_potential` field; no forecast or estimated commission is displayed.
 
 The money hook uses the existing Outreach Desk live stream and fallback poll interval.
 `outreach_rep_metrics` invalidates money reads; `outreach_desk` also invalidates them because

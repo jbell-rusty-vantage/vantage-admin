@@ -20,21 +20,23 @@ function render(data: SalesOutreachRepMetricsDto, agentId: string | null = null)
   return html;
 }
 
-test("binder card labels completed calendar windows, gross basis, known subtotal and unknown coverage", () => {
+test("binder card shows only booked binder calendar totals, without assigned potential", () => {
   const html = render(metrics());
-  for (const text of ["Today", "Last Week", "Last Month", "All Time", "$501.01", "$3,200.50", "$6,500.75", "cancelled bookings included", "Known linked binder", "Partial linked-amount coverage", "2 missing Booking links", "1 unavailable linked Booking", "1 unknown binder amount", "known binder amounts from bookings linked to your eligible assigned leads", "this is not earned commission"]) assert.ok(html.includes(text), text);
+  for (const text of ["Today", "Last Week", "Last Month", "All Time", "$501.01", "$3,200.50", "$11,200.00", "$48,123.45", "cancelled bookings included"]) assert.ok(html.includes(text), text);
   assert.ok(html.includes("2026-09-21 – 2026-09-27"));
+  assert.ok(!html.includes("binder-potential"));
+  assert.ok(!html.includes("Potential"));
+  assert.ok(!html.includes("$6,500.75"));
+  assert.ok(!html.includes("linked-amount coverage"));
 });
 
-test("stored zero remains dollars but all missing amounts remain unknown", () => {
+test("booked binder preserves known zero and missing allocation coverage", () => {
   const data = metrics();
-  data.assigned_potential = { ...data.assigned_potential, known_binder_total: 0, linked_booking_count: 1, missing_amount_count: 0 };
+  data.official_binder.today = 0;
   assert.ok(render(data).includes("$0.00"));
-  data.assigned_potential.missing_amount_count = 1;
-  assert.ok(render(data).includes("No known linked binder amount"));
-  assert.ok(!render(data).includes("$0.00"));
   data.official_binder.missing_amount_count = 1;
   assert.ok(render(data).includes("Known subtotal"));
+  assert.ok(render(data).includes("1 unknown binder amount"));
 });
 
 test("another selected rep never receives the previous rep's cached money as a placeholder", () => {

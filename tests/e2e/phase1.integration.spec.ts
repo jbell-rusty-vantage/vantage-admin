@@ -16,7 +16,7 @@ function mutate(restore=false){
   execFileSync(process.execPath,['--import','tsx','ops/local-integration/phase1-browser-mutation.ts','--database=testvantagemovers_phase1',...(restore?['--restore']:[])],{cwd:path.resolve(process.cwd(),'../vantage-movers-server'),stdio:'pipe'});
 }
 
-test('Rep attached money, calendar filters, relative labels and URL refresh',async({page})=>{
+test('Rep booked binder, calendar filters, relative labels and URL refresh',async({page})=>{
   await signIn(page,'rep');
   const metrics=await page.request.get(`${BFF}/rep-metrics`);expect(metrics.status()).toBe(200);
   const data=salesOutreachRepMetricsSchema.parse((await metrics.json()).data);
@@ -25,7 +25,8 @@ test('Rep attached money, calendar filters, relative labels and URL refresh',asy
   expect((await page.request.get(`${BFF}/rep-metrics?agent_id=${B}`)).status()).toBe(403);
   await page.goto('/outreach-desk?view=my&workflow=all&state=all_active&sort=move_date');
   await page.addStyleTag({content:'nextjs-portal {display:none!important}'});
-  const card=page.getByTestId('binder-card');await expect(card.getByText('$1,000.01',{exact:true})).toBeVisible();
+  const card=page.getByTestId('binder-card');await expect(card.getByTestId('binder-all_time')).toHaveText('$495.01');
+  await expect(page.getByTestId('binder-potential')).toHaveCount(0);
   for(const label of ['Today','Last Week','Last Month','All Time'])await expect(card.getByText(label,{exact:true})).toBeVisible();
   const rows=page.locator('.od-table--queue tbody tr[data-subject]');await expect(rows).toHaveCount(7);
   await expect(rows.first()).toContainText('JOB-2004');await expect(rows.last()).toContainText('JOB-2007');
@@ -60,7 +61,7 @@ test('Owner and Manager view a selected Rep; generic Admin denied',async({page})
     expect((await page.request.get(`${BFF}/rep-metrics?agent_id=${A}`)).status()).toBe(200);
     await page.goto(`/outreach-desk?view=my&agent=${A}&workflow=all&state=all_active&sort=move_date&move=past`);
     await page.addStyleTag({content:'nextjs-portal {display:none!important}'});
-    await expect(page.getByTestId('binder-card').getByText('$1,000.01',{exact:true})).toBeVisible();
+    await expect(page.getByTestId('binder-all_time')).toHaveText('$495.01');
     await expect(page.locator('.od-table--queue tbody tr[data-subject]')).toHaveCount(1);
     await page.screenshot({path:path.join(evidence,`${role}-selected-rep.png`),fullPage:true});
     await page.goto(`/outreach-desk?view=team&agent=${A}&workflow=all&state=all_active&sort=move_date&move=past`);
@@ -74,16 +75,24 @@ test('Committed metric hint refreshes the card and stream reopen refetches misse
   test.setTimeout(150_000);
   await signIn(page,'rep');await page.goto('/outreach-desk?view=my&workflow=all&state=all_active');
   await page.addStyleTag({content:'nextjs-portal {display:none!important}'});
-  const potential=page.getByTestId('binder-potential');await expect(potential).toHaveText('$1,000.01');
+  const allTime=page.getByTestId('binder-all_time');await expect(allTime).toHaveText('$495.01');
   await expect(page.getByTestId('binder-card')).not.toContainText('Refresh reconnecting',{timeout:30_000});
+  async function expectMetricsRefresh(action:()=>void){
+    const refreshed=page.waitForResponse(response=>response.url().includes(`${BFF}/rep-metrics`)&&response.status()===200,{timeout:30_000});
+    action();
+    const data=salesOutreachRepMetricsSchema.parse((await (await refreshed).json()).data);
+    await expect(allTime).toHaveText(new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(data.official_binder.all_time));
+  }
   try{
-    mutate();await expect(potential).toHaveText('$1,010.01',{timeout:15_000});
-    mutate(true);await expect(potential).toHaveText('$1,000.01',{timeout:15_000});
+    await expectMetricsRefresh(()=>mutate());
+    await expectMetricsRefresh(()=>mutate(true));
     // Trigger the app's hidden-page lifecycle; it closes the real SSE, then reopens/refetches on return.
     await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,get:()=> 'hidden'});document.dispatchEvent(new Event('visibilitychange'));});
     mutate();
+    const reopened=page.waitForResponse(response=>response.url().includes(`${BFF}/rep-metrics`)&&response.status()===200,{timeout:30_000});
     await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,get:()=> 'visible'});document.dispatchEvent(new Event('visibilitychange'));});
-    await expect(potential).toHaveText('$1,010.01',{timeout:30_000});
+    const data=salesOutreachRepMetricsSchema.parse((await (await reopened).json()).data);
+    await expect(allTime).toHaveText(new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(data.official_binder.all_time));
     await page.screenshot({path:path.join(evidence,'rep-live-reconnected.png'),fullPage:true});
   }finally{mutate(true);}
 });
