@@ -22,7 +22,7 @@ function render(data: SalesOutreachRepMetricsDto, agentId: string | null = null)
 
 test("binder card labels completed calendar windows, gross basis, known subtotal and unknown coverage", () => {
   const html = render(metrics());
-  for (const text of ["Today", "Last Week", "Last Month", "All Time", "$501.01", "$3,200.50", "$6,500.75", "cancelled bookings included", "Known linked binder", "Partial linked-amount coverage", "2 missing Booking links", "1 unavailable linked Booking", "1 unknown binder amount", "this is not earned commission"]) assert.ok(html.includes(text), text);
+  for (const text of ["Today", "Last Week", "Last Month", "All Time", "$501.01", "$3,200.50", "$6,500.75", "cancelled bookings included", "Known linked binder", "Partial linked-amount coverage", "2 missing Booking links", "1 unavailable linked Booking", "1 unknown binder amount", "known binder amounts from bookings linked to your eligible assigned leads", "this is not earned commission"]) assert.ok(html.includes(text), text);
   assert.ok(html.includes("2026-09-21 – 2026-09-27"));
 });
 

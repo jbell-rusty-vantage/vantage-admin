@@ -19,7 +19,9 @@ subtotals rather than complete totals.
 
 **Potential binder on assigned leads** renders the server's known attached-Booking total,
 independent of historical allocation credit. It is not earned commission or an exclusive
-unbooked forecast. Eligible assignment scope includes FormLead and CallLead, beyond enrolled
+unbooked forecast. The sentence under the amount explains that it adds known binder amounts
+from bookings linked to eligible assigned leads; it does not describe Granot estimates.
+Eligible assignment scope includes FormLead and CallLead, beyond enrolled
 subjects or a loaded page. Priorities 7/8/9 and ineligible/cancelled records contribute no
 potential amount. Missing/dangling/mismatched links, missing amounts and ambiguous identities
 have separate coverage wording. Genuine stored zero renders `$0.00`; all unknown amounts

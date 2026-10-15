@@ -330,7 +330,7 @@ export const deskCopy = {
     basis: "Gross own allocation · cancelled bookings included · New York booking dates",
     windows: { today: "Today", last_week: "Last Week", last_month: "Last Month", all_time: "All Time" },
     potential: "Potential binder on assigned leads",
-    potentialBasis: "Attached Booking total for current eligible assignments; this is not earned commission.",
+    potentialBasis: "We add up the known binder amounts from bookings linked to your eligible assigned leads; this is not earned commission.",
     known: "Known linked binder",
     knownSubtotal: "Known subtotal",
     complete: "Complete linked-amount coverage",
