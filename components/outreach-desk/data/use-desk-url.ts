@@ -1,13 +1,13 @@
 "use client";
 /**
- * Reads and writes the desk URL (`desk-url.ts` owns the rules). Writes push a canonical URL inside a transition so
- * Back/Forward restore filters and the current rows stay on screen while the next request loads. Selection lives
- * in the URL as `lead=<subject_id>`, never as a row position.
+ * Reads and writes the desk URL (`desk-url.ts` owns the rules). Same-view writes use Next's native History
+ * integration so filters/selection start their client reads without a server page round trip. View changes
+ * still navigate through the server. Back/Forward restore filters; selection is `lead=<subject_id>`.
  */
 import { useCallback, useEffect, useMemo, useRef, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { OutreachDeskRole } from "@/server/models/adminRoles";
-import { DESK_PATH, canonicalDeskQuery } from "./desk-url";
+import { DESK_PATH, canonicalDeskQuery, parseDeskView } from "./desk-url";
 
 export type DeskUrlPatch = Record<string, string | null | undefined>;
 
@@ -39,9 +39,18 @@ export function useDeskUrl(role: OutreachDeskRole) {
       const href = deskHrefWith(requested.current, patch, role);
       if (href === `${DESK_PATH}?${requested.current}`) return;
       requested.current = href.slice(href.indexOf("?") + 1);
-      startTransition(() => (options?.replace ? router.replace(href, { scroll: false }) : router.push(href, { scroll: false })));
+      startTransition(() => {
+        // Filters and selection are client reads. Native history integrates with useSearchParams
+        // without waiting for a new server page/session read before starting the queue request.
+        const next = new URLSearchParams(requested.current);
+        if (parseDeskView(values, role) === parseDeskView(next, role)) {
+          if (options?.replace) window.history.replaceState(null, "", href);
+          else window.history.pushState(null, "", href);
+        } else if (options?.replace) router.replace(href, { scroll: false });
+        else router.push(href, { scroll: false });
+      });
     },
-    [role, router],
+    [role, router, values],
   );
   const hrefWith = useCallback((patch: DeskUrlPatch) => deskHrefWith(query, patch, role), [query, role]);
   return { get, update, hrefWith, isPending, query };
