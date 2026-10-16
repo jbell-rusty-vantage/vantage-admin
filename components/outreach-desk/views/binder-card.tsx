@@ -3,11 +3,30 @@
 import { useRepMetrics } from "../data/use-desk-reads";
 import { useDeskLiveStatus } from "../data/use-desk-live";
 import { absoluteTime } from "../lib/format";
+import type { SalesOutreachRepMetricsDto } from "@/lib/api/salesOutreach";
 import { deskCopy } from "../outreach-desk-copy";
 import { ReadFailure, SkeletonLine } from "../primitives";
 
 const c = deskCopy.binder;
 const dollars = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
+
+function dayMonthYear(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-");
+  return `${day}-${month}-${year}`;
+}
+
+function monthYear(isoDate: string): string {
+  const [year, month] = isoDate.split("-");
+  return `${month}-${year}`;
+}
+
+function periodLabel(window: "today" | "last_week" | "last_month" | "all_time", official: SalesOutreachRepMetricsDto["official_binder"]): string {
+  if (window === "all_time") return c.allTimeDates;
+  const range = official.windows[window];
+  if (window === "last_month") return monthYear(range.from);
+  const from = dayMonthYear(range.from);
+  return window === "today" ? from : `${from} – ${dayMonthYear(range.to)}`;
+}
 
 export function BinderCard({ agentId, available = true }: { agentId: string | null; available?: boolean }) {
   const query = useRepMetrics(agentId, available);
@@ -22,9 +41,10 @@ export function BinderCard({ agentId, available = true }: { agentId: string | nu
       {available && query.error ? <ReadFailure inset what={c.title} error={query.error} staleAsOf={data?.as_of ?? null} onRetry={() => void query.refetch()} testId="binder-read-error" /> : null}
       <div className="od-binder__totals">
         {(["today", "last_week", "last_month", "all_time"] as const).map((window) => (
-          <div key={window} title={official && window !== "all_time" ? `${official.windows[window].from} – ${official.windows[window].to}` : undefined}>
+          <div key={window}>
             <span className="od-binder__label">{c.windows[window]}{official && (official.missing_amount_count > 0 || (window !== "all_time" && official.missing_book_date_count > 0)) ? ` · ${c.knownSubtotal}` : ""}</span>
             <strong className="od-binder__value" data-testid={`binder-${window}`}>{official ? dollars.format(official[window]) : !available || query.error ? deskCopy.text.unavailable : <SkeletonLine width={90} />}</strong>
+            {official ? <span className="od-binder__period">{periodLabel(window, official)}</span> : null}
           </div>
         ))}
       </div>

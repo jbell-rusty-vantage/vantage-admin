@@ -2764,6 +2764,7 @@
 .od-root .od-binder__totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 16px 0; }
 .od-root .od-binder__label { display: block; font-size: 12px; color: var(--od-muted); margin-bottom: 6px; }
 .od-root .od-binder__value { display: block; font-size: 23px; font-weight: 700; }
+.od-root .od-binder__period { display: block; margin-top: 4px; color: var(--od-muted); font-size: 11px; line-height: 1.35; }
 .od-root .od-binder__note { font-size: 12px; color: var(--od-muted); margin: 6px 0; }
 @media (max-width: 640px) { .od-root .od-binder__totals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* Pool stays within the Desk's route-scoped card and color vocabulary. */

@@ -329,6 +329,7 @@ export const deskCopy = {
     unavailable: "Binder metrics are not available yet.",
     basis: "Gross own allocation · cancelled bookings included · New York booking dates",
     windows: { today: "Today", last_week: "Last Week", last_month: "Last Month", all_time: "All Time" },
+    allTimeDates: "All booking dates",
     knownSubtotal: "Known subtotal",
     selectRep: "Select a rep to see binder metrics.",
     stale: "Refresh reconnecting; last successful amounts remain visible.",
