@@ -29,11 +29,11 @@ test("connect, reconnect, clock, refetch all and configuration changes refetch t
 
 test("outreach_desk refetches the queue, the team and the listed subjects only; outreach_goal refetches goal reads", () => {
   const desk = outreachInvalidationKeys({ reason: "change", refetch: "scoped", topics: ["outreach_desk"], changes: [change("outreach_desk", [SUBJECT_A, SUBJECT_B, SUBJECT_A])] });
-  assert.deepEqual(desk, [outreachKeys.repMetricsAll(), outreachKeys.queueAll(), outreachKeys.teamAll(), outreachKeys.detail(SUBJECT_A), outreachKeys.detail(SUBJECT_B)]);
+  assert.deepEqual(desk, [outreachKeys.repMetricsAll(), outreachKeys.queueAll(), outreachKeys.teamAll(), outreachKeys.performanceAll(), outreachKeys.detail(SUBJECT_A), outreachKeys.detail(SUBJECT_B)]);
   const deskNoIds = outreachInvalidationKeys({ reason: "change", refetch: "scoped", topics: ["outreach_desk"], changes: [change("outreach_desk")] });
   assert.ok(deskNoIds.some((key) => JSON.stringify(key) === JSON.stringify(outreachKeys.detailAll())));
   const goal = outreachInvalidationKeys({ reason: "change", refetch: "scoped", topics: ["outreach_goal"], changes: [change("outreach_goal")] });
-  assert.deepEqual(goal, [outreachKeys.repDaysAll(), outreachKeys.teamAll()]);
+  assert.deepEqual(goal, [outreachKeys.repDaysAll(), outreachKeys.teamAll(), outreachKeys.performanceAll()]);
   const both = outreachInvalidationKeys({ reason: "change", refetch: "scoped", topics: ["outreach_desk", "outreach_goal"], changes: [change("outreach_desk", [SUBJECT_A]), change("outreach_goal")] });
   assert.equal(both.filter((key) => JSON.stringify(key) === JSON.stringify(outreachKeys.teamAll())).length, 1, "keys are deduplicated");
 });
@@ -46,7 +46,7 @@ test("applyOutreachFrame invalidates exactly the routed prefixes", async () => {
     topics: ["outreach_goal"],
     changes: [change("outreach_goal")],
   });
-  assert.deepEqual(invalidated, [outreachKeys.repDaysAll(), outreachKeys.teamAll()]);
+  assert.deepEqual(invalidated, [outreachKeys.repDaysAll(), outreachKeys.teamAll(), outreachKeys.performanceAll()]);
 });
 
 test("clearSubject forgets the detail and removes the row from queue pages (plain and infinite) and team attention rows", () => {

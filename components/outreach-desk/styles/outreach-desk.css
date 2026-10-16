@@ -2811,3 +2811,11 @@
 @media (max-width: 640px) {
   .od-root .od-sort-guide dl { grid-template-columns: minmax(0, 1fr); gap: 10px; }
 }
+
+/* Performance retains its own week/channel state, separate from queue controls. */
+.od-root .od-performance__toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:0 20px 14px; font-size:12px; }
+.od-root .od-performance [role="tab"][aria-selected="true"] { background:var(--od-blue); color:white; }
+.od-root .od-performance button:focus-visible, .od-root .od-performance [role="tabpanel"]:focus-visible { outline:2px solid var(--od-blue); outline-offset:3px; }
+.od-root .od-performance .od-table-wrap { overflow-x:auto; }
+.od-root .od-performance > .od-table-wrap > .od-table { min-width:740px; }
+.od-root .od-performance__days { background:var(--od-page); border-radius:14px; }

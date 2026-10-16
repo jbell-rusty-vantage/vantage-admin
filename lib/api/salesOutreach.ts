@@ -1172,6 +1172,7 @@ export function newIdempotencyKey(prefix: string): string {
 
 /** Relative read paths (append to `salesOutreachRead`). */
 export const salesOutreachPaths = {
+  performance: (weekStart: string) => withQuery("performance", { week_start: weekStart }),
   capabilities: () => "capabilities",
   repDays: (query: SalesOutreachRepDaysQuery = {}) => withQuery("rep-days", query),
   repMetrics: (query: { agent_id?: string } = {}) => withQuery("rep-metrics", query),
@@ -1726,3 +1727,28 @@ export const salesOutreachRepMetricsSchema = z.object({
   }),
 });
 export type SalesOutreachRepMetricsDto = z.infer<typeof salesOutreachRepMetricsSchema>;
+
+/** Team performance is server-ranked; unknown activity stays null rather than becoming zero. */
+const performanceCountSchema = z.number().int().nonnegative();
+const performanceDayStateSchema = z.enum(["met", "not_met", "in_progress", "no_goal", "no_texts_due", "pending_data", "upcoming"]);
+const performanceCoverageSchema = z.enum(["complete", "partial", "unknown"]);
+const performanceRateSchema = z.number().min(0).max(1).nullable();
+export const salesOutreachPerformanceSchema = z.object({
+  week: z.object({ start: z.string(), end_exclusive: z.string(), through: z.string(), timezone: z.literal("America/New_York") }),
+  as_of: z.string(),
+  earliest_reliable_dates: z.object({ calls: z.string().nullable(), text_volume: z.string().nullable(), text_requirements: z.string().nullable() }),
+  channel_freshness: z.object({ calls: z.string().nullable(), texts: z.string().nullable() }),
+  provisional: z.object({ calls: z.boolean(), texts: z.boolean() }),
+  rows: z.array(z.object({
+    agent_id: z.string(), name: z.string().nullable(), historical_membership_state: z.enum(["active", "historical", "unknown"]),
+    calls: z.object({ rank: performanceCountSchema.nullable(), weekly_volume: performanceCountSchema.nullable(), met_days: performanceCountSchema, eligible_days: performanceCountSchema, pending_days: performanceCountSchema, completion_rate: performanceRateSchema, provisional: z.boolean() }),
+    texts: z.object({ rank: performanceCountSchema.nullable(), weekly_volume: performanceCountSchema.nullable(), on_time_required: performanceCountSchema, resolved_due_required: performanceCountSchema, pending_requirements: performanceCountSchema, completion_rate: performanceRateSchema, provisional: z.boolean() }),
+    days: z.array(z.object({ business_date: z.string(), future: z.boolean(),
+      calls: z.object({ actual: performanceCountSchema.nullable(), goal: performanceCountSchema.nullable(), state: performanceDayStateSchema, coverage: performanceCoverageSchema }),
+      texts: z.object({ sent: performanceCountSchema.nullable(), on_time_required: performanceCountSchema, resolved_due_required: performanceCountSchema, applicable_required: performanceCountSchema, pending: performanceCountSchema, state: performanceDayStateSchema, coverage: performanceCoverageSchema }),
+    })).length(7),
+  })),
+  unassigned: z.object({ required_text_counts: performanceCountSchema }),
+});
+export type SalesOutreachPerformanceDto = z.infer<typeof salesOutreachPerformanceSchema>;
+export type SalesOutreachPerformanceRow = SalesOutreachPerformanceDto["rows"][number];

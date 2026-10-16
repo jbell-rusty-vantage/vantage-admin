@@ -50,6 +50,7 @@ import type { MovePreset } from "../data/desk-url";
 import { useDeskNow } from "../data/use-desk-now";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, Pill, ReadFailure, SearchBox, Segmented, SkeletonLine, SummaryCard, Track } from "../primitives";
+import { RepPerformance } from "./rep-performance";
 import { LeadCostCard } from "./lead-cost-card";
 import { LeadPanel, type RepOption } from "./lead-panel";
 import { PoolStatus, PoolWorkload } from "./pool-status";
@@ -492,6 +493,8 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
           </section>
 
           <SortGuide />
+          <RepPerformance asOf={now} />
+
           <section className="od-card" aria-labelledby="od-attention-title" data-testid="leads-needing-attention">
             <div className="od-card__head">
               <h2 id="od-attention-title" className="od-card__title">

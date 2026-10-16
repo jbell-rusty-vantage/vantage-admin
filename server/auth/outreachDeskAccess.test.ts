@@ -35,6 +35,7 @@ const REP_ALLOWED: [VantageApiMethod, string][] = [
   ["PATCH", `${API}/outreach/${ID}/callback`],
 ];
 const MANAGER_ONLY: [VantageApiMethod, string][] = [
+  ["GET", `${API}/performance?week_start=2026-10-12`],
   ["GET", `${API}/team?business_day=2026-10-05`],
   ["PATCH", `${API}/outreach/${ID}/assignment`],
   ["PATCH", `${API}/goals/${AGENT}/day-override`],
@@ -60,6 +61,8 @@ const OWNER_ONLY: [VantageApiMethod, string][] = [
 ];
 /** Shapes that must never pass for a Rep or a Manager: wrong method, malformed id, traversal, trailing segments. */
 const NEVER: [VantageApiMethod, string][] = [
+  ["POST", `${API}/performance`],
+  ["GET", `${API}/performance/extra`],
   ["POST", `${API}/capabilities`],
   ["DELETE", `${API}/outreach/${ID}`],
   ["POST", `${API}/outreach/${ID}/pool-complete`],

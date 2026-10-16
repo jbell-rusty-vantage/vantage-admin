@@ -37,6 +37,7 @@ export const REP_OUTREACH_ROUTES: readonly DeskProxyRoute[] = [
 export const MANAGER_OUTREACH_ROUTES: readonly DeskProxyRoute[] = [
   ...REP_OUTREACH_ROUTES,
   desk("GET", "team"),
+  desk("GET", "performance"),
   desk("PATCH", `outreach/${ID}/assignment`),
   desk("PATCH", `goals/${ID}/day-override`),
 ];

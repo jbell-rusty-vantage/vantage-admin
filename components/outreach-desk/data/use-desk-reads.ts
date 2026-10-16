@@ -17,6 +17,7 @@ import {
   salesOutreachRepDaysSchema,
   salesOutreachRepMetricsSchema,
   salesOutreachTeamSchema,
+  salesOutreachPerformanceSchema,
   type SalesOutreachQueueRequest,
 } from "@/lib/api/salesOutreach";
 import { outreachKeys } from "@/lib/query/salesOutreach";
@@ -126,5 +127,15 @@ export function useRepMetrics(agentId: string | null, enabled: boolean) {
     queryKey: outreachKeys.repMetrics(agentId),
     queryFn: ({ signal }) => salesOutreachRead(salesOutreachPaths.repMetrics(agentId ? { agent_id: agentId } : {}), salesOutreachRepMetricsSchema, signal),
     enabled, retry: retryDeskRead, refetchInterval: poll,
+  });
+}
+
+/** Each calendar week has its own entry; never display a previous week's rows while another loads. */
+export function usePerformance(weekStart: string) {
+  const poll = useDeskPollInterval();
+  return useQuery({
+    queryKey: outreachKeys.performance(weekStart),
+    queryFn: ({ signal }) => salesOutreachRead(salesOutreachPaths.performance(weekStart), salesOutreachPerformanceSchema, signal),
+    retry: retryDeskRead, refetchInterval: poll,
   });
 }

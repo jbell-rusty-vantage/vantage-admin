@@ -28,6 +28,8 @@ export const outreachKeys = {
   repMetrics: (agentId?: string | null) => [ROOT, "rep-metrics", stable({ agent_id: agentId })] as const,
   repDaysAll: () => [ROOT, "rep-days"] as const,
   repDays: (businessDay?: string | null, agentId?: string | null) => [ROOT, "rep-days", stable({ business_day: businessDay, agent_id: agentId })] as const,
+  performanceAll: () => [ROOT, "performance"] as const,
+  performance: (weekStart: string) => [ROOT, "performance", weekStart] as const,
   teamAll: () => [ROOT, "team"] as const,
   team: (businessDay?: string | null) => [ROOT, "team", stable({ business_day: businessDay })] as const,
   queueAll: () => [ROOT, "queue"] as const,
@@ -72,6 +74,7 @@ export function outreachInvalidationKeys(frame: OutreachInvalidationFrame): Outr
       add(outreachKeys.repMetricsAll());
       add(outreachKeys.queueAll());
       add(outreachKeys.teamAll());
+      add(outreachKeys.performanceAll());
       const subjects = frame.changes.filter((change) => change.topic === "outreach_desk").flatMap((change) => change.subject_ids);
       if (subjects.length === 0) add(outreachKeys.detailAll());
       for (const subject of subjects) add(outreachKeys.detail(subject));
@@ -80,6 +83,7 @@ export function outreachInvalidationKeys(frame: OutreachInvalidationFrame): Outr
     } else if (topic === "outreach_goal") {
       add(outreachKeys.repDaysAll());
       add(outreachKeys.teamAll());
+      add(outreachKeys.performanceAll());
     } else {
       // A topic this client doesn't know: refetch everything rather than guess.
       return [outreachKeys.all];
