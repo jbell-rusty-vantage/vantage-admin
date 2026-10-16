@@ -2761,7 +2761,7 @@
 
 /* Rep binder metrics use the desk card, typography and spacing tokens. */
 .od-root .od-binder { padding: 20px 24px; margin-bottom: 24px; }
-.od-root .od-binder__totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 16px 0; }
+.od-root .od-binder__totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 16px 0; }
 .od-root .od-binder__label { display: block; font-size: 12px; color: var(--od-muted); margin-bottom: 6px; }
 .od-root .od-binder__value { display: block; font-size: 23px; font-weight: 700; }
 .od-root .od-binder__period { display: block; margin-top: 4px; color: var(--od-muted); font-size: 11px; line-height: 1.35; }

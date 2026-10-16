@@ -1708,10 +1708,11 @@ export const salesOutreachRepMetricsSchema = z.object({
   business_day: salesOutreachBusinessDateSchema,
   official_binder: z.object({
     basis: z.literal("gross_own_allocation"),
-    today: z.number(), last_week: z.number(), last_month: z.number(), all_time: z.number(),
+    today: z.number(), week_to_date: z.number(), last_week: z.number(), last_month: z.number(), all_time: z.number(),
     booking_count: count, missing_amount_count: count, missing_book_date_count: count,
     windows: z.object({
       today: z.object({ from: salesOutreachBusinessDateSchema, to: salesOutreachBusinessDateSchema }),
+      week_to_date: z.object({ from: salesOutreachBusinessDateSchema, to: salesOutreachBusinessDateSchema }),
       last_week: z.object({ from: salesOutreachBusinessDateSchema, to: salesOutreachBusinessDateSchema }),
       last_month: z.object({ from: salesOutreachBusinessDateSchema, to: salesOutreachBusinessDateSchema }),
     }),

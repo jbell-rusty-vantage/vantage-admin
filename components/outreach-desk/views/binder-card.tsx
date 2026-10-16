@@ -15,17 +15,9 @@ function dayMonthYear(isoDate: string): string {
   return `${day}-${month}-${year}`;
 }
 
-function monthYear(isoDate: string): string {
-  const [year, month] = isoDate.split("-");
-  return `${month}-${year}`;
-}
-
-function periodLabel(window: "today" | "last_week" | "last_month" | "all_time", official: SalesOutreachRepMetricsDto["official_binder"]): string {
-  if (window === "all_time") return c.allTimeDates;
+function periodLabel(window: "today" | "week_to_date", official: SalesOutreachRepMetricsDto["official_binder"]): string {
   const range = official.windows[window];
-  if (window === "last_month") return monthYear(range.from);
-  const from = dayMonthYear(range.from);
-  return window === "today" ? from : `${from} – ${dayMonthYear(range.to)}`;
+  return window === "today" ? dayMonthYear(range.from) : `${dayMonthYear(range.from)} – ${dayMonthYear(range.to)}`;
 }
 
 export function BinderCard({ agentId, available = true }: { agentId: string | null; available?: boolean }) {
@@ -40,9 +32,9 @@ export function BinderCard({ agentId, available = true }: { agentId: string | nu
       {!available ? <p className="od-binder__note">{c.unavailable}</p> : null}
       {available && query.error ? <ReadFailure inset what={c.title} error={query.error} staleAsOf={data?.as_of ?? null} onRetry={() => void query.refetch()} testId="binder-read-error" /> : null}
       <div className="od-binder__totals">
-        {(["today", "last_week", "last_month", "all_time"] as const).map((window) => (
+        {(["today", "week_to_date"] as const).map((window) => (
           <div key={window}>
-            <span className="od-binder__label">{c.windows[window]}{official && (official.missing_amount_count > 0 || (window !== "all_time" && official.missing_book_date_count > 0)) ? ` · ${c.knownSubtotal}` : ""}</span>
+            <span className="od-binder__label">{c.windows[window]}{official && (official.missing_amount_count > 0 || official.missing_book_date_count > 0) ? ` · ${c.knownSubtotal}` : ""}</span>
             <strong className="od-binder__value" data-testid={`binder-${window}`}>{official ? dollars.format(official[window]) : !available || query.error ? deskCopy.text.unavailable : <SkeletonLine width={90} />}</strong>
             {official ? <span className="od-binder__period">{periodLabel(window, official)}</span> : null}
           </div>

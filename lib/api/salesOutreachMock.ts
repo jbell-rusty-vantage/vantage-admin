@@ -208,7 +208,7 @@ export function mockSalesOutreachResponse(input: MockSalesOutreachInput): MockSa
     if (role === "rep" && named && named !== agentId) return refuse(403, "FORBIDDEN");
     if (coordinator && !named) return refuse(400, "INVALID_QUERY");
     return ok({ contract_version: "sod-v1", as_of: SYNTHETIC_AS_OF, timezone: "America/New_York", agent_id: agentId ?? named, business_day: SYNTHETIC_BUSINESS_DAY,
-      official_binder: { basis: "gross_own_allocation", today: 501.01, last_week: 3200.50, last_month: 11200, all_time: 48123.45, booking_count: 24, missing_amount_count: 0, missing_book_date_count: 0, windows: { today: { from: "2026-10-01", to: "2026-10-01" }, last_week: { from: "2026-09-21", to: "2026-09-27" }, last_month: { from: "2026-09-01", to: "2026-09-30" } } },
+      official_binder: { basis: "gross_own_allocation", today: 501.01, week_to_date: 2100.50, last_week: 3200.50, last_month: 11200, all_time: 48123.45, booking_count: 24, missing_amount_count: 0, missing_book_date_count: 0, windows: { today: { from: "2026-10-01", to: "2026-10-01" }, week_to_date: { from: "2026-09-28", to: "2026-10-01" }, last_week: { from: "2026-09-21", to: "2026-09-27" }, last_month: { from: "2026-09-01", to: "2026-09-30" } } },
       assigned_potential: { basis: "current_assignment_attached_booking_total", known_binder_total: 6500.75, eligible_lead_count: 12, linked_booking_count: 8, missing_link_count: 2, dangling_link_count: 1, mismatched_link_count: 0, missing_amount_count: 1, deduplicated_lead_count: 0, ambiguous_identity_count: 0, coverage: "partial" } });
   }
 

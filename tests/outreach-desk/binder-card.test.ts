@@ -22,8 +22,9 @@ function render(data: SalesOutreachRepMetricsDto, agentId: string | null = null)
 
 test("binder card shows only booked binder calendar totals, without assigned potential", () => {
   const html = render(metrics());
-  for (const text of ["Today", "Last Week", "Last Month", "All Time", "$501.01", "$3,200.50", "$11,200.00", "$48,123.45", "cancelled bookings included"]) assert.ok(html.includes(text), text);
-  for (const period of ["01-10-2026", "21-09-2026 – 27-09-2026", "09-2026", "All booking dates"]) assert.ok(html.includes(period), period);
+  for (const text of ["Today", "This week", "$501.01", "$2,100.50", "cancelled bookings excluded"]) assert.ok(html.includes(text), text);
+  for (const period of ["01-10-2026", "28-09-2026 – 01-10-2026"]) assert.ok(html.includes(period), period);
+  for (const text of ["Last Week", "Last Month", "All Time", "$3,200.50", "$11,200.00", "$48,123.45", "cancelled bookings included"]) assert.ok(!html.includes(text), text);
   assert.ok(!html.includes("binder-potential"));
   assert.ok(!html.includes("Potential"));
   assert.ok(!html.includes("$6,500.75"));
