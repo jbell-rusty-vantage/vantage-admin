@@ -27,7 +27,6 @@ import {
   alternateCountText,
   businessDateLabel,
   cadenceMetricText,
-  countText,
   goalCoverageNote,
   nyDate,
   otherOutboundFootnote,
@@ -39,7 +38,6 @@ import {
   interactionText,
   moveDateRange,
   moveDateText,
-  repGoalText,
   repProgressLabel,
   repZeroActivityTitle,
   rowIssue,
@@ -51,6 +49,7 @@ import { useDeskNow } from "../data/use-desk-now";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, Pill, ReadFailure, SearchBox, Segmented, SkeletonLine, SummaryCard, Track } from "../primitives";
 import { RepPerformance } from "./rep-performance";
+import { DeskCount, useChangeFlash } from "../live-motion";
 import { LeadCostCard } from "./lead-cost-card";
 import { LeadPanel, type RepOption } from "./lead-panel";
 import { PoolStatus, PoolWorkload } from "./pool-status";
@@ -74,14 +73,19 @@ function GoalRow({ row, workflow }: { row: SalesOutreachDailyCallGoalRow; workfl
   // The other scope's count ("12 to enrolled Leads", C1b) and capture coverage in words (partial vs unknown).
   const alternate = alternateCountText(row.count_scope, row.alternate_scope ? { count_scope: row.alternate_scope.count_scope, actual: row.alternate_scope.actual_confirmed } : null);
   const coverage = hasGoal ? goalCoverageNote(row.coverage) : null;
+  const flash = useChangeFlash(`${row.actual_confirmed}|${row.goal_reached}`);
   return (
-    <tr data-agent={row.agent_id}>
+    <tr data-agent={row.agent_id} className={flash ? "od-flash" : undefined}>
       <th scope="row" className="od-strong">
         {row.agent_name ?? t.unknownRep}
       </th>
       <td>
         <span className="od-nowrap" title={repZeroActivityTitle(row)}>
-          {hasGoal ? repGoalText(row) : row.actual_confirmed !== null ? c.goals.callsOnly(row.actual_confirmed) : "—"}
+          {hasGoal ? (
+            <>
+              <DeskCount value={row.actual_confirmed} /> / {row.goal ?? "—"}
+            </>
+          ) : row.actual_confirmed !== null ? c.goals.callsOnly(row.actual_confirmed) : "—"}
         </span>
         {row.actual_awaiting_confirmation ? (
           <span className="od-cell__sub" title={c.goals.awaitingTitle}>
@@ -114,7 +118,7 @@ function GoalRow({ row, workflow }: { row: SalesOutreachDailyCallGoalRow; workfl
           </span>
         ) : null}
       </td>
-      <td>{hasGoal ? countText(row.remaining) : "—"}</td>
+      <td>{hasGoal ? <DeskCount value={row.remaining} /> : "—"}</td>
       <td>
         {overdue.available ? (
           <span className={row.overdue_leads.value ? "od-text-red od-strong-red" : "od-text-muted"}>
@@ -366,7 +370,18 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
               icon={Phone}
               tone="blue"
               title={scopeLabel}
-              value={goalsOff ? t.unavailable : outbound ? `${countText(outbound.actual)} / ${outbound.goal}` : loading(90)}
+              value={
+                goalsOff ? (
+                  t.unavailable
+                ) : outbound ? (
+                  <>
+                    <DeskCount value={outbound.actual} /> / {outbound.goal}
+                  </>
+                ) : (
+                  loading(90)
+                )
+              }
+              flashKey={outbound?.actual}
               progress={goalsOff || !outbound ? null : { value: outbound.progress, done: outbound.done, label: scopeLabel }}
               caption={
                 goalsOff ? (
@@ -388,7 +403,18 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
               icon={Users}
               tone="green"
               title={c.cards.repsAtGoal}
-              value={goalsOff ? t.unavailable : atGoal ? `${atGoal.count} / ${atGoal.of}` : loading(60)}
+              value={
+                goalsOff ? (
+                  t.unavailable
+                ) : atGoal ? (
+                  <>
+                    <DeskCount value={atGoal.count} /> / {atGoal.of}
+                  </>
+                ) : (
+                  loading(60)
+                )
+              }
+              flashKey={atGoal?.count}
               progress={goalsOff || !atGoal ? null : { value: atGoal.of ? atGoal.count / atGoal.of : null, done: atGoal.of > 0 && atGoal.count === atGoal.of, label: c.cards.repsAtGoal }}
               caption={
                 goalsOff || !atGoal
@@ -426,10 +452,6 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
               caption={quoted && !quoted.available ? quoted.reason : null}
             />
           </div>
-
-          {capabilities.role_capabilities.includes("daily_operations_access") ? <OperationsStrip /> : null}
-
-          {viewer.role === "owner" ? <LeadCostCard /> : null}
 
           <section className="od-card" aria-labelledby="od-goals-title" data-testid="daily-call-goals">
             <div className="od-card__head">
@@ -492,8 +514,13 @@ export function TeamView({ viewer, capabilities }: { viewer: DeskViewer; capabil
             </p>
           </section>
 
-          <SortGuide />
+          {capabilities.role_capabilities.includes("daily_operations_access") ? <OperationsStrip /> : null}
+
           <RepPerformance asOf={now} />
+
+          {viewer.role === "owner" ? <LeadCostCard /> : null}
+
+          <SortGuide />
 
           <section className="od-card" aria-labelledby="od-attention-title" data-testid="leads-needing-attention">
             <div className="od-card__head">

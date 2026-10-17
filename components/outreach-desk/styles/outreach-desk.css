@@ -2819,3 +2819,23 @@
 .od-root .od-performance .od-table-wrap { overflow-x:auto; }
 .od-root .od-performance > .od-table-wrap > .od-table { min-width:740px; }
 .od-root .od-performance__days { background:var(--od-page); border-radius:14px; }
+
+/* Live motion: bars fill to the new value, a changed row or card glows briefly, a met goal pulses once.
+   The reduced-motion block near the top turns all of it off. */
+.od-root .od-track__fill { transition: width 700ms cubic-bezier(0.22, 1, 0.36, 1), background-color 400ms ease-out; }
+@keyframes od-flash {
+  0% { background-color: color-mix(in srgb, var(--od-blue) 14%, transparent); }
+  100% { background-color: transparent; }
+}
+@keyframes od-flash-card {
+  0% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--od-blue) 28%, transparent), var(--od-shadow-card); }
+  100% { box-shadow: var(--od-shadow-card); }
+}
+@keyframes od-goal-met {
+  0% { transform: scaleY(1); filter: brightness(1); }
+  40% { transform: scaleY(1.5); filter: brightness(1.15); }
+  100% { transform: scaleY(1); filter: brightness(1); }
+}
+.od-root tr.od-flash > th, .od-root tr.od-flash > td { animation: od-flash 1200ms ease-out; }
+.od-root .od-card.od-flash { animation: od-flash-card 1200ms ease-out; }
+.od-root .od-flash .od-track__fill--done { animation: od-goal-met 700ms ease-out; }

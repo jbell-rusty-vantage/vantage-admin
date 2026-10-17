@@ -25,6 +25,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { MilestoneToastHost } from "@/components/daily/milestone-toast";
 import type { OutreachDeskRole } from "@/server/models/adminRoles";
 import { DESK_PATH, deskNavViews, deskViewHref, type DeskView } from "../data/desk-url";
 import { useCapabilities } from "../data/use-desk-reads";
@@ -220,6 +221,7 @@ export function DeskShell({
         <IdentityMenu viewer={viewer} name={name} />
       </aside>
       <div className="od-main">{children}</div>
+      {viewer.role !== "rep" ? <MilestoneToastHost /> : null}
     </div>
   );
 }

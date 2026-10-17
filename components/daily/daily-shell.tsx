@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, Rows3 } from "lucide-react";
+import { ChevronDown, LayoutGrid, Rows3 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CompaniesTable } from "@/components/daily/companies-table";
 import {
@@ -31,6 +31,7 @@ import { LeadSpendPanel } from "@/components/daily/lead-spend-panel";
 import { LiveFeed } from "@/components/daily/live-feed";
 import { OriginsPanel } from "@/components/daily/origins-panel";
 import { useArrivalHighlights } from "@/components/daily/use-arrival-highlights";
+import { TeamCallGoals } from "@/components/daily/team-call-goals";
 import { useNowMs } from "@/components/daily/use-now";
 import { useStoredPreferenceFlag } from "@/components/daily/use-preference-flag";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
@@ -543,40 +544,47 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
                 resync();
               }}
             />
-            <span className="hidden h-5 w-px bg-steel-200 sm:inline-block" aria-hidden="true" />
-            <Button
-              type="button"
-              variant={quietPriorities ? "default" : "outline"}
-              className="h-8 px-3 text-xs"
-              aria-pressed={quietPriorities}
-              onClick={() => writeQuietPriorities(!quietPriorities)}
-            >
-              {DAILY_COPY.quietPriorities}
-            </Button>
-            <Button
-              type="button"
-              variant={sheetSyncOn ? "default" : "outline"}
-              className="h-8 px-3 text-xs"
-              aria-pressed={sheetSyncOn}
-              onClick={() => writeSheetSync(!sheetSyncOn)}
-            >
-              {sheetSyncOn ? DAILY_COPY.sheetSyncHide : DAILY_COPY.sheetSyncShow}
-            </Button>
-            <Button
-              type="button"
-              variant={colorsOpen ? "default" : "outline"}
-              className="h-8 px-3 text-xs"
-              aria-pressed={colorsOpen}
-              aria-expanded={colorsOpen}
-              onClick={() => setColorsOpen((current) => !current)}
-            >
-              {DAILY_COPY.colors}
-              {Object.keys(kindTones).length + Object.keys(kindTiers).length > 0 ? (
-                <span className="ml-1 rounded-full bg-card/30 px-1 text-[10px] tabular-nums">
-                  {Object.keys(kindTones).length + Object.keys(kindTiers).length}
-                </span>
-              ) : null}
-            </Button>
+            <details className="dboard-display relative">
+              <summary className="inline-flex h-8 cursor-pointer list-none items-center gap-1 rounded-md border border-steel-200 bg-card px-3 text-xs font-medium text-navy">
+                {DAILY_COPY.display}
+                <ChevronDown aria-hidden="true" width={14} height={14} />
+              </summary>
+              <div className="absolute right-0 z-20 mt-1 flex w-56 flex-col gap-1.5 rounded-xl border border-steel-200 bg-card p-2 shadow-lg [&>button]:w-full [&>button]:justify-start">
+                <Button
+                  type="button"
+                  variant={quietPriorities ? "default" : "outline"}
+                  className="h-8 px-3 text-xs"
+                  aria-pressed={quietPriorities}
+                  onClick={() => writeQuietPriorities(!quietPriorities)}
+                >
+                  {DAILY_COPY.quietPriorities}
+                </Button>
+                <Button
+                  type="button"
+                  variant={sheetSyncOn ? "default" : "outline"}
+                  className="h-8 px-3 text-xs"
+                  aria-pressed={sheetSyncOn}
+                  onClick={() => writeSheetSync(!sheetSyncOn)}
+                >
+                  {sheetSyncOn ? DAILY_COPY.sheetSyncHide : DAILY_COPY.sheetSyncShow}
+                </Button>
+                <Button
+                  type="button"
+                  variant={colorsOpen ? "default" : "outline"}
+                  className="h-8 px-3 text-xs"
+                  aria-pressed={colorsOpen}
+                  aria-expanded={colorsOpen}
+                  onClick={() => setColorsOpen((current) => !current)}
+                >
+                  {DAILY_COPY.colors}
+                  {Object.keys(kindTones).length + Object.keys(kindTiers).length > 0 ? (
+                    <span className="ml-1 rounded-full bg-card/30 px-1 text-[10px] tabular-nums">
+                      {Object.keys(kindTones).length + Object.keys(kindTiers).length}
+                    </span>
+                  ) : null}
+                </Button>
+              </div>
+            </details>
           </div>
         </header>
 
@@ -612,6 +620,8 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
             onSelectLane={selectLane}
           />
         </section>
+
+        <TeamCallGoals />
 
         {view === "board" ? (
           <div className="dboard-grid" data-ops-view="board">

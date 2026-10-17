@@ -23,7 +23,6 @@ import {
   callsTodayText,
   cadenceMetricText,
   channelStatus,
-  countText,
   goalCoverageNote,
   goalScopeCounts,
   leadAgeText,
@@ -40,6 +39,8 @@ import {
 } from "../lib/format";
 import { useDeskNow } from "../data/use-desk-now";
 import { deskCopy } from "../outreach-desk-copy";
+import { DeskCount, useChangeFlash, useOwnGoalReached } from "../live-motion";
+import { OwnGoalToast } from "../own-goal-toast";
 import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, ReadFailure, SearchBox, SkeletonLine, Track } from "../primitives";
 import { BinderCard } from "./binder-card";
 import { LeadPanel, type RepOption } from "./lead-panel";
@@ -60,6 +61,7 @@ function GoalCard({
   goalMetricsEnabled,
   businessDay,
   isToday,
+  ownGoalToast = false,
 }: {
   rep: SalesOutreachRepDayDto | null;
   /** The read answered (a missing row then means no goal row today, not loading). */
@@ -69,6 +71,8 @@ function GoalCard({
   goalMetricsEnabled: boolean;
   businessDay: string | null;
   isToday: boolean;
+  /** The signed-in Rep's own desk: celebrate a live goal crossing here (Owner/Manager get the dashboard toast). */
+  ownGoalToast?: boolean;
 }) {
   const hasGoal = rep?.goal_state === "goal";
   const pct = rep ? percentText(rep.progress) : null;
@@ -85,6 +89,8 @@ function GoalCard({
   // Both counts ("97 outbound · 12 to enrolled Leads", C1b) and capture coverage in words (partial vs unknown).
   const scopes = rep ? goalScopeCounts(rep) : null;
   const coverage = rep ? goalCoverageNote(rep.coverage) : null;
+  const flash = useChangeFlash(rep ? `${rep.actual_confirmed}|${rep.goal_reached}` : null);
+  const celebrate = useOwnGoalReached({ agentId: ownGoalToast ? (rep?.agent_id ?? null) : null, businessDay, isToday, reached: rep?.goal_reached });
   // The rep's cadence counts at `as_of` (Leads, call attempts, SMS sends); unavailable shows "—" with the reason.
   const metric = (value: SalesOutreachRepDayDto["overdue_leads"] | SalesOutreachRepDayDto["calls_due_today"] | null, label: string, tone: string) => {
     const shown = value ? cadenceMetricText(value) : null;
@@ -97,7 +103,9 @@ function GoalCard({
     );
   };
   return (
-    <section className="od-card od-goal" aria-labelledby="od-goal-title" data-testid="goal-card">
+    <>
+    {celebrate && rep ? <OwnGoalToast actual={rep.actual_confirmed} goal={rep.goal} /> : null}
+        <section className={flash ? "od-card od-goal od-flash" : "od-card od-goal"} aria-labelledby="od-goal-title" data-testid="goal-card">
       <div className="od-goal__main">
         <h2 id="od-goal-title" className="od-goal__title">
           {isToday || !businessDay ? c.goalTitle : c.goalTitleFor(businessDateLabel(businessDay))}
@@ -112,7 +120,7 @@ function GoalCard({
               {hasGoal ? (
                 <>
                   <span className="od-goal__actual" title={repZeroActivityTitle(rep)}>
-                    {countText(rep.actual_confirmed)}
+                    <DeskCount value={rep.actual_confirmed} />
                   </span>
                   <span className="od-goal__of"> / {rep.goal}</span>
                 </>
@@ -161,6 +169,7 @@ function GoalCard({
         {metric(rep?.sms_due_today ?? null, c.smsDue, "od-text-green")}
       </div>
     </section>
+    </>
   );
 }
 
@@ -348,6 +357,7 @@ export function MyView({ viewer, capabilities }: { viewer: DeskViewer; capabilit
             goalMetricsEnabled={repDays.data ? repDays.data.goal_metrics_enabled : capabilities.controls.goal_metrics_enabled}
             businessDay={repDays.data?.business_day ?? null}
             isToday={isToday}
+            ownGoalToast={!coordinator}
           />
         ) : null}
 

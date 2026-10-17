@@ -8,6 +8,7 @@ import { Check, ChevronDown, CircleAlert, ClipboardCopy, RefreshCw, Search, type
 import type { SalesOutreachFreshness } from "@/lib/api/salesOutreach";
 import { absoluteTime, fillPercent, freshnessChips, readFailureText } from "./lib/format";
 import { deskCopy } from "./outreach-desk-copy";
+import { useChangeFlash } from "./live-motion";
 
 const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
 
@@ -288,6 +289,7 @@ export function SummaryCard({
   progress,
   caption,
   testId,
+  flashKey,
 }: {
   icon: LucideIcon;
   tone: "blue" | "green" | "red" | "amber" | "gray";
@@ -296,9 +298,12 @@ export function SummaryCard({
   progress?: { value: number | null; done?: boolean; label: string } | null;
   caption?: ReactNode;
   testId: string;
+  /** A live value whose change briefly highlights the card. */
+  flashKey?: string | number | null;
 }) {
+  const flash = useChangeFlash(flashKey);
   return (
-    <section className="od-card od-summary" data-testid={testId}>
+    <section className={cx("od-card od-summary", flash && "od-flash")} data-testid={testId}>
       <IconBadge icon={icon} tone={tone} />
       <div className="od-summary__body">
         <h2 className="od-summary__title">{title}</h2>

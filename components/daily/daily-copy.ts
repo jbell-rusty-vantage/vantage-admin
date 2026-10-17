@@ -52,6 +52,7 @@ export const DAILY_COPY = {
   filtered: "Filtered",
   formShare: "form",
   callShare: "call",
+  display: "Display",
   quietPriorities: "Quiet priorities",
   sheetSyncShow: "Show Sheet Sync",
   sheetSyncHide: "Hide Sheet Sync",
