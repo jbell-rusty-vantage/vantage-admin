@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Star, Users, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DAILY_COPY } from "@/components/daily/daily-copy";
 import { DailyBoardStyle } from "@/components/daily/daily-board-style";
 import {
@@ -18,10 +18,11 @@ import {
   type MilestoneFact,
 } from "@/components/daily/milestone";
 import { Avatar, IconBadge } from "@/components/ui/crm";
-import { DAILY_OPERATIONS_LIVE_PATH, type DailyOperationsEventItem } from "@/lib/api/dailyOperationsLive";
+import { useDailyOperationsRead } from "./daily-read-provider";
+import { type DailyOperationsEventItem } from "@/lib/api/dailyOperationsLive";
 
 export const MILESTONE_TOAST_SEEN_KEY = "vantage-admin-milestone-toast-seen";
-const RECONNECT_AFTER_CLOSE_MS = 30_000;
+const MILESTONE_MAX_AGE_MS = 15 * 60_000;
 
 /** `true` the first time a fact id is seen this browser session; `false` after, and when storage is unavailable it shows (once per mount). */
 function firstSight(eventId: string): boolean {
@@ -68,47 +69,31 @@ export function milestoneFromSsePayload(raw: string): MilestoneFact | null {
   }
 }
 
-/**
- * The goal-milestone toast for the whole dashboard (doc 16): bottom right, eight seconds, once per fact (by id, in
- * `sessionStorage`). No page-wide confetti; with motion allowed, a single soft burst on the icon circle (CSS, off
- * under `prefers-reduced-motion`).
- *
- * Self-contained so the shell can mount it on every page: it opens its own `EventSource` to the Daily Operations
- * stream, listens to `event` messages only, and ignores every kind but the two milestones. The browser retries a
- * dropped connection natively; if the server closes the stream for good, it is reopened after 30 s. It closes on
- * unmount. Where the live feed is on screen (Today > Operations) the feed already pins the card, so no toast shows.
- */
+/** Best-effort delayed milestones from the shell's one shared read view. */
 export function MilestoneToastHost() {
   const [queue, setQueue] = useState<readonly MilestoneFact[]>([]);
-
+  const read = useDailyOperationsRead();
+  const initialized = useRef(false);
   useEffect(() => {
-    let source: EventSource | null = null;
-    let retry: ReturnType<typeof setTimeout> | null = null;
-    let closed = false;
-    const connect = () => {
-      source = new EventSource(DAILY_OPERATIONS_LIVE_PATH);
-      source.addEventListener("event", (message) => {
-        const fact = milestoneFromSsePayload((message as MessageEvent).data);
-        if (!fact || document.querySelector("[data-daily-feed]") || !firstSight(fact.eventId)) {
-          return;
-        }
-        setQueue((current) => [...current, fact]);
-      });
-      source.addEventListener("error", () => {
-        if (!closed && source?.readyState === EventSource.CLOSED) {
-          retry = setTimeout(connect, RECONNECT_AFTER_CLOSE_MS);
-        }
-      });
-    };
-    connect();
-    return () => {
-      closed = true;
-      if (retry) {
-        clearTimeout(retry);
-      }
-      source?.close();
-    };
-  }, []);
+    const view = read.data;
+    if (!view) {
+      const timer = setTimeout(() => setQueue([]), 0);
+      return () => clearTimeout(timer);
+    }
+    const firstLoad = !initialized.current;
+    initialized.current = true;
+    const additions: MilestoneFact[] = [];
+    for (const event of view.milestones) {
+      const fresh = firstSight(event.event_id);
+      const age = Date.now() - Date.parse(event.occurred_at);
+      if (firstLoad || !fresh || !Number.isFinite(age) || age < 0 || age > MILESTONE_MAX_AGE_MS || document.querySelector("[data-daily-feed]")) continue;
+      const milestone = readMilestone(event);
+      if (milestone) additions.push(milestone);
+    }
+    if (!additions.length) return;
+    const timer = setTimeout(() => setQueue(current => [...current, ...additions].slice(-50)), 0);
+    return () => clearTimeout(timer);
+  }, [read.data]);
 
   const current = queue[0] ?? null;
   const currentId = current?.eventId ?? null;
@@ -120,7 +105,7 @@ export function MilestoneToastHost() {
     return () => clearTimeout(timer);
   }, [currentId]);
 
-  if (!current) {
+  if (!read.data || !current) {
     return null;
   }
   return <MilestoneToast fact={current} onDismiss={() => setQueue((list) => list.filter((fact) => fact.eventId !== current.eventId))} />;

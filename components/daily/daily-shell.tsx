@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, LayoutGrid, Rows3 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CompaniesTable } from "@/components/daily/companies-table";
@@ -39,9 +38,7 @@ import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { Segmented } from "@/components/ui/crm";
 import {
-  dailyOperationsDayKey,
   fetchDailyOperationsEvents,
-  fetchDailyOperationsSnapshot,
   toggleSearchParam,
   withLiveDailyOperationsClock,
   writeSearchParam,
@@ -54,7 +51,6 @@ import {
   eventsForDailyOperationsArrivals,
   eventsForDailyOperationsPanel,
   focusLaneFromSearch,
-  lanesNeedingBackfill,
   pairGranotEvents,
   parseDailyOperationsView,
   readPreferenceFlag,
@@ -63,74 +59,29 @@ import {
   type DailyOperationsView,
 } from "@/lib/api/dailyOperationsBoard";
 import {
-  applyDailyOperationsSsePayload,
-  DAILY_OPERATIONS_LIVE_PATH,
   EMPTY_DAILY_OPERATIONS_LIVE_BOARD,
   granotTileToday,
   mergeDailyOperationsEvents,
-  receiveDailyOperationsSnapshot,
   type DailyOperationsLiveStatus,
   type DailyOperationsTileId,
 } from "@/lib/api/dailyOperationsLive";
-import { queryKeys } from "@/lib/query/keys";
+import { useDailyOperationsRead } from "./daily-read-provider";
+import { dailyOperationsReadDayNotice, receiveDailyOperationsReadView, type DailyOperationsReadView } from "@/lib/api/dailyOperationsRead";
 import { cn } from "@/lib/utils";
 
-/** Same as the server's `LIVE_DAILY_OPERATIONS_MAX_MS`: hidden longer than this and the stream may have missed a reconnect. */
-const HIDDEN_RESYNC_MS = 240_000;
-/** Snapshot resync cadence while the tab is visible — refreshes `held_now` / `still_open` and corrects drift. Not a live poll. */
-const SNAPSHOT_RESYNC_MS = 5 * 60_000;
-const TILE_FLASH_MS = 2_000;
-
-function LiveChrome({
-  status,
-  lastGoodAt,
-  onRetry,
-}: {
+function LiveChrome({ status, lastGoodAt, day, onRetry }: {
   status: DailyOperationsLiveStatus;
   lastGoodAt: string | null;
+  day: string | undefined;
   onRetry: () => void;
 }) {
-  const label =
-    status === "live"
-      ? DAILY_COPY.live
-      : status === "paused"
-        ? DAILY_COPY.paused
-        : status === "reconnecting"
-          ? DAILY_COPY.reconnecting
-          : DAILY_COPY.liveOff;
+  const label = status === "paused" ? "Paused" : status === "reconnecting" ? "Update delayed" : status === "off" ? "Unavailable" : "Updates every minute";
   return (
-    <div
-      className={cn(
-        "inline-flex flex-wrap items-center gap-2 rounded-full border px-3 py-1 text-sm",
-        status === "live" && "border-emerald-200 bg-emerald-50/60",
-        status === "reconnecting" && "border-amber-200 bg-amber-50/60",
-        (status === "paused" || status === "off") && "border-steel-200 bg-card",
-      )}
-      aria-live="polite"
-      data-live-status={status}
-    >
+    <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-steel-200 bg-card px-3 py-1 text-sm" aria-live="polite" data-live-status={status}>
       <LiveDot state={status} />
-      <span
-        className={cn(
-          "font-semibold uppercase tracking-wide text-xs",
-          status === "live" && "text-emerald-700",
-          status === "paused" && "text-muted-foreground",
-          status === "reconnecting" && "text-amber-700",
-          status === "off" && "text-muted-foreground",
-        )}
-      >
-        {label}
-      </span>
-      {status === "reconnecting" && lastGoodAt ? (
-        <span className="text-xs text-muted-foreground">
-          {DAILY_COPY.showingDataFrom} {formatDailyOperationsClock(lastGoodAt)}
-        </span>
-      ) : null}
-      {status === "off" ? (
-        <Button variant="outline" className="h-7 px-2.5 text-xs" onClick={onRetry}>
-          {DAILY_COPY.retry}
-        </Button>
-      ) : null}
+      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+      {lastGoodAt ? <span className="text-xs text-muted-foreground">Updated {day} {formatDailyOperationsClock(lastGoodAt)}</span> : null}
+      {status === "off" ? <Button variant="outline" className="h-7 px-2.5 text-xs" onClick={onRetry}>{DAILY_COPY.retry}</Button> : null}
     </div>
   );
 }
@@ -143,22 +94,11 @@ function storageOrNull(): Storage | null {
   }
 }
 
-/**
- * `embedded` is the Today > Operations tab: the Today header owns the title and date, so the board keeps only its
- * toolbar (live chip, Quiet priorities, Sheet Sync, Colours) in one right-aligned row.
- *
- * The Owner's day. One EventSource feeds one in-memory board; every band
- * reads from it. Counts move per fact (`applyDailyOperationsSsePayload`); the
- * like-hour baselines and the `now` marker follow the browser clock
- * (`withLiveDailyOperationsClock`) so a board left open all day stays honest.
- * The snapshot resyncs from Mongo every five minutes, when the tab returns
- * after a long hide, and when the Florida day rolls over.
- */
+/** The board and shell toasts consume one shared, visible-tab, minute read view. */
 export function DailyOperationsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const isOwner = useDashboardRole() === "owner";
   const lane = searchParams.get("lane");
   const company = searchParams.get("company");
@@ -167,10 +107,8 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
   const view = parseDailyOperationsView(searchParams.get("view"), lane);
   const laneInView = view === "lanes" ? lane : null;
   const [board, setBoard] = useState(EMPTY_DAILY_OPERATIONS_LIVE_BOARD);
-  const [streamStatus, setStreamStatus] = useState<DailyOperationsLiveStatus>("reconnecting");
-  const [tabHidden, setTabHidden] = useState(false);
-  const [streamGeneration, setStreamGeneration] = useState(0);
-  const [flashedTiles, setFlashedTiles] = useState<DailyOperationsTileId[]>([]);
+  const read = useDailyOperationsRead();
+  const flashedTiles: DailyOperationsTileId[] = [];
   const [storedQuiet, writeStoredQuiet] = useStoredPreferenceFlag(DAILY_QUIET_PRIORITIES_STORAGE_KEY);
   const [storedSheet, writeStoredSheet] = useStoredPreferenceFlag(DAILY_SHEET_SYNC_STORAGE_KEY);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
@@ -180,102 +118,23 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
   const { overrides: kindTiers, pick: pickKindTier, reset: resetKindTiers } = useStoredKindTiers();
   const [drawerIds, setDrawerIds] = useState<readonly string[] | null>(null);
   const [colorsOpen, setColorsOpen] = useState(false);
-  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingFlashes = useRef<DailyOperationsTileId[]>([]);
   const preferencesSeeded = useRef(false);
-  const hiddenSince = useRef<number | null>(null);
   const focusedLane = focusLaneFromSearch(laneInView);
   const nowMs = useNowMs();
-  const snapshotQuery = useQuery({
-    queryKey: queryKeys.dailyOperations.snapshot(),
-    queryFn: fetchDailyOperationsSnapshot,
-    staleTime: SNAPSHOT_RESYNC_MS,
-    refetchOnWindowFocus: false,
-    refetchInterval: SNAPSHOT_RESYNC_MS,
-    refetchIntervalInBackground: false,
-  });
-  const eventsQuery = useQuery({
-    queryKey: queryKeys.dailyOperations.events("all"),
-    queryFn: () => fetchDailyOperationsEvents({ limit: 80 }),
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-    refetchInterval: false,
-  });
-  const eventsHydrated = eventsQuery.isFetched;
+  const eventsHydrated = read.data !== null;
   const highlights = useArrivalHighlights(board.events, eventsHydrated);
-
-  // Fetched data folds into the board during render (React's "adjust state
-  // from the previous render" pattern) so the first paint after a fetch is
-  // already correct and no effect copies query state into React state.
-  //
-  // Every fetched snapshot (first load, 5-minute resync, focus resync, day
-  // rollover) is authoritative: Mongo is the book. Live increments that landed
-  // during the fetch are re-added by the next fact, not lost.
-  // The markers start empty on purpose: a remount (route change and back,
-  // Fast Refresh) finds both queries already cached and must still fold them.
-  const [syncedSnapshot, setSyncedSnapshot] = useState<typeof snapshotQuery.data>(undefined);
-  if (snapshotQuery.data !== syncedSnapshot) {
-    setSyncedSnapshot(snapshotQuery.data);
-    const data = snapshotQuery.data;
-    if (data) {
-      setBoard((current) => receiveDailyOperationsSnapshot(current, data));
+  const [syncedView, setSyncedView] = useState<DailyOperationsReadView | null>(null);
+  if (read.data !== syncedView) {
+    setSyncedView(read.data);
+    if (read.data) {
+      const next = read.data;
+      if (board.snapshot?.today !== next.day) setExhaustedScopes(new Set(next.events.length < 80 ? ["all"] : []));
+      setBoard(current => receiveDailyOperationsReadView(current, next));
+    } else if (read.error) {
+      // Authentication refusal clears the provider; never keep revoked cards visible.
+      setBoard(EMPTY_DAILY_OPERATIONS_LIVE_BOARD);
     }
   }
-
-  const [syncedEvents, setSyncedEvents] = useState<typeof eventsQuery.data>(undefined);
-  if (eventsQuery.data !== syncedEvents) {
-    setSyncedEvents(eventsQuery.data);
-    const page = eventsQuery.data;
-    if (page) {
-      setBoard((current) => ({
-        ...current,
-        events: mergeDailyOperationsEvents(current.events, page.items),
-      }));
-      if (page.next_cursor === null) {
-        // Fewer than a page today: every lane is fully loaded.
-        setExhaustedScopes(new Set(["all", ...page.items.map((item) => item.lane)]));
-      }
-    }
-  }
-
-  // A Granot flood can push every Lead or Booking of the day out of the first
-  // newest-80 page. A panel whose count says otherwise fetches its own newest
-  // page once, so no panel reads "Nothing yet today" against a non-zero count.
-  const [backfilledLanes, setBackfilledLanes] = useState<ReadonlySet<string>>(new Set());
-  const backfillKey = (
-    eventsHydrated
-      ? lanesNeedingBackfill({
-          snapshot: board.snapshot,
-          events: board.events,
-          panels: visibleDailyOperationsPanels({ lane: laneInView, sheetSyncOptIn: storedSheet }),
-          attempted: backfilledLanes,
-        })
-      : []
-  ).join(",");
-  useEffect(() => {
-    if (!backfillKey) {
-      return;
-    }
-    const lanes = backfillKey.split(",") as DailyOperationsPanelLane[];
-    for (const scope of lanes) {
-      void fetchDailyOperationsEvents({ lane: scope, limit: 40 })
-        .then((page) => {
-          setBoard((current) => ({
-            ...current,
-            events: mergeDailyOperationsEvents(current.events, page.items),
-          }));
-          if (page.next_cursor === null) {
-            setExhaustedScopes((current) => new Set([...current, scope]));
-          }
-        })
-        .catch(() => {
-          // The panel keeps its count; Load earlier in the solo view still works.
-        })
-        .finally(() => {
-          setBackfilledLanes((current) => new Set([...current, scope]));
-        });
-    }
-  }, [backfillKey]);
 
   // Preferences live in localStorage (external store). A shared link with
   // `?quiet_priorities=1` persists the preference on arrival; a stored
@@ -298,117 +157,12 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
     }
   }, [pathname, quietFromUrl, router, searchParams, writeStoredQuiet]);
 
-  const resync = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.dailyOperations.snapshot() });
-  }, [queryClient]);
-
-  useEffect(() => {
-    function onVisibility() {
-      const hidden = document.hidden;
-      setTabHidden(hidden);
-      if (hidden) {
-        hiddenSince.current = Date.now();
-        return;
-      }
-      const since = hiddenSince.current;
-      hiddenSince.current = null;
-      if (since !== null && Date.now() - since >= HIDDEN_RESYNC_MS) {
-        resync();
-      }
-    }
-    onVisibility();
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [resync]);
-
-  // Florida day rollover while the tab is open: yesterday's board is not
-  // today's. Refetch both queries; `receiveDailyOperationsSnapshot` drops the
-  // old day's facts and session badges when the new-day snapshot lands.
-  const liveDayKey = nowMs === undefined ? null : dailyOperationsDayKey(nowMs);
-  const snapshotDay = board.snapshot?.today ?? null;
-  useEffect(() => {
-    if (!liveDayKey || !snapshotDay || liveDayKey === snapshotDay) {
-      return;
-    }
-    void queryClient.invalidateQueries({ queryKey: queryKeys.dailyOperations.snapshot() });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.dailyOperations.events("all") });
-  }, [liveDayKey, snapshotDay, queryClient]);
-
-  // The live socket is bound to the day it opened on; reconnect once the
-  // board has moved to a new day so the new day's facts start flowing.
-  const [streamDay, setStreamDay] = useState(snapshotDay);
-  if (snapshotDay !== streamDay) {
-    setStreamDay(snapshotDay);
-    if (streamDay !== null && snapshotDay !== null) {
-      setStreamGeneration((value) => value + 1);
-    }
-  }
-
-  // Tile flashes queued by the SSE reducer drain here, outside the state updater.
-  useEffect(() => {
-    if (pendingFlashes.current.length === 0) {
-      return;
-    }
-    const tiles = [...new Set(pendingFlashes.current)];
-    pendingFlashes.current = [];
-    if (tiles.includes("leads")) {
-      // A lead arrived: refresh the live lead spend within a second or two.
-      void queryClient.invalidateQueries({ queryKey: queryKeys.insights.dailyLeadSpend() });
-    }
-    setFlashedTiles(tiles);
-    if (flashTimer.current) {
-      clearTimeout(flashTimer.current);
-    }
-    flashTimer.current = setTimeout(() => setFlashedTiles([]), TILE_FLASH_MS);
-  }, [board, queryClient]);
-
-  useEffect(() => {
-    const source = new EventSource(DAILY_OPERATIONS_LIVE_PATH);
-    const applyEvent = (eventName: string, rawData: string) => {
-      setBoard((current) => {
-        const next = applyDailyOperationsSsePayload(eventName, rawData, current);
-        if (next.flashedTiles.length > 0) {
-          pendingFlashes.current.push(...next.flashedTiles);
-        }
-        return next.board;
-      });
-      setStreamStatus(eventName === "error" ? "off" : document.hidden ? "paused" : "live");
-    };
-    source.addEventListener("snapshot", (event) => {
-      applyEvent("snapshot", (event as MessageEvent).data);
-    });
-    source.addEventListener("event", (event) => {
-      applyEvent("event", (event as MessageEvent).data);
-    });
-    source.addEventListener("metrics", (event) => {
-      applyEvent("metrics", (event as MessageEvent).data);
-    });
-    source.addEventListener("heartbeat", (event) => {
-      applyEvent("heartbeat", (event as MessageEvent).data);
-    });
-    source.addEventListener("error", (event) => {
-      if ((event as MessageEvent).data) {
-        applyEvent("error", (event as MessageEvent).data);
-        return;
-      }
-      setStreamStatus(source.readyState === EventSource.CLOSED ? "off" : "reconnecting");
-    });
-    source.onopen = () => {
-      setStreamStatus(document.hidden ? "paused" : "live");
-    };
-    return () => {
-      source.close();
-      if (flashTimer.current) {
-        clearTimeout(flashTimer.current);
-      }
-    };
-  }, [streamGeneration]);
-
-  const status: DailyOperationsLiveStatus =
-    streamStatus === "live" && tabHidden ? "paused" : streamStatus;
+  const ageMs = read.data ? Math.max(0, (nowMs ?? Date.parse(read.data.generated_at)) - Date.parse(read.data.generated_at)) : 0;
+  const dayNotice = dailyOperationsReadDayNotice(read.data, nowMs);
+  const status: DailyOperationsLiveStatus = read.paused ? "paused" : read.error || read.data?.freshness === "stale" || dayNotice || ageMs > 180_000 ? "reconnecting" : read.data ? "live" : "off";
   const snapshot = board.snapshot ? withLiveDailyOperationsClock(board.snapshot, nowMs) : null;
   const nowHour = nowMs === undefined ? undefined : dailyOperationsFloridaHour(new Date(nowMs));
-  const loading = snapshotQuery.isLoading && !snapshot;
+  const loading = !snapshot && !read.error;
 
   function replaceQuery(next: URLSearchParams) {
     const query = next.toString();
@@ -459,17 +213,17 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
   }
 
   function canLoadEarlierFor(scope: DailyOperationsPanelLane | null): boolean {
-    return !exhaustedScopes.has(scopeKey(scope)) && earlierDailyOperationsCursor(board.events, scope) !== null;
+    return !exhaustedScopes.has(scopeKey(scope));
   }
 
   async function loadEarlier(scope: DailyOperationsPanelLane | null) {
     const cursor = earlierDailyOperationsCursor(board.events, scope);
-    if (!cursor || loadingEarlier || exhaustedScopes.has(scopeKey(scope))) {
+    if (loadingEarlier || exhaustedScopes.has(scopeKey(scope))) {
       return;
     }
     setLoadingEarlier(true);
     try {
-      const page = await fetchDailyOperationsEvents({ lane: scope, cursor, limit: 40 });
+      const page = await fetchDailyOperationsEvents({ lane: scope, cursor: cursor ?? undefined, limit: 40 });
       setBoard((current) => ({
         ...current,
         events: mergeDailyOperationsEvents(current.events, page.items),
@@ -538,11 +292,8 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
             <LiveChrome
               status={status}
               lastGoodAt={board.lastGoodAt}
-              onRetry={() => {
-                setStreamStatus("reconnecting");
-                setStreamGeneration((value) => value + 1);
-                resync();
-              }}
+              day={read.data?.day}
+              onRetry={read.refresh}
             />
             <details className="dboard-display relative">
               <summary className="inline-flex h-8 cursor-pointer list-none items-center gap-1 rounded-md border border-steel-200 bg-card px-3 text-xs font-medium text-navy">
@@ -602,8 +353,10 @@ export function DailyOperationsPage({ embedded = false }: { embedded?: boolean }
           />
         ) : null}
 
-        {snapshotQuery.error && !snapshot ? (
-          <FeedbackMessage tone="error">{DAILY_COPY.loadFailed}</FeedbackMessage>
+        {dayNotice ? <FeedbackMessage tone="error">{dayNotice}</FeedbackMessage> : null}
+
+        {read.error ? (
+          <FeedbackMessage tone="error">{read.error}</FeedbackMessage>
         ) : null}
 
         {isOwner ? <LeadSpendPanel /> : null}

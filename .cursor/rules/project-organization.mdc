@@ -5,6 +5,8 @@ alwaysApply: true
 
 # Vantage Admin Project Organization
 
+**Daily Operations efficiency (2026-10-23, supersedes the SSE details below):** the board and global milestone toast use one visible-tab minute read provider, with no Daily Operations EventSource. Private signed board BFF: `app/api/daily-operations-board/route.ts`; legacy live BFF forwards authenticated 204. Daily Operations-only spend/goals use five-minute cached summaries; core Outreach cadence and Pulse spend remain unchanged. Current guide: `docs/daily-operations-efficiency.md`. Server contract: `vantage-main-server/docs/daily-operations-efficiency/PROPOSAL.md`.
+
 `vantage-admin` is the Next.js 16 App Router owner/admin dashboard. Preserve ownership boundaries; put new work in the folder that owns the behavior.
 
 **Dashboard redesign (2026-10-06):** eight sidebar destinations (Today `/` · Leads `/leads` · Bookings `/bookings` · Outreach Desk · Automations `/automations` (Owner) · Systems `/systems` (Owner, doc 11b, 2026-10-07) · Insights `/insights` · Setup `/setup`) in the app-wide CRM look (`app/crm.css`, `components/ui/crm/`, `[data-ui="crm"]` on the shell). Old routes redirect (`next.config.ts`). Delivery notes: `docs/dashboard-redesign/README.md`; server work owed: `docs/dashboard-redesign/SERVER-WORK.md`.

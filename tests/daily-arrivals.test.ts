@@ -114,38 +114,22 @@ test("the full-list overlay is one column of rows with no layout switch, and a r
   assert.doesNotMatch(markup, /<article/);
 });
 
-test("daily-shell keeps one Daily Operations EventSource; the feed and the lanes construct none", () => {
+test("board and milestone toast consume the shared read coordinator without EventSources", () => {
   const read = (file: string) => readFileSync(path.join(process.cwd(), file), "utf8");
   const shell = read("components/daily/daily-shell.tsx");
-  const feed = read("components/daily/live-feed.tsx");
-  const lanes = read("components/daily/lanes-view.tsx");
-  const tiles = read("components/daily/lane-tiles.tsx");
-  const eventSources = shell.match(/new EventSource/g) ?? [];
-  assert.equal(eventSources.length, 1);
-  assert.match(shell, /new EventSource\(DAILY_OPERATIONS_LIVE_PATH\)/);
+  const toast = read("components/daily/milestone-toast.tsx");
+  for (const source of [shell, toast]) {
+    assert.doesNotMatch(source, /new EventSource/);
+    assert.match(source, /useDailyOperationsRead/);
+  }
   assert.match(shell, /<LiveFeed/);
   assert.match(shell, /<LaneTiles/);
   assert.match(shell, /<LanesView/);
   assert.match(shell, /<FactDrawer/);
-  assert.match(shell, /queryKeys\.dailyOperations\.events\("all"\)/);
-  assert.match(shell, /fetchDailyOperationsEvents\(\{ limit: 80 \}\)/);
+  assert.match(shell, /receiveDailyOperationsReadView/);
+  assert.doesNotMatch(shell, /fetchDailyOperationsSnapshot|const eventsQuery/);
   assert.match(shell, /parseDailyOperationsView\(searchParams\.get\("view"\), lane\)/);
-  assert.ok(shell.indexOf("<LaneTiles") < shell.indexOf("<LiveFeed"), "tiles then the feed on the Board");
-  for (const source of [feed, lanes, tiles]) {
-    assert.doesNotMatch(source, /EventSource/);
-  }
-  assert.doesNotMatch(
-    shell.slice(shell.indexOf("const eventsQuery"), shell.indexOf("useEffect(() => {", shell.indexOf("const eventsQuery"))),
-    /lane: focusedLane/,
-  );
-});
-
-test("the milestone toast owns its own EventSource, listens to events only, and closes on unmount", () => {
-  const toast = readFileSync(path.join(process.cwd(), "components/daily/milestone-toast.tsx"), "utf8");
-  assert.equal((toast.match(/new EventSource/g) ?? []).length, 1);
-  assert.match(toast, /new EventSource\(DAILY_OPERATIONS_LIVE_PATH\)/);
-  assert.equal((toast.match(/addEventListener\("event"/g) ?? []).length, 1);
-  assert.doesNotMatch(toast, /addEventListener\("(snapshot|metrics|heartbeat)"/);
-  assert.match(toast, /source\?\.close\(\)/);
+  assert.ok(shell.indexOf("<LaneTiles") < shell.indexOf("<LiveFeed"));
   assert.match(toast, /sessionStorage/);
+  assert.match(toast, /view\.milestones/);
 });

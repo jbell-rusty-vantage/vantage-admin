@@ -13,6 +13,7 @@ import { ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-reac
 import { usePathname, useRouter } from "next/navigation";
 import { setLocalStorageBoolean, useLocalStorageBoolean } from "@/lib/state/use-local-storage-boolean";
 import { Avatar, cx } from "@/components/ui/crm";
+import { DailyOperationsReadProvider } from "@/components/daily/daily-read-provider";
 import { MilestoneToastHost } from "@/components/daily/milestone-toast";
 import { DASHBOARD_MAIN_ID } from "./dashboard-ids";
 import { DashboardRoleProvider } from "./dashboard-role-context";
@@ -219,6 +220,7 @@ export function DashboardShell({
 
   return (
     <DashboardRoleProvider role={adminRole}>
+      <DailyOperationsReadProvider enabled={adminRole === "owner" || adminRole === "manager"}>
       <div className="crm-shell flex h-full min-h-0 overflow-hidden" data-ui="crm" data-role={adminRole}>
         <aside className="crm-sidebar" data-collapsed={collapsed ? "true" : undefined}>
           <SidebarBody adminRole={adminRole} adminEmail={adminEmail} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} badges={badges} />
@@ -267,6 +269,7 @@ export function DashboardShell({
           </div>
         ) : null}
       </div>
+      </DailyOperationsReadProvider>
     </DashboardRoleProvider>
   );
 }

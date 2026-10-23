@@ -25,6 +25,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { DailyOperationsReadProvider } from "@/components/daily/daily-read-provider";
 import { MilestoneToastHost } from "@/components/daily/milestone-toast";
 import type { OutreachDeskRole } from "@/server/models/adminRoles";
 import { DESK_PATH, deskNavViews, deskViewHref, type DeskView } from "../data/desk-url";
@@ -201,6 +202,7 @@ export function DeskShell({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
+    <DailyOperationsReadProvider enabled={viewer.role !== "rep"}>
     <div className="od-root" data-role={viewer.role} data-view={view}>
       <div className="od-mobilebar">
         <button type="button" className="od-button od-button--quiet" aria-label={c.nav.openMenu} onClick={() => setMenuOpen(true)}>
@@ -223,5 +225,6 @@ export function DeskShell({
       <div className="od-main">{children}</div>
       {viewer.role !== "rep" ? <MilestoneToastHost /> : null}
     </div>
+    </DailyOperationsReadProvider>
   );
 }

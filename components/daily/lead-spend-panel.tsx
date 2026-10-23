@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { useDailyOperationsRead } from "./daily-read-provider";
 import { Banknote, TriangleAlert } from "lucide-react";
 import { AnimatedNumber } from "@/components/daily/animated-number";
 import { CrmCard, formatMoney } from "@/components/ui/crm";
-import { InsightsRequestError, fetchDailyLeadSpend, type InsightsLeadSpendDay } from "@/lib/api/insights";
+import { InsightsRequestError, fetchDailyLeadSpend, fetchDailyLeadSpendSummary, type InsightsLeadSpendDay } from "@/lib/api/insights";
 import { queryKeys } from "@/lib/query/keys";
 import { SETUP_ROUTES } from "@/lib/setup/setup-links";
 import { cumulativeByHour, isForbidden, leadSpendHasData, spendPace, topSpendSources } from "@/lib/today/lead-spend";
@@ -16,12 +17,14 @@ export const LEAD_SPEND_REFRESH_MS = 30_000;
  * Today's lead spend, live. Owner only: a non-owner never queries, and a 403 hides the block instead of erroring.
  * The Operations board invalidates this key when a lead arrives on its event stream.
  */
-export function useLeadSpend(enabled: boolean) {
+export function useLeadSpend(enabled: boolean, interval = LEAD_SPEND_REFRESH_MS) {
   return useQuery({
-    queryKey: queryKeys.insights.dailyLeadSpend(),
-    queryFn: fetchDailyLeadSpend,
+    queryKey: interval === LEAD_SPEND_REFRESH_MS ? queryKeys.insights.dailyLeadSpend() : [...queryKeys.insights.dailyLeadSpend(), "daily-operations-summary"],
+    queryFn: ({ signal }) => interval === LEAD_SPEND_REFRESH_MS ? fetchDailyLeadSpend(signal) : fetchDailyLeadSpendSummary(signal),
     enabled,
-    refetchInterval: LEAD_SPEND_REFRESH_MS,
+    staleTime: interval === LEAD_SPEND_REFRESH_MS ? 0 : interval,
+    refetchInterval: interval,
+    refetchOnWindowFocus: interval === LEAD_SPEND_REFRESH_MS,
     refetchIntervalInBackground: false,
     retry: (count, error) => !(error instanceof InsightsRequestError && error.status === 403) && count < 1,
   });
@@ -91,8 +94,9 @@ export function SpendChart({ day }: { day: InsightsLeadSpendDay }) {
 }
 
 export function LeadSpendPanel() {
-  const query = useLeadSpend(true);
-  if (isForbidden(query.error)) return null;
+  const read = useDailyOperationsRead();
+  const query = useLeadSpend(!read.paused && read.data !== null, 300_000);
+  if (!read.data || isForbidden(query.error)) return null;
   const day = query.data;
   if (!leadSpendHasData(day)) {
     return query.error ? (
@@ -107,7 +111,7 @@ export function LeadSpendPanel() {
   }
   const sources = topSpendSources(day);
   return (
-    <CrmCard title="Lead spend today" subtitle="Live, priced from each feed's lead cost" testId="lead-spend-today">
+    <CrmCard title="Lead spend today" subtitle="Updated every five minutes, priced from each feed's lead cost" testId="lead-spend-today">
       <div className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-2">
           <p className="m-0 flex items-center gap-2 text-3xl font-extrabold leading-none text-[var(--crm-text)]">

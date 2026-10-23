@@ -46,6 +46,8 @@ export const MANAGER_OUTREACH_ROUTES: readonly DeskProxyRoute[] = [
 export const MANAGER_DAILY_OPERATIONS_ROUTES: readonly DeskProxyRoute[] = [
   { method: "GET", pattern: new RegExp(`^${DAILY_OPERATIONS_API}$`) },
   { method: "GET", pattern: new RegExp(`^${DAILY_OPERATIONS_API}/events$`) },
+  { method: "GET", pattern: new RegExp(`^${DAILY_OPERATIONS_API}/board$`) },
+  { method: "GET", pattern: new RegExp(`^${DAILY_OPERATIONS_API}/goal-summary$`) },
   { method: "GET", pattern: new RegExp(`^${DAILY_OPERATIONS_API}/live$`) },
 ];
 

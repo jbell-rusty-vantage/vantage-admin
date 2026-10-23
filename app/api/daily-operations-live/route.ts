@@ -1,88 +1,13 @@
-import { cookies } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
-import {
-  getAccessTokenCookie,
-  getSessionUserFromAccessToken,
-  getRefreshTokenCookie,
-  refreshAdminSession,
-  setAuthCookies,
-} from "@/server/auth";
-import { setTrustedAdminHeaders } from "@/server/auth/trustedProxyHeaders";
+import { type NextRequest } from "next/server";
 import { getServerEnv } from "@/lib/env/server";
+import { requireDailyOperationsSession } from "@/server/daily-operations-session";
+import { dailyOperationsRead, DAILY_OPERATIONS_LEGACY_PATH } from "@/server/daily-operations-read";
 import { buildVantageApiUrl } from "@/server/vantage-api/url";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
-
-const LIVE_PATH = "api/v1/admin/daily-operations/live";
-
-async function requireAdmin() {
-  const cookieStore = await cookies();
-  const accessToken = getAccessTokenCookie(cookieStore);
-  if (accessToken) {
-    const admin = await getSessionUserFromAccessToken(accessToken);
-    if (admin) {
-      return admin;
-    }
-  }
-  const refreshToken = getRefreshTokenCookie(cookieStore);
-  if (!refreshToken) {
-    return null;
-  }
-  const refreshed = await refreshAdminSession(refreshToken);
-  if (!refreshed) {
-    return null;
-  }
-  setAuthCookies(cookieStore, refreshed.tokens.accessToken, refreshed.tokens.refreshToken);
-  return refreshed.admin;
-}
-
+/** Compatibility for already-open bundles: preserve the authenticated 204. */
 export async function GET(request: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) {
-    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
-  }
-  // Daily Operations is the Owner's and, since P09b, a Manager's. A generic Admin and a rep are refused.
-  if (admin.role !== "owner" && admin.role !== "manager") {
-    return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
-  }
-
-  const { VANTAGE_API_SECRET, VANTAGE_API_PROTECTION_BYPASS } = getServerEnv();
-  const url = buildVantageApiUrl(LIVE_PATH);
-  const headers = new Headers();
-  headers.set("accept", "text/event-stream");
-  headers.set("x-api-secret", VANTAGE_API_SECRET);
-  if (VANTAGE_API_PROTECTION_BYPASS) {
-    headers.set("x-vercel-protection-bypass", VANTAGE_API_PROTECTION_BYPASS);
-  }
-  const lastEventId = request.headers.get("last-event-id");
-  if (lastEventId) {
-    headers.set("last-event-id", lastEventId);
-  }
-  setTrustedAdminHeaders(headers, admin, {
-    method: "GET",
-    path: LIVE_PATH,
-  });
-
-  const upstream = await fetch(url, {
-    method: "GET",
-    headers,
-    cache: "no-store",
-  });
-
-  if (!upstream.ok || !upstream.body) {
-    const message = upstream.status === 403 ? "Forbidden." : "Live webhook stream failed.";
-    return NextResponse.json({ ok: false, error: message }, { status: upstream.status || 502 });
-  }
-
-  return new NextResponse(upstream.body, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    },
-  });
+  const admin = await requireDailyOperationsSession();
+  const env = getServerEnv();
+  return dailyOperationsRead(request, { admin, path: DAILY_OPERATIONS_LEGACY_PATH, url: buildVantageApiUrl(DAILY_OPERATIONS_LEGACY_PATH), apiSecret: env.VANTAGE_API_SECRET, protectionBypass: env.VANTAGE_API_PROTECTION_BYPASS });
 }

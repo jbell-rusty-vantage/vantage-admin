@@ -349,9 +349,9 @@ export class InsightsRequestError extends Error {
   }
 }
 
-async function getJson<T>(path: string, params?: URLSearchParams): Promise<T> {
+async function getJson<T>(path: string, params?: URLSearchParams, signal?: AbortSignal): Promise<T> {
   const query = params?.toString();
-  const response = await fetch(`/api/proxy/${path}${query ? `?${query}` : ""}`, { credentials: "include" });
+  const response = await fetch(`/api/proxy/${path}${query ? `?${query}` : ""}`, { credentials: "include", signal });
   let payload: ApiResponse<T> | undefined;
   try {
     payload = (await response.json()) as ApiResponse<T>;
@@ -382,6 +382,11 @@ export function fetchInsightsAllocation(query: Pick<InsightsQuery, "period" | "c
 }
 
 /** Owner only: today's lead spend so far, live (Today › Operations). */
-export function fetchDailyLeadSpend(): Promise<InsightsLeadSpendDay> {
-  return getJson(DAILY_LEAD_SPEND_PATH);
+export function fetchDailyLeadSpend(signal?: AbortSignal): Promise<InsightsLeadSpendDay> {
+  return getJson(DAILY_LEAD_SPEND_PATH, undefined, signal);
+}
+
+/** Optional Daily Operations display cache; the Pulse keeps its existing uncached read. */
+export function fetchDailyLeadSpendSummary(signal?: AbortSignal): Promise<InsightsLeadSpendDay> {
+  return getJson("api/v1/admin/daily-operations/lead-spend-summary", undefined, signal);
 }

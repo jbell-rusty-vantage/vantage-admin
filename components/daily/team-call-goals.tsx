@@ -3,16 +3,16 @@
 import Link from "next/link";
 import { CheckCircle2, Phone } from "lucide-react";
 import { AnimatedNumber } from "@/components/daily/animated-number";
-import { useTeam } from "@/components/outreach-desk/data/use-desk-reads";
-import { useDeskLive } from "@/components/outreach-desk/data/use-desk-live";
+import { useQuery } from "@tanstack/react-query";
+import { useDailyOperationsRead } from "./daily-read-provider";
+import { fetchDailyOperationsGoals, type DailyOperationsGoalRow } from "@/lib/api/dailyOperationsGoals";
 import { fillPercent, percentText } from "@/components/outreach-desk/lib/format";
 import { useChangeFlash } from "@/components/outreach-desk/live-motion";
 import { CrmCard } from "@/components/ui/crm";
-import type { SalesOutreachDailyCallGoalRow } from "@/lib/api/salesOutreach";
 
 /** Furthest along first; reps without a goal today sit at the end. Presentation only, the server's numbers are untouched. */
-export function orderGoalRows(rows: readonly SalesOutreachDailyCallGoalRow[]): SalesOutreachDailyCallGoalRow[] {
-  const rank = (row: SalesOutreachDailyCallGoalRow) => (row.goal_state === "goal" ? (row.progress ?? -1) : -2);
+export function orderGoalRows(rows: readonly DailyOperationsGoalRow[]): DailyOperationsGoalRow[] {
+  const rank = (row: DailyOperationsGoalRow) => (row.goal_state === "goal" ? (row.progress ?? -1) : -2);
   return [...rows].sort((a, b) => rank(b) - rank(a) || (b.actual_confirmed ?? 0) - (a.actual_confirmed ?? 0));
 }
 
@@ -27,7 +27,7 @@ function Bar({ progress, done }: { progress: number | null; done: boolean }) {
   );
 }
 
-function RepGoal({ row }: { row: SalesOutreachDailyCallGoalRow }) {
+function RepGoal({ row }: { row: DailyOperationsGoalRow }) {
   const done = row.goal_reached === true;
   const flash = useChangeFlash(`${row.actual_confirmed}|${row.goal_reached}`);
   const name = row.agent_name ?? "Unknown rep";
@@ -57,16 +57,25 @@ function RepGoal({ row }: { row: SalesOutreachDailyCallGoalRow }) {
 
 /**
  * The Outreach Desk's call goals on Daily Operations: the team total first, then each rep's bar. Live over the desk's
- * own stream (a call that moves a count invalidates `GET /team`); a read the viewer cannot make hides the card.
+ * own narrow five-minute summary; the operational Outreach Desk keeps its existing cadence.
  */
 export function TeamCallGoals() {
-  useDeskLive(true);
-  const team = useTeam(null, true);
+  const read = useDailyOperationsRead();
+  const team = useQuery({
+    queryKey: ["daily-operations", "goal-summary"],
+    queryFn: ({ signal }) => fetchDailyOperationsGoals(signal),
+    enabled: !read.paused && read.data !== null,
+    staleTime: 300_000,
+    refetchInterval: 300_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
   const data = team.data;
   const goals = data?.goals ?? null;
   const rows = data?.daily_call_goals ?? null;
   const teamFlash = useChangeFlash(goals?.outbound_calls.actual);
-  if (!data || !data.goal_metrics_enabled || !goals || !rows) {
+  if (!read.data || !data || !data.goal_metrics_enabled || !goals || !rows) {
     return null;
   }
   const outbound = goals.outbound_calls;
