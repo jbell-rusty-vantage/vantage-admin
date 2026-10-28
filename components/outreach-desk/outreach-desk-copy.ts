@@ -102,6 +102,8 @@ export const deskCopy = {
     smsNotYetVerified: "SMS due — not yet verified",
     callAndSmsNotYetVerified: "Call and SMS due — not yet verified",
     jobPending: "Job number pending",
+    /** A Form Lead keeps its cadence before Granot assigns its job (Owner, 2026-10-28). */
+    jobArriving: "New Form Lead – Job number arriving soon",
     moveDatePassed: "Move date passed",
     noIssue: "On track",
     unassigned: "Unassigned",
@@ -391,6 +393,8 @@ export const deskCopy = {
   lead: {
     region: "Selected lead",
     jobPending: "Job number pending",
+    /** A Form Lead keeps its cadence before Granot assigns its job (Owner, 2026-10-28). */
+    jobArriving: "New Form Lead – Job number arriving soon",
     copy: "Copy job #",
     copied: "Copied",
     copyFailed: "Copy failed",
@@ -524,6 +528,7 @@ export const deskCopy = {
       policy_unavailable: "the schedule policy isn't set up",
       duplicate: "marked as a duplicate lead",
       unmatched_booking_anchor: "created from a booking that matched no lead",
+      job_number_pending: "call lead with no job number — no call schedule until Granot assigns one",
       legacy_closed_reopening_required: "closed in the old Outreach; reopening needs a decision",
       number_only_unassociated: "phone number not linked to a lead",
       lead_not_found: "the lead record wasn't found",
@@ -688,6 +693,7 @@ export const deskCopy = {
         "closed:crm_dead_disposition": "marked a dead lead in Granot",
         "excluded:duplicate": "marked as a duplicate lead",
         "excluded:unmatched_booking_anchor": "created from a booking that matched no lead",
+        "excluded:job_number_pending": "call lead with no job number yet",
         unknown: "no reason was recorded",
       } as Record<string, string>,
       /**

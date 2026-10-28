@@ -43,6 +43,7 @@ import {
   rowIssue,
   shortDateLabel,
   unassignedCaption,
+  jobLabel,
 } from "../lib/format";
 import type { MovePreset } from "../data/desk-url";
 import { useDeskNow } from "../data/use-desk-now";
@@ -162,7 +163,7 @@ export function AttentionRow({ row, asOf, relativeNow, selected, onSelect }: { r
       }}
     >
       <td>
-        <span className="od-strong od-job">{row.job_no ?? deskCopy.lead.jobPending}</span>
+        <span className="od-strong od-job">{jobLabel(row.job_no, row.subject_status !== "review")}</span>
         {row.phone ? <span className="od-cell__sub">{row.phone}</span> : null}
       </td>
       <td>{ownerText(row)}</td>

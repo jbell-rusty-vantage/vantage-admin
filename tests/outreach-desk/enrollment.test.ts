@@ -417,6 +417,7 @@ test("admission reasons: every intake-gate code, closed:/excluded:/review: prefi
     "closed:crm_dead_disposition",
     "excluded:duplicate",
     "excluded:unmatched_booking_anchor",
+    "excluded:job_number_pending",
     "review:legacy_closed_reopening_required",
     "review:number_only_unassociated",
     "unknown",

@@ -29,6 +29,7 @@ const SERVER_REVIEW_REASONS = [
   "policy_unavailable",
   "duplicate",
   "unmatched_booking_anchor",
+  "job_number_pending",
   "legacy_closed_reopening_required",
   "number_only_unassociated",
   "lead_not_found",

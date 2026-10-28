@@ -36,6 +36,7 @@ import {
   repZeroActivityTitle,
   rowOverdue,
   verificationNote,
+  jobLabel,
 } from "../lib/format";
 import { useDeskNow } from "../data/use-desk-now";
 import { deskCopy } from "../outreach-desk-copy";
@@ -210,7 +211,7 @@ export function QueueRow({
       }}
     >
       <td>
-        <span className="od-strong od-job">{row.job_no ?? deskCopy.lead.jobPending}</span>
+        <span className="od-strong od-job">{jobLabel(row.job_no, row.subject_status !== "review")}</span>
         {row.phone ? <span className="od-cell__sub">{row.phone}</span> : null}
         {row.pool ? <span className="od-cell__sub">{row.assigned_agent_name ? `Assigned to ${row.assigned_agent_name}` : "Unassigned"}</span> : null}
       </td>

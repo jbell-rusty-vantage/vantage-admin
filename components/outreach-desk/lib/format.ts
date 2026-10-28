@@ -39,6 +39,14 @@ const absoluteFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 /** The New York business date (`YYYY-MM-DD`) of an instant. */
+/**
+ * The job cell of a lead without a Job Number. A Call Lead without a job has no cadence (review,
+ * `job_number_pending`); a Form Lead keeps its cadence while its job is arriving from Granot.
+ */
+export function jobLabel(jobNo: string | null, inCadence: boolean): string {
+  return jobNo ?? (inCadence ? deskCopy.lead.jobArriving : deskCopy.lead.jobPending);
+}
+
 export function nyDate(instant: string | Date): string {
   return dayFormatter.format(typeof instant === "string" ? new Date(instant) : instant);
 }
@@ -577,7 +585,8 @@ export function rowIssue(row: SalesOutreachQueueRowDto, asOf: string): { text: s
   if (row.call.status === "due" && row.sms.status === "due") return { text: t.callAndSmsDue, tone: "amber", icon: "clock" };
   if (row.call.status === "due") return { text: t.callDueToday, tone: "amber", icon: "clock" };
   if (row.sms.status === "due") return { text: t.smsDueToday, tone: "amber", icon: "clock" };
-  if (f.job_pending) return { text: t.jobPending, tone: "muted", icon: "info" };
+  // Review rows returned above, so a row without a job here is a Form Lead in cadence.
+  if (f.job_pending) return { text: t.jobArriving, tone: "muted", icon: "info" };
   if (f.move_date_passed) return { text: t.moveDatePassed, tone: "muted", icon: "info" };
   return { text: t.noIssue, tone: "muted", icon: "info" };
 }

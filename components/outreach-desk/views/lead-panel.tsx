@@ -41,6 +41,7 @@ import {
   moveDateText,
   reviewReasonText,
   shortDateLabel,
+  jobLabel,
 } from "../lib/format";
 import { reportUnknownDeskCode } from "../lib/unknown-codes";
 import { useDeskNow } from "../data/use-desk-now";
@@ -420,7 +421,7 @@ function LeadPanelBody({
   return (
     <div className="od-lead__body" key={detail.subject.subject_id}>
       <div>
-        <h2 className="od-lead__job">{s.job_no ?? c.jobPending}</h2>
+        <h2 className="od-lead__job">{jobLabel(s.job_no, s.lead_model === "FormLead")}</h2>
         {s.phone ? <p className="od-lead__phone">{s.phone}</p> : null}
         {s.name ? <p className="od-lead__name">{s.name}</p> : null}
         <p className="od-lead__meta" title={s.move_date ?? undefined} data-testid="lead-move-date">{deskCopy.my.moveDate}: {moveDateText(s.move_date, now)}</p>

@@ -14,7 +14,7 @@ import { clearSubject } from "@/lib/query/salesOutreach";
 import { useDetail, useQueue, useTeam } from "../data/use-desk-reads";
 import { useDeskUrl } from "../data/use-desk-url";
 import type { DeskViewer } from "../shell/desk-shell";
-import { absoluteTime, ownerText, priorityPill, relativeDay, shortDateLabel } from "../lib/format";
+import { absoluteTime, jobLabel, ownerText, priorityPill, relativeDay, shortDateLabel } from "../lib/format";
 import { deskCopy } from "../outreach-desk-copy";
 import { DeskHeader, DeskSelect, Pill, SearchBox, SkeletonLine } from "../primitives";
 
@@ -33,7 +33,7 @@ function History({ detail }: { detail: SalesOutreachDetailDto }) {
   return (
     <div className="od-history">
       <header>
-        <h2 className="od-lead__job">{detail.subject.job_no ?? l.jobPending}</h2>
+        <h2 className="od-lead__job">{jobLabel(detail.subject.job_no, detail.subject.lead_model === "FormLead")}</h2>
         <p className="od-lead__phone">{[detail.subject.phone, detail.subject.name].filter(Boolean).join(" · ")}</p>
       </header>
       <section>
@@ -208,7 +208,7 @@ export function ActivityView({ viewer, capabilities }: { viewer: DeskViewer; cap
                               }}
                             >
                               <td>
-                                <span className="od-strong od-job">{row.job_no ?? l.jobPending}</span>
+                                <span className="od-strong od-job">{jobLabel(row.job_no, row.subject_status !== "review")}</span>
                                 {row.phone ? <span className="od-cell__sub">{row.phone}</span> : null}
                               </td>
                               {coordinator ? <td>{ownerText(row)}</td> : null}
