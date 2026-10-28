@@ -78,18 +78,24 @@ try {
     for (let i = 0; i < 56; i++) await cells.nth(i).fill(String(2 + (i % 7) * 0.25));
     await page.getByRole('button',{name:'Save base rates'}).click();
     await toast(page,'Base rates saved');
-    await toast(page,'a bigger move can cost less');
     await page.getByRole('button',{name:'Edit base rates'}).waitFor();
     assert.equal(notes.at(-1), 'Updated base rates');
     await shot('saved');
 
-    // Edit one cell later: Cancel discards, Save goes live.
+    // Save with nothing changed publishes nothing.
+    const revisionCount = revisions.length;
+    await page.getByRole('button',{name:'Edit base rates'}).click();
+    await page.getByRole('button',{name:'Save base rates'}).click();
+    await toast(page,'No changes to save');
+    assert.equal(revisions.length, revisionCount);
+    // Edit one cell later: a bad value is refused, a good one goes live and its new price drop is flagged.
     await page.getByRole('button',{name:'Edit base rates'}).click();
     await cells.first().fill('abc');
     await page.getByRole('button',{name:'Save base rates'}).click();
     await toast(page,"isn't a number");
     await cells.first().fill('3.10');
     await page.getByRole('button',{name:'Save base rates'}).click();
+    await toast(page,'a bigger move can now cost less');
     await page.getByRole('button',{name:'Edit base rates'}).waitFor();
     assert.equal(revisions.at(-1).configuration.base_rates.MI_0_100.MIN_300, '3.10');
     assert.ok(await page.locator('.tp-table').getByText('$3.10').count());

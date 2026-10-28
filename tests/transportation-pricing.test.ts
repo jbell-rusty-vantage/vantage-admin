@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { DashboardRoleProvider } from "../components/layout/dashboard-role-context";
 import { TransportationPricingSection } from "../components/setup/transportation-pricing-section";
 import { groupProblem } from "../components/setup/transportation-pricing-panels";
-import { collisions, emptyConfiguration, newGroup, parseRate, pricingRequest, PricingError, saveConfiguration, type Configuration } from "../lib/transportation-pricing";
+import { collisions, emptyConfiguration, newGroup, newJumps, parseRate, pricingErrorText, pricingRequest, PricingError, sameGroup, saveConfiguration, type Configuration } from "../lib/transportation-pricing";
 import { canOpenSetupSection, setupSectionsFor } from "../components/setup/setup-sections";
 function markupFor(role: "owner" | "admin") {
   const props = { role, children: createElement(TransportationPricingSection) };
@@ -92,4 +92,26 @@ test("unverifiable mutation responses remain unknown outcomes for identical retr
     globalThis.fetch = async () => Response.json({ ok: false, error: { code: "STALE_VERSION", message: "Reload." } }, { status: 409 });
     await assert.rejects(pricingRequest("enabled", "POST", {}), (error: unknown) => error instanceof PricingError && error.status === 409 && error.code === "STALE_VERSION");
   } finally { globalThis.fetch = original; }
+});
+
+test("price-drop warning covers only drops the save creates, from base rates alone", () => {
+  const live = emptyConfiguration().base_rates;
+  for (const band of Object.keys(live)) for (const [i, tier] of Object.keys(live[band]).entries()) live[band][tier] = String(2 + i);
+  const next = structuredClone(live);
+  next.MI_0_100.MIN_300 = "9";
+  assert.deepEqual(newJumps(live, next).map(j => [j.band, j.boundary, j.below, j.above]), [["Up to 100", 300, 2700, 900]]);
+  assert.deepEqual(newJumps(next, next), []);
+});
+test("failed saves read as sentences, never bare service codes", () => {
+  assert.match(pricingErrorText(new PricingError(409, "ACTIVATION_VERSION_CONFLICT", "ACTIVATION_VERSION_CONFLICT")), /changed somewhere else/);
+  assert.match(pricingErrorText(new PricingError(0, "UNKNOWN_OUTCOME", "x")), /couldn't confirm/);
+  assert.match(pricingErrorText(new PricingError(422, "CONFIGURATION_INVALID", "CONFIGURATION_INVALID")), /group names differ/);
+  assert.equal(pricingErrorText(new PricingError(422, "CONFIGURATION_INVALID", "A state belongs to more than one active surcharge group.")), "A state belongs to more than one active surcharge group.");
+  assert.match(pricingErrorText(new PricingError(503, "PRICING_NOT_CONFIGURED", "PRICING_NOT_CONFIGURED")), /isn't set up/);
+  assert.match(pricingErrorText(new PricingError(500, "INTERNAL_ERROR", "INTERNAL_ERROR")), /Try again/);
+});
+test("an unchanged group is detected regardless of decimal padding or state order", () => {
+  const a = { ...newGroup(), name: "West", states: ["CA", "AZ"], rates: { MIN_300: "0.5000" } };
+  assert.equal(sameGroup(a, { ...a, name: " West ", states: ["AZ", "CA"], rates: { MIN_300: "0.5" } }), true);
+  assert.equal(sameGroup(a, { ...a, active: false }), false);
 });

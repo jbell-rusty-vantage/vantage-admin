@@ -66,14 +66,54 @@ export async function pricingRequest<T>(path: string, method = "GET", body?: unk
   return value.data as T;
 }
 
+const CODE_TEXT: Record<string, string> = {
+  PRICING_NOT_CONFIGURED: "Pricing isn't set up on the operations server yet.",
+  PRICING_DISABLED: "Agent pricing is off.",
+  CONFIGURATION_CORRUPT: "The saved rates on the operations server look damaged. Restore an earlier version.",
+  REVISION_NOT_FOUND: "That version no longer exists. Reload the page.",
+  DRAFT_NOT_FOUND: "That save was interrupted. Try again.",
+};
 /** One plain sentence for a failed save, telling the Owner what to do next. */
 export function pricingErrorText(error: unknown): string {
   if (!(error instanceof PricingError)) return "Pricing is unavailable. Try again in a moment.";
   if (error.status === 0) return "We couldn't confirm the save. Your rates were reloaded — check whether the change is there.";
   if (error.status === 409) return "Pricing was changed somewhere else. The latest rates were reloaded — make your change again.";
   if (error.status === 401) return "Your session ended. Sign in again.";
-  if (error.status === 422) return "Some rates are empty. Fill every rate, then save.";
-  return error.message;
+  if (CODE_TEXT[error.code]) return CODE_TEXT[error.code];
+  // The service sometimes answers with only its code as the message; never show a bare code.
+  const sentence = /\s/.test(error.message) ? error.message : null;
+  if (error.status === 422) return sentence && error.message !== "Complete every rate before publication." ? error.message : "These rates couldn't be saved. Check that every rate is filled, group names differ, and no state is in two groups that are on.";
+  if (error.status === 400) return "The rates couldn't be read. Use numbers like 3.25 (up to 4 decimals, at most 1,000).";
+  return sentence ?? "Pricing couldn't save this. Try again; if it keeps failing, reload the page.";
+}
+
+/** Same rate value, ignoring "3.1" vs "3.1000". */
+export function sameRate(a: string | null | undefined, b: string | null | undefined): boolean {
+  return (a ?? null) === null ? (b ?? null) === null : (b ?? null) !== null && Number(a) === Number(b);
+}
+export function sameRates(a: Rates, b: Rates): boolean { return VOLUME.every(tier => sameRate(a[tier], b[tier])); }
+export function sameGroup(a: Group, b: Group): boolean {
+  return a.name.trim() === b.name.trim() && a.active === b.active && [...a.states].sort().join() === [...b.states].sort().join() && sameRates(a.rates, b.rates);
+}
+
+export type Jump = { band: string; boundary: number; below: number; above: number };
+const BOUNDARIES = [300, 500, 1000, 1500, 2000, 3000];
+/**
+ * Where a slightly bigger move gets a lower total with base rates alone: the next size range's rate is lower, so
+ * `boundary × rate` drops just past the line. Same rule as the service's DOWNWARD_TOTAL_JUMP, no-surcharge policy.
+ */
+export function downwardJumps(base: Record<string, Rates>): Jump[] {
+  const out: Jump[] = [];
+  MILEAGE.forEach((band, b) => BOUNDARIES.forEach((boundary, i) => {
+    const r1 = base[band]?.[VOLUME[i]], r2 = base[band]?.[VOLUME[i + 1]];
+    if (r1 != null && r2 != null && Number(r2) < Number(r1)) out.push({ band: MILEAGE_LABELS[b], boundary, below: boundary * Number(r1), above: boundary * Number(r2) });
+  }));
+  return out;
+}
+/** Jumps this save creates that the live rates didn't already have. */
+export function newJumps(live: Record<string, Rates> | null, next: Record<string, Rates>): Jump[] {
+  const before = new Set((live ? downwardJumps(live) : []).map(j => `${j.band}|${j.boundary}`));
+  return downwardJumps(next).filter(j => !before.has(`${j.band}|${j.boundary}`));
 }
 
 export type SaveOutcome = { calculationEnabled: boolean; warnings: Preview["warnings"] };

@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { MILEAGE, MILEAGE_LABELS, STATES, VOLUME, VOLUME_LABELS, parseRate, parseRates, rateText, type Group, type Rates } from "@/lib/transportation-pricing";
+import { MILEAGE, MILEAGE_LABELS, STATES, VOLUME, VOLUME_LABELS, parseRate, parseRates, rateText, sameGroup, type Group, type Rates } from "@/lib/transportation-pricing";
 
 export type RateTexts = Record<string, Record<string, string>>;
 export function toTexts(rates: Record<string, Rates>): RateTexts {
@@ -93,6 +93,7 @@ export function GroupCard({ group, others, isNew = false, busy, onSave, onDelete
     const next: Group = { group_id: group.group_id, name: edit.name.trim(), active: edit.active, states: [...edit.states].sort(), rates: parsed.rates };
     const problem = groupProblem(next, others, parsed);
     if (problem) { toastProblem(problem); return; }
+    if (!isNew && sameGroup(next, group)) { toast.info("No changes to save"); setEdit(null); return; }
     setSaving(true);
     const ok = await onSave(next, isNew ? `Added surcharge group “${next.name}”` : `Updated surcharge group “${next.name}”`, isNew ? `Surcharge group “${next.name}” added` : `Surcharge group “${next.name}” saved`);
     setSaving(false);
