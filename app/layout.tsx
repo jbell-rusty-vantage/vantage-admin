@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
 // Self-hosted (Google Fonts latin variable subsets) so the build never fetches
@@ -46,7 +47,10 @@ export default function RootLayout({
       lang="en"
       className={`${archivo.variable} ${publicSans.variable} ${plusJakarta.variable} h-full overflow-x-hidden antialiased`}
     >
-      <body className="flex h-full min-h-0 flex-col overflow-x-hidden">{children}</body>
+      <body className="flex h-full min-h-0 flex-col overflow-x-hidden">
+        {children}
+        <Toaster />
+      </body>
     </html>
   );
 }

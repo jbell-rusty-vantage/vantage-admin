@@ -8,6 +8,7 @@
 export const SETUP_ROUTES = {
   leadSources: "/setup/lead-sources",
   leadCosts: "/setup/lead-costs",
+  transportationPricing: "/setup/transportation-pricing",
   people: "/setup/people",
   merchants: "/setup/merchants",
   carriers: "/setup/carriers",

@@ -4,6 +4,8 @@ Internal web application for lead search, bookings, cancellations, Granot intake
 
 **Platform domain language:** [`../CONTEXT.md`](../CONTEXT.md)
 
+**Transportation pricing (2026-10-28):** Owner-only Setup → Transportation pricing (`/setup/transportation-pricing`) shows the live rates; each part (base rates, each surcharge group, the agent-pricing switch) has Edit → Save that goes live with a toast, plus history/restore, through a dedicated signed operations proxy. Rules and collections belong exclusively to `vantage-operations-server`. No production rates are seeded or calculations enabled. Guide: [`docs/transportation-pricing.md`](docs/transportation-pricing.md); configuration: [`docs/knowledge/environment.md`](docs/knowledge/environment.md).
+
 **Priority Pool (2026-10-14):** Outreach Desk New / Quoted / Other / Pool filters use a dedicated shared Pool queue. Eligible Reps can work every eligible Pool Lead while assignment remains visible. One verified daily call fulfills the shared requirement; assigned workload and actual caller outbound credit display separately. Automations shows Pool refresh and historical discovery freshness. Contract and Admin implementation: [`docs/priority-pool.md`](docs/priority-pool.md).
 
 **ADRs:** [`../docs/adr/`](../docs/adr/)

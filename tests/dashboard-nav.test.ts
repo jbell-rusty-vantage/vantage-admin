@@ -156,7 +156,7 @@ test("Setup sections: Admin does not see Connections or Website (doc 19: section
   const admin = setupSectionsFor("admin");
   assert.deepEqual(
     owner.map((section) => section.key),
-    ["lead-sources", "lead-costs", "people", "merchants", "carriers", "connections", "sheet-ingestion", "website", "changes"],
+    ["lead-sources", "lead-costs", "transportation-pricing", "people", "merchants", "carriers", "connections", "sheet-ingestion", "website", "changes"],
   );
   assert.deepEqual(
     admin.map((section) => section.key),

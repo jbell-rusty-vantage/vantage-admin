@@ -10,6 +10,8 @@ const optionalHttpUrl = z
   .optional();
 
 const serverEnvSchema = z.object({
+  OPERATIONS_API_BASE_URL: z.string().url().refine(value => { const url = new URL(value); return !url.username && !url.password && !url.search && !url.hash && url.pathname === "/" && (url.protocol === "https:" || (process.env.NODE_ENV !== "production" && url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))); }, "Use a trusted operations origin").optional(),
+  OPERATIONS_ADMIN_SIGNING_SECRET: z.string().min(32).optional(),
   MONGODB_URI: z.string().trim().min(1, "MONGODB_URI is required"),
   ADMIN_AUTH_DB_NAME: z.string().trim().min(1, "ADMIN_AUTH_DB_NAME is required"),
   ADMIN_ACCESS_TOKEN_SECRET: z

@@ -23,6 +23,8 @@ alwaysApply: true
 | `app/(dashboard)/` | Protected dashboard pages + layouts |
 | `app/(public)/` | Public surfaces (`/employee-booking`) |
 | `app/api/auth/` | Local admin session handlers only |
+| `components/ui/toaster.tsx` | App-wide `sonner` `<Toaster>` (root layout). Use `toast.success/error` from `sonner` for save feedback. |
+| `app/api/operations-pricing/[...path]/`, `server/operations-pricing/` | Independent transportation-pricing BFF: current Mongo-backed Owner session, same-origin mutation guard, strict route/query/body schemas, dedicated exact-body operations signature. Never forwards browser cookies or main-server service secrets. Owner Setup UI: `components/setup/transportation-pricing-section.tsx` (live rates first; each part Edit → Save goes live with a `sonner` toast, no draft/preview/note shown — `saveConfiguration` runs the protocol); client/wire presentation: `lib/transportation-pricing.ts`; guide: `docs/transportation-pricing.md`. Operations exclusively owns calculation policy and pricing collections. |
 | `app/api/proxy/[...path]/` | Authenticated BFF → `vantage-main-server` (JSON/CSV; buffers the body) |
 | `app/api/daily-operations-live/` | Owner-only SSE BFF that pipes `GET /api/v1/admin/daily-operations/live` without buffering |
 | `app/api/employee-booking/` | Public options/submit (feature-flagged; not dashboard auth) |

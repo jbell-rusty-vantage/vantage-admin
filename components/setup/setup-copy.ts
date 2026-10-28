@@ -7,7 +7,7 @@ export const SETUP_COPY = {
   title: "Setup",
   subtitle: "Everything you configure once and touch rarely. Daily work lives on Today, Leads and Bookings.",
   help:
-    "Setup is one place with nine sections. Lead sources shows each company you buy or receive leads from as one tree: its feeds, the Granot names and inbound numbers that land in them, and what each lead costs. People & access shows one card per person. Connections & health says whether Granot, RingCentral and Google Sheets are connected and recent. External Sheet Ingestion is the Best Relocation sheet pull.",
+    "Setup brings configuration into one place. Transportation pricing is for the Owner to review and publish rates. Lead sources shows each company you buy or receive leads from as one tree: its feeds, the Granot names and inbound numbers that land in them, and what each lead costs. People & access shows one card per person. Connections & health says whether Granot, RingCentral and Google Sheets are connected and recent. External Sheet Ingestion is the Best Relocation sheet pull.",
   navLabel: "Setup sections",
   /** The Registry's read-only banner, reused for the Admin role. */
   readOnlyTitle: "Read-only view",
@@ -15,6 +15,7 @@ export const SETUP_COPY = {
   notAllowedTitle: "Not allowed",
   notAllowedBody: "This section is for the owner. Ask the owner to make this change, or open one of the sections on the left.",
   sections: {
+    "transportation-pricing": { label: "Transportation pricing", purpose: "Set your transportation rates and choose when agents can use them." },
     "lead-sources": { label: "Lead sources", purpose: "Who sends me leads, and how do they arrive." },
     "lead-costs": { label: "Lead costs", purpose: "What do I pay per lead." },
     people: { label: "People & access", purpose: "Who works here, and what can they open." },

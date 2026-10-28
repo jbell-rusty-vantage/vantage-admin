@@ -10,6 +10,7 @@ import {
 } from "./outreach-desk-routes";
 
 const OWNER_ONLY_PAGE_PREFIXES = [
+  "/setup/transportation-pricing",
   "/automations",
   "/systems",
   "/bookings/reconciliation",

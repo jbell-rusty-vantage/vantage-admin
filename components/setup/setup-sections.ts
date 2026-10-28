@@ -1,5 +1,5 @@
 /**
- * The nine Setup sections (doc 19 "Routes", plus External Sheet Ingestion split out of Connections on the Owner's ask): keys, routes, roles and badges. Pure (no JSX) so `tests/setup-shell.test.ts`
+ * Setup sections (doc 19, External Sheet Ingestion and Owner transportation pricing): keys, routes, roles and badges. Pure (no JSX) so `tests/setup-shell.test.ts`
  * covers the role filter and the active-section lookup. Admin reads every section except Connections and Website
  * (Owner only; the nav hides them and the route shows the shell's "Not allowed" card); People shows Admin the roster
  * read-only. Badges: Lead sources carries the "Things that need you" count, People the "Not matched to a person" count.
@@ -29,6 +29,7 @@ function section(key: SetupSectionKey, href: string, icon: LucideIcon, extra: Pa
 export const SETUP_SECTIONS: readonly SetupSection[] = [
   section("lead-sources", SETUP_ROUTES.leadSources, Cable, { badge: "needsYou" }),
   section("lead-costs", SETUP_ROUTES.leadCosts, Banknote),
+  section("transportation-pricing", SETUP_ROUTES.transportationPricing, Truck, { ownerOnly: true }),
   section("people", SETUP_ROUTES.people, Users, { badge: "notMatched" }),
   section("merchants", SETUP_ROUTES.merchants, Landmark),
   section("carriers", SETUP_ROUTES.carriers, Truck),
