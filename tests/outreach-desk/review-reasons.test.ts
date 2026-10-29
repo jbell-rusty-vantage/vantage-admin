@@ -30,6 +30,7 @@ const SERVER_REVIEW_REASONS = [
   "duplicate",
   "unmatched_booking_anchor",
   "job_number_pending",
+  "form_lead_holds_job",
   "legacy_closed_reopening_required",
   "number_only_unassociated",
   "lead_not_found",

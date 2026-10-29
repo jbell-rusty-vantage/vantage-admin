@@ -529,6 +529,7 @@ export const deskCopy = {
       duplicate: "marked as a duplicate lead",
       unmatched_booking_anchor: "created from a booking that matched no lead",
       job_number_pending: "call lead with no job number — no call schedule until Granot assigns one",
+      form_lead_holds_job: "same customer as a form lead — worked through the form lead",
       legacy_closed_reopening_required: "closed in the old Outreach; reopening needs a decision",
       number_only_unassociated: "phone number not linked to a lead",
       lead_not_found: "the lead record wasn't found",
@@ -694,6 +695,7 @@ export const deskCopy = {
         "excluded:duplicate": "marked as a duplicate lead",
         "excluded:unmatched_booking_anchor": "created from a booking that matched no lead",
         "excluded:job_number_pending": "call lead with no job number yet",
+        "excluded:form_lead_holds_job": "same customer as a form lead with this job",
         unknown: "no reason was recorded",
       } as Record<string, string>,
       /**
