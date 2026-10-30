@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -17,12 +18,16 @@ test("rep and owner/team rows retain Copy job # alongside Open in Granot", () =>
       const html = renderToStaticMarkup(element);
       assert.match(html, /Copy job #/);
       if (candidate.job_pending) assert.doesNotMatch(html, /Open in Granot/);
-      else assert.match(html, /Open in Granot/);
+      else {
+        assert.match(html, /Open in Granot/);
+        assert.match(html, /Attempting auth fix\./);
+        assert.match(html, /disabled="" aria-disabled="true" title="Attempting auth fix\."/);
+      }
     }
   }
 });
 
-test("the side panel keeps both controls for every Desk role and respects the server grant", () => {
+test("the side panel retains Copy job # and the paused Granot control for every Desk role", () => {
   for (const role of ["rep", "owner", "manager"] as const) {
     for (const available of [true, false]) {
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -30,9 +35,15 @@ test("the side panel keeps both controls for every Desk role and respects the se
       client.setQueryData(outreachKeys.detail(detail.subject.subject_id), { ...detail, granot_link_available: available });
       const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(LeadPanel, { subjectId: detail.subject.subject_id, commands: [], reps: null, onRevoked() {} })));
       assert.match(html, /Copy job #/);
-      if (available) assert.match(html, /Open in Granot/);
-      else assert.doesNotMatch(html, /Open in Granot/);
+      assert.match(html, /Open in Granot/);
+      assert.match(html, /Attempting auth fix\./);
+      assert.match(html, /disabled="" aria-disabled="true" title="Attempting auth fix\."/);
       client.clear();
     }
   }
+});
+
+test("paused controls cannot invoke lookups or open a browser tab", () => {
+  const source = readFileSync('components/outreach-desk/views/granot-link-button.tsx', 'utf8');
+  assert.doesNotMatch(source, /window\.open|salesOutreachCommand|fetch\(|onClick|onKeyDown/);
 });

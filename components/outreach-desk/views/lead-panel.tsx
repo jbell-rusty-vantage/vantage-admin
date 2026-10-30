@@ -434,7 +434,7 @@ function LeadPanelBody({
         </p>
       </div>
       <CopyJobButton jobNo={s.job_pending ? null : s.job_no} block />
-      {detail.granot_link_available && !s.job_pending ? <GranotLinkButton key={s.subject_id} subjectId={s.subject_id} /> : null}
+      {!s.job_pending && s.job_no ? <GranotLinkButton key={s.subject_id} subjectId={s.subject_id} /> : null}
       <div className={`od-lead__next od-lead__next--${next?.tone ?? "muted"}`}>
         <NextIcon aria-hidden="true" />
         <div>
