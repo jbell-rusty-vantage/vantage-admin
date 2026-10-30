@@ -31,6 +31,7 @@ import type { OutreachDeskRole } from "@/server/models/adminRoles";
 import { DESK_PATH, deskNavViews, deskViewHref, type DeskView } from "../data/desk-url";
 import { useCapabilities } from "../data/use-desk-reads";
 import { deskCopy } from "../outreach-desk-copy";
+import { GranotSessionPilot } from "../views/granot-session-pilot";
 import "../styles/outreach-desk.css";
 
 const c = deskCopy;
@@ -222,7 +223,7 @@ export function DeskShell({
         <DeskNav role={viewer.role} view={view} onNavigate={() => setMenuOpen(false)} />
         <IdentityMenu viewer={viewer} name={name} />
       </aside>
-      <div className="od-main">{children}</div>
+      <div className="od-main"><GranotSessionPilot viewer={viewer}>{children}</GranotSessionPilot></div>
       {viewer.role !== "rep" ? <MilestoneToastHost /> : null}
     </div>
     </DailyOperationsReadProvider>

@@ -183,7 +183,7 @@ export function AttentionRow({ row, asOf, relativeNow, selected, onSelect }: { r
       <td>
         <div className="od-row-actions">
           <CopyJobButton jobNo={row.job_pending ? null : row.job_no} />
-          {!row.job_pending && row.job_no ? <GranotLinkButton subjectId={row.subject_id} compact /> : null}
+          {!row.job_pending && row.job_no ? <GranotLinkButton subjectId={row.subject_id} jobNo={row.job_no} compact /> : null}
         </div>
       </td>
     </tr>
