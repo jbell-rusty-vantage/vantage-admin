@@ -31,6 +31,7 @@ const REP_ALLOWED: [VantageApiMethod, string][] = [
   ["GET", `${API}/queue?state=needs_contact&sort=urgency`],
   ["GET", `${API}/queue?queue_scope=pool&state=all_active`],
   ["GET", `${API}/outreach/${ID}`],
+  ["POST", `${API}/outreach/${ID}/granot-link`],
   ["PATCH", `${API}/outreach/${ID}/quoted-followup`],
   ["PATCH", `${API}/outreach/${ID}/callback`],
 ];

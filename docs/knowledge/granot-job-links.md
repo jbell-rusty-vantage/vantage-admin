@@ -1,0 +1,9 @@
+# Josh's Outreach Desk: Open in Granot
+
+Josh's selected Outreach card shows **Open in Granot** when the server detail DTO grants `granot_link_available`. No display-name or client-side Agent allowlist grants the feature. Other Reps, Owner and Manager views do not show the button. The server additionally checks the signed identity and current canonical assignment on every retrieval, including shared Pool access.
+
+The button opens a blank tab immediately, shows a loading message and POSTs `outreach/:id/granot-link` through the existing authenticated, signed BFF. It redirects that tab only after parsing a verified exact Eagle `chargeswc` URL. The tab's opener is cleared. A failure closes the loading tab and shows an inline retry message; popup blocking is explained in the card. No request runs merely because a card is opened. A successful attempt reveals **Refresh link**, which explicitly bypasses the saved cache. Each click reauthorizes; the UI does not retain a directly reusable href.
+
+Josh must sign in to Granot in that browser first. The generated URL is refreshable navigation evidence; its UUID is not permanent job identity. Granot cookie/session failures happen on the external page and cannot be inspected cross-origin by the Desk. Refresh is the recovery action after signing in or encountering a stale link. The actual Josh-browser flow still needs user qualification; automated server retrieval is separately verified.
+
+The server owns the optional Lead cache, ten-minute reuse, provider search, shared account lease, job identity verification and assignment recheck. The Admin stores no Granot credentials, cookies or main login token. No new Admin environment settings or migration are needed. Rollback is deployment of the preceding Admin/API; additive Lead cache entries may remain. Server contract: `vantage-main-server/docs/knowledge/services/sales-outreach-desk.md`.

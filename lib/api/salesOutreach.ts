@@ -887,6 +887,7 @@ export const salesOutreachContactEventSchema = z.object({
 export type SalesOutreachContactEvent = z.infer<typeof salesOutreachContactEventSchema>;
 
 export const salesOutreachDetailSchema = commonReadSchema.extend({
+  granot_link_available: z.boolean().optional(),
   pool: salesOutreachPoolSchema.nullable().optional(),
   subject: z.object({
     subject_id: salesOutreachSubjectIdSchema,

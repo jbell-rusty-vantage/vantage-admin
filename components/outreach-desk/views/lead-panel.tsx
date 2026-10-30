@@ -48,6 +48,7 @@ import { useDeskNow } from "../data/use-desk-now";
 import { deskCopy } from "../outreach-desk-copy";
 import { CopyJobButton, SkeletonLine } from "../primitives";
 import { PoolStatus } from "./pool-status";
+import { GranotLinkButton } from "./granot-link-button";
 
 const c = deskCopy.lead;
 const t = deskCopy.text;
@@ -433,6 +434,7 @@ function LeadPanelBody({
         </p>
       </div>
       <CopyJobButton jobNo={s.job_pending ? null : s.job_no} block />
+      {detail.granot_link_available && !s.job_pending ? <GranotLinkButton key={s.subject_id} subjectId={s.subject_id} /> : null}
       <div className={`od-lead__next od-lead__next--${next?.tone ?? "muted"}`}>
         <NextIcon aria-hidden="true" />
         <div>

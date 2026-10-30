@@ -29,6 +29,7 @@ export const REP_OUTREACH_ROUTES: readonly DeskProxyRoute[] = [
   desk("GET", "rep-metrics"),
   desk("GET", "queue"),
   desk("GET", `outreach/${ID}`),
+  desk("POST", `outreach/${ID}/granot-link`),
   desk("GET", "live"),
   desk("PATCH", `outreach/${ID}/quoted-followup`),
   desk("PATCH", `outreach/${ID}/callback`),
