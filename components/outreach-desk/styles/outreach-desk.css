@@ -2839,3 +2839,7 @@
 .od-root tr.od-flash > th, .od-root tr.od-flash > td { animation: od-flash 1200ms ease-out; }
 .od-root .od-card.od-flash { animation: od-flash-card 1200ms ease-out; }
 .od-root .od-flash .od-track__fill--done { animation: od-goal-met 700ms ease-out; }
+
+.od-row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.od-granot-link--compact .od-button { white-space: nowrap; min-height: 32px; padding: 6px 10px; font-size: 12px; }
+.od-granot-link--compact .od-lead__error { max-width: 220px; white-space: normal; }

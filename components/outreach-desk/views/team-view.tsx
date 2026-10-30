@@ -53,6 +53,7 @@ import { RepPerformance } from "./rep-performance";
 import { DeskCount, useChangeFlash } from "../live-motion";
 import { LeadCostCard } from "./lead-cost-card";
 import { LeadPanel, type RepOption } from "./lead-panel";
+import { GranotLinkButton } from "./granot-link-button";
 import { PoolStatus, PoolWorkload } from "./pool-status";
 
 const c = deskCopy.team;
@@ -156,6 +157,7 @@ export function AttentionRow({ row, asOf, relativeNow, selected, onSelect }: { r
       data-subject={row.subject_id}
       onClick={() => onSelect(row.subject_id)}
       onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onSelect(row.subject_id);
@@ -179,7 +181,10 @@ export function AttentionRow({ row, asOf, relativeNow, selected, onSelect }: { r
       <td title={row.move_date ?? undefined}>{moveDateText(row.move_date, relativeNow)}</td>
       <td title={absoluteTime(row.last_interaction_at)}>{interactionText(row.last_interaction_at, relativeNow)}</td>
       <td>
-        <CopyJobButton jobNo={row.job_pending ? null : row.job_no} />
+        <div className="od-row-actions">
+          <CopyJobButton jobNo={row.job_pending ? null : row.job_no} />
+          {!row.job_pending && row.job_no ? <GranotLinkButton subjectId={row.subject_id} compact /> : null}
+        </div>
       </td>
     </tr>
   );

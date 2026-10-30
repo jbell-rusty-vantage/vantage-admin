@@ -24,7 +24,7 @@ function failureMessage(error: unknown): string {
 }
 
 /** A user-initiated blank tab avoids popup blocking while the authenticated lookup finishes. */
-export function GranotLinkButton({ subjectId }: { subjectId: string }) {
+export function GranotLinkButton({ subjectId, compact = false }: { subjectId: string; compact?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -47,13 +47,13 @@ export function GranotLinkButton({ subjectId }: { subjectId: string }) {
       setError(failureMessage(error));
     } finally { setBusy(false); }
   }
-  return <div className="od-granot-link">
-    <button type="button" className="od-button od-button--block" disabled={busy} onClick={() => void open(false)}>
+  return <div className={compact ? "od-granot-link od-granot-link--compact" : "od-granot-link"} onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
+    <button type="button" className={compact ? "od-button" : "od-button od-button--block"} disabled={busy} onClick={() => void open(false)}>
       {busy ? <LoaderCircle aria-hidden="true" size={16} /> : <ExternalLink aria-hidden="true" size={16} />}
       {busy ? "Finding Granot job…" : "Open in Granot"}
     </button>
-    <p className="od-lead__muted">Opens in a new tab. Sign in to Granot in this browser first.</p>
-    {ready ? <button type="button" className="od-button od-button--quiet" disabled={busy} onClick={() => void open(true)}>Refresh link</button> : null}
+    {!compact ? <p className="od-lead__muted">Opens in a new tab. Sign in to Granot in this browser first.</p> : null}
+    {ready && !compact ? <button type="button" className="od-button od-button--quiet" disabled={busy} onClick={() => void open(true)}>Refresh link</button> : null}
     {error ? <p className="od-lead__error" role="alert">{error}</p> : null}
   </div>;
 }

@@ -45,6 +45,7 @@ import { OwnGoalToast } from "../own-goal-toast";
 import { CopyJobButton, DeskHeader, DeskSelect, FreshnessChips, ReadFailure, SearchBox, SkeletonLine, Track } from "../primitives";
 import { BinderCard } from "./binder-card";
 import { LeadPanel, type RepOption } from "./lead-panel";
+import { GranotLinkButton } from "./granot-link-button";
 import { PoolStatus, PoolWorkload } from "./pool-status";
 import { SortGuide } from "./sort-guide";
 
@@ -201,6 +202,7 @@ export function QueueRow({
       data-subject={row.subject_id}
       onClick={() => onSelect(row.subject_id)}
       onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onSelect(row.subject_id);
@@ -235,7 +237,10 @@ export function QueueRow({
         {sms.text}
       </td>
       <td>
-        <CopyJobButton jobNo={row.job_pending ? null : row.job_no} />
+        <div className="od-row-actions">
+          <CopyJobButton jobNo={row.job_pending ? null : row.job_no} />
+          {!row.job_pending && row.job_no ? <GranotLinkButton subjectId={row.subject_id} compact /> : null}
+        </div>
       </td>
     </tr>
   );

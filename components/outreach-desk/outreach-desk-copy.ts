@@ -375,7 +375,7 @@ export const deskCopy = {
     },
     newest: "Newest first",
     oldest: "Oldest first",
-    columns: { job: "Job / phone", age: "Lead age", move: "Move date", last: "Last interaction", calls: "Calls today", sms: "SMS", copy: "Copy" },
+    columns: { job: "Job / phone", age: "Lead age", move: "Move date", last: "Last interaction", calls: "Calls today", sms: "SMS", copy: "Actions" },
     loadMore: "Load more",
     empty: "No leads match these filters.",
     emptyNeeds: "Nothing needs contact right now.",
