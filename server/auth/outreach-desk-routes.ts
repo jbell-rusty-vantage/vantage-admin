@@ -30,6 +30,7 @@ export const REP_OUTREACH_ROUTES: readonly DeskProxyRoute[] = [
   desk("GET", "queue"),
   desk("GET", `outreach/${ID}`),
   desk("POST", `outreach/${ID}/granot-link`),
+  desk("POST", `outreach/${ID}/granot-session-link`),
   desk("GET", "live"),
   desk("PATCH", `outreach/${ID}/quoted-followup`),
   desk("PATCH", `outreach/${ID}/callback`),

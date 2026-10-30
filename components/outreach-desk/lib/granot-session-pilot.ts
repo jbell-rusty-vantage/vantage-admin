@@ -16,9 +16,6 @@ export function readGranotSessionContext(value: string): string | null {
   } catch { return null; }
 }
 
-export function granotSessionSearch(context: string, jobNo: string | null | undefined): { action: string; job: string } | null {
-  if (!/^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(context)) return null;
-  // The observed native QuickSearch takes the numeric portion of Granot's P-prefixed job.
-  const job = /^P?(\d{1,20})$/i.exec(jobNo?.trim() ?? "")?.[1];
-  return job ? { action: `https://eagle.hellomoving.com/wc.dll?mv~searchret~${context}~QSEARCH`, job } : null;
+export function isSearchableGranotJob(jobNo: string | null | undefined): boolean {
+  return /^P?\d{1,20}$/i.test(jobNo?.trim() ?? "");
 }

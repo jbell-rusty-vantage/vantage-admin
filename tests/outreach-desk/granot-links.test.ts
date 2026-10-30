@@ -9,7 +9,7 @@ import { AttentionRow } from "../../components/outreach-desk/views/team-view";
 import { LeadPanel } from "../../components/outreach-desk/views/lead-panel";
 import { GranotLinkButton } from "../../components/outreach-desk/views/granot-link-button";
 import { GranotSessionContext, GranotSessionPilot } from "../../components/outreach-desk/views/granot-session-pilot";
-import { GRANOT_SESSION_PILOT_AGENT, GRANOT_TEST_MESSAGE, granotSessionSearch, isGranotSessionPilot, readGranotSessionContext } from "../../components/outreach-desk/lib/granot-session-pilot";
+import { GRANOT_SESSION_PILOT_AGENT, GRANOT_TEST_MESSAGE, isSearchableGranotJob, isGranotSessionPilot, readGranotSessionContext } from "../../components/outreach-desk/lib/granot-session-pilot";
 import { outreachKeys } from "../../lib/query/salesOutreach";
 import { SYNTHETIC_AS_OF, syntheticDetail, syntheticQueueRows } from "./fixtures/synthetic";
 
@@ -46,10 +46,11 @@ test("the side panel retains Copy job # and the paused Granot control for every 
   }
 });
 
-test("no shared-account lookup or persistent browser storage is used by the pilot", () => {
+test("the pilot uses no persistent browser storage or direct Granot search POST", () => {
   const source = readFileSync('components/outreach-desk/views/granot-link-button.tsx', 'utf8');
   const session = readFileSync('components/outreach-desk/views/granot-session-pilot.tsx', 'utf8');
-  assert.doesNotMatch(source + session, /window\.open|salesOutreachCommand|fetch\(|localStorage|sessionStorage|console\./);
+  assert.doesNotMatch(source + session, /localStorage|sessionStorage|console\.|QSEARCH|name="VALUE"/);
+  assert.match(source, /granot-session-link/);
 });
 
 const context = "11111111-2222-3333-4444-555555555555";
@@ -81,7 +82,7 @@ test("the pilot belongs only to Josh's signed-in Rep identity", () => {
   assert.ok(html.includes(GRANOT_TEST_MESSAGE));
 });
 
-test("Josh's row and side panel submit the displayed job through his supplied session", () => {
+test("Josh's row and side panel enable a verified lookup without exposing his session in markup", () => {
   const row = { ...syntheticQueueRows()[0]!, job_pending: false, job_no: "P5550001" };
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const detail = syntheticDetail({ subjectId: row.subject_id, role: "rep" })!;
@@ -90,15 +91,13 @@ test("Josh's row and side panel submit the displayed job through his supplied se
   for (const element of elements) {
     const html = renderToStaticMarkup(createElement(GranotSessionContext, { value: { context } }, element));
     assert.match(html, /Copy job #/);
-    assert.match(html, new RegExp(`action="https://eagle\\.hellomoving\\.com/wc\\.dll\\?mv~searchret~${context}~QSEARCH"`));
-    assert.match(html, /method="post"/);
-    assert.match(html, /target="_blank"/);
-    assert.match(html, /rel="noopener noreferrer"/);
-    assert.match(html, /name="VALUE" value="5550001"/);
-    assert.match(html, /name="B5" value="Search"/);
+    assert.match(html, /Open in Granot · test/);
+    assert.match(html, /Your Granot username will be verified before opening/);
+    assert.doesNotMatch(html, /<form/);
+    assert.equal(html.includes(context), false);
     assert.doesNotMatch(html, /Attempting auth fix|disabled=""/);
   }
   client.clear();
-  assert.equal(granotSessionSearch(context, "P-not-a-job"), null);
-  assert.equal(granotSessionSearch("unsafe", "5550001"), null);
+  assert.equal(isSearchableGranotJob("P-not-a-job"), false);
+  assert.equal(isSearchableGranotJob("P5550001"), true);
 });
