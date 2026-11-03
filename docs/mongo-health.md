@@ -1,0 +1,15 @@
+# Systems → Mongo Health
+
+Owner-only Mongo Health appears at the top of Systems, above the existing locations and capacity sections. The separate Operations server collects live metadata; Admin never connects directly to the business database for this view. Existing Systems locations, capacity and sheets remain served by the main server.
+
+`components/systems/mongo-health.tsx` owns summary cards, sample timestamps, the collection search and expandable collection rows. `mongo-index-details.tsx` loads index definitions, sizes and cumulative usage only for expanded collections. The panel uses the route's CRM tokens and adapts its metrics to narrow screens; the table scrolls within its own area.
+
+Browser reads go through `GET /api/mongo-health/{summary,collections,collections/:name/indexes}`. The handler validates the current Mongo-backed Owner session (including the existing refresh-cookie workflow), permits only fixed read routes, signs an empty-body request to Operations and never forwards browser actor headers, cookies or bearer tokens. Separate `mongo-health` scope prevents cross-use of pricing assertions. Upstream origin and credentials are server-only, using existing `OPERATIONS_API_BASE_URL` / `OPERATIONS_ADMIN_SIGNING_SECRET`; there are no new secrets. Responses are bounded, schema-validated and no-store, redirects refused, upstream deadline 35 seconds.
+
+The summary refreshes once a minute while visible; collections every five minutes. Check again asks for the cached server reading and cannot force a new expensive inventory. Both server and query caches coalesce requests. Samples are timestamped in America/New_York. On refresh failure a last-good reading stays visible with a failure notice; a reading older than two minutes is labeled last successful. Each unavailable probe remains unavailable.
+
+Displayed metrics: member health and lag; selected-node disk, connections and cache usage; ping; database allocation/document/index totals; per-collection logical versus allocated/reusable storage, index sizes/counts, cumulative read/write averages and counts, collection scans; on-demand index metadata/usage windows. No automatic healthy/unhealthy verdict from cache fullness or unused indexes.
+
+This is not p95/p99, recent throughput, uptime/error history, CPU/IOPS, queued operations, cache eviction diagnostics, oplog-window monitoring, query-shape efficiency, growth forecasting or backup/Atlas-alert monitoring. Counters are cumulative, not recent rates; metadata document counts are estimates. Reusable collection data remains inside allocated files and is not free filesystem capacity. No customer documents, mutations, collection setup or index changes are performed.
+
+Operations source of truth for the contract: `vantage-operations-server/docs/mongo-health.md`. Focused proxy tests cover session/role denial, path and query restrictions, scoped signatures, credential isolation, unavailable dependencies and malformed responses. Live qualification checks include authenticated Owner summary/inventory/index reads and an actual browser rendering of Systems.

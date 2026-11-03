@@ -88,6 +88,8 @@ Schema: `lib/env/server.ts` (`getServerEnv()`). `.env.example` matches the schem
 
 Missing pricing settings fail closed for pricing while existing dashboard functionality continues. There are no `NEXT_PUBLIC_*` pricing credentials. The operations proxy checks the current Mongo-backed Owner session on each request and signs the exact outbound body, target and method using `vantage-operations-admin-v1` / `transportation-pricing`. Browser cookies and incoming actor headers never cross the boundary. Use different keys for local, preview and production.
 
+Systems → Mongo Health reuses these two server settings with a separate `mongo-health` signature scope. No Atlas Admin API keys or new environment variables are required. Missing settings fail closed for Mongo Health without blocking the existing Systems sections. See [Mongo Health](../mongo-health.md).
+
 
 ## Additional current application settings
 

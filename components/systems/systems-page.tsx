@@ -16,6 +16,7 @@ import { CapacityCard } from "./capacity-card";
 import { LocationsList } from "./locations-list";
 import { checkedTime, databaseCardView, sheetCardView } from "./systems-model";
 import { SYSTEMS_COPY as copy } from "./systems-copy";
+import { MongoHealth } from './mongo-health';
 
 function Skeletons({ label }: { label: string }) {
   return (
@@ -87,6 +88,7 @@ export function SystemsPage() {
   return (
     <div className="crm-page crm-stack sy-page" style={{ padding: 0 }} data-testid="systems-page">
       <PageHeader title={copy.title} subtitle={copy.subtitle} help={<p>{copy.help}</p>} right={header} />
+      <MongoHealth />
       {throttled ? (
         <p className="sy-muted" role="status">
           {copy.refreshThrottled}
