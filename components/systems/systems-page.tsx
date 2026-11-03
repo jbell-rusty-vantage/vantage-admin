@@ -133,11 +133,11 @@ function SystemLocations() {
 
 export type SystemsTab = 'mongo' | 'locations';
 const systemsTabs = [
-  { value: 'mongo' as const, label: 'Mongo Health', icon: Database },
   { value: 'locations' as const, label: 'System locations', icon: MapPin },
+  { value: 'mongo' as const, label: 'Mongo Health', icon: Database },
 ];
 
-export function SystemsPage({ tab = 'mongo' }: { tab?: SystemsTab }) {
+export function SystemsPage({ tab = 'locations' }: { tab?: SystemsTab }) {
   return (
     <div className="crm-page crm-stack sy-page" style={{ padding: 0 }} data-testid="systems-page">
       <PageHeader title={copy.title} subtitle={copy.subtitle} help={<p>{copy.help}</p>} />
