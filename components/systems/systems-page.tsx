@@ -1,20 +1,19 @@
 "use client";
 /**
- * Systems (`/systems`, Owner only; doc 11b): Where things live on top, Capacity below, no inner tabs. Refresh asks the
- * server to skip its caches (`?refresh=1`, honoured at most once a minute) and moves the "checked" stamp. Partner
- * health stays in Setup › Connections & health; one line links there.
+ * Owner-only Systems: live MongoDB diagnostics and locations/sheet capacity have separate URL tabs.
+ * Only the selected tab mounts its readers. Database state comes exclusively from Operations.
  */
 import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
-import { PageHeader, ReadFailure, SkeletonLine } from "@/components/ui/crm/primitives";
+import { Database, MapPin, RefreshCw } from "lucide-react";
+import { PageHeader, ReadFailure, SkeletonLine, Tabs } from "@/components/ui/crm/primitives";
 import { fetchSystemsCapacity, fetchSystemsLocations, patchSystemsLocations, type SystemsCapacity, type SystemsLocations } from "@/lib/api/systems";
 import { queryKeys } from "@/lib/query/keys";
 import { SETUP_ROUTES } from "@/lib/setup/setup-links";
 import { CapacityCard } from "./capacity-card";
 import { LocationsList } from "./locations-list";
-import { checkedTime, databaseCardView, sheetCardView } from "./systems-model";
+import { checkedTime, sheetCardView } from "./systems-model";
 import { SYSTEMS_COPY as copy } from "./systems-copy";
 import { MongoHealth } from './mongo-health';
 
@@ -36,7 +35,6 @@ export function CapacitySection({ capacity, now }: { capacity: SystemsCapacity; 
         {copy.capacity.title}
       </h2>
       <div className="sy-cards">
-        <CapacityCard view={databaseCardView(capacity.database)} />
         {capacity.sheets.map((sheet) => (
           <CapacityCard key={sheet.workbook} view={sheetCardView(sheet, now)} />
         ))}
@@ -45,7 +43,7 @@ export function CapacitySection({ capacity, now }: { capacity: SystemsCapacity; 
   );
 }
 
-export function SystemsPage() {
+function SystemLocations() {
   const queryClient = useQueryClient();
   const locations = useQuery({ queryKey: queryKeys.systems.locations(), queryFn: fetchSystemsLocations });
   const capacity = useQuery({ queryKey: queryKeys.systems.capacity(), queryFn: () => fetchSystemsCapacity(), refetchInterval: 5 * 60_000 });
@@ -86,9 +84,8 @@ export function SystemsPage() {
   );
 
   return (
-    <div className="crm-page crm-stack sy-page" style={{ padding: 0 }} data-testid="systems-page">
-      <PageHeader title={copy.title} subtitle={copy.subtitle} help={<p>{copy.help}</p>} right={header} />
-      <MongoHealth />
+    <div className="sy-section" data-testid="system-locations">
+      <div className="sy-section__head"><p className="sy-muted">{copy.locationsDescription}</p>{header}</div>
       {throttled ? (
         <p className="sy-muted" role="status">
           {copy.refreshThrottled}
@@ -130,6 +127,24 @@ export function SystemsPage() {
           {copy.partnerHealthLink}
         </Link>
       </p>
+    </div>
+  );
+}
+
+export type SystemsTab = 'mongo' | 'locations';
+const systemsTabs = [
+  { value: 'mongo' as const, label: 'Mongo Health', icon: Database },
+  { value: 'locations' as const, label: 'System locations', icon: MapPin },
+];
+
+export function SystemsPage({ tab = 'mongo' }: { tab?: SystemsTab }) {
+  return (
+    <div className="crm-page crm-stack sy-page" style={{ padding: 0 }} data-testid="systems-page">
+      <PageHeader title={copy.title} subtitle={copy.subtitle} help={<p>{copy.help}</p>} />
+      <Tabs<SystemsTab> tabs={systemsTabs} value={tab} hrefFor={value => `/systems?tab=${value}`} label="Systems views" />
+      <div role="tabpanel" aria-label={tab === 'mongo' ? 'Mongo Health' : 'System locations'}>
+        {tab === 'mongo' ? <MongoHealth /> : <SystemLocations />}
+      </div>
     </div>
   );
 }

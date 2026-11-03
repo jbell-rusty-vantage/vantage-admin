@@ -121,14 +121,14 @@ test("Master Booked: healthy, more than 15 years, and the last cancellation row"
   assert.deepEqual(view.foot, ["Last cancellation row: Aug 20"]);
 });
 
-test("the capacity section renders three cards with colour words and no leaks", () => {
+test("locations capacity shows only Master Sheets; database state belongs to live Mongo Health", () => {
   const markup = renderToStaticMarkup(createElement(CapacitySection, { capacity, now: NOW }));
-  assert.match(markup, /data-testid="systems-capacity-database"[^>]*data-colour="green"/);
+  assert.doesNotMatch(markup, /systems-capacity-database|Database \(MongoDB Atlas\)|Time until 90% full/);
   assert.match(markup, /data-testid="systems-capacity-master-leads"[^>]*data-colour="green"/);
   assert.match(markup, /data-testid="systems-capacity-master-booked"[^>]*data-colour="green"/);
   assert.doesNotMatch(markup, /Needs attention/);
   assert.doesNotMatch(markup, /stuck since/);
-  assert.equal((markup.match(/estimate · 3 of 7 days measured/g) ?? []).length, 6);
+  assert.equal((markup.match(/estimate · 3 of 7 days measured/g) ?? []).length, 4);
   assert.deepEqual(findOwnerMarkupLeaks(markup), []);
 });
 

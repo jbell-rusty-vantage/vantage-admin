@@ -4,8 +4,9 @@
  */
 export const SYSTEMS_COPY = {
   title: "Your systems",
-  subtitle: "Where everything lives, and how much room is left.",
-  help: "Every site, sheet and service in one list, with links to open, install or copy. Below it, how full the database and the two Master Sheets are, and how long until each one is full at today's pace.",
+  subtitle: "Database health, service locations and Reporting Sheets.",
+  help: "Mongo Health shows live database and collection readings from Operations. System locations lists your sites and services, followed by capacity and sync readings for the two Master Sheets.",
+  locationsDescription: "Links to your sites and services, plus Reporting Sheets capacity.",
   checked: (time: string) => `checked ${time}`,
   refresh: "Refresh",
   refreshing: "Refreshing…",
@@ -51,7 +52,7 @@ export const SYSTEMS_COPY = {
     lastEdited: (who: string, when: string) => `Last edited by ${who} · ${when}`,
   },
   capacity: {
-    title: "Capacity",
+    title: "Reporting Sheets capacity",
     readFailure: "Capacity did not load.",
     status: { green: "Healthy", amber: "Needs a look", red: "Needs attention", unknown: "Not measured" },
     database: {
