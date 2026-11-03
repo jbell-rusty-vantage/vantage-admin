@@ -30,7 +30,7 @@ const COST_PER_LEAD: RankedColumn = {
 };
 
 const COHORT_COLUMNS: readonly RankedColumn[] = [
-  { key: "leads", label: "Leads", bar: true, delta: true, title: "Leads that arrived in the period (duplicates left out)" },
+  { key: "leads", label: "Leads", bar: true, delta: true, title: "Billable leads that arrived in the period (duplicates and Bad Call Leads excluded)" },
   { key: "spend", label: "Spend", bar: true, title: "Lead spend at each feed's lead cost" },
   COST_PER_LEAD,
   { key: "booked", label: "Booked", title: "Of those leads, how many are booked as of now" },
@@ -42,7 +42,7 @@ const COHORT_COLUMNS: readonly RankedColumn[] = [
 ];
 
 const ACTIVITY_COLUMNS: readonly RankedColumn[] = [
-  { key: "leads", label: "Leads", bar: true, delta: true, title: "Leads that arrived in the period (duplicates left out)" },
+  { key: "leads", label: "Leads", bar: true, delta: true, title: "Billable leads that arrived in the period (duplicates and Bad Call Leads excluded)" },
   { key: "spend", label: "Spend", bar: true, title: "Lead spend at each feed's lead cost" },
   COST_PER_LEAD,
   { key: "activity_bookings", label: "Bookings", delta: true, title: "Bookings whose book date is in the period, whenever the lead arrived" },

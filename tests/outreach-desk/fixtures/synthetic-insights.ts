@@ -32,6 +32,7 @@ export function syntheticAllocationReport(): InsightsAllocationReport {
       active: agent_id ? true : null,
       leads,
       duplicates: 1,
+      bad_calls: 0,
       spend,
       share_of_spend: null as number | null,
       booked,
@@ -63,7 +64,7 @@ export function syntheticAllocationReport(): InsightsAllocationReport {
     generated_at: "2026-10-06T22:00:00.000Z",
     period: PERIOD,
     comparison: { mode: "previous", start: "2026-09-01", end_exclusive: "2026-09-07", end: "2026-09-06", days: 6, label: "Sep 1 – Sep 6, 2026", coverage: "full" },
-    totals: { leads: reps.reduce((sum, row) => sum + row.leads, 0), spend: total, assigned_spend: total - unassigned, unassigned_spend: unassigned, unpriced_leads: 0 },
+    totals: { leads: reps.reduce((sum, row) => sum + row.leads, 0), duplicates: reps.length, bad_calls: 0, spend: total, assigned_spend: total - unassigned, unassigned_spend: unassigned, unpriced_leads: 0 },
     companies: [
       { key: "harbor_leads", label: "Harbor Leads", spend: 23 * 200 },
       { key: "bay_leads", label: "Bay Leads", spend: 8 * 150 },
@@ -82,7 +83,7 @@ export function syntheticLeadSpendDay(): InsightsLeadSpendDay {
     today: "2026-10-06",
     now_hour: 17,
     spend: { today: sum(today), yesterday: sum(yesterday), yesterday_by_now: sum(yesterday, 17), day_before: 3_800, day_before_by_now: 2_900 },
-    leads: { today: 14, yesterday_by_now: 15, duplicates_today: 2, unpriced_today: 0 },
+    leads: { today: 14, yesterday_by_now: 15, duplicates_today: 2, bad_calls_today: 0, unpriced_today: 0 },
     hourly: { today, yesterday },
     by_company: [
       { key: "harbor_leads", label: "Harbor Leads", leads: 9, spend: 1_800, cpl_label: "$200" },

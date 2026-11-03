@@ -5,7 +5,6 @@ import "@/components/setup/people/people.css";
 import "@/components/setup/merchants/merchants.css";
 import "@/components/setup/carriers/carriers.css";
 import "@/components/setup/connections/connections.css";
-import "@/components/setup/sheet-ingestion/sheet-ingestion.css";
 import "@/components/setup/website/website.css";
 import "@/components/setup/changes/changes.css";
 import { SetupShell } from "@/components/setup/setup-shell";

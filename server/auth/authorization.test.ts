@@ -348,7 +348,7 @@ test("admin can read registry endpoints but cannot mutate them", () => {
 });
 
 
-test("admin can inspect Best Relocation ingestion health but cannot mutate it", () => {
+test("admin can read archived Best Relocation health while retired operations stay blocked", () => {
   assert.equal(
     canProxyVantagePath({
       role: "admin",
@@ -363,7 +363,7 @@ test("admin can inspect Best Relocation ingestion health but cannot mutate it", 
       method: "POST",
       path: "api/v1/admin/ingestion/connections/best-relocation/inspect",
     }),
-    true,
+    false,
   );
   assert.equal(
     canProxyVantagePath({

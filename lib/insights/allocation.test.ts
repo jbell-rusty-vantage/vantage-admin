@@ -22,6 +22,7 @@ function rep(over: Partial<InsightsAllocationRep>): InsightsAllocationRep {
     active: true,
     leads: 2,
     duplicates: 0,
+    bad_calls: 0,
     spend: 400,
     share_of_spend: 0.5,
     booked: 1,
@@ -100,12 +101,12 @@ describe("allocation shaping", () => {
   });
 
   it("summarises the header and flags unpriced leads", () => {
-    const header = allocationHeader({ totals: { leads: 10, spend: 1000, assigned_spend: 750, unassigned_spend: 250, unpriced_leads: 2 } });
+    const header = allocationHeader({ totals: { leads: 10, duplicates: 0, bad_calls: 0, spend: 1000, assigned_spend: 750, unassigned_spend: 250, unpriced_leads: 2 } });
     assert.equal(header.total, "$1,000");
     assert.equal(header.unassigned, "$250");
     assert.equal(header.unassignedShare, "25%");
     assert.match(header.unpricedNote ?? "", /2 leads have no lead cost/);
-    const clean = allocationHeader({ totals: { leads: 0, spend: 0, assigned_spend: 0, unassigned_spend: 0, unpriced_leads: 0 } });
+    const clean = allocationHeader({ totals: { leads: 0, duplicates: 0, bad_calls: 0, spend: 0, assigned_spend: 0, unassigned_spend: 0, unpriced_leads: 0 } });
     assert.equal(clean.unassignedShare, null);
     assert.equal(clean.unpricedNote, null);
   });

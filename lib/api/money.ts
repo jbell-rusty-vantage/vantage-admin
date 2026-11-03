@@ -13,6 +13,7 @@ export type MoneySpendSourceRow = {
   source_company_label: string;
   leads: number;
   duplicates: number;
+  bad_calls: number;
   rate_label: string | null;
   spend: number;
   booked: number;
@@ -36,6 +37,9 @@ export type MoneySpendResponse = {
   range: MoneySpendRange;
   generated_at: string;
   totals: {
+    leads: number;
+    duplicates: number;
+    bad_calls: number;
     lead_spend: number;
     cost_per_lead: number | null;
     cost_per_booked_lead: number | null;

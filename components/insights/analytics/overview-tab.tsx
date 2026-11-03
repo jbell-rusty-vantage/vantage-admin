@@ -1,6 +1,6 @@
 "use client";
 /**
- * Overview (doc 09 tab 1): the scoreboard. Eight scorecards, a quieter row of four, the trend, what moved, the
+ * Overview (doc 09 tab 1): the scoreboard. Eight primary scorecards, quieter cost and quality cards, the trend, what moved, the
  * leaders and data-quality chips.
  */
 import { CircleCheck, TriangleAlert } from "lucide-react";

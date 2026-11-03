@@ -93,6 +93,15 @@ export function SpendChart({ day }: { day: InsightsLeadSpendDay }) {
   );
 }
 
+export function LeadSpendCounts({ leads }: { leads: InsightsLeadSpendDay["leads"] }) {
+  return (
+    <p className="crm-text-muted crm-small m-0">
+      {leads.today} billable leads today · {leads.duplicates_today} duplicates (free)
+      {typeof leads.bad_calls_today === "number" ? <> · {leads.bad_calls_today} {leads.bad_calls_today === 1 ? "Bad Call Lead" : "Bad Call Leads"} (free)</> : null}
+    </p>
+  );
+}
+
 export function LeadSpendPanel() {
   const read = useDailyOperationsRead();
   const query = useLeadSpend(!read.paused && read.data !== null, 300_000);
@@ -121,9 +130,7 @@ export function LeadSpendPanel() {
           <div>
             <SpendPaceChip day={day} />
           </div>
-          <p className="crm-text-muted crm-small m-0">
-            {day.leads.today} leads priced today · {day.leads.duplicates_today} duplicates (free)
-          </p>
+          <LeadSpendCounts leads={day.leads} />
           {day.leads.unpriced_today > 0 ? (
             <p className="crm-text-amber crm-small m-0 flex items-start gap-1" data-testid="lead-spend-unpriced">
               <TriangleAlert aria-hidden="true" width={14} height={14} className="mt-0.5 shrink-0" />

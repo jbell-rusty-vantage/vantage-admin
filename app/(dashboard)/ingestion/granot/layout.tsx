@@ -7,7 +7,7 @@ export default async function GranotLayout({ children }: { children: React.React
   const accessToken = getAccessTokenCookie(cookieStore);
   const admin = accessToken ? await getAdminFromAccessToken(accessToken) : null;
   if (!admin) redirect("/login");
-  if (admin.role !== "owner") redirect("/ingestion");
+  if (admin.role !== "owner") redirect("/setup/lead-sources");
 
   return children;
 }

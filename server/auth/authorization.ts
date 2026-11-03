@@ -64,7 +64,6 @@ const REGISTRY_READ_PREVIEW_POST_PATHS = new Set([
   "/api/v1/admin/source-resolution/preview",
   "/api/v1/admin/source-label-resolution/preview",
   "/api/v1/admin/operations-registry/lead-source-setups/preview",
-  "/api/v1/admin/ingestion/connections/best-relocation/inspect",
 ]);
 
 const REPORTING_PREFIX = "/api/v1/admin/reporting";
@@ -132,6 +131,7 @@ export function canProxyVantagePath(input: {
   via?: "proxy" | "live";
 }): boolean {
   const path = normalizeProxyPath(input.path);
+  if ((path === "/api/v1/admin/ingestion" || path.startsWith("/api/v1/admin/ingestion/")) && input.method !== "GET") return false;
   // Desk live hints are an SSE stream: they go through `app/api/outreach-desk-live`, never the buffered proxy.
   if (input.via !== "live" && path === OUTREACH_DESK_LIVE_API_PATH) {
     return false;

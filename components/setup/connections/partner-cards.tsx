@@ -3,7 +3,7 @@
  * The three partner cards of Setup → Connections & health (doc 19), each built from a read that already exists:
  * Granot (the health page embedded, the registry's Granot findings beneath), RingCentral (inbound number checks and
  * call log capture freshness, the same read the topbar chips use) and Google Sheets (Master Sheet links). The Best
- * Relocation sheet pull has its own section, Setup → External Sheet Ingestion.
+ * Best Relocation external sheet ingestion is retired; shared Google connections remain.
  */
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";

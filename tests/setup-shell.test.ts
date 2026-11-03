@@ -20,28 +20,28 @@ import { setupRedirectRows } from "../lib/setup/setup-redirects";
  * the permanent redirect table, which must agree with the rewrite for every old `?tab=` value.
  */
 
-test("Setup has ten sections including Owner transportation pricing, each on its own route", () => {
+test("Setup has nine sections including Owner transportation pricing, each on its own route", () => {
   assert.deepEqual(
     SETUP_SECTIONS.map((section) => section.key),
-    ["lead-sources", "lead-costs", "transportation-pricing", "people", "merchants", "carriers", "connections", "sheet-ingestion", "website", "changes"],
+    ["lead-sources", "lead-costs", "transportation-pricing", "people", "merchants", "carriers", "connections", "website", "changes"],
   );
   assert.deepEqual(
     SETUP_SECTIONS.map((section) => section.href),
-    ["/setup/lead-sources", "/setup/lead-costs", "/setup/transportation-pricing", "/setup/people", "/setup/merchants", "/setup/carriers", "/setup/connections", "/setup/sheet-ingestion", "/setup/website", "/setup/changes"],
+    ["/setup/lead-sources", "/setup/lead-costs", "/setup/transportation-pricing", "/setup/people", "/setup/merchants", "/setup/carriers", "/setup/connections", "/setup/website", "/setup/changes"],
   );
   assert.deepEqual(
     SETUP_SECTIONS.map((section) => section.label),
-    ["Lead sources", "Lead costs", "Transportation pricing", "People & access", "Merchants", "Carriers", "Connections & health", "External Sheet Ingestion", "Website", "Change history"],
+    ["Lead sources", "Lead costs", "Transportation pricing", "People & access", "Merchants", "Carriers", "Connections & health", "Website", "Change history"],
   );
 });
 
-test("Admin and Manager do not see Owner sections; the Owner sees all ten", () => {
+test("Admin and Manager do not see Owner sections; the Owner sees all nine", () => {
   assert.deepEqual(
     setupSectionsFor("admin").map((section) => section.key),
-    ["lead-sources", "lead-costs", "people", "merchants", "carriers", "sheet-ingestion", "changes"],
+    ["lead-sources", "lead-costs", "people", "merchants", "carriers", "changes"],
   );
-  assert.equal(setupSectionsFor("owner").length, 10);
-  assert.equal(setupSectionsFor(null).length, 7);
+  assert.equal(setupSectionsFor("owner").length, 9);
+  assert.equal(setupSectionsFor(null).length, 6);
   assert.equal(canOpenSetupSection("admin", "connections"), false);
   assert.equal(canOpenSetupSection("admin", "website"), false);
   assert.equal(canOpenSetupSection("admin", "people"), true);

@@ -3,7 +3,7 @@ import test from "node:test";
 import type { InsightsSeriesPoint } from "@/lib/api/insights";
 import { alignSeries, isEmptySeries, scorecardSparkline, seriesTotal } from "./series";
 
-const point = (day: string, patch: Partial<InsightsSeriesPoint> = {}): InsightsSeriesPoint => ({ day, leads: 0, bookings: 0, spend: 0, binder: 0, deposits: 0, cancellations: 0, ...patch });
+const point = (day: string, patch: Partial<InsightsSeriesPoint> = {}): InsightsSeriesPoint => ({ day, leads: 0, duplicates: 0, bad_calls: 0, bookings: 0, spend: 0, binder: 0, deposits: 0, cancellations: 0, ...patch });
 
 const current = [point("2026-09-07", { leads: 10, bookings: 2, spend: 1000 }), point("2026-09-08", { leads: 5, bookings: 0, spend: 500 })];
 const comparison = [point("2026-08-08", { leads: 8, bookings: 1, spend: 800 })];

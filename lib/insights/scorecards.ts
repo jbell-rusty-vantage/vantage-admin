@@ -11,7 +11,7 @@ const spec = (key: InsightsScorecardKey, label: string, definitionKey: string, f
 
 /** Two rows of four: volume and money, then cost and quality. */
 export const PRIMARY_SCORECARDS: readonly ScorecardSpec[] = [
-  spec("leads", "Leads", "lead", "Form and call leads that arrived in the period, New York time. Duplicates are counted separately."),
+  spec("leads", "Leads", "lead", "Billable Form and qualified Call Leads that arrived in the period, New York time. Duplicates and Bad Call Leads are counted separately."),
   spec("bookings", "Bookings", "booking", "Bookings whose book date falls in the period."),
   spec("booking_rate", "Booking rate", "booking_rate", "Bookings in the period ÷ leads in the period."),
   spec("binder", "Binder", "binder", "Binder revenue of the bookings made in the period."),
@@ -22,10 +22,11 @@ export const PRIMARY_SCORECARDS: readonly ScorecardSpec[] = [
 ];
 
 export const SECONDARY_SCORECARDS: readonly ScorecardSpec[] = [
-  spec("cost_per_lead", "Cost per lead", "cost_per_lead", "Lead spend ÷ leads."),
+  spec("cost_per_lead", "Cost per lead", "cost_per_lead", "Lead spend ÷ billable leads, excluding duplicates and Bad Call Leads."),
   spec("return_on_spend", "Return on spend", "return_on_spend", "Binder of the bookings from the period's leads ÷ the spend on those leads."),
   spec("average_binder", "Average binder", "average_binder", "Binder ÷ bookings."),
-  spec("duplicates", "Duplicates", "duplicates", "Leads that repeated an earlier lead. They cost $0 and are not counted as leads."),
+  spec("duplicates", "Duplicates", "duplicates", "Server-classified duplicates, counted separately at no charge."),
+  spec("bad_calls", "Bad Call Leads", "bad_calls", "Qualified Call Leads classified as bad by the server. They cost $0 and are excluded from billable lead counts."),
 ];
 
 export function definitionFor(spec: Pick<ScorecardSpec, "definitionKey" | "fallback">, definitions: Record<string, string> | undefined): string {

@@ -147,8 +147,8 @@ test("money math: per-unit never divides by zero; totals sum the source rows", (
   assert.equal(perUnit(null, 4), null);
   assert.equal(perUnit(100, 4), 25);
   const rows: MoneySpendSourceRow[] = [
-    { source_company: "a", source_company_label: "A", leads: 14, duplicates: 2, rate_label: "$205.00", spend: 2_870, booked: 1, cost_per_booked: 2_870, unpriced: 0 },
-    { source_company: "b", source_company_label: "B", leads: 3, duplicates: 0, rate_label: null, spend: 0, booked: 0, cost_per_booked: null, unpriced: 3 },
+    { source_company: "a", source_company_label: "A", leads: 14, duplicates: 2, bad_calls: 0, rate_label: "$205.00", spend: 2_870, booked: 1, cost_per_booked: 2_870, unpriced: 0 },
+    { source_company: "b", source_company_label: "B", leads: 3, duplicates: 0, bad_calls: 0, rate_label: null, spend: 0, booked: 0, cost_per_booked: null, unpriced: 3 },
   ];
   assert.deepEqual(sourceTotals(rows), { leads: 17, duplicates: 2, spend: 2_870, booked: 1, unpriced: 3, costPerBooked: 2_870 });
   assert.equal(rateText(rows[0], "missing"), "$205.00");

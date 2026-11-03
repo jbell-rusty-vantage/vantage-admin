@@ -108,67 +108,17 @@ export function fetchBestRelocationConnection(): Promise<IngestionConnection> {
   return request("connections/best-relocation");
 }
 
-export function updateBestRelocationConnection(input: {
-  application_enabled?: boolean;
-  cadence_hours?: 24 | 48;
-}): Promise<IngestionConnection> {
-  return request("connections/best-relocation", {
-    method: "PATCH",
-    body: JSON.stringify(input),
-  });
-}
 
-export function inspectBestRelocation(): Promise<IngestionInspection> {
-  return request("connections/best-relocation/inspect", {
-    method: "POST",
-    body: JSON.stringify({ repair_identity: false }),
-  });
-}
 
-export function previewBestRelocation(
-  bootstrap = false,
-): Promise<{ run_id: string; status: string; approval_required: boolean }> {
-  return request("connections/best-relocation/preview", {
-    method: "POST",
-    body: JSON.stringify({ bootstrap }),
-  });
-}
 
-export function approveBestRelocationRun(input: {
-  run_id: string;
-  plan_checksum: string;
-}): Promise<{ run_id: string; status: string }> {
-  return request("connections/best-relocation/run", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-}
 
 export function fetchIngestionRuns(): Promise<IngestionRun[]> {
   return request("runs?limit=50").then((data) => asIngestionList<IngestionRun>(data));
 }
 
-export function retryIngestionRun(
-  runId: string,
-): Promise<{ run_id: string; status: string }> {
-  return request(`runs/${encodeURIComponent(runId)}/retry`, {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
-}
 
 export function fetchIngestionConflicts(): Promise<IngestionConflict[]> {
   return request("conflicts?status=open").then((data) =>
     asIngestionList<IngestionConflict>(data),
   );
-}
-
-export function dismissIngestionConflict(
-  conflictId: string,
-  note: string,
-): Promise<IngestionConflict> {
-  return request(`conflicts/${encodeURIComponent(conflictId)}/resolve`, {
-    method: "POST",
-    body: JSON.stringify({ disposition: "dismiss", note }),
-  });
 }

@@ -7,6 +7,8 @@ import { MoneyFallback, MoneyLive } from "../components/today/money-tab";
 import { PulseView, type PulseViewProps } from "../components/today/pulse-view";
 import { TeamSummaryView } from "../components/today/team-tab";
 import { TodayChrome, todaySubtitle } from "../components/today/today-page";
+import { LeadSpendCounts } from "../components/daily/lead-spend-panel";
+import { SECONDARY_SCORECARDS } from "../lib/insights/scorecards";
 import type { OverviewReportResponse } from "../lib/api/admin";
 import type { DailyOperationsSnapshot } from "../lib/api/dailyOperations";
 import type { DailyOperationsEventItem } from "../lib/api/dailyOperationsLive";
@@ -17,6 +19,17 @@ import type { SalesOutreachTeamDto } from "../lib/api/salesOutreach";
 import { emptySnapshot } from "./today-fixtures";
 
 const NOW = Date.parse("2026-10-05T18:41:00.000Z");
+
+test("server-owned bad-call counts are visible separately from billable leads and free duplicates", () => {
+  const markup = renderToStaticMarkup(createElement(LeadSpendCounts, { leads: { today: 14, yesterday_by_now: 9, duplicates_today: 2, bad_calls_today: 3, unpriced_today: 0 } }));
+  assert.match(markup, /14 billable leads today/);
+  assert.match(markup, /2 duplicates \(free\)/);
+  assert.match(markup, /3 Bad Call Leads \(free\)/);
+  const badCalls = SECONDARY_SCORECARDS.find((card) => card.key === "bad_calls");
+  assert.equal(badCalls?.label, "Bad Call Leads");
+  assert.equal(badCalls?.definitionKey, "bad_calls");
+  assert.match(badCalls?.fallback ?? "", /classified as bad by the server/);
+});
 
 const snapshot: DailyOperationsSnapshot = {
   ...emptySnapshot,
@@ -287,10 +300,10 @@ test("Money live: header cards, source table with missing rate, rep table with m
   const data: MoneySpendResponse = {
     range: "today",
     generated_at: "2026-10-05T18:41:00.000Z",
-    totals: { lead_spend: 5_120, cost_per_lead: 125, cost_per_booked_lead: 1_280, rep_cost_per_lead: 38, unpriced: 3 },
+    totals: { leads: 17, duplicates: 2, bad_calls: 0, lead_spend: 5_120, cost_per_lead: 125, cost_per_booked_lead: 1_280, rep_cost_per_lead: 38, unpriced: 3 },
     by_source_company: [
-      { source_company: "top10", source_company_label: "Top10 Forms", leads: 14, duplicates: 2, rate_label: "$205.00", spend: 2_870, booked: 1, cost_per_booked: 2_870, unpriced: 0 },
-      { source_company: "paid", source_company_label: "Paid Overflow", leads: 3, duplicates: 0, rate_label: null, spend: 0, booked: 0, cost_per_booked: null, unpriced: 3 },
+      { source_company: "top10", source_company_label: "Top10 Forms", leads: 14, duplicates: 2, bad_calls: 0, rate_label: "$205.00", spend: 2_870, booked: 1, cost_per_booked: 2_870, unpriced: 0 },
+      { source_company: "paid", source_company_label: "Paid Overflow", leads: 3, duplicates: 0, bad_calls: 0, rate_label: null, spend: 0, booked: 0, cost_per_booked: null, unpriced: 3 },
     ],
     by_rep: [
       { agent_id: "a1", agent_name: "Alex", leads_received: 12, calls: 64, booked: 1, rep_cost: 240, cost_per_lead: 20, cost_per_booked: 240, compensation_missing: false },

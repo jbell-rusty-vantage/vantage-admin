@@ -77,6 +77,8 @@ export type InsightsSeriesPoint = {
   /** First day of the bucket. */
   day: string;
   leads: number;
+  duplicates: number;
+  bad_calls: number;
   bookings: number;
   spend: number;
   binder: number;
@@ -106,6 +108,7 @@ export type InsightsScorecardKey =
   | "cancellation_rate"
   | "cost_per_lead"
   | "duplicates"
+  | "bad_calls"
   | "return_on_spend"
   | "average_binder";
 
@@ -235,6 +238,7 @@ export type InsightsAllocationRep = {
   active: boolean | null;
   leads: number;
   duplicates: number;
+  bad_calls: number;
   spend: number;
   share_of_spend: number | null;
   booked: number;
@@ -249,7 +253,7 @@ export type InsightsAllocationReport = {
   generated_at: string;
   period: InsightsPeriod;
   comparison: InsightsComparison | null;
-  totals: { leads: number; spend: number; assigned_spend: number; unassigned_spend: number; unpriced_leads: number };
+  totals: { leads: number; duplicates: number; bad_calls: number; spend: number; assigned_spend: number; unassigned_spend: number; unpriced_leads: number };
   companies: Array<{ key: string; label: string; spend: number }>;
   reps: InsightsAllocationRep[];
 };
@@ -260,7 +264,7 @@ export type InsightsLeadSpendDay = {
   /** New York hour now (0–23). */
   now_hour: number;
   spend: { today: number; yesterday: number; yesterday_by_now: number; day_before: number; day_before_by_now: number };
-  leads: { today: number; yesterday_by_now: number; duplicates_today: number; unpriced_today: number };
+  leads: { today: number; yesterday_by_now: number; duplicates_today: number; bad_calls_today: number; unpriced_today: number };
   /** Cumulative-ready hourly spend for today and yesterday (24 entries each). */
   hourly: { today: number[]; yesterday: number[] };
   by_company: Array<{ key: string; label: string; leads: number; spend: number; cpl_label: string | null }>;

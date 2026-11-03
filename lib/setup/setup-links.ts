@@ -13,7 +13,6 @@ export const SETUP_ROUTES = {
   merchants: "/setup/merchants",
   carriers: "/setup/carriers",
   connections: "/setup/connections",
-  sheetIngestion: "/setup/sheet-ingestion",
   website: "/setup/website",
   changes: "/setup/changes",
 } as const;
