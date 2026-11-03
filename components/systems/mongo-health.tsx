@@ -4,7 +4,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Database, RefreshCw, Search, ShieldCheck, ChevronRight } from 'lucide-react';
 import { fetchMongoCollections, fetchMongoSummary, mongoHealthKeys } from '@/lib/api/mongoHealth';
 import type { MongoCollection, MongoSummary } from '@/lib/mongo-health';
+import { queryKeys } from '@/lib/query/keys';
 import { MongoIndexDetails } from './mongo-index-details';
+import { DatabaseProjection } from './database-projection';
 
 export function formatBytes(n: number | null | undefined) {
   if (n == null) return 'Unavailable';
@@ -52,13 +54,17 @@ export function MongoHealth() {
   const [search, setSearch] = useState('');
   const rows = collections.data?.collections.filter(c => c.name.toLowerCase().includes(search.trim().toLowerCase())) ?? [];
   const fetching = summary.isFetching || collections.isFetching;
-  const refresh = () => void client.invalidateQueries({ queryKey: mongoHealthKeys.all });
+  const refresh = () => {
+    void client.invalidateQueries({ queryKey: mongoHealthKeys.all });
+    void client.invalidateQueries({ queryKey: queryKeys.systems.capacity() });
+  };
   const stale = summary.data && (summary.isError || summary.dataUpdatedAt - Date.parse(summary.data.sampledAt) > 120_000);
   return <section className="mh-panel crm-card" aria-labelledby="mongo-health-title" data-testid="mongo-health">
     <header className="mh-header"><div className="mh-title"><div className="mh-icon"><Database aria-hidden="true" size={23} /></div><div><h2 id="mongo-health-title">Database (MongoDB Atlas)</h2><p>Live database and collection readings from Operations</p></div></div><button type="button" className="crm-button sy-action" onClick={refresh} disabled={fetching}><RefreshCw size={15} aria-hidden="true" className={fetching ? 'sy-spin' : ''} />{fetching ? 'Checking…' : 'Check again'}</button></header>
     <div className="mh-meta"><span className="mh-badge"><ShieldCheck size={13} aria-hidden="true" />Read only</span><span>{summary.data?.database ?? 'MongoDB'}{summary.data ? ` · ${stale ? 'Last successful reading' : 'Checked'} ${sampled(summary.data.sampledAt)}` : ''}</span><span>Summary cached 1 min · collections 5 min</span></div>
     {summary.isPending ? <p className="mh-loading" role="status">Checking replica members, storage and connections…</p> : summary.data ? <MongoSummaryCards data={summary.data} /> : null}
     {summary.isError ? <p className="mh-error" role="alert">{summary.error.message}{summary.data ? ' The last successful reading is shown above.' : ''}</p> : null}
+    <DatabaseProjection />
     <div className="mh-inventory"><div className="mh-inventory-head"><div><h3>Collections</h3><p>{collections.data ? `${collections.data.available} of ${collections.data.total} storage readings available · checked ${sampled(collections.data.sampledAt)}` : 'Reading the collection inventory…'}</p></div><label className="mh-search"><Search size={16} aria-hidden="true" /><span className="sr-only">Search collections</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Find a collection…" /></label></div>
     {collections.isError ? <p className="mh-error" role="alert">{collections.error.message}{collections.data ? ' Showing the last successful inventory.' : ''}</p> : null}
     {collections.isPending ? <p className="mh-loading" role="status">Reading collection metadata. The first check may take a few seconds…</p> : collections.data ? <><div className="mh-table-scroll"><table className="mh-table"><caption className="sr-only">Collections ordered by allocated data plus index size, largest first</caption><thead><tr><th scope="col">Collection</th><th scope="col">Documents ≈</th><th scope="col">Allocated data</th><th scope="col">Index size</th><th scope="col">Reusable data</th><th scope="col">Indexes</th></tr></thead><tbody>{rows.map(row => <CollectionRow key={row.name} row={row} />)}</tbody></table></div>{rows.length === 0 ? <p className="mh-loading">No collections match your search.</p> : null}<p className="mh-footnote">Largest allocated collections first. Expand a collection for latency and index details. Counts are metadata estimates; no customer documents are read.</p></> : null}</div>

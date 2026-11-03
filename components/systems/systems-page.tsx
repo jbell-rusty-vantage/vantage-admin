@@ -10,12 +10,14 @@ import { Database, MapPin, RefreshCw } from "lucide-react";
 import { PageHeader, ReadFailure, SkeletonLine, Tabs } from "@/components/ui/crm/primitives";
 import { fetchSystemsCapacity, fetchSystemsLocations, patchSystemsLocations, type SystemsCapacity, type SystemsLocations } from "@/lib/api/systems";
 import { queryKeys } from "@/lib/query/keys";
+import { mongoHealthKeys } from '@/lib/api/mongoHealth';
 import { SETUP_ROUTES } from "@/lib/setup/setup-links";
 import { CapacityCard } from "./capacity-card";
 import { LocationsList } from "./locations-list";
 import { checkedTime, sheetCardView } from "./systems-model";
 import { SYSTEMS_COPY as copy } from "./systems-copy";
 import { MongoHealth } from './mongo-health';
+import { DatabaseStorageCard } from './database-projection';
 
 function Skeletons({ label }: { label: string }) {
   return (
@@ -57,6 +59,7 @@ function SystemLocations() {
       queryClient.setQueryData(queryKeys.systems.capacity(), data);
       setThrottled(!data.refreshed);
       void locations.refetch();
+      void queryClient.invalidateQueries({ queryKey: mongoHealthKeys.summary });
     },
   });
   const save = useMutation({
@@ -113,6 +116,7 @@ function SystemLocations() {
         />
       )}
 
+      <DatabaseStorageCard />
       {capacity.isPending ? (
         <Skeletons label={copy.capacity.title} />
       ) : capacity.isError ? (

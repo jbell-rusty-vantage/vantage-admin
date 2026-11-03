@@ -121,7 +121,7 @@ test("Master Booked: healthy, more than 15 years, and the last cancellation row"
   assert.deepEqual(view.foot, ["Last cancellation row: Aug 20"]);
 });
 
-test("locations capacity shows only Master Sheets; database state belongs to live Mongo Health", () => {
+test("Reporting Sheets capacity excludes the legacy database card", () => {
   const markup = renderToStaticMarkup(createElement(CapacitySection, { capacity, now: NOW }));
   assert.doesNotMatch(markup, /systems-capacity-database|Database \(MongoDB Atlas\)|Time until 90% full/);
   assert.match(markup, /data-testid="systems-capacity-master-leads"[^>]*data-colour="green"/);

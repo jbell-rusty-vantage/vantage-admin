@@ -5,6 +5,34 @@
   gap: 22px;
 }
 
+.sy-projection {
+  padding: 16px 18px;
+  border: 1px solid var(--crm-divider);
+  border-radius: 12px;
+  background: var(--crm-blue-50);
+  display: grid;
+  gap: 8px;
+}
+
+.sy-projection h3 {
+  margin: 0;
+  color: var(--crm-ink);
+  font-size: 14px;
+}
+
+.sy-projection__statement,
+.sy-projection__usage {
+  margin: 0;
+  color: var(--crm-text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.sy-card__title svg {
+  display: inline;
+  vertical-align: -3px;
+}
+
 .sy-section {
   display: flex;
   flex-direction: column;
