@@ -8,10 +8,8 @@ import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import {
-  createCallLead,
   createFormLead,
   getRecordId,
-  type CreateFormLeadResult,
 } from "@/lib/api/admin";
 import { fetchLeadSourceCompanies } from "@/lib/api/sourceCompanies";
 import { MOVE_SIZE_OPTIONS } from "@/lib/constants/domain";
@@ -19,7 +17,6 @@ import { queryKeys } from "@/lib/query/keys";
 import { MANUAL_COPY } from "./manual-copy";
 import {
   buildManualCreateLeadPayload,
-  channelForLeadKind,
   createdLeadRecordHref,
   defaultSourceChoice,
   emptyManualCreateLeadDraft,
@@ -27,7 +24,6 @@ import {
   sourceChoicesForChannel,
   validateManualCreateLeadDraft,
   type ManualCreateLeadDraft,
-  type ManualLeadKind,
 } from "./manual-create-lead";
 
 type FormMessage = {
@@ -48,8 +44,8 @@ export function CreateLeadForm() {
     staleTime: 5 * 60 * 1000,
   });
   const sourceChoices = useMemo(
-    () => sourceChoicesForChannel(sourceCompaniesQuery.data, channelForLeadKind(draft.kind)),
-    [sourceCompaniesQuery.data, draft.kind],
+    () => sourceChoicesForChannel(sourceCompaniesQuery.data, "form"),
+    [sourceCompaniesQuery.data],
   );
 
   useEffect(() => {
@@ -66,33 +62,24 @@ export function CreateLeadForm() {
   const mutation = useMutation({
     mutationFn: async () => {
       const payload = buildManualCreateLeadPayload(draft);
-      if (draft.kind === "FormLead") {
-        return { kind: draft.kind, result: await createFormLead(payload) };
-      }
-      return { kind: draft.kind, result: await createCallLead(payload) };
+      return createFormLead(payload);
     },
-    onSuccess: async ({ kind, result }) => {
+    onSuccess: async (result) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.lists.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.details.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.search.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all }),
       ]);
-      const leadId =
-        kind === "FormLead"
-          ? getRecordId((result as CreateFormLeadResult).lead)
-          : getRecordId(result);
-      const duplicate =
-        kind === "FormLead" && (result as CreateFormLeadResult).lead.duplicate === true;
-      setDraft(emptyManualCreateLeadDraft(kind));
+      const leadId = getRecordId(result.lead);
+      const duplicate = result.lead.duplicate === true;
+      setDraft(emptyManualCreateLeadDraft());
       setMessage({
         tone: duplicate ? "warning" : "success",
         text: duplicate
           ? `${MANUAL_COPY.successForm} ${MANUAL_COPY.duplicateNotice}`
-          : kind === "FormLead"
-            ? MANUAL_COPY.successForm
-            : MANUAL_COPY.successCall,
-        href: leadId ? createdLeadRecordHref(kind, leadId) : undefined,
+          : MANUAL_COPY.successForm,
+        href: leadId ? createdLeadRecordHref("FormLead", leadId) : undefined,
       });
     },
     onError: (error) =>
@@ -105,18 +92,6 @@ export function CreateLeadForm() {
   function patch(next: Partial<ManualCreateLeadDraft>) {
     setDraft((current) => ({ ...current, ...next }));
     setMessage(null);
-  }
-
-  function handleKindChange(value: string) {
-    const kind: ManualLeadKind = value === "CallLead" ? "CallLead" : "FormLead";
-    const nextChoices = sourceChoicesForChannel(sourceCompaniesQuery.data, channelForLeadKind(kind));
-    const nextChoice = defaultSourceChoice(nextChoices);
-    patch({
-      kind,
-      source_company: nextChoice?.source_company ?? "",
-      source_granularity_key: nextChoice?.source_granularity_key ?? "",
-      post_to_granot: kind === "FormLead" ? draft.post_to_granot : false,
-    });
   }
 
   function handleSourceChoiceChange(value: string) {
@@ -165,16 +140,6 @@ export function CreateLeadForm() {
         </FeedbackMessage>
       ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
-        <FilterField label={MANUAL_COPY.kindLabel}>
-          <select
-            value={draft.kind}
-            onChange={(event) => handleKindChange(event.target.value)}
-            className={SELECT_CLASS}
-          >
-            <option value="FormLead">{MANUAL_COPY.formLead}</option>
-            <option value="CallLead">{MANUAL_COPY.callLead}</option>
-          </select>
-        </FilterField>
         <FilterField label={MANUAL_COPY.sourceCompany}>
           <select
             value={draft.source_granularity_key}
@@ -201,7 +166,7 @@ export function CreateLeadForm() {
             type="tel"
             value={draft.phone_number}
             onChange={(event) => patch({ phone_number: event.target.value })}
-            required={draft.kind === "FormLead"}
+            required
           />
         </FilterField>
         <FilterField label={MANUAL_COPY.email}>
@@ -211,12 +176,6 @@ export function CreateLeadForm() {
             onChange={(event) => patch({ email: event.target.value })}
           />
         </FilterField>
-        {draft.kind === "CallLead" ? (
-          <FilterField label={MANUAL_COPY.jobNumber}>
-            <Input value={draft.job_no} onChange={(event) => patch({ job_no: event.target.value })} />
-          </FilterField>
-        ) : (
-          <>
             <FilterField label={MANUAL_COPY.pickupZip}>
               <Input
                 inputMode="numeric"
@@ -271,8 +230,6 @@ export function CreateLeadForm() {
                 </span>
               </span>
             </label>
-          </>
-        )}
         <label className="flex items-start gap-2 text-sm sm:col-span-2">
           <input
             type="checkbox"
@@ -289,13 +246,7 @@ export function CreateLeadForm() {
         </label>
       </div>
       <Button type="submit" disabled={mutation.isPending}>
-        {mutation.isPending
-          ? draft.kind === "CallLead"
-            ? MANUAL_COPY.creatingCall
-            : MANUAL_COPY.creatingForm
-          : draft.kind === "CallLead"
-            ? MANUAL_COPY.createCall
-            : MANUAL_COPY.createForm}
+        {mutation.isPending ? MANUAL_COPY.creatingForm : MANUAL_COPY.createForm}
       </Button>
     </form>
   );

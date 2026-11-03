@@ -3,7 +3,7 @@ import type { LeadSourceChannel, LeadSourceCompany, LeadSourceGranularity } from
 export type ManualLeadKind = "FormLead" | "CallLead";
 
 export type ManualCreateLeadDraft = {
-  kind: ManualLeadKind;
+  kind: "FormLead";
   source_company: string;
   source_granularity_key: string;
   name: string;
@@ -36,7 +36,7 @@ export type ManualLeadSearchDraft = {
 
 export type ManualLeadSearchResource = "form-leads" | "call-leads";
 
-export const emptyManualCreateLeadDraft = (kind: ManualLeadKind = "FormLead"): ManualCreateLeadDraft => ({
+export const emptyManualCreateLeadDraft = (kind: "FormLead" = "FormLead"): ManualCreateLeadDraft => ({
   kind,
   source_company: "",
   source_granularity_key: "",
@@ -119,17 +119,10 @@ export function validateManualCreateLeadDraft(draft: ManualCreateLeadDraft): str
   }
   if (!trim(draft.name)) missing.push("name");
 
-  if (draft.kind === "FormLead") {
-    if (!trim(draft.phone_number)) missing.push("phone");
-    if (!ZIP.test(trim(draft.pickup_zip))) missing.push("pickup zip");
-    if (!ZIP.test(trim(draft.destination_zip))) missing.push("delivery zip");
-    if (!trim(draft.move_size)) missing.push("move size");
-    return missing;
-  }
-
-  if (!trim(draft.phone_number) && !trim(draft.job_no)) {
-    missing.push("phone or job number");
-  }
+  if (!trim(draft.phone_number)) missing.push("phone");
+  if (!ZIP.test(trim(draft.pickup_zip))) missing.push("pickup zip");
+  if (!ZIP.test(trim(draft.destination_zip))) missing.push("delivery zip");
+  if (!trim(draft.move_size)) missing.push("move size");
   return missing;
 }
 
@@ -148,8 +141,7 @@ export function buildManualCreateLeadPayload(draft: ManualCreateLeadDraft): Reco
 
   const optInToMasterLeads = draft.hide_from_master_leads === false ? { no_sync: false } : {};
 
-  if (draft.kind === "FormLead") {
-    return {
+  return {
       ...source,
       phone_number: trim(draft.phone_number),
       pickup_zip: trim(draft.pickup_zip),
@@ -158,14 +150,6 @@ export function buildManualCreateLeadPayload(draft: ManualCreateLeadDraft): Reco
       move_date: optionalField(draft.move_date),
       post_to_granot: draft.post_to_granot,
       ...optInToMasterLeads,
-    };
-  }
-
-  return {
-    ...source,
-    phone_number: optionalField(draft.phone_number),
-    job_no: optionalField(draft.job_no),
-    ...optInToMasterLeads,
   };
 }
 

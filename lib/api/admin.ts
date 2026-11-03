@@ -348,13 +348,6 @@ export async function createFormLead(body: Record<string, unknown>): Promise<Cre
   });
 }
 
-export async function createCallLead(body: Record<string, unknown>): Promise<AdminRecord> {
-  return requestJson<AdminRecord>(proxyUrl("api/v1/call-leads"), {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-}
-
 export type OwnerBookingCreateResult = {
   booking?: unknown;
   message?: string;
@@ -480,7 +473,7 @@ export type SheetContainsItem = {
   expected_tabs: string[];
   missing_expected_tabs: string[];
   found: SheetContainsLocation[];
-  reason?: "created_on_unmatched" | "missing_from_mongo" | "no_sync";
+  reason?: "missing_call_qualification" | "created_on_unmatched" | "missing_from_mongo" | "no_sync";
   sheet_sync_hint: Array<{
     target: string;
     tab_name: string;

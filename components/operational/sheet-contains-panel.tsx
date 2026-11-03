@@ -69,6 +69,9 @@ function SheetContainsResultCard({ item }: { item: SheetContainsItem }) {
         </p>
       ) : null}
 
+      {item.reason === "missing_call_qualification" ? (
+        <p className="mt-2 text-sm">No saved RingCentral queue qualification; no Calls row is expected.</p>
+      ) : null}
       {item.reason === "created_on_unmatched" ? (
         <p className="mt-2 text-sm">{copy.unmatchedCall}</p>
       ) : null}

@@ -130,7 +130,7 @@ export function buildSetupCommand(state: SetupWizardState): LeadSourceSetupComma
     crm_label: state.crm_label.trim(),
     move_type: state.channel === "form" && state.splitMoveTypes ? "local" : undefined,
     granot: granotInAtomic(state)
-      ? { name_received_from_granot: state.granotName.trim(), when_lead_arrives: state.when_lead_arrives }
+      ? { name_received_from_granot: state.granotName.trim(), when_lead_arrives: state.channel === "call" && state.when_lead_arrives === "create_if_missing" ? "existing_only" : state.when_lead_arrives }
       : null,
     reason: state.reason.trim(),
   };
@@ -208,7 +208,7 @@ export async function commitSetup(
         handling: "our_lead_source",
         lead_source_id: leadSource.id,
         destination: { kind: "form_by_move_type", local_feed_id: feed.id, long_distance_feed_id: progress.longFeed.id },
-        when_lead_arrives: state.when_lead_arrives,
+        when_lead_arrives: state.channel === "call" && state.when_lead_arrives === "create_if_missing" ? "existing_only" : state.when_lead_arrives,
         reason,
       });
       progress.splitGranotDone = true;

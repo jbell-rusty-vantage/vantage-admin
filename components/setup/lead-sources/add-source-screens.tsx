@@ -180,7 +180,7 @@ export function SetupStepHowLeadsArrive({ state, onChange }: ScreenProps) {
 export function SetupStepGranotName({ state, onChange }: ScreenProps) {
   const normalized = normalizeNameReceivedFromGranot(state.granotName);
   const changed = Boolean(state.granotName.trim()) && normalized !== state.granotName.trim().toLowerCase();
-  const arrivals: GranotArrivalValue[] = ["existing_only", "create_if_missing", "watch_only"];
+  const arrivals: GranotArrivalValue[] = state.channel === "call" ? ["existing_only", "watch_only"] : ["existing_only", "create_if_missing", "watch_only"];
   const split = state.channel === "form" && state.splitMoveTypes;
   return (
     <SheetBlock id="ls-add-3" title={COPY.q3}>

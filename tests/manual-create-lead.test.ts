@@ -79,11 +79,11 @@ test("Manual copy uses owner words and never names create internals", () => {
   for (const word of forbidden) {
     assert.equal(blob.includes(word), false, word);
   }
-  assert.match(MANUAL_COPY.createTitle, /Create a Lead/);
+  assert.match(MANUAL_COPY.createTitle, /Create a Form Lead/);
   assert.match(MANUAL_COPY.connectTitle, /Connect Booking to Lead/);
-  assert.match(MANUAL_COPY.createTab, /Create a Lead/);
+  assert.match(MANUAL_COPY.createTab, /Create a Form Lead/);
   assert.match(MANUAL_COPY.attachTab, /Connect Booking to Lead/);
-  assert.match(MANUAL_COPY.sourceCompanyHint, /Top10 Inbounds/);
+  assert.match(MANUAL_COPY.sourceCompanyHint, /form feed/);
   assert.match(MANUAL_COPY.successForm, /Master Leads/);
   assert.doesNotMatch(MANUAL_COPY.successForm, /synced|already/i);
 });
@@ -136,38 +136,9 @@ test("Form Lead create requires contact, zips, move size, and Source Company str
   });
 });
 
-test("Call Lead create requires Source Company stream plus phone or job number", () => {
-  const draft = emptyManualCreateLeadDraft("CallLead");
-  assert.deepEqual(validateManualCreateLeadDraft(draft), [
-    "Source Company",
-    "name",
-    "phone or job number",
-  ]);
-
-  const ready = {
-    ...draft,
-    source_company: "top10_leads",
-    source_granularity_key: "top10_inbounds",
-    name: "Ada Lovelace",
-    job_no: "P5562014",
-    email: "  ",
-  };
-  assert.deepEqual(validateManualCreateLeadDraft(ready), []);
-  assert.deepEqual(buildManualCreateLeadPayload(ready), {
-    source_company: "top10_leads",
-    source_granularity_key: "top10_inbounds",
-    name: "Ada Lovelace",
-    email: undefined,
-    phone_number: undefined,
-    job_no: "P5562014",
-  });
-});
-
 test("Hide from Master Leads defaults checked and only sends no_sync when unchecked", () => {
   const formDraft = emptyManualCreateLeadDraft("FormLead");
-  const callDraft = emptyManualCreateLeadDraft("CallLead");
   assert.equal(formDraft.hide_from_master_leads, true);
-  assert.equal(callDraft.hide_from_master_leads, true);
 
   const formReady = {
     ...formDraft,
@@ -189,22 +160,7 @@ test("Hide from Master Leads defaults checked and only sends no_sync when unchec
   });
   assert.equal(formUnchecked.no_sync, false);
 
-  const callReady = {
-    ...callDraft,
-    source_company: "top10_leads",
-    source_granularity_key: "top10_inbounds",
-    name: "Ada Lovelace",
-    job_no: "P5562014",
-  };
-  const callChecked = buildManualCreateLeadPayload(callReady);
-  assert.equal("no_sync" in callChecked, false);
-  assert.notEqual(callChecked.no_sync, true);
 
-  const callUnchecked = buildManualCreateLeadPayload({
-    ...callReady,
-    hide_from_master_leads: false,
-  });
-  assert.equal(callUnchecked.no_sync, false);
 });
 
 test("Source Company options are the exact streams the Owner already knows", () => {

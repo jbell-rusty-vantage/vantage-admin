@@ -89,12 +89,7 @@ type LeadActionDraft = {
 };
 
 type CreateLeadForm = {
-  lead_model: BookingLeadModel;
   notes: string;
-  call_name: string;
-  call_phone_number: string;
-  call_email: string;
-  call_job_no: string;
   form_name: string;
   form_phone_number: string;
   form_email: string;
@@ -146,12 +141,7 @@ const initialQueueFilters: QueueFilters = {
 };
 
 const initialCreateLeadForm: CreateLeadForm = {
-  lead_model: "CallLead",
   notes: "",
-  call_name: "",
-  call_phone_number: "",
-  call_email: "",
-  call_job_no: "",
   form_name: "",
   form_phone_number: "",
   form_email: "",
@@ -593,25 +583,6 @@ export function BookingReconciliationDashboard() {
     if (!detail || detail.status !== "pending" || caseActionsDisabled) {
       return;
     }
-    if (createLeadForm.lead_model === "CallLead") {
-      resolveMutation.mutate({
-        caseId: detail._id,
-        command: {
-          action: "create_and_attach",
-          revision: detail.revision,
-          lead_model: "CallLead",
-          lead_fields: {
-            name: createLeadForm.call_name || undefined,
-            phone_number: createLeadForm.call_phone_number || undefined,
-            email: createLeadForm.call_email || undefined,
-            job_no: createLeadForm.call_job_no || undefined,
-          },
-          notes: createLeadForm.notes || undefined,
-        },
-      });
-      return;
-    }
-
     resolveMutation.mutate({
       caseId: detail._id,
       command: {
@@ -1678,81 +1649,12 @@ export function BookingReconciliationDashboard() {
 
               <Card className={detail.status !== "pending" ? "hidden" : undefined}>
                 <CardHeader>
-                  <CardTitle className="text-xl">Create and attach lead</CardTitle>
+                  <CardTitle className="text-xl">Create and attach Form Lead</CardTitle>
                   <CardDescription>
-                    Create a real production lead and attach it atomically from reconciliation.
+                    Create a Form Lead for this booking. For a Call Lead, choose an existing lead above.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Field label="Lead model" htmlFor="create-lead-model">
-                    <select
-                      id="create-lead-model"
-                      value={createLeadForm.lead_model}
-                      onChange={(event) =>
-                        setCreateLeadForm((current) => ({
-                          ...current,
-                          lead_model: event.target.value as BookingLeadModel,
-                        }))
-                      }
-                      className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
-                    >
-                      <option value="CallLead">Call Lead</option>
-                      <option value="FormLead">Form Lead</option>
-                    </select>
-                  </Field>
-
-                  {createLeadForm.lead_model === "CallLead" ? (
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <Field label="Name" htmlFor="create-call-name">
-                        <Input
-                          id="create-call-name"
-                          value={createLeadForm.call_name}
-                          onChange={(event) =>
-                            setCreateLeadForm((current) => ({
-                              ...current,
-                              call_name: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                      <Field label="Phone number" htmlFor="create-call-phone">
-                        <Input
-                          id="create-call-phone"
-                          value={createLeadForm.call_phone_number}
-                          onChange={(event) =>
-                            setCreateLeadForm((current) => ({
-                              ...current,
-                              call_phone_number: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                      <Field label="Email" htmlFor="create-call-email">
-                        <Input
-                          id="create-call-email"
-                          value={createLeadForm.call_email}
-                          onChange={(event) =>
-                            setCreateLeadForm((current) => ({
-                              ...current,
-                              call_email: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                      <Field label="Job number" htmlFor="create-call-job">
-                        <Input
-                          id="create-call-job"
-                          value={createLeadForm.call_job_no}
-                          onChange={(event) =>
-                            setCreateLeadForm((current) => ({
-                              ...current,
-                              call_job_no: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                    </div>
-                  ) : (
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       <Field label="Name" htmlFor="create-form-name">
                         <Input
@@ -1860,7 +1762,6 @@ export function BookingReconciliationDashboard() {
                         />
                       </Field>
                     </div>
-                  )}
 
                   <Field label="Notes" htmlFor="create-lead-notes">
                     <Textarea

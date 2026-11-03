@@ -306,7 +306,7 @@ export type BookingLeadResolveCommand =
   | {
       action: "create_and_attach";
       revision: number;
-      lead_model: BookingLeadModel;
+      lead_model: "FormLead";
       lead_fields: Record<string, unknown>;
       notes?: string;
     }

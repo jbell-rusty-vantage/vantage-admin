@@ -108,7 +108,7 @@ export function GranotNameEditor({
   const [longFeedId, setLongFeedId] = useState(
     source?.lifecycle_routes.find((route) => route.move_type === "long_distance")?.source_granularity_id ?? "",
   );
-  const [arrival, setArrival] = useState<GranotArrival>(initialArrival);
+  const [requestedArrival, setArrival] = useState<GranotArrival>(initialArrival);
   const [reason, setReason] = useState("");
   const [activationReason, setActivationReason] = useState("");
   const [textOnRequested, setTextOnRequested] = useState(source?.outbound_sms?.enabled === true);
@@ -118,6 +118,8 @@ export function GranotNameEditor({
   const companyFeeds = useMemo(() => feeds.filter((feed) => !leadSourceId || feed.source_company === leadSourceId), [feeds, leadSourceId]);
   const selectedCompany = companies.find((item) => item.id === leadSourceId || item._id === leadSourceId);
   const selectedFeed = companyFeeds.find((item) => item.id === feedId || item._id === feedId);
+  const callFeed = !revealMoveType && selectedFeed?.channel === "call";
+  const arrival = callFeed && requestedArrival === "create_if_missing" ? "existing_only" : requestedArrival;
   const leavingCreateIfMissing = initialArrival === "create_if_missing" && arrival !== "create_if_missing";
   const normalized = normalizeNameReceivedFromGranot(name);
   const normalizationChanged = Boolean(name.trim()) && normalized !== name.trim().toLowerCase();
@@ -194,7 +196,7 @@ export function GranotNameEditor({
     }
   }
 
-  const arrivalOptions: GranotArrivalValue[] = ["watch_only", "existing_only", "create_if_missing"];
+  const arrivalOptions: GranotArrivalValue[] = callFeed ? ["watch_only", "existing_only"] : ["watch_only", "existing_only", "create_if_missing"];
   const feedOptions = (filter?: (feed: SourceGranularityItem) => boolean) =>
     companyFeeds
       .filter((feed) => (filter ? filter(feed) : true))
