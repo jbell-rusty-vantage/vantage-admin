@@ -22,7 +22,7 @@ export const SETUP_COPY = {
     merchants: { label: "Merchants", purpose: "Merchants that take deposits." },
     carriers: { label: "Carriers", purpose: "Moving carriers for tariff work." },
     connections: { label: "Connections & health", purpose: "Granot · RingCentral · Google Sheets." },
-    website: { label: "Website", purpose: "Testimonials shown on the main site." },
+    website: { label: "Website", purpose: "Preview website copy, images and review selection." },
     changes: { label: "Change history", purpose: "Every change, who made it, before and after." },
   },
   badgeLabel: (n: number) => `${n} waiting`,

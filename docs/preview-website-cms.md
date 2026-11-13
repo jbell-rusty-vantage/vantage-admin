@@ -10,6 +10,8 @@ The Owner can edit the optimized Main Site preview from **Setup → Website**. T
 
 Unsaved edits survive section filters and tab switches. Saving uses an expected revision; a conflicting newer save is refused without discarding the local edit. Refresh/discard reloads the current server revision. Preview pages need a refresh after save. Page closure while edits remain triggers the browser's unsaved-change prompt.
 
+The installed catalog is presented as 40 logical website groups, with the homepage first and localized service names. Technical source-variable names are display-mapped without changing field identity or exact stored content. Four legacy manifest IDs are inventory-only keyboard constants and have no Owner edit controls: `text.ecf744d6189c940f` (`ArrowRight`), `text.91c1a43bc5577791` (`ArrowLeft`), `text.c42573a836deb67a` and `text.8a15b2620682f2bb` (both `Escape`). This is an exact-ID exclusion, not a word filter; real public copy using these words remains editable.
+
 ## Boundaries
 
 `app/api/site-preview-cms/[...path]/route.ts` obtains the current Mongo-backed Owner session. `server/site-preview/proxy.ts` constrains method/path/query, requires same-origin mutations, creates trusted signed headers and forwards to the fixed isolated API origin. Incoming browser cookies and actor headers are never forwarded. No operational database access or live-site mutation exists in this feature. Media responses accept only raster types with `nosniff`; network redirects are rejected. No browser-selected URL is fetched.

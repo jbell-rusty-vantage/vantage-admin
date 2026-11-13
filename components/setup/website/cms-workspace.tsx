@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CmsError, cmsRequest, type CmsSnapshot, type TestimonialPolicy } from "@/lib/api/sitePreviewCms";
-import { contentPlacement } from "@/lib/setup/website-content";
+import { compareContentSections, contentPlacement, isOwnerEditableField } from "@/lib/setup/website-content";
 import { CmsField } from "./cms-fields";
 import { CmsTestimonials } from "./cms-testimonials";
 import { CmsHistory } from "./cms-history";
@@ -44,14 +44,15 @@ function CmsEditor({ snapshot }: { snapshot: CmsSnapshot }) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
-  const catalog = snapshot.catalog.map(contentPlacement);
+  const catalog = snapshot.catalog.filter(isOwnerEditableField).map(contentPlacement);
   const imageFields = catalog.filter(field => field.kind === "image");
   const kind = tab === "Images" ? "image" : "text";
   const fieldsOfKind = catalog.filter(field => field.kind === kind);
-  const sections = [...new Set(fieldsOfKind.map(field => field.section))].sort();
+  const localizedFields = fieldsOfKind.filter(field => locale === "all" || field.locale === locale || field.locale === "shared");
+  const sections = [...new Set(localizedFields.map(field => field.section))].sort(compareContentSections);
   const needle = search.toLocaleLowerCase();
-  const matching = fieldsOfKind.filter(field => (locale === "all" || field.locale === locale || field.locale === "shared") && (section === "all" || field.section === section) && `${field.label} ${field.section} ${pending[field.key] ?? ""} ${snapshot.values[field.key] ?? field.defaultValue}`.toLocaleLowerCase().includes(needle));
-  const groups = [...new Set(matching.map(field => field.section))];
+  const matching = localizedFields.filter(field => (section === "all" || field.section === section) && `${field.label} ${field.section} ${pending[field.key] ?? ""} ${snapshot.values[field.key] ?? field.defaultValue}`.toLocaleLowerCase().includes(needle));
+  const groups = [...new Set(matching.map(field => field.section))].sort(compareContentSections);
   function edit(key: string, value: string | null) {
     const field = snapshot.catalog.find(item => item.key === key)!;
     const current = snapshot.values[key] ?? field.defaultValue;
@@ -89,7 +90,7 @@ function CmsEditor({ snapshot }: { snapshot: CmsSnapshot }) {
     }} className={tab === item ? "is-active" : undefined}>{item}</button>)}</div>
     <div id="cms-tab-panel" role="tabpanel" aria-labelledby={`cms-tab-${tab.replaceAll(" ", "-")}`}>
       {(tab === "Content" || tab === "Images") && <>
-        <div className="cms-filters"><label>Search<input className="su-input" placeholder="Find a heading, paragraph or section" value={search} onChange={event => setSearch(event.target.value)} /></label><label>Language<select className="su-input" value={locale} onChange={event => setLocale(event.target.value)}><option value="all">All languages</option><option value="en">English</option><option value="es">Español</option></select></label><label>Section<select className="su-input" value={section} onChange={event => setSection(event.target.value)}><option value="all">All sections</option>{sections.map(value => <option key={value} value={value}>{value}</option>)}</select></label></div>
+        <div className="cms-filters"><label>Search<input className="su-input" placeholder="Find a heading, paragraph or section" value={search} onChange={event => setSearch(event.target.value)} /></label><label>Language<select className="su-input" value={locale} onChange={event => { setLocale(event.target.value); setSection("all"); }}><option value="all">All languages</option><option value="en">English</option><option value="es">Español</option></select></label><label>Section<select className="su-input" value={section} onChange={event => setSection(event.target.value)}><option value="all">All sections</option>{sections.map(value => <option key={value} value={value}>{value}</option>)}</select></label></div>
         <p className="cms-count">{matching.length} {tab === "Images" ? "image placements" : "content fields"}{search || locale !== "all" || section !== "all" ? " match your filters" : " available"}. Shared fields update every placement that uses them.</p>
         {matching.length === 0 && <div className="cms-panel">No content matches these filters.</div>}
         {groups.map(group => <CmsGroup key={`${tab}:${group}:${search}:${locale}:${section}`} title={group} count={matching.filter(field => field.section === group).length} initiallyOpen={section !== "all" || Boolean(search) || groups.length === 1}><div className={tab === "Images" ? "cms-image-grid" : "cms-fields"}>{matching.filter(field => field.section === group).map(field => <CmsField key={field.key} field={field} value={Object.hasOwn(pending, field.key) ? pending[field.key] ?? field.defaultValue : snapshot.values[field.key] ?? field.defaultValue} changed={Object.hasOwn(pending, field.key)} disabled={busy} images={imageFields} onChange={value => edit(field.key, value)} />)}</div></CmsGroup>)}
