@@ -98,3 +98,16 @@ Systems → Mongo Health reuses these two server settings with a separate `mongo
 | `OUTREACH_DESK_MOCK` | unset | Local-only synthetic desk variants `desk` or `m1`; ignored on Vercel production. Never set in Vercel. |
 | `ADMIN_PUBLIC_BASE_URL` | unset | Trusted Admin public origin for invitation links. No origin means no invite link is generated. |
 
+### Preview website CMS
+
+`server/site-preview/environment.ts` reads these independently, so missing CMS configuration only disables the editor. They are server-only. The dedicated `/api/site-preview-cms/*` proxy accepts a current Owner session, signs actor identity using the preview key, and never forwards browser credentials to the API. Production operational settings are unchanged.
+
+| Name | Required | Purpose |
+| --- | --- | --- |
+| `SITE_PREVIEW_API_BASE_URL` | For CMS | Exactly `https://vantage-sites-preview-api.vercel.app`; development also permits HTTP localhost/127.0.0.1. No path, query, fragment or credentials. |
+| `SITE_PREVIEW_API_SECRET` | For CMS | Independent isolated API secret. |
+| `SITE_PREVIEW_API_PROTECTION_BYPASS` | When API protection is enabled | Isolated API automation bypass, never sent to browsers. |
+| `SITE_PREVIEW_ADMIN_SIGNING_SECRET` | For CMS | Independent key of at least 32 characters matching the isolated API's `VANTAGE_ADMIN_PROXY_SIGNING_SECRET`. |
+
+Configure these for Preview branch `agent/preview-site-cms` during qualification. The Admin preview workflow pulls branch-specific settings. After dashboard integration, the same independent CMS settings may be configured on Production Admin: the website editor still always targets the optimized preview, with no production-website toggle.
+
