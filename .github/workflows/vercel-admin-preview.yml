@@ -67,7 +67,7 @@ jobs:
       - name: Deploy prebuilt preview
         id: deploy
         run: |
-          url="$(vercel deploy --prebuilt --archive=tgz --token="$VERCEL_TOKEN")"
+          url="$(vercel deploy --prebuilt --archive=tgz --meta githubCommitRef="$VERCEL_GIT_COMMIT_REF" --token="$VERCEL_TOKEN")"
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "### Preview deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "$url" >> "$GITHUB_STEP_SUMMARY"
