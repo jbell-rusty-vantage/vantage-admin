@@ -6,7 +6,7 @@ import { CmsWorkspace } from "./cms-workspace";
 export function WebsiteSection() {
   return (
     <>
-      <SetupSectionHead section="website">Manage the optimized preview website.</SetupSectionHead>
+      <SetupSectionHead section="website">Manage shared content for both website previews.</SetupSectionHead>
       <CmsWorkspace />
     </>
   );

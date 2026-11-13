@@ -36,13 +36,13 @@ export async function verifyCmsUploadSaveRace(page: Page) {
   await page.getByRole("tab", { name: "Images", exact: true }).click();
   await page.locator('input[type="file"]').setInputFiles({ name: "fixture.png", mimeType: "image/png", buffer: image });
   await uploadStarted.promise;
-  await expect(page.getByRole("button", { name: "Save to preview", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save shared content", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Discard edits and reload" })).toBeDisabled();
   await page.getByRole("tab", { name: "Content", exact: true }).click(); // Unmount the uploading field.
   await expect(page.getByRole("status").filter({ hasText: "Uploading an image" })).toBeVisible();
   uploadRelease.release();
-  await expect(page.getByRole("button", { name: "Save to preview", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "Save to preview", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Save shared content", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Save shared content", exact: true }).click();
   await saveStarted.promise;
   expect(savedBody).toEqual({ expectedRevision: 1, values: { "text.fixture": "Changed heading", "image.fixture": "/api/site-content/media/aaaaaaaaaaaaaaaaaaaaaaaa" } });
   await expect(page.locator("textarea")).toBeDisabled();
@@ -51,7 +51,7 @@ export async function verifyCmsUploadSaveRace(page: Page) {
   await page.getByRole("tab", { name: "Images", exact: true }).click();
   await expect(page.locator('input[type="file"]')).toBeDisabled();
   saveRelease.release();
-  await expect(page.getByRole("status").filter({ hasText: "Saved to the preview" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Shared content saved for both preview designs" })).toBeVisible();
 
   // A failed upload must release the shared lock even after its field unmounts.
   uploadStarted = gate(); uploadRelease = gate(); failUpload = true;

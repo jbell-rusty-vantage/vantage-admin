@@ -7,6 +7,7 @@ import { CmsField } from "./cms-fields";
 import { CmsTestimonials } from "./cms-testimonials";
 import { CmsHistory } from "./cms-history";
 import { TestimonialsList } from "./testimonials-list";
+import { SHARED_PREVIEW_CONTENT, WEBSITE_PREVIEWS } from "@/lib/setup/website-previews";
 
 const tabs = ["Content", "Images", "Testimonials", "History", "Live review archive"] as const;
 type Tab = typeof tabs[number];
@@ -15,7 +16,7 @@ const snapshotKey = ["site-preview-cms", "snapshot"];
 export function CmsWorkspace() {
   const query = useQuery({ queryKey: snapshotKey, queryFn: () => cmsRequest<CmsSnapshot>(), staleTime: Infinity, retry: false });
   return <section className="cms-workspace" aria-label="Preview website content">
-    <div className="cms-preview-banner"><div><span className="cms-pill">Preview only</span><h3>Your website, in your words</h3><p>Manage the text, images and review selection on the optimized preview.</p></div><a className="cms-button" href="https://vantage-main-site-optimization.vercel.app/" target="_blank" rel="noreferrer">Open preview ↗</a></div>
+    <div className="cms-preview-banner"><div><span className="cms-pill">Preview only</span><h3>Your website, in your words</h3><p>{SHARED_PREVIEW_CONTENT}</p><p>The live website at vantagehomemovers.com is separate. Previews show saved content; refresh the preview after saving.</p></div><div className="cms-actions">{WEBSITE_PREVIEWS.map(preview => <a key={preview.id} className="cms-button" href={`${preview.origin}/`} target="_blank" rel="noopener noreferrer">{preview.label} ↗</a>)}</div></div>
     {query.isPending && <div className="cms-panel" role="status">Loading website content…</div>}
     {query.error && <div className="cms-panel" role="alert"><h3>Preview content is unavailable</h3><p>{query.error.message}</p><button className="cms-button" onClick={() => void query.refetch()}>Try again</button></div>}
     {query.error && <CmsGroup title="Live review archive · Read only" count={0} initiallyOpen={false}><TestimonialsList /></CmsGroup>}
@@ -82,14 +83,14 @@ function CmsEditor({ snapshot }: { snapshot: CmsSnapshot }) {
       const next = await cmsRequest<CmsSnapshot>();
       cache.setQueryData(snapshotKey, next);
       setPending({}); setPolicy(next.testimonialPolicy); setConflict(false);
-      setNotice(restoreRevision === undefined ? "Saved to the preview. Refresh the preview page to see your changes." : "Earlier content restored to the preview.");
+      setNotice(restoreRevision === undefined ? "Shared content saved for both preview designs. Refresh each preview to see your changes." : "Earlier shared content restored for both preview designs. Refresh each preview to see it.");
       await cache.invalidateQueries({ queryKey: ["site-preview-cms", "history"] });
       await cache.invalidateQueries({ queryKey: ["site-preview-cms", "testimonials"] });
     } catch (e) { setError(e instanceof CmsError && e.status === 409 ? "Someone saved a newer version. Your edits are still here. Copy any text you want to keep, then reload the latest version before saving again." : e instanceof Error ? e.message : "Could not save preview content."); setConflict(e instanceof CmsError && e.status === 409); }
     finally { setBusy(false); }
   }
   return <>
-    <div className="cms-savebar"><span>Revision {snapshot.revision}{uploadCount > 0 ? " · Image upload in progress" : dirty ? ` · Unsaved changes${Object.keys(pending).length ? ` in ${Object.keys(pending).length} fields` : ""}` : " · All changes saved"}</span><div className="cms-actions"><button type="button" className="cms-button" disabled={busy || uploadCount > 0} onClick={() => void reload()}>{dirty ? "Discard edits and reload" : "Refresh content"}</button><button type="button" className="cms-button cms-button--primary" disabled={!dirty || busy || conflict || uploadCount > 0} onClick={() => void save()}>{busy ? "Saving…" : "Save to preview"}</button></div></div>
+    <div className="cms-savebar"><span>Revision {snapshot.revision}{uploadCount > 0 ? " · Image upload in progress" : dirty ? ` · Unsaved changes${Object.keys(pending).length ? ` in ${Object.keys(pending).length} fields` : ""}` : " · All changes saved"}</span><div className="cms-actions"><button type="button" className="cms-button" disabled={busy || uploadCount > 0} onClick={() => void reload()}>{dirty ? "Discard edits and reload" : "Refresh content"}</button><button type="button" className="cms-button cms-button--primary" disabled={!dirty || busy || conflict || uploadCount > 0} onClick={() => void save()}>{busy ? "Saving…" : "Save shared content"}</button></div></div>
     {uploadCount > 0 && <p role="status">Uploading {uploadCount === 1 ? "an image" : `${uploadCount} images`}. Saving and restoring will be available when all uploads finish.</p>}
     {error && <p className="cms-error" role="alert">{error}</p>}{notice && <p className="cms-success" role="status">{notice}</p>}
     <div className="cms-tabs" role="tablist" aria-label="Website editor">{tabs.map((item, index) => <button key={item} type="button" role="tab" tabIndex={tab === item ? 0 : -1} aria-selected={tab === item} aria-controls="cms-tab-panel" id={`cms-tab-${item.replaceAll(" ", "-")}`} onClick={() => { setTab(item); setSection("all"); }} onKeyDown={event => {

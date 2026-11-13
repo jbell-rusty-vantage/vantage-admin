@@ -18,6 +18,7 @@ import { checkedTime, sheetCardView } from "./systems-model";
 import { SYSTEMS_COPY as copy } from "./systems-copy";
 import { MongoHealth } from './mongo-health';
 import { DatabaseStorageCard } from './database-projection';
+import { WebsitePreviewLocations } from './website-previews';
 
 function Skeletons({ label }: { label: string }) {
   return (
@@ -116,6 +117,7 @@ function SystemLocations() {
         />
       )}
 
+      <WebsitePreviewLocations />
       <DatabaseStorageCard />
       {capacity.isPending ? (
         <Skeletons label={copy.capacity.title} />
