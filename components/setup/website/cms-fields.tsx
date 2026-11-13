@@ -2,22 +2,23 @@
 import { useState } from "react";
 import { cmsRequest, previewImageUrl, type ContentField } from "@/lib/api/sitePreviewCms";
 
-type Props = { field: ContentField; value: string; changed: boolean; disabled: boolean; images: ContentField[]; onChange: (value: string | null) => void };
-export function CmsField({ field, value, changed, disabled, images, onChange }: Props) {
+type Props = { field: ContentField; value: string; changed: boolean; disabled: boolean; images: ContentField[]; onChange: (value: string | null) => void; onUploadStateChange: (uploading: boolean) => void; onUploadError: (message: string) => void };
+export function CmsField({ field, value, changed, disabled, images, onChange, onUploadStateChange, onUploadError }: Props) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const inputId = `cms-${field.key}`;
   async function upload(file: File | undefined) {
-    if (!file) return;
+    if (!file || disabled) return;
     setError("");
     if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 2 * 1024 * 1024) { setError("Choose a PNG, JPEG or WebP image up to 2 MB."); return; }
+    onUploadStateChange(true);
     setUploading(true);
     try {
       const base64 = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(new Error("Could not read the image.")); reader.onload = () => resolve(String(reader.result).split(",")[1]); reader.readAsDataURL(file); });
       const result = await cmsRequest<{ url: string }>("admin/media", "POST", { filename: file.name, contentType: file.type, base64 });
       onChange(result.url);
-    } catch (e) { setError(e instanceof Error ? e.message : "The image could not be uploaded."); }
-    finally { setUploading(false); }
+    } catch (e) { const message = e instanceof Error ? e.message : "The image could not be uploaded."; setError(message); onUploadError(message); }
+    finally { setUploading(false); onUploadStateChange(false); }
   }
   return <article className="cms-field">
     <div className="cms-field__heading"><label htmlFor={inputId}>{field.label}</label><span className="cms-pill">{field.locale === "shared" ? "Shared" : field.locale === "es" ? "Español" : "English"}</span>{changed && <span className="cms-pill cms-pill--changed">Edited</span>}</div>

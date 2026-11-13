@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CmsError, cmsRequest, type CmsSnapshot, type TestimonialPolicy } from "@/lib/api/sitePreviewCms";
 import { compareContentSections, contentPlacement, isOwnerEditableField } from "@/lib/setup/website-content";
@@ -33,17 +33,19 @@ function CmsEditor({ snapshot }: { snapshot: CmsSnapshot }) {
   const [pending, setPending] = useState<Record<string, string | null>>({});
   const [policy, setPolicy] = useState<TestimonialPolicy>(snapshot.testimonialPolicy);
   const [busy, setBusy] = useState(false);
+  const [uploadCount, setUploadCount] = useState(0);
+  const uploads = useRef(0);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
   const [notice, setNotice] = useState("");
   const policyChanged = policy.minimumRating !== snapshot.testimonialPolicy.minimumRating || [...policy.excludedIds].sort().join() !== [...snapshot.testimonialPolicy.excludedIds].sort().join();
   const dirty = Object.keys(pending).length > 0 || policyChanged;
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty && uploadCount === 0) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  }, [dirty, uploadCount]);
   const catalog = snapshot.catalog.filter(isOwnerEditableField).map(contentPlacement);
   const imageFields = catalog.filter(field => field.kind === "image");
   const kind = tab === "Images" ? "image" : "text";
@@ -53,6 +55,11 @@ function CmsEditor({ snapshot }: { snapshot: CmsSnapshot }) {
   const needle = search.toLocaleLowerCase();
   const matching = localizedFields.filter(field => (section === "all" || field.section === section) && `${field.label} ${field.section} ${pending[field.key] ?? ""} ${snapshot.values[field.key] ?? field.defaultValue}`.toLocaleLowerCase().includes(needle));
   const groups = [...new Set(matching.map(field => field.section))].sort(compareContentSections);
+  function changeUploadState(active: boolean) {
+    uploads.current += active ? 1 : -1;
+    setUploadCount(uploads.current);
+    if (active) { setNotice(""); setError(""); }
+  }
   function edit(key: string, value: string | null) {
     const field = snapshot.catalog.find(item => item.key === key)!;
     const current = snapshot.values[key] ?? field.defaultValue;
@@ -60,12 +67,14 @@ function CmsEditor({ snapshot }: { snapshot: CmsSnapshot }) {
     setNotice("");
   }
   async function reload() {
+    if (uploads.current > 0 || busy) return;
     setBusy(true); setError("");
     try { const next = await cmsRequest<CmsSnapshot>(); cache.setQueryData(snapshotKey, next); setPending({}); setPolicy(next.testimonialPolicy); setConflict(false); }
     catch (e) { setError(e instanceof Error ? e.message : "Could not reload preview content."); }
     finally { setBusy(false); }
   }
   async function save(restoreRevision?: number) {
+    if (uploads.current > 0 || busy) return;
     setBusy(true); setError(""); setNotice("");
     try {
       if (restoreRevision !== undefined) await cmsRequest("admin/restore", "POST", { expectedRevision: snapshot.revision, revision: restoreRevision });
@@ -80,7 +89,8 @@ function CmsEditor({ snapshot }: { snapshot: CmsSnapshot }) {
     finally { setBusy(false); }
   }
   return <>
-    <div className="cms-savebar"><span>Revision {snapshot.revision}{dirty ? ` · Unsaved changes${Object.keys(pending).length ? ` in ${Object.keys(pending).length} fields` : ""}` : " · All changes saved"}</span><div className="cms-actions"><button type="button" className="cms-button" disabled={busy} onClick={() => void reload()}>{dirty ? "Discard edits and reload" : "Refresh content"}</button><button type="button" className="cms-button cms-button--primary" disabled={!dirty || busy || conflict} onClick={() => void save()}>{busy ? "Saving…" : "Save to preview"}</button></div></div>
+    <div className="cms-savebar"><span>Revision {snapshot.revision}{uploadCount > 0 ? " · Image upload in progress" : dirty ? ` · Unsaved changes${Object.keys(pending).length ? ` in ${Object.keys(pending).length} fields` : ""}` : " · All changes saved"}</span><div className="cms-actions"><button type="button" className="cms-button" disabled={busy || uploadCount > 0} onClick={() => void reload()}>{dirty ? "Discard edits and reload" : "Refresh content"}</button><button type="button" className="cms-button cms-button--primary" disabled={!dirty || busy || conflict || uploadCount > 0} onClick={() => void save()}>{busy ? "Saving…" : "Save to preview"}</button></div></div>
+    {uploadCount > 0 && <p role="status">Uploading {uploadCount === 1 ? "an image" : `${uploadCount} images`}. Saving and restoring will be available when all uploads finish.</p>}
     {error && <p className="cms-error" role="alert">{error}</p>}{notice && <p className="cms-success" role="status">{notice}</p>}
     <div className="cms-tabs" role="tablist" aria-label="Website editor">{tabs.map((item, index) => <button key={item} type="button" role="tab" tabIndex={tab === item ? 0 : -1} aria-selected={tab === item} aria-controls="cms-tab-panel" id={`cms-tab-${item.replaceAll(" ", "-")}`} onClick={() => { setTab(item); setSection("all"); }} onKeyDown={event => {
       const next = event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : null;
@@ -93,10 +103,10 @@ function CmsEditor({ snapshot }: { snapshot: CmsSnapshot }) {
         <div className="cms-filters"><label>Search<input className="su-input" placeholder="Find a heading, paragraph or section" value={search} onChange={event => setSearch(event.target.value)} /></label><label>Language<select className="su-input" value={locale} onChange={event => { setLocale(event.target.value); setSection("all"); }}><option value="all">All languages</option><option value="en">English</option><option value="es">Español</option></select></label><label>Section<select className="su-input" value={section} onChange={event => setSection(event.target.value)}><option value="all">All sections</option>{sections.map(value => <option key={value} value={value}>{value}</option>)}</select></label></div>
         <p className="cms-count">{matching.length} {tab === "Images" ? "image placements" : "content fields"}{search || locale !== "all" || section !== "all" ? " match your filters" : " available"}. Shared fields update every placement that uses them.</p>
         {matching.length === 0 && <div className="cms-panel">No content matches these filters.</div>}
-        {groups.map(group => <CmsGroup key={`${tab}:${group}:${search}:${locale}:${section}`} title={group} count={matching.filter(field => field.section === group).length} initiallyOpen={section !== "all" || Boolean(search) || groups.length === 1}><div className={tab === "Images" ? "cms-image-grid" : "cms-fields"}>{matching.filter(field => field.section === group).map(field => <CmsField key={field.key} field={field} value={Object.hasOwn(pending, field.key) ? pending[field.key] ?? field.defaultValue : snapshot.values[field.key] ?? field.defaultValue} changed={Object.hasOwn(pending, field.key)} disabled={busy} images={imageFields} onChange={value => edit(field.key, value)} />)}</div></CmsGroup>)}
+        {groups.map(group => <CmsGroup key={`${tab}:${group}:${search}:${locale}:${section}`} title={group} count={matching.filter(field => field.section === group).length} initiallyOpen={section !== "all" || Boolean(search) || groups.length === 1}><div className={tab === "Images" ? "cms-image-grid" : "cms-fields"}>{matching.filter(field => field.section === group).map(field => <CmsField key={field.key} field={field} value={Object.hasOwn(pending, field.key) ? pending[field.key] ?? field.defaultValue : snapshot.values[field.key] ?? field.defaultValue} changed={Object.hasOwn(pending, field.key)} disabled={busy} images={imageFields} onChange={value => edit(field.key, value)} onUploadStateChange={changeUploadState} onUploadError={setError} />)}</div></CmsGroup>)}
       </>}
       {tab === "Testimonials" && <CmsTestimonials policy={policy} onChange={setPolicy} disabled={busy} revision={snapshot.revision} />}
-      {tab === "History" && <>{dirty && <p className="cms-error">Save or discard your edits before restoring a revision.</p>}<CmsHistory revision={snapshot.revision} disabled={busy || dirty} onRestore={revision => save(revision)} /></>}
+      {tab === "History" && <>{dirty && <p className="cms-error">Save or discard your edits before restoring a revision.</p>}<CmsHistory revision={snapshot.revision} disabled={busy || dirty || uploadCount > 0} onRestore={revision => save(revision)} /></>}
       {tab === "Live review archive" && <><div className="cms-panel"><strong>Live review archive · Read only</strong><p>These are the existing live-site records. The preview selection above is managed separately.</p></div><TestimonialsList /></>}
     </div>
   </>;
