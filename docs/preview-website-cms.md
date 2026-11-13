@@ -1,9 +1,13 @@
 # Preview website content
 
-The Owner can edit the optimized Main Site preview from **Setup → Website**. This implementation is on `agent/preview-site-cms`; it does not change the live website or production testimonial records.
+The Owner can edit shared content for the Optimized and Canyon Main Site previews from **Setup → Website**. The CMS is shipped on Admin main; it does not change the live website or production testimonial records.
+
+Both **Systems → System locations → Website previews** and the Website editor link to [Main optimized preview](https://vantage-main-site-optimization.vercel.app/) and [Variation optimized preview (Canyon)](https://vantage-main-site-canyon.vercel.app/). `lib/setup/website-previews.ts` owns these fixed presentation targets. Neither is the live website at vantagehomemovers.com. Copy, images and testimonial settings are shared by both preview designs. **Save shared content** updates the shared record; open previews show saved content and need a refresh after saving. Vercel sign-in may be required to open a preview.
+
+Embedded preview, Show on page, location manifests and revision-aware frame refresh are not implemented by this links release. Protected embedding remains unqualified; see [the access evidence](visual-preview/EMBED-ACCESS-DECISION.md).
 
 - **Content:** search exact copy, filter English/Spanish, open a website section, edit and save to preview. Original text is available per field, with a reset action. Shared fields update their shared placements. Developer source names are translated into Home, Services, Resources, Destinations, Forms, Header & footer and Policies.
-- **Images:** inspect current imagery, select an existing image or upload PNG/JPEG/WebP up to 2 MiB. Uploading creates a media asset; Save to preview applies the selected replacement.
+- **Images:** inspect current imagery, select an existing image or upload PNG/JPEG/WebP up to 2 MiB. Uploading creates a media asset; Save shared content applies the selected replacement.
 - **Testimonials:** select the minimum rating and hide particular reviews even when they qualify. Only published, qualifying, non-excluded reviews are selected. The preview collection is separate from the live review archive.
 - **History:** restore a prior content and testimonial-policy revision. Restore creates a new revision. Unsaved edits must first be saved or discarded.
 - **Component variations:** coming soon.
