@@ -16,6 +16,8 @@ Unsaved edits survive section filters and tab switches. Saving uses an expected 
 
 The server owns catalog admission, validation, media storage, publication policy, filtering before pagination, history and revision conflict semantics. Admin contains no business persistence. Dedicated configuration is in [environment inventory](knowledge/environment.md#preview-website-cms).
 
+Existing static image previews use Owner-authenticated `/api/site-preview-cms/assets/*` requests. Only constrained image directories and the exact reviewed root icon/logo are allowed on the fixed optimization-preview origin. The site protection bypass remains server-side; API and actor credentials are never sent to the site. Trusted repository SVG thumbnails receive a restrictive sandbox CSP. Uploaded media remains raster-only.
+
 ## Validation
 
 Focused tests cover unauthenticated/non-Owner rejection, cross-origin writes, path/query rejection, production-origin rejection, dedicated actor signatures, revision conflict propagation, media headers and testimonial selection display. Full typecheck and focused lint are run before handoff. Deployed/browser evidence is recorded in the Main Site CMS task's release packet.

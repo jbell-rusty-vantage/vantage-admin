@@ -50,7 +50,7 @@ function CmsEditor({ snapshot }: { snapshot: CmsSnapshot }) {
   const fieldsOfKind = catalog.filter(field => field.kind === kind);
   const sections = [...new Set(fieldsOfKind.map(field => field.section))].sort();
   const needle = search.toLocaleLowerCase();
-  const matching = fieldsOfKind.filter(field => (locale === "all" || field.locale === locale || field.locale === "shared") && (section === "all" || field.section === section) && `${field.label} ${field.section} ${snapshot.values[field.key] ?? field.defaultValue}`.toLocaleLowerCase().includes(needle));
+  const matching = fieldsOfKind.filter(field => (locale === "all" || field.locale === locale || field.locale === "shared") && (section === "all" || field.section === section) && `${field.label} ${field.section} ${pending[field.key] ?? ""} ${snapshot.values[field.key] ?? field.defaultValue}`.toLocaleLowerCase().includes(needle));
   const groups = [...new Set(matching.map(field => field.section))];
   function edit(key: string, value: string | null) {
     const field = snapshot.catalog.find(item => item.key === key)!;
@@ -81,7 +81,12 @@ function CmsEditor({ snapshot }: { snapshot: CmsSnapshot }) {
   return <>
     <div className="cms-savebar"><span>Revision {snapshot.revision}{dirty ? ` · Unsaved changes${Object.keys(pending).length ? ` in ${Object.keys(pending).length} fields` : ""}` : " · All changes saved"}</span><div className="cms-actions"><button type="button" className="cms-button" disabled={busy} onClick={() => void reload()}>{dirty ? "Discard edits and reload" : "Refresh content"}</button><button type="button" className="cms-button cms-button--primary" disabled={!dirty || busy || conflict} onClick={() => void save()}>{busy ? "Saving…" : "Save to preview"}</button></div></div>
     {error && <p className="cms-error" role="alert">{error}</p>}{notice && <p className="cms-success" role="status">{notice}</p>}
-    <div className="cms-tabs" role="tablist" aria-label="Website editor">{tabs.map(item => <button key={item} type="button" role="tab" aria-selected={tab === item} aria-controls="cms-tab-panel" id={`cms-tab-${item.replaceAll(" ", "-")}`} onClick={() => { setTab(item); setSection("all"); }} className={tab === item ? "is-active" : undefined}>{item}</button>)}</div>
+    <div className="cms-tabs" role="tablist" aria-label="Website editor">{tabs.map((item, index) => <button key={item} type="button" role="tab" tabIndex={tab === item ? 0 : -1} aria-selected={tab === item} aria-controls="cms-tab-panel" id={`cms-tab-${item.replaceAll(" ", "-")}`} onClick={() => { setTab(item); setSection("all"); }} onKeyDown={event => {
+      const next = event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : null;
+      if (next === null) return;
+      event.preventDefault(); setTab(tabs[next]); setSection("all");
+      event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[role=tab]")[next]?.focus();
+    }} className={tab === item ? "is-active" : undefined}>{item}</button>)}</div>
     <div id="cms-tab-panel" role="tabpanel" aria-labelledby={`cms-tab-${tab.replaceAll(" ", "-")}`}>
       {(tab === "Content" || tab === "Images") && <>
         <div className="cms-filters"><label>Search<input className="su-input" placeholder="Find a heading, paragraph or section" value={search} onChange={event => setSearch(event.target.value)} /></label><label>Language<select className="su-input" value={locale} onChange={event => setLocale(event.target.value)}><option value="all">All languages</option><option value="en">English</option><option value="es">Español</option></select></label><label>Section<select className="su-input" value={section} onChange={event => setSection(event.target.value)}><option value="all">All sections</option>{sections.map(value => <option key={value} value={value}>{value}</option>)}</select></label></div>

@@ -3,6 +3,7 @@ export type SitePreviewEnvironment = {
   SITE_PREVIEW_API_SECRET?: string;
   SITE_PREVIEW_API_PROTECTION_BYPASS?: string;
   SITE_PREVIEW_ADMIN_SIGNING_SECRET?: string;
+  SITE_PREVIEW_SITE_PROTECTION_BYPASS?: string;
 };
 
 export function sitePreviewOrigin(value: string, production = process.env.NODE_ENV === "production") {
@@ -20,5 +21,6 @@ export function getSitePreviewEnvironment(): SitePreviewEnvironment {
     SITE_PREVIEW_API_SECRET: process.env.SITE_PREVIEW_API_SECRET,
     SITE_PREVIEW_API_PROTECTION_BYPASS: process.env.SITE_PREVIEW_API_PROTECTION_BYPASS,
     SITE_PREVIEW_ADMIN_SIGNING_SECRET: process.env.SITE_PREVIEW_ADMIN_SIGNING_SECRET,
+    SITE_PREVIEW_SITE_PROTECTION_BYPASS: process.env.SITE_PREVIEW_SITE_PROTECTION_BYPASS,
   };
 }

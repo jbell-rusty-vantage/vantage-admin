@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { previewImageUrl, reviewSelection } from "./sitePreviewCms";
 
 test("preview images never direct browser requests to a user-controlled remote host", () => {
-  assert.equal(previewImageUrl("/images/home.webp"), "https://vantage-main-site-optimization.vercel.app/images/home.webp");
+  assert.equal(previewImageUrl("/images/home.webp"), "/api/site-preview-cms/assets/images/home.webp");
   assert.equal(previewImageUrl("/api/site-content/media/aaaaaaaaaaaaaaaaaaaaaaaa"), "/api/site-preview-cms/media/aaaaaaaaaaaaaaaaaaaaaaaa");
   for (const value of ["//evil.test/x", "https://evil.test/x", "javascript:alert(1)", "/\\evil.test/x"]) assert.equal(previewImageUrl(value), "");
 });

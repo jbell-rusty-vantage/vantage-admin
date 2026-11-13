@@ -107,6 +107,7 @@ Systems → Mongo Health reuses these two server settings with a separate `mongo
 | `SITE_PREVIEW_API_BASE_URL` | For CMS | Exactly `https://vantage-sites-preview-api.vercel.app`; development also permits HTTP localhost/127.0.0.1. No path, query, fragment or credentials. |
 | `SITE_PREVIEW_API_SECRET` | For CMS | Independent isolated API secret. |
 | `SITE_PREVIEW_API_PROTECTION_BYPASS` | When API protection is enabled | Isolated API automation bypass, never sent to browsers. |
+| `SITE_PREVIEW_SITE_PROTECTION_BYPASS` | For existing image thumbnails | Main Site project's preview bypass, used only by the Owner BFF against fixed optimized-preview static asset paths. Never sent to browsers. |
 | `SITE_PREVIEW_ADMIN_SIGNING_SECRET` | For CMS | Independent key of at least 32 characters matching the isolated API's `VANTAGE_ADMIN_PROXY_SIGNING_SECRET`. |
 
 Configure these for Preview branch `agent/preview-site-cms` during qualification. The Admin preview workflow pulls branch-specific settings. After dashboard integration, the same independent CMS settings may be configured on Production Admin: the website editor still always targets the optimized preview, with no production-website toggle.

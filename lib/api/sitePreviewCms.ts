@@ -17,7 +17,7 @@ export async function cmsRequest<T>(path = "admin", method = "GET", value?: unkn
 
 export function previewImageUrl(value: string) {
   if (/^\/api\/site-content\/media\/[a-f\d]{24}$/i.test(value)) return value.replace("/api/site-content/", "/api/site-preview-cms/");
-  if (value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")) return `https://vantage-main-site-optimization.vercel.app${value}`;
+  if (value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")) return `/api/site-preview-cms/assets${value}`;
   return "";
 }
 

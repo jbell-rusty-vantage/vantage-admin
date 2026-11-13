@@ -9,6 +9,13 @@ type Actor = { id: string; email: string; role: string };
 type Dependencies = { actor: () => Promise<Actor | null>; env: () => SitePreviewEnvironment; fetch: typeof fetch };
 const failure = (status: number, code: string, error: string) => Response.json({ ok: false, code, error }, { status, headers: responseHeaders });
 
+export function staticPreviewAsset(path: string[]) {
+  const value = `/${path.join("/")}`;
+  if (path.some(part => !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(part) || part.includes(".."))) throw new Error("Invalid asset path");
+  if (!["/icon.svg", "/vantage-movers-logo-refined-smaller-text.svg"].includes(value) && !/^\/(?:images|partnerlogos|sitepictures)\/.+\.(?:png|jpe?g|webp|svg)$/i.test(value)) throw new Error("Unknown static asset");
+  return value;
+}
+
 export function cmsTarget(method: string, path: string[], query: URLSearchParams) {
   const route = path.join("/");
   const media = /^media\/[a-f\d]{24}$/i.test(route);
@@ -44,9 +51,23 @@ export async function handleCmsRequest(request: NextRequest, context: { params: 
     const actor = await deps.actor();
     if (!actor) return failure(401, "UNAUTHENTICATED", "Sign in to manage preview content.");
     if (actor.role !== "owner") return failure(403, "FORBIDDEN", "Only the Owner can manage preview content.");
+    const path = (await context.params).path;
+    if (path[0] === "assets") {
+      if (request.method !== "GET" || request.nextUrl.search) return failure(400, "INVALID_INPUT", "Unknown image request.");
+      let asset: string;
+      try { asset = staticPreviewAsset(path.slice(1)); } catch { return failure(400, "INVALID_INPUT", "Unknown image request."); }
+      const bypass = deps.env().SITE_PREVIEW_SITE_PROTECTION_BYPASS;
+      if (!bypass) return failure(503, "NOT_CONNECTED", "Preview images are not connected yet.");
+      const upstream = await deps.fetch(`https://vantage-main-site-optimization.vercel.app${asset}`, { headers: { "x-vercel-protection-bypass": bypass }, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15000) });
+      if (!upstream.ok) return failure(upstream.status === 404 ? 404 : 503, "UNAVAILABLE", "Preview image is unavailable.");
+      const type = upstream.headers.get("content-type")?.split(";")[0] ?? "";
+      if (!["image/png", "image/jpeg", "image/webp", "image/svg+xml"].includes(type)) throw new Error();
+      const bytes = await readBounded(upstream.body, 8_000_000);
+      return new Response(new Uint8Array(bytes), { headers: { ...responseHeaders, "content-type": type, "content-security-policy": "default-src 'none'; sandbox" } });
+    }
     if (request.method !== "GET" && (request.headers.get("origin") !== request.nextUrl.origin || request.headers.get("sec-fetch-site") === "cross-site")) return failure(403, "FORBIDDEN", "Use the dashboard to save changes.");
     let target: string;
-    try { target = cmsTarget(request.method, (await context.params).path, request.nextUrl.searchParams); }
+    try { target = cmsTarget(request.method, path, request.nextUrl.searchParams); }
     catch { return failure(400, "INVALID_INPUT", "Unknown preview content operation."); }
     let body: string | undefined;
     if (request.method !== "GET") {

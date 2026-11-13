@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { NextRequest } from "next/server";
 import { computeAdminActorSignature } from "../auth/proxySigning";
-import { cmsTarget, handleCmsRequest } from "./proxy";
+import { cmsTarget, handleCmsRequest, staticPreviewAsset } from "./proxy";
 import { sitePreviewOrigin } from "./environment";
 
 const owner = { id: "111111111111111111111111", email: "owner@example.test", role: "owner" };
@@ -69,4 +69,20 @@ test("valid raster media is streamed with no sniffing and no upstream cookies", 
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.equal(response.headers.get("set-cookie"), null);
   assert.deepEqual(new Uint8Array(await response.arrayBuffer()), new Uint8Array([1, 2, 3]));
+});
+
+test("static thumbnails stay on the fixed preview site and receive only the site bypass", async () => {
+  for (const value of [["..", "api", "quote"], ["api", "quote"], ["images", "..", "x.png"], ["images", "a%2fb.png"], ["images", "a.html"], ["images/x.png"]]) assert.throws(() => staticPreviewAsset(value));
+  assert.equal(staticPreviewAsset(["images", "selected-20261112", "home.webp"]), "/images/selected-20261112/home.webp");
+  const response = await handleCmsRequest(request("GET", "assets/partnerlogos/top10.svg"), context(["assets", "partnerlogos", "top10.svg"]), { actor: async () => owner, env: () => ({ ...env, SITE_PREVIEW_SITE_PROTECTION_BYPASS: "site-only-bypass" }), fetch: async (url, init) => {
+    assert.equal(url, "https://vantage-main-site-optimization.vercel.app/partnerlogos/top10.svg");
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get("x-vercel-protection-bypass"), "site-only-bypass");
+    assert.equal(headers.get("x-api-secret"), null);
+    assert.equal(headers.get("cookie"), null);
+    assert.equal(headers.get("x-vantage-admin-signature"), null);
+    return new Response("<svg/>", { headers: { "content-type": "image/svg+xml" } });
+  } });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-security-policy"), "default-src 'none'; sandbox");
 });
