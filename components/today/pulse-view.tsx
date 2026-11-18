@@ -7,8 +7,7 @@
  */
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Ban, Banknote, CalendarPlus, ClipboardCheck, MessageSquareText, Star, TriangleAlert, UserPlus, UserX, Workflow } from "lucide-react";
-import { useGranotRuns } from "@/components/automations/granot-updates/use-granot-updates";
+import { Ban, Banknote, CalendarPlus, ClipboardCheck, MessageSquareText, Star, TriangleAlert, UserPlus, UserX } from "lucide-react";
 import { dailyOperationsFloridaHour, dailyOperationsKindLabel } from "@/components/daily/daily-copy";
 import { AnimatedNumber } from "@/components/daily/animated-number";
 import { SpendPaceChip, useLeadSpend } from "@/components/daily/lead-spend-panel";
@@ -53,8 +52,6 @@ import { dailyOperationsCardFacts, dailyOperationsEventLinks, dailyOperationsEve
 import type { InsightsLeadSpendDay } from "@/lib/api/insights";
 import type { DailyOperationsEventItem } from "@/lib/api/dailyOperationsLive";
 import { fetchGranotLifecycleCases, type GranotLifecycleCaseListItem } from "@/lib/api/granotLifecycle";
-import { expiresInWords, waitingChecks, windowWords, type GranotCheck } from "@/lib/automations/granot-updates-model";
-import { granotCheckHref } from "@/lib/automations/granot-updates-redirects";
 import type { SalesOutreachDailyCallGoalRow, SalesOutreachTeamDto } from "@/lib/api/salesOutreach";
 import { queryKeys } from "@/lib/query/keys";
 import {
@@ -88,8 +85,6 @@ export type PulseViewProps = {
   team: SalesOutreachTeamDto | null | undefined;
   teamError?: unknown;
   intakes: PulseIntakes;
-  /** Granot checks waiting for approval (doc 17), newest first; `null` or empty hides the slot. */
-  granotWaiting?: GranotCheck[] | null;
   /** Today's live lead spend (Owner only); null while loading or unavailable. */
   leadSpend?: InsightsLeadSpendDay | null;
   nowMs: number | undefined;
@@ -129,19 +124,17 @@ function WaitingColumn({
   );
 }
 
-function WaitingForYou({ snapshot, snapshotError, team, teamError, intakes, granotWaiting, nowMs }: Pick<PulseViewProps, "snapshot" | "snapshotError" | "team" | "teamError" | "intakes" | "granotWaiting" | "nowMs">) {
+function WaitingForYou({ snapshot, snapshotError, team, teamError, intakes, nowMs }: Pick<PulseViewProps, "snapshot" | "snapshotError" | "team" | "teamError" | "intakes" | "nowMs">) {
   const open = snapshot?.metrics.intakes.still_open ?? null;
   const bookingRows = intakes.items.filter((item) => item.kind === "booking").slice(0, 3);
   const unassignedCount = team?.unassigned.count ?? null;
   const unassignedSub = team ? unassignedCaption(team.unassigned) : null;
   const exceptions = snapshot ? exceptionsTotal(snapshot) : null;
   const kinds = snapshot ? exceptionKindsInWords(snapshot) : "";
-  const granotCheck = granotWaiting?.[0] ?? null;
-  const granotMore = (granotWaiting?.length ?? 0) - 1;
 
   return (
     <CrmCard title={w.title} testId="pulse-waiting">
-      <div className={granotCheck ? "grid gap-5 p-4 md:grid-cols-2 xl:grid-cols-4" : "grid gap-5 p-4 md:grid-cols-3"}>
+      <div className="grid gap-5 p-4 md:grid-cols-3">
         <WaitingColumn
           testId="waiting-bookings"
           icon={ClipboardCheck}
@@ -191,18 +184,6 @@ function WaitingForYou({ snapshot, snapshotError, team, teamError, intakes, gran
           href={w.exceptions.href}
         />
 
-        {granotCheck ? (
-          <WaitingColumn
-            testId="waiting-granot"
-            icon={Workflow}
-            title={w.granotUpdates.title(granotCheck.buckets.ready)}
-            sub={w.granotUpdates.sub(windowWords(granotCheck.from, granotCheck.to), nowMs === undefined ? null : expiresInWords(granotCheck.expires_at, nowMs))}
-            action={w.granotUpdates.action}
-            href={granotCheckHref(granotCheck.id)}
-          >
-            {granotMore > 0 ? <p className="crm-text-muted crm-small m-0">{w.granotUpdates.more(granotMore)}</p> : null}
-          </WaitingColumn>
-        ) : null}
       </div>
     </CrmCard>
   );
@@ -478,13 +459,13 @@ function CompaniesToday({ snapshot, leadSpend }: { snapshot: DailyOperationsSnap
 }
 
 export function PulseView(props: PulseViewProps) {
-  const { role, snapshot, snapshotError, events, eventsError, team, teamError, intakes, granotWaiting, leadSpend, nowMs } = props;
+  const { role, snapshot, snapshotError, events, eventsError, team, teamError, intakes, leadSpend, nowMs } = props;
   if (role !== "owner") return null;
   const nowHour = nowMs === undefined ? undefined : dailyOperationsFloridaHour(new Date(nowMs));
   return (
     <div className="crm-stack" data-testid="today-pulse">
       {snapshotError && !snapshot ? <ReadFailure what={todayCopy.snapshotLoadError} error={snapshotError} /> : null}
-      <WaitingForYou snapshot={snapshot} snapshotError={snapshotError} team={team} teamError={teamError} intakes={intakes} granotWaiting={granotWaiting} nowMs={nowMs} />
+      <WaitingForYou snapshot={snapshot} snapshotError={snapshotError} team={team} teamError={teamError} intakes={intakes} nowMs={nowMs} />
       <Tiles snapshot={snapshot} leadSpend={leadSpend} />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <HourlyRhythm snapshot={snapshot} nowHour={nowHour} />
@@ -539,8 +520,6 @@ export function PulseTab() {
     queryFn: () => fetchGranotLifecycleCases(intakeFilters),
   });
 
-  // The Granot updates runs page (doc 17), shared by key with the Automations badge and pages; nothing new is polled.
-  const granotRuns = useGranotRuns(true);
 
   const leadSpend = useLeadSpend(true);
   const snapshot = snapshotQuery.data ? withLiveDailyOperationsClock(normalizeDailyOperationsSnapshot(snapshotQuery.data), nowMs) : null;
@@ -550,7 +529,6 @@ export function PulseTab() {
       role="owner"
       nowMs={nowMs}
       leadSpend={leadSpend.data ?? null}
-      granotWaiting={granotRuns.data ? waitingChecks(granotRuns.data) : null}
       snapshot={snapshot}
       snapshotError={snapshotQuery.error}
       events={eventsQuery.data?.items ?? null}

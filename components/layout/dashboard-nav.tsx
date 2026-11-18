@@ -34,14 +34,13 @@ export type DashboardNavItem = {
   /** Sales Outreach Desk (P09b): the destinations a Manager sees. */
   managerVisible?: boolean;
   /** Which badge the sidebar shows next to the item (counts come from `useSidebarBadges`). */
-  badge?: "today" | "bookings" | "leads" | "automations";
+  badge?: "today" | "bookings" | "leads";
 };
 
 /** Roles that render the dashboard shell: the Owner, a generic Admin and (for Today → Operations only) a Manager. */
 export type DashboardShellRole = "owner" | "admin" | "manager";
 
 const extraPageTitles: { href: string; title: string }[] = [
-  { href: "/automations/granot-updates", title: "Granot updates" },
   { href: "/leads/timeline", title: "Job Timeline" },
   { href: "/job-timeline", title: "Job Timeline" },
   { href: "/intakes", title: "Bookings to finish" },
@@ -49,9 +48,6 @@ const extraPageTitles: { href: string; title: string }[] = [
   { href: "/bookings/new", title: "Precise Booking Form" },
   { href: "/cancellations/new", title: "Record a cancellation" },
   { href: "/analytics", title: "Analytics" },
-  { href: "/reporting", title: "Sheets" },
-  { href: "/reporting/new", title: "Create New Report" },
-  { href: "/reporting/destinations", title: "Sheets" },
   { href: "/operations-registry", title: "Setup" },
   { href: "/granot-lifecycle", title: "Connections & health" },
   { href: "/ingestion", title: "Connections & health" },
@@ -67,11 +63,11 @@ export const dashboardNavItems: readonly DashboardNavItem[] = [
   { key: "outreach-desk", label: "Outreach Desk", href: "/outreach-desk", icon: Headset, activeFor: ["/outreach-desk", "/sales-intelligence"], ownerOnly: true, managerVisible: true },
   // Operations the Owner starts and approves (doc 17 Granot updates first; more Granot reads later). `/ingestion/granot`
   // redirects here, so it is not listed as an active prefix (its lifecycle sub-pages stay with Setup).
-  { key: "automations", label: "Automations", href: "/automations", icon: Workflow, activeFor: ["/automations"], ownerOnly: true, badge: "automations" },
+  { key: "automations", label: "Automations", href: "/automations", icon: Workflow, activeFor: ["/automations"], ownerOnly: true },
   // Where every property lives and how long until the database and the Master Sheets are full (doc 11b). Owner only;
   // its own tab, not a Setup section.
   { key: "systems", label: "Systems", href: "/systems", icon: Server, activeFor: ["/systems"], ownerOnly: true },
-  { key: "insights", label: "Insights", href: "/insights", icon: BarChart3, activeFor: ["/insights", "/analytics", "/reporting"] },
+  { key: "insights", label: "Insights", href: "/insights", icon: BarChart3, activeFor: ["/insights", "/analytics"] },
   {
     key: "setup",
     label: "Setup",

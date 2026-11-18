@@ -55,17 +55,6 @@ export type GranotCrmSourceRoute = {
     | "wrong_move_type";
 };
 
-export type GranotAutomationCompatibility = {
-  granot_crm_source_id?: string;
-  available_for_apply: boolean;
-  status:
-    | "ready"
-    | "missing_reference"
-    | "source_disabled"
-    | "source_ambiguous"
-    | "operation_not_permitted";
-  issues: Array<{ code: string; message: string }>;
-};
 
 export type GranotCrmSourceItem = {
   id: string;
@@ -81,12 +70,6 @@ export type GranotCrmSourceItem = {
   lifecycle_routes: GranotCrmSourceRoute[];
   lifecycle_policy_version: string;
   default_channel: "form" | "call" | "unknown";
-  automation_sources: Array<{
-    id: string;
-    label: string;
-    active: boolean;
-    compatibility: GranotAutomationCompatibility;
-  }>;
   outbound_sms?: GranotCrmSourceOutboundSms;
   latest_audit?: {
     id: string;

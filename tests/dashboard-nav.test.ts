@@ -10,7 +10,6 @@ import {
 } from "../components/layout/dashboard-nav";
 import { Server } from "lucide-react";
 import { sidebarBadgeCounts } from "../components/layout/use-sidebar-badges";
-import { insightsTabForPath } from "../components/insights/insights-tabs";
 import { setupSectionsFor } from "../components/setup/setup-sections";
 
 function hrefs(items: { href: string }[]): string[] {
@@ -42,15 +41,13 @@ test("Admin sees Leads, Bookings, Insights and Setup; a Manager sees Today and t
   assert.equal(dashboardHomeFor("admin"), "/leads");
 });
 
-test("badges sit on Today, Leads, Bookings and Automations and are counts, never zero", () => {
+test("badges sit on Today, Leads and Bookings and are counts, never zero", () => {
   assert.deepEqual(
     visibleDashboardNav("owner").map((item) => item.badge ?? null),
-    ["today", "leads", "bookings", null, "automations", null, null, null],
+    ["today", "leads", "bookings", null, null, null, null, null],
   );
-  // Automations counts the Granot checks waiting for approval (doc 17); Leads stays empty.
-  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 3, unassigned: 5, granotWaiting: 1 }), { today: 8, bookings: 3, leads: null, automations: 1 });
-  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 0, unassigned: null }), { today: null, bookings: null, leads: null, automations: null });
-  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 0, unassigned: null, granotWaiting: 0 }), { today: null, bookings: null, leads: null, automations: null });
+  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 3, unassigned: 5 }), { today: 8, bookings: 3, leads: null });
+  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 0, unassigned: null }), { today: null, bookings: null, leads: null });
 });
 
 test("regrouped old destinations keep their new sidebar item active", () => {
@@ -64,11 +61,8 @@ test("regrouped old destinations keep their new sidebar item active", () => {
   assert.equal(activeNavKey("/cancellations/new"), "bookings");
   assert.equal(activeNavKey("/outreach-desk"), "outreach-desk");
   assert.equal(activeNavKey("/automations"), "automations");
-  assert.equal(activeNavKey("/automations/granot-updates/group-1"), "automations");
   assert.equal(activeNavKey("/systems"), "systems");
   assert.equal(pageTitleForPath("/systems"), "Systems");
-  assert.equal(activeNavKey("/insights/sheets"), "insights");
-  assert.equal(activeNavKey("/reporting/abc/edit"), "insights");
   assert.equal(activeNavKey("/analytics"), "insights");
   assert.equal(activeNavKey("/setup"), "setup");
   assert.equal(activeNavKey("/operations-registry"), "setup");
@@ -124,11 +118,7 @@ test("pageTitleForPath uses nav labels, then longer special prefixes", () => {
   assert.equal(pageTitleForPath("/intakes"), "Bookings to finish");
   assert.equal(pageTitleForPath("/cancellations/new"), "Record a cancellation");
   assert.equal(pageTitleForPath("/automations"), "Automations");
-  assert.equal(pageTitleForPath("/automations/granot-updates"), "Granot updates");
-  assert.equal(pageTitleForPath("/automations/granot-updates/group-1"), "Granot updates");
   assert.equal(pageTitleForPath("/insights"), "Insights");
-  assert.equal(pageTitleForPath("/insights/sheets"), "Insights");
-  assert.equal(pageTitleForPath("/reporting/new"), "Create New Report");
   assert.equal(pageTitleForPath("/setup"), "Setup");
   assert.equal(pageTitleForPath("/operations-registry"), "Setup");
   assert.equal(pageTitleForPath("/granot-lifecycle/health"), "Connections & health");
@@ -143,12 +133,6 @@ test("isActivePath treats Today as exact and prefixes other destinations", () =>
   assert.equal(isActivePath("/leads", "/leads"), true);
   assert.equal(isActivePath("/bookings/reconciliation", "/bookings"), true);
   assert.equal(isActivePath("/leadsx", "/leads"), false);
-});
-
-test("Insights tabs: Sheets covers the reporting sub-pages", () => {
-  assert.equal(insightsTabForPath("/insights"), "analytics");
-  assert.equal(insightsTabForPath("/insights/sheets"), "sheets");
-  assert.equal(insightsTabForPath("/reporting/destinations/x"), "sheets");
 });
 
 test("Setup sections: Admin does not see Connections or Website (doc 19: sections are routes, People is one card)", () => {

@@ -136,7 +136,6 @@ test("leaving create-if-missing states the text-off sentence before save", () =>
         lifecycle_routes: [],
         lifecycle_policy_version: "v1",
         default_channel: "form",
-        automation_sources: [],
       },
       companies,
       feeds,

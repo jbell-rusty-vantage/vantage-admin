@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { fetchEstimatesFreshness, type EstimatesFreshness } from "@/lib/api/granotAutomation";
+import { fetchEstimatesFreshness, type EstimatesFreshness } from "@/lib/api/estimatesFreshness";
 import { formatAbsolute } from "@/components/ui/crm/format";
 
 export function EstimatesFreshnessView({ data, failed }: { data?: EstimatesFreshness; failed: boolean }) {
@@ -10,7 +10,7 @@ export function EstimatesFreshnessView({ data, failed }: { data?: EstimatesFresh
   return (
     <section className="crm-card crm-stack" style={{ padding: "var(--crm-space-5, 20px)" }} aria-label="Scheduled Granot updates" data-testid="estimates-freshness">
       <h2 className="crm-strong">Scheduled Granot updates</h2>
-      <p className="crm-small crm-text-muted">8 a.m., 1 p.m. and 6 p.m. New York. The last 90 days, plus older dates observed in Granot.</p>
+      <p className="crm-small crm-text-muted">6 a.m., 9 a.m., 1 p.m., 5 p.m. and 9 p.m. New York. The last 90 days, plus older dates observed in Granot.</p>
       {failed ? <p role="status">Scheduled update status could not load.</p> : !data ? <p role="status">Checking scheduled updates…</p> : (
         <>
           <p>Last complete collection: {data.last_complete_coverage_at ? formatAbsolute(data.last_complete_coverage_at) : "No complete scheduled collection recorded yet"}.</p>
@@ -20,7 +20,7 @@ export function EstimatesFreshnessView({ data, failed }: { data?: EstimatesFresh
           {data.warnings.includes("held_rows") ? <p role="status">Some Leads could not be matched or need review. Their existing information is preserved.</p> : null}
           <p className="crm-small crm-text-muted">A complete collection can contain held or unmatched Leads. Older dates not yet observed in Granot need separate reconciliation.</p>
           {data.pool_lanes ? <div className="crm-stack" data-testid="pool-lane-freshness">
-            <PoolLaneFreshness title="Pool refresh" schedule="8 a.m., 1 p.m. and 6 p.m. New York, after ALL. Last 90 days plus every remembered older Pool month." lane={data.pool_lanes.refresh} />
+            <PoolLaneFreshness title="Pool refresh" schedule="6 a.m., 9 a.m., 1 p.m., 5 p.m. and 9 p.m. New York, after ALL. Last 90 days plus every remembered older Pool month." lane={data.pool_lanes.refresh} />
             <PoolLaneFreshness title="Pool historical discovery" schedule="6 a.m. New York daily. January 1, 2020 through today, resumed across date ranges." lane={data.pool_lanes.discovery} />
           </div> : null}
         </>

@@ -27,7 +27,6 @@ test("Granot CRM source client uses the signed Registry proxy and never sends cr
               lifecycle_routes: [],
               lifecycle_policy_version: "granot-lifecycle-source-policy-v1",
               default_channel: "unknown",
-              automation_sources: [],
             },
           ],
         },
