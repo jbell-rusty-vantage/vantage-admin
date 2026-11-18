@@ -122,7 +122,6 @@ test("a wrong-channel route is a warning on the Granot name line", () => {
     ],
     lifecycle_policy_version: "v1",
     default_channel: "call",
-    automation_sources: [],
   };
   const markup = card(ORS3_LEAD_SOURCE_DETAIL, tree({ granotById: new Map([[granot.id, granot]]) }));
   assert.match(markup, /Lands in a feed of the wrong kind/);
@@ -188,7 +187,6 @@ test("the Granot names view lists where each name lands, lands-nowhere first", (
     lead_created_policy: "link_only" as const,
     lifecycle_policy_version: "v1",
     default_channel: "form" as const,
-    automation_sources: [],
   };
   const rows = granotRows(
     [

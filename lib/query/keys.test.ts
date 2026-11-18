@@ -131,39 +131,6 @@ test("booking reconciliation queue pages and filters have isolated cache keys", 
   assert.notDeepEqual(firstPage, otherFilter);
 });
 
-test("reporting keys isolate catalog, definition detail, and run history", () => {
-  assert.deepEqual(queryKeys.reporting.catalog(), ["reporting", "catalog"]);
-  assert.deepEqual(queryKeys.reporting.definition("definition-1"), [
-    "reporting",
-    "definitions",
-    "detail",
-    "definition-1",
-  ]);
-  assert.deepEqual(queryKeys.reporting.runs({ status: "queued", empty: "" }), [
-    "reporting",
-    "runs",
-    { status: "queued" },
-  ]);
-});
-
-test("Granot automation keys isolate run history and detail", () => {
-  assert.deepEqual(queryKeys.granotAutomation.sources(), ["granot-automation", "sources"]);
-  assert.deepEqual(queryKeys.granotAutomation.runs(), ["granot-automation", "runs"]);
-  // Doc 17: the newest-first page the Granot updates pages, Today and the Automations badge share.
-  assert.deepEqual(queryKeys.granotAutomation.runsPage(100), ["granot-automation", "runs", "page", 100]);
-  assert.deepEqual(queryKeys.granotAutomation.runGroup("group-1"), [
-    "granot-automation",
-    "run-groups",
-    "group-1",
-  ]);
-  assert.deepEqual(queryKeys.granotAutomation.run("run-1"), [
-    "granot-automation",
-    "runs",
-    "detail",
-    "run-1",
-  ]);
-});
-
 test("[AC-20] Granot lifecycle keys isolate stable case, candidate, Job, and Lead reads", () => {
   const first = queryKeys.granotLifecycle.cases({ state: "open", cursor: "opaque", q: "" });
   const second = queryKeys.granotLifecycle.cases({ q: "", cursor: "opaque", state: "open" });

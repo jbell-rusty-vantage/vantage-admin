@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { estimatesFreshnessSchema } from "../lib/api/granotAutomation";
+import { estimatesFreshnessSchema } from "../lib/api/estimatesFreshness";
 import { EstimatesFreshnessView } from "../components/automations/estimates-freshness";
 
 const observed = "2026-10-14T17:00:00.000Z";

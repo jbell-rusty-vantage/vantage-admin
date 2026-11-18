@@ -131,6 +131,10 @@ export function canProxyVantagePath(input: {
   via?: "proxy" | "live";
 }): boolean {
   const path = normalizeProxyPath(input.path);
+  if ([REPORTING_PREFIX, GOOGLE_DRIVE_PREFIX].some(prefix => path === prefix || path.startsWith(prefix + "/"))) return false;
+  if (path === GRANOT_AUTOMATION_PREFIX || path.startsWith(GRANOT_AUTOMATION_PREFIX + "/")) {
+    return input.role === "owner" && input.method === "GET" && path === GRANOT_AUTOMATION_PREFIX + "/runs/freshness";
+  }
   if ((path === "/api/v1/admin/ingestion" || path.startsWith("/api/v1/admin/ingestion/")) && input.method !== "GET") return false;
   // Desk live hints are an SSE stream: they go through `app/api/outreach-desk-live`, never the buffered proxy.
   if (input.via !== "live" && path === OUTREACH_DESK_LIVE_API_PATH) {
@@ -186,12 +190,6 @@ export function canProxyVantagePath(input: {
     return false;
   }
   if (
-    path === GRANOT_AUTOMATION_PREFIX ||
-    path.startsWith(`${GRANOT_AUTOMATION_PREFIX}/`)
-  ) {
-    return false;
-  }
-  if (
     path === GRANOT_LIFECYCLE_PREFIX ||
     path.startsWith(`${GRANOT_LIFECYCLE_PREFIX}/`)
   ) {
@@ -203,16 +201,6 @@ export function canProxyVantagePath(input: {
     return input.method === "GET";
   }
   if (input.method === "DELETE") {
-    return false;
-  }
-
-  // Reporting metadata is readable by admins; every preview/revision/run mutation is Owner-only.
-  if (path === REPORTING_PREFIX || path.startsWith(`${REPORTING_PREFIX}/`)) {
-    return input.method === "GET";
-  }
-
-  // Google Drive OAuth/Picker routes are owner-only on the server; block admin at the proxy too.
-  if (path === GOOGLE_DRIVE_PREFIX || path.startsWith(`${GOOGLE_DRIVE_PREFIX}/`)) {
     return false;
   }
 

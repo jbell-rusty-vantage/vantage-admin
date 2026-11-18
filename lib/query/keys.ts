@@ -96,32 +96,6 @@ export const queryKeys = {
       [...queryKeys.testimonials.all, "list", stableFilters(filters)] as const,
     reviewerNames: () => [...queryKeys.testimonials.all, "reviewer-names"] as const,
   },
-  reporting: {
-    all: ["reporting"] as const,
-    catalog: () => [...queryKeys.reporting.all, "catalog"] as const,
-    definitions: (filters?: QueryFilters) =>
-      [...queryKeys.reporting.all, "definitions", stableFilters(filters)] as const,
-    definition: (id: string) =>
-      [...queryKeys.reporting.all, "definitions", "detail", id] as const,
-    runs: (filters?: QueryFilters) =>
-      [...queryKeys.reporting.all, "runs", stableFilters(filters)] as const,
-    run: (id: string) => [...queryKeys.reporting.all, "runs", "detail", id] as const,
-    destinations: (state: "active" | "archived" = "active") =>
-      [...queryKeys.reporting.all, "destinations", state] as const,
-    destination: (id: string) =>
-      [...queryKeys.reporting.all, "destinations", "detail", id] as const,
-    googleDrive: () => [...queryKeys.reporting.all, "google-drive", "status"] as const,
-  },
-  granotAutomation: {
-    all: ["granot-automation"] as const,
-    sources: () => [...queryKeys.granotAutomation.all, "sources"] as const,
-    runs: () => [...queryKeys.granotAutomation.all, "runs"] as const,
-    /** The newest-first page the Granot updates pages, the Automations badge and Today share (doc 17). */
-    runsPage: (limit: number) => [...queryKeys.granotAutomation.all, "runs", "page", limit] as const,
-    runGroup: (id: string) =>
-      [...queryKeys.granotAutomation.all, "run-groups", id] as const,
-    run: (id: string) => [...queryKeys.granotAutomation.all, "runs", "detail", id] as const,
-  },
   granotLifecycle: {
     all: ["granot-lifecycle"] as const,
     cases: (filters?: QueryFilters) =>

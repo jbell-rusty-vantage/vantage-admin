@@ -3,7 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EstimatesFreshnessView } from "../components/automations/estimates-freshness";
-import { fetchEstimatesFreshness, type EstimatesFreshness } from "../lib/api/granotAutomation";
+import { fetchEstimatesFreshness, type EstimatesFreshness } from "../lib/api/estimatesFreshness";
 
 const data: EstimatesFreshness = {
   observed_at: "2026-10-14T17:00:00Z", last_complete_coverage_at: null,

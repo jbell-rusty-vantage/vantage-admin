@@ -19,7 +19,6 @@ export const REGISTRY_INVALIDATION_ROOTS = [
   "analytics",
   "publicEmployeeBooking",
   "workflows",
-  "granotAutomation",
 ] as const;
 
 export type RegistryInvalidationRoot = (typeof REGISTRY_INVALIDATION_ROOTS)[number];
@@ -38,7 +37,6 @@ export function registryInvalidationQueryKeys() {
     queryKeys.analytics.all,
     queryKeys.publicEmployeeBooking.all,
     queryKeys.workflows.all,
-    queryKeys.granotAutomation.all,
   ] as const;
 }
 
