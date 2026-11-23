@@ -91,26 +91,16 @@ export function bookingListFilters(state: BookingFilterState): SerializableFilte
     if (state.to) filters.to = dayEnd(state.to);
   }
 
-  // The server filters `leadless`; Referral has no server filter and narrows the loaded pages (see below).
   if (state.type === "leadless") filters.leadless = true;
-  else if (state.type === "lead") filters.leadless = false;
+  else if (state.type === "lead") {
+    filters.leadless = false;
+    filters.referral = false;
+  } else if (state.type === "referral") filters.referral = true;
 
   if (state.binder !== "any") filters.binder_min = BINDER_MIN[state.binder];
 
   applySearch(filters, state.q);
   return filters;
-}
-
-/** Whether the type filter narrows the loaded cards in the browser (the server cannot filter Referral). */
-export function bookingClientNarrowing(state: BookingFilterState): boolean {
-  return state.type === "referral" || state.type === "lead";
-}
-
-/** The browser-side half of the booking type filter. Referral Bookings carry no lead, so "With lead" drops them. */
-export function matchesBookingType(item: AdminRecord, type: BookingType): boolean {
-  if (type === "referral") return item.is_referral_booking === true;
-  if (type === "lead") return item.is_referral_booking !== true;
-  return true;
 }
 
 /** The `fetchAdminList("cancelled-leads")` filters for a state (page 1; the caller sets `page`). */
@@ -158,10 +148,7 @@ export function matchesCancellationRefund(item: AdminRecord, refund: Cancellatio
   return !Number.isFinite(amount) || amount <= 0;
 }
 
-/**
- * The list totals the server will add to every list response (doc 03 server work: one `$facet` over the same filter).
- * Until then every field is null and the summary cards say so; the loaded page is never summed as if it were the whole.
- */
+/** Summary fields shared by the Bookings and Cancellations workspaces. */
 export type ListTotals = {
   count: number | null;
   binder: number | null;
@@ -174,11 +161,7 @@ function numberOrNull(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-/**
- * Reads the optional `totals` object of the last loaded page. Contract for B-series: `totals: { count,
- * total_binder_amount, total_deposit_amount, total_refund_amount, cancelled_count }`. The list's own `total` is the
- * count either way.
- */
+/** Reads the response totals. A missing monetary field stays unknown. */
 export function readListTotals(page: { total?: number } | null | undefined): ListTotals {
   const totals = (page as { totals?: Record<string, unknown> } | null | undefined)?.totals;
   const source = totals && typeof totals === "object" ? totals : {};

@@ -27,9 +27,7 @@ import {
 import { CrmSelect, DensityToggle, Notice, PageHeader, Segmented, SummaryCard, useDensity } from "@/components/ui/crm/primitives";
 import { fetchAdminList, getRecordId, type AdminRecord } from "@/lib/api/admin";
 import {
-  bookingClientNarrowing,
   bookingListFilters,
-  matchesBookingType,
   readListTotals,
   type BookingBinder,
   type BookingSort,
@@ -48,7 +46,9 @@ function useBookingList(filters: ReturnType<typeof bookingListFilters>) {
   return useInfiniteQuery({
     queryKey: queryKeys.lists.resource("bookings-workspace", filters),
     initialPageParam: 1,
-    queryFn: ({ pageParam }) => fetchAdminList<AdminRecord>("booked-leads", { ...filters, page: Number(pageParam) }),
+    queryFn: ({ pageParam }) => fetchAdminList<AdminRecord>("booked-leads", {
+      ...filters, page: pageParam, include_totals: pageParam === 1 ? true : undefined,
+    }),
     getNextPageParam: (lastPage) => (lastPage.has_next_page ? lastPage.page + 1 : undefined),
     // A filter or search change keeps the current cards on screen until the next list arrives (no skeleton flash).
     placeholderData: keepPreviousData,
@@ -77,10 +77,7 @@ export function BookingsWorkspace() {
   const filters = useMemo(() => bookingListFilters(state), [state]);
   const query = useBookingList(filters);
   const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
-  const narrowed = bookingClientNarrowing(state);
-  const visibleItems = useMemo(() => items.filter((item) => matchesBookingType(item, state.type)), [items, state.type]);
-  const lastPage = query.data?.pages[query.data.pages.length - 1];
-  const totals = readListTotals(lastPage);
+  const totals = readListTotals(query.data?.pages[0]);
 
   const canFetchMore = Boolean(query.hasNextPage && !query.isFetchingNextPage);
   const sentinelRef = useInfiniteScroll({
@@ -88,7 +85,7 @@ export function BookingsWorkspace() {
     fetchMore: () => {
       void query.fetchNextPage();
     },
-    visibleCount: visibleItems.length,
+    visibleCount: items.length,
   });
   const isRefreshing = query.isPlaceholderData && query.isFetching;
 
@@ -111,7 +108,7 @@ export function BookingsWorkspace() {
 
   // ---- Verify in Master Sheet -------------------------------------------------------------------------------
   const verify = useSheetVerify({ modelFor: () => "BookedLead" });
-  const visibleIds = visibleItems.map((item) => getRecordId(item));
+  const visibleIds = items.map((item) => getRecordId(item));
 
   // ---- Filter row -------------------------------------------------------------------------------------------
   const [moreOpen, setMoreOpen] = useState(false);
@@ -123,8 +120,7 @@ export function BookingsWorkspace() {
   const hasFilters = chips.length > 0 || Boolean(state.q);
   const clearAll = () => update(CLEAR_ALL);
 
-  const cancelledCount = state.status === "cancelled" ? totals.count : state.status === "active" ? 0 : totals.cancelled;
-  const moneyValue = (value: number | null) => (value !== null && !narrowed ? formatMoney(value) : "—");
+  const moneyValue = (value: number | null) => (value !== null ? formatMoney(value, { cents: true }) : "—");
 
   return (
     <div className="crm-page" style={{ padding: 0 }} data-testid="bookings-workspace">
@@ -217,15 +213,12 @@ export function BookingsWorkspace() {
 
       <ActiveFilterChips chips={chips} onRemove={(patch) => update(patch)} onClearAll={clearAll} testId="bookings-active-filters" />
 
-      {narrowed ? <p className="crm-subtitle" style={{ margin: 0 }}>{copy.typeNarrowNote}</p> : null}
-
       <div className="crm-summary-row">
         <SummaryCard
           icon={CalendarCheck}
           tone="green"
           title={copy.summaryBookings}
-          value={narrowed ? formatCount(visibleItems.length) : formatCount(totals.count)}
-          caption={narrowed ? copy.ofLoaded : undefined}
+          value={formatCount(totals.count)}
           testId="bookings-summary-total"
         />
         <SummaryCard
@@ -233,7 +226,6 @@ export function BookingsWorkspace() {
           tone="blue"
           title={copy.summaryBinder}
           value={moneyValue(totals.binder)}
-          caption={totals.binder === null || narrowed ? copy.totalsPending : undefined}
           testId="bookings-summary-binder"
         />
         <SummaryCard
@@ -241,15 +233,13 @@ export function BookingsWorkspace() {
           tone="blue"
           title={copy.summaryDeposits}
           value={moneyValue(totals.deposit)}
-          caption={totals.deposit === null || narrowed ? copy.totalsPending : undefined}
           testId="bookings-summary-deposits"
         />
         <SummaryCard
           icon={Ban}
           tone="red"
           title={copy.summaryCancelled}
-          value={narrowed || cancelledCount === null ? "—" : formatCount(cancelledCount)}
-          caption={cancelledCount === null || narrowed ? copy.totalsPending : undefined}
+          value={formatCount(totals.cancelled)}
           testId="bookings-summary-cancelled"
         />
       </div>
@@ -259,7 +249,7 @@ export function BookingsWorkspace() {
       <SelectBar verify={verify} visibleIds={visibleIds} testId="bookings-select-bar" />
 
       <RecordList<AdminRecord>
-        items={visibleItems}
+        items={items}
         keyOf={(item) => getRecordId(item)}
         loading={query.isLoading}
         error={query.isError ? query.error : null}

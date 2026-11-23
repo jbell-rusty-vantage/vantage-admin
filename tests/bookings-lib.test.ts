@@ -2,13 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   BOOKINGS_PAGE_SIZE,
-  bookingClientNarrowing,
   bookingListFilters,
   cancellationClientNarrowing,
   cancellationListFilters,
   daysBetween,
   formatCalendarDay,
-  matchesBookingType,
   matchesCancellationRefund,
   readListTotals,
   type BookingFilterState,
@@ -78,17 +76,12 @@ test("the book date range sends date_field and ends on the last instant of the d
   assert.equal("date_field" in bookingListFilters(base), false);
 });
 
-test("booking type: leadless is a server filter, Referral narrows the loaded cards", () => {
+test("booking type scopes the server list and its totals together", () => {
   assert.equal(bookingListFilters({ ...base, type: "leadless" }).leadless, true);
-  assert.equal(bookingListFilters({ ...base, type: "lead" }).leadless, false);
-  assert.equal("leadless" in bookingListFilters({ ...base, type: "referral" }), false);
-  assert.equal(bookingClientNarrowing({ ...base, type: "referral" }), true);
-  assert.equal(bookingClientNarrowing({ ...base, type: "leadless" }), false);
-  assert.equal(matchesBookingType({ is_referral_booking: true }, "referral"), true);
-  assert.equal(matchesBookingType({ is_referral_booking: false }, "referral"), false);
-  assert.equal(matchesBookingType({ is_referral_booking: true }, "lead"), false);
-  assert.equal(matchesBookingType({}, "lead"), true);
-  assert.equal(matchesBookingType({ is_referral_booking: true }, "any"), true);
+  const withLead = bookingListFilters({ ...base, type: "lead" });
+  assert.equal(withLead.leadless, false);
+  assert.equal(withLead.referral, false);
+  assert.equal(bookingListFilters({ ...base, type: "referral" }).referral, true);
 });
 
 test("search: a job number sends job_no, anything else sends q", () => {
