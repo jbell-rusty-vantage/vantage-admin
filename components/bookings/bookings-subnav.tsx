@@ -5,18 +5,20 @@
  */
 import { usePathname } from "next/navigation";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
-import { useSidebarBadges } from "@/components/layout/use-sidebar-badges";
+import { useQuery } from "@tanstack/react-query";
+import { newBookingCount } from "@/lib/api/bookingsToFinish";
+import { fetchGranotLifecycleHealth } from "@/lib/api/granotLifecycle";
+import { queryKeys } from "@/lib/query/keys";
 import { Tabs } from "@/components/ui/crm";
 
 type BookingsTab = {
   href: string;
   label: string;
   ownerOnly?: boolean;
-  badge?: "bookings";
 };
 
 const tabs: BookingsTab[] = [
-  { href: "/intakes", label: "To finish", ownerOnly: true, badge: "bookings" },
+  { href: "/intakes", label: "To finish", ownerOnly: true },
   { href: "/bookings", label: "All bookings" },
   { href: "/bookings/cancellations", label: "Cancellations" },
   { href: "/bookings/reconciliation", label: "Reconciliation", ownerOnly: true },
@@ -43,7 +45,14 @@ export function isBookingsTabActive(pathname: string, href: string): boolean {
 export function BookingsSubnav() {
   const pathname = usePathname();
   const role = useDashboardRole();
-  const badges = useSidebarBadges(role ?? "admin");
+  const { data: toFinishCount } = useQuery({
+    queryKey: queryKeys.granotLifecycle.health(),
+    queryFn: fetchGranotLifecycleHealth,
+    enabled: role === "owner",
+    select: (health) => newBookingCount(health.open_cases),
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+  });
   const visible = tabs.filter((tab) => role === "owner" || !tab.ownerOnly);
   const active = visible.find((tab) => isBookingsTabActive(pathname, tab.href))?.href ?? "/bookings";
 
@@ -52,7 +61,7 @@ export function BookingsSubnav() {
       label="Bookings navigation"
       value={active}
       hrefFor={(href) => href}
-      tabs={visible.map((tab) => ({ value: tab.href, label: tab.label, badge: tab.badge ? badges[tab.badge] : null }))}
+      tabs={visible.map((tab) => ({ value: tab.href, label: tab.label, badge: tab.href === "/intakes" ? toFinishCount : null }))}
     />
   );
 }

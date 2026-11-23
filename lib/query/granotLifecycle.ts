@@ -19,6 +19,7 @@ export async function invalidateGranotLifecycleCommandViews(
   context: GranotLifecycleInvalidationContext,
 ): Promise<void> {
   const invalidations = [
+    queryClient.invalidateQueries({ queryKey: queryKeys.granotLifecycle.health() }),
     queryClient.invalidateQueries({
       queryKey: [...queryKeys.granotLifecycle.all, "cases"],
     }),

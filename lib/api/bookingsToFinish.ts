@@ -10,6 +10,7 @@ import type {
   GranotCaseFileSummary,
   GranotLifecycleCandidateItem,
   GranotLifecycleCaseListItem,
+  GranotLifecycleHealth,
 } from "./granotLifecycle";
 
 /** The list read: open booking cases, newest Granot evidence first. */
@@ -49,6 +50,13 @@ export function finishModeOf(mode: string): FinishMode {
   if (mode === "create_referral_booking") return "referral";
   if (mode === "review_existing_booking") return "review";
   return "create";
+}
+
+export function newBookingCount(openCases: GranotLifecycleHealth["open_cases"]): number {
+  return openCases.reduce((total, { kind, mode, count }) =>
+    kind === "booking" && (mode === "create_missing_booking" || mode === "create_referral_booking")
+      ? total + count
+      : total, 0);
 }
 
 export type ToFinishTab = "new" | "existing";

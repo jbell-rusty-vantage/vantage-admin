@@ -22,6 +22,7 @@ test("[AC-23][AC-36] command invalidation covers discrepancy, timelines, link-de
   });
 
   assert.deepEqual(keys, [
+    ["granot-lifecycle", "health"],
     ["granot-lifecycle", "cases"],
     ["lists", "bookings"],
     ["lists", "cancellations"],

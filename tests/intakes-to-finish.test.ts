@@ -9,6 +9,7 @@ import { TO_FINISH_COPY } from "../components/intakes/to-finish-copy";
 import {
   contactSyncChip,
   bookingsForTab,
+  newBookingCount,
   finishedToday,
   finishModeOf,
   granotAgeLine,
@@ -189,7 +190,12 @@ test("new bookings include missing and Referral Bookings; existing reviews keep 
   const items = [release, base, review, referral];
   assert.deepEqual(bookingsForTab(items, "new"), [base, referral]);
   assert.deepEqual(bookingsForTab(items, "existing"), [release, review]);
-  assert.equal(items.length, 4);
+  assert.equal(newBookingCount([
+    { kind: "booking", mode: "create_missing_booking", count: 18 },
+    { kind: "booking", mode: "create_referral_booking", count: 2 },
+    { kind: "booking", mode: "review_existing_booking", count: 30 },
+    { kind: "release", mode: "release", count: 4 },
+  ]), 20);
 });
 
 test("the exact Granot message reads as labelled rows, never as JSON", () => {
