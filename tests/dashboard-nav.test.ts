@@ -46,8 +46,8 @@ test("badges sit on Today, Leads and Bookings and are counts, never zero", () =>
     visibleDashboardNav("owner").map((item) => item.badge ?? null),
     ["today", "leads", "bookings", null, null, null, null, null],
   );
-  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 3, unassigned: 5 }), { today: 8, bookings: 3, leads: null });
-  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 0, unassigned: null }), { today: null, bookings: null, leads: null });
+  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 50, toFinish: 20, unassigned: 5 }), { today: 55, bookings: 20, leads: null });
+  assert.deepEqual(sidebarBadgeCounts({ stillOpen: 0, toFinish: 0, unassigned: null }), { today: null, bookings: null, leads: null });
 });
 
 test("regrouped old destinations keep their new sidebar item active", () => {

@@ -5,10 +5,7 @@
  */
 import { usePathname } from "next/navigation";
 import { useDashboardRole } from "@/components/layout/dashboard-role-context";
-import { useQuery } from "@tanstack/react-query";
-import { newBookingCount } from "@/lib/api/bookingsToFinish";
-import { fetchGranotLifecycleHealth } from "@/lib/api/granotLifecycle";
-import { queryKeys } from "@/lib/query/keys";
+import { useToFinishCount } from "@/components/layout/use-sidebar-badges";
 import { Tabs } from "@/components/ui/crm";
 
 type BookingsTab = {
@@ -45,14 +42,7 @@ export function isBookingsTabActive(pathname: string, href: string): boolean {
 export function BookingsSubnav() {
   const pathname = usePathname();
   const role = useDashboardRole();
-  const { data: toFinishCount } = useQuery({
-    queryKey: queryKeys.granotLifecycle.health(),
-    queryFn: fetchGranotLifecycleHealth,
-    enabled: role === "owner",
-    select: (health) => newBookingCount(health.open_cases),
-    staleTime: 5 * 60_000,
-    refetchInterval: 5 * 60_000,
-  });
+  const toFinishCount = useToFinishCount(role === "owner");
   const visible = tabs.filter((tab) => role === "owner" || !tab.ownerOnly);
   const active = visible.find((tab) => isBookingsTabActive(pathname, tab.href))?.href ?? "/bookings";
 
